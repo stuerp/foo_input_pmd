@@ -5,7 +5,7 @@
 
 ## Features
 
-* Decodes Professional Music Driver (.PMD).
+* Decodes Professional Music Driver (.m, .m2) files.
 * Supports dark mode.
 
 ## Requirements
@@ -91,6 +91,9 @@ v0.1.0, 2023-xx-xx, *"Scratchin' the itch"*
   * [Control Library](https://learn.microsoft.com/en-us/windows/win32/controls/individual-control-info)
   * [Resource-Definition Statements](https://learn.microsoft.com/en-us/windows/win32/menurc/resource-definition-statements)
   * [Visuals, Layout](https://learn.microsoft.com/en-us/windows/win32/uxguide/vis-layout)
+
+* Professional Music Driver
+  * [Help Solve the File Format Problem](http://justsolve.archiveteam.org/wiki/Professional_Music_Driver_PMD)
 
 ## Links
 
