@@ -153,10 +153,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="framework.h" />
+    <ClInclude Include="InputDecoder.h" />
+    <ClInclude Include="PMDDecoder.h" />
     <ClInclude Include="Resources.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
+    <ClCompile Include="InputDecoder.cpp" />
+    <ClCompile Include="PMDDecoder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitattributes" />

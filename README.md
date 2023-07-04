@@ -3,6 +3,8 @@
 
 [foo_input_pmd](https://github.com/stuerp/foo_input_pmd/releases) is a [foobar2000](https://www.foobar2000.org/) component that adds playback of PMD files to foobar2000.
 
+Professional Music Driver (PMD) is a music driver developed by Masahiro Kajihara which utilizes MML (Music Macro Language) to create music files for most Japanese computers of the 80s and early 90s.
+
 ## Features
 
 * Decodes Professional Music Driver (.m, .m2) files.
@@ -94,6 +96,11 @@ v0.1.0, 2023-xx-xx, *"Scratchin' the itch"*
 
 * Professional Music Driver
   * [Help Solve the File Format Problem](http://justsolve.archiveteam.org/wiki/Professional_Music_Driver_PMD)
+  * [PMD Documentation](https://pigu-a.github.io/pmddocs/)
+  * [pmdmini](https://github.com/gzaffin/pmdmini)
+
+* Music Macro Language
+  * http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language
 
 ## Links
 
