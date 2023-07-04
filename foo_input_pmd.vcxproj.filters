@@ -10,8 +10,13 @@
   <ItemGroup>
     <None Include="Build-FB2KComponent.ps1" />
     <None Include="README.md" />
+    <None Include=".gitattributes" />
+    <None Include=".gitignore" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="LICENSE.txt" />
   </ItemGroup>
 </Project>
