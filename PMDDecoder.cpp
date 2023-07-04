@@ -112,7 +112,9 @@ bool PMDDecoder::Read(std::vector<uint8_t> data, const WCHAR * filePath, const W
 //  ::setrhythmwithssgeffect(true); // true == SSG+RHY, false == SSG
 //  ::setppsuse(true); // PSSDRV FLAG set false at init. true == use PPS, false == do not use PPS
 
-    ::music_load(_FilePath);
+    if (::music_load(_FilePath) != PMDWIN_OK)
+        return false;
+
     ::music_start();
 
     _OpenWork = ::getopenwork();
