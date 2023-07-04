@@ -15,36 +15,54 @@
 /// </summary>
 void InputDecoder::open(service_ptr_t<file> file, const char * filePath, t_input_open_reason, abort_callback & abortHandler)
 {
-    _FilePath = filePath;
-
     delete _Decoder;
     _Decoder = nullptr;
 
-    if (file.is_empty())
-        filesystem::g_open(file, _FilePath, filesystem::open_mode_read, abortHandler);
+    _FilePath = filePath;
 
     {
-        _FileStats = file->get_stats(abortHandler);
+        if (file.is_empty())
+            filesystem::g_open(file, _FilePath, filesystem::open_mode_read | filesystem::open_shareable, abortHandler);
 
-        if ((_FileStats.m_size == 0) || (_FileStats.m_size > (t_size)(1 << 30)))
-            throw exception_io_unsupported_format();
+        {
+            _FileStats = file->get_stats(abortHandler);
 
-        _FileStats2 = file->get_stats2_((uint32_t)stats2_all, abortHandler);
+            if ((_FileStats.m_size == 0) || (_FileStats.m_size > (t_size)(1 << 30)))
+                throw exception_io_unsupported_format();
 
-        if ((_FileStats2.m_size == 0) || (_FileStats2.m_size > (t_size)(1 << 30)))
-            throw exception_io_unsupported_format();
+            _FileStats2 = file->get_stats2_((uint32_t)stats2_all, abortHandler);
+
+            if ((_FileStats2.m_size == 0) || (_FileStats2.m_size > (t_size)(1 << 30)))
+                throw exception_io_unsupported_format();
+        }
     }
 
     std::vector<uint8_t> Data;
 
-    Data.resize(_FileStats.m_size);
+    {
+        Data.resize(_FileStats.m_size);
 
-    file->read_object(&Data[0], _FileStats.m_size, abortHandler);
+        file->read_object(&Data[0], _FileStats.m_size, abortHandler);
+    }
 
-    _Decoder = new PMDDecoder();
+    {
+        _Decoder = new PMDDecoder();
 
-    if (!_Decoder->Read(Data))
-        throw exception_io_data("Invalid PMD file");
+        WCHAR FilePath[MAX_PATH];
+
+        {
+            // Skip past the "file://" prefix.
+            if (::_strnicmp(filePath, "file://", 7) != 0)
+                return;
+
+            ::MultiByteToWideChar(CP_UTF8, 0, filePath + 7, -1, FilePath, _countof(FilePath));
+        }
+
+        WCHAR PDXSamplesPathName[MAX_PATH] = L".";
+
+        if (!_Decoder->Read(Data, FilePath, PDXSamplesPathName))
+            throw exception_io_data("Invalid PMD file");
+    }
 }
 #pragma endregion
 
@@ -60,7 +78,7 @@ void InputDecoder::get_info(t_uint32 subsongIndex, file_info & fileInfo, abort_c
     fileInfo.info_set_int("channels", 2);
     fileInfo.info_set("encoding", "Synthesized");
 
-    fileInfo.set_length(30); // Length in seconds
+    fileInfo.set_length(_Decoder->GetLength() * 0.001);
 }
 #pragma endregion
 
