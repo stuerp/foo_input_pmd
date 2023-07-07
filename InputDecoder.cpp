@@ -1,5 +1,5 @@
  
-/** $VER: InputDecoder.cpp (2023.07.04) **/
+/** $VER: InputDecoder.cpp (2023.07.07) **/
 
 #pragma warning(disable: 5045 26481 26485)
 
@@ -37,13 +37,12 @@ void InputDecoder::open(service_ptr_t<file> file, const char * filePath, t_input
         }
     }
 
-    std::vector<uint8_t> Data;
+    uint8_t * Data = new uint8_t[_FileStats.m_size];
 
-    {
-        Data.resize(_FileStats.m_size);
+    if (Data == nullptr)
+        throw exception_io();
 
-        file->read_object(&Data[0], _FileStats.m_size, abortHandler);
-    }
+    file->read_object(Data, _FileStats.m_size, abortHandler);
 
     {
         _Decoder = new PMDDecoder();
@@ -60,9 +59,11 @@ void InputDecoder::open(service_ptr_t<file> file, const char * filePath, t_input
 
         WCHAR PDXSamplesPathName[MAX_PATH] = L".";
 
-        if (!_Decoder->Read(Data, FilePath, PDXSamplesPathName))
+        if (!_Decoder->Read(Data, _FileStats.m_size, FilePath, PDXSamplesPathName))
             throw exception_io_data("Invalid PMD file");
     }
+
+    delete[] Data;
 }
 #pragma endregion
 
@@ -79,6 +80,11 @@ void InputDecoder::get_info(t_uint32 subsongIndex, file_info & fileInfo, abort_c
     fileInfo.info_set("encoding", "Synthesized");
 
     fileInfo.set_length(_Decoder->GetLength() * 0.001);
+
+    fileInfo.meta_add("title", _Decoder->GetTitle());
+    fileInfo.meta_add("artist", _Decoder->GetArranger());
+    fileInfo.meta_add("pmd_composer", _Decoder->GetComposer());
+    fileInfo.meta_add("pmd_memo", _Decoder->GetMemo());
 }
 #pragma endregion
 
@@ -101,6 +107,11 @@ void InputDecoder::retag_set_info(t_uint32 subsongIndex, const file_info & fileI
 void InputDecoder::decode_initialize(unsigned subsongIndex, unsigned flags, abort_callback & abortHandler)
 {
     UNREFERENCED_PARAMETER(subsongIndex), UNREFERENCED_PARAMETER(flags), UNREFERENCED_PARAMETER(abortHandler);
+
+    _Decoder->Initialize();
+
+    _SamplesRendered = 0;
+    _TimeInMS = 0;
 }
 
 /// <summary>
@@ -110,21 +121,37 @@ bool InputDecoder::decode_run(audio_chunk & audioChunk, abort_callback & abortHa
 {
     abortHandler.check();
 
-    const uint32_t SampleCount = DefaultSampleCount;
-    const uint32_t ChannelCount = _Decoder->GetChannelCount();
+    uint32_t LengthInMS = _Decoder->GetLength();
 
-    audioChunk.set_data_size((size_t)SampleCount * ChannelCount);
-
-    audio_sample * Samples = audioChunk.get_data();
-
-    size_t SamplesDone =_Decoder->Run(Samples, SampleCount);
-
-    if (SamplesDone == 0)
+    if ((LengthInMS != 0) && (_TimeInMS >= LengthInMS))
         return false;
 
-    audioChunk.set_channels(ChannelCount);
-    audioChunk.set_sample_count(SamplesDone);
-    audioChunk.set_sample_rate(_SampleRate);
+    // Fill the audio chunk.
+    {
+        const uint32_t SamplesToRender = _Decoder->GetSampleCount();
+        const uint32_t ChannelCount = _Decoder->GetChannelCount();
+
+        audioChunk.set_data_size((t_size) SamplesToRender * ChannelCount);
+
+        audio_sample * Samples = audioChunk.get_data();
+
+        size_t SamplesRendered =_Decoder->Render(Samples, SamplesToRender);
+
+        if (SamplesRendered == 0)
+            return false;
+
+        audioChunk.set_channels(ChannelCount);
+        audioChunk.set_sample_rate(_SampleRate);
+        audioChunk.set_sample_count(SamplesRendered);
+
+        _SamplesRendered += SamplesRendered;
+    }
+
+    while (_SamplesRendered >= _SampleRate)
+    {
+        _SamplesRendered -= _SampleRate;
+        _TimeInMS += 1000;
+    }
 
     return true;
 }

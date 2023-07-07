@@ -27,6 +27,8 @@ PPSDRV::~PPSDRV()
 	if(dataarea1 != NULL) {
 		free(dataarea1);		// メモリ開放
 	}
+	
+	pfileio->Release();
 }
 
 

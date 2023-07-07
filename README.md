@@ -21,19 +21,37 @@ Professional Music Driver (PMD) is a music driver developed by Masahiro Kajihara
 
 or
 
-* Import `foo_input_pmd.fbk2-component` into foobar2000 using "File / Preferences / Components / Install...".
+* Import `foo_input_pmd.fbk2-component` into foobar2000 using the "*File / Preferences / Components / Install...*" menu item.
+
+## Tags
+
+The following info tags are available:
+
+| Name           | Value |
+| -------------- | ----- |
+| channels       | 2 |
+| encoding       | synthesized|
+
+The following meta data tags are available:
+
+| Name         | Value |
+| ------------ | ----- |
+| title        | Title of the track |
+| artist       | Arranger specified by the track |
+| pmd_composer | Composer specified by the track |
+| pmd_memo     | Memo by the track |
 
 ## Developing
-
-The code builds out-of-the box with Visual Studio.
-
-### Requirements
 
 To build the code you need:
 
 * [Microsoft Visual Studio 2022 Community Edition](https://visualstudio.microsoft.com/downloads/) or later
 * [foobar2000 SDK](https://www.foobar2000.org/SDK) 2023-05-10
 * [Windows Template Library (WTL)](https://github.com/Win32-WTL/WTL) 10.0.10320
+
+The following library is included in the code:
+
+* [pmdwin](http://c60.la.coocan.jp/) 0.52.
 
 To create the deployment package you need:
 
@@ -80,6 +98,8 @@ v0.1.0, 2023-xx-xx, *"Scratchin' the itch"*
 ## Acknowledgements / Credits
 
 * Peter Pawlowski for the [foobar2000](https://www.foobar2000.org/) audio player. ![foobar2000](https://www.foobar2000.org/button-small.png)
+* C60 for [PMDWin](http://c60.la.coocan.jp/) a library to render PMD files to PCM.
+* [Aaron Giles](https://github.com/aaronsgiles) for [ymfm](https://github.com/aaronsgiles/ymfm.git).
 
 ## Reference Material
 

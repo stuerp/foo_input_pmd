@@ -105,7 +105,7 @@ public:
 	static constexpr uint32_t ALL_CHANNELS = (1 << CHANNELS) - 1;
 
 	// constructor
-	ssg_registers() : m_regdata{} { }
+	ssg_registers() { }
 
 	// reset to initial state
 	void reset();
@@ -130,8 +130,8 @@ public:
 	uint32_t io_b_data() const                          { return m_regdata[0x0f]; }
 
 	// per-channel registers
-	uint32_t ch_noise_enable(uint32_t choffs) const     { return bitfield(~m_regdata[0x07], 3 + choffs); }
-	uint32_t ch_tone_enable(uint32_t choffs) const      { return bitfield(~m_regdata[0x07], 0 + choffs); }
+	uint32_t ch_noise_enable_n(uint32_t choffs) const     { return bitfield(m_regdata[0x07], 3 + choffs); }
+	uint32_t ch_tone_enable_n(uint32_t choffs) const      { return bitfield(m_regdata[0x07], 0 + choffs); }
 	uint32_t ch_tone_period(uint32_t choffs) const      { return m_regdata[0x00 + 2 * choffs] | (bitfield(m_regdata[0x01 + 2 * choffs], 0, 4) << 8); }
 	uint32_t ch_envelope_enable(uint32_t choffs) const  { return bitfield(m_regdata[0x08 + choffs], 4); }
 	uint32_t ch_amplitude(uint32_t choffs) const        { return bitfield(m_regdata[0x08 + choffs], 0, 4); }

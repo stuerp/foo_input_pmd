@@ -954,9 +954,11 @@ int64_t WINAPI FileIO::GetFileSize(const TCHAR* filename)
 	
 	}
 	else if (fstat(fd, &buf) != 0) {
+		close(fd);
 		return -1;		// 取得不可
 	}
 	
+	close(fd);
 	return buf.st_size;
 }
 

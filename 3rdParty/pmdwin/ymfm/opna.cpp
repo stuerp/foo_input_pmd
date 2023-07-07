@@ -308,31 +308,13 @@ void OPNA::SetVolumePSG(int db)
 
 void OPNA::SetVolumeADPCM(int db)
 {
-	int32_t volume;
-	
-	db = (std::min)(db, 20);
-	if (db > -192)
-		volume = int(65536.0 * pow(10.0, db / 40.0));
-	else
-		volume = 0;
-	
-	m_chip.setadpcmvolume(volume);
+	// Do Nothing
 }
 
 
 void OPNA::SetVolumeRhythmTotal(int db)
 {
-	int32_t volume;
-	
-	db = (std::min)(db, 20);
-	rhythmtvol = -(db * 2 / 3);
-	
-	if (db > -192)
-		volume = int(65536.0 * pow(10.0, db / 40.0));
-	else
-		volume = 0;
-	
-	m_chip.setrhythmvolume(volume);
+	// Do Nothing
 }
 
 

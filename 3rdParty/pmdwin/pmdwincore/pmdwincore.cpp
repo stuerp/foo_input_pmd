@@ -39,6 +39,9 @@ PMDWIN::~PMDWIN()
 	delete ppsdrv;
 	delete p86drv;
 	delete opna;
+	
+	pfileio->Release();
+	fileio->Release();
 }
 
 
@@ -7112,6 +7115,7 @@ int PMDWIN::ppc_load2(TCHAR *filename)
 	size = (int)pfileio->GetFileSize(filename);		// ファイルサイズ
 	
 	if((pcmbuf = (uint8_t *)malloc(size)) == NULL) {
+		pfileio->Close();
 		return ERR_OUT_OF_MEMORY;					// メモリが確保できない
 	}
 	
@@ -7204,8 +7208,7 @@ int PMDWIN::ppc_load3(uint8_t *pcmdata, int size)
 	//------------------------------------------------------------------------
 	
 	memcpy(tempbuf2, PPCHeader, sizeof(PPCHeader)-1);
-	memcpy(&tempbuf2[sizeof(PPCHeader)-1], &pcmends.pcmends, 
-								sizeof(tempbuf2)-(sizeof(PPCHeader)-1));
+	memcpy(&tempbuf2[sizeof(PPCHeader)-1], &pcmends, sizeof(pcmends));
 	pcmstore(0, 0x25, tempbuf2);
 	
 	//------------------------------------------------------------------------
@@ -7649,6 +7652,7 @@ int WINAPI PMDWIN::music_load(TCHAR *filename)
 	filepath.Extractpath(current_dir, filename, FilePath::extractpath_drive | FilePath::extractpath_dir);
 	
 	if((musbuf = (uint8_t*)malloc(mdata_def * 1024)) == NULL) {
+		pfileio->Close();
 		return ERR_OUT_OF_MEMORY;					// メモリが確保できない
 	}
 	
@@ -8018,6 +8022,7 @@ int WINAPI PMDWIN::_fgetmemo(char *dest, TCHAR *filename, int al)
 			
 			if((mmlbuf = (uint8_t *)malloc(mdata_def*1024)) == NULL) {
 				*dest = '\0';
+				pfileio->Close();
 				return ERR_OUT_OF_MEMORY;
 			}
 			

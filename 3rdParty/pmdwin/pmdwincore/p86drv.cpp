@@ -27,6 +27,8 @@ P86DRV::~P86DRV()
 	if(p86_addr != NULL) {
 		free(p86_addr);			// メモリ開放
 	}
+	
+	pfileio->Release();
 }
 
 

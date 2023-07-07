@@ -64,6 +64,8 @@ PPZ8::~PPZ8()
 	if(XMS_FRAME_ADR[1] != NULL) {
 		free(XMS_FRAME_ADR[1]);
 	}
+	
+	pfileio->Release();
 }
 
 

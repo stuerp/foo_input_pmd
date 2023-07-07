@@ -1,5 +1,5 @@
 
-/** $VER: InputDecoder.h (2023.04.07) **/
+/** $VER: InputDecoder.h (2023.07.07) **/
 
 #pragma once
 
@@ -16,21 +16,19 @@
 
 #include "PMDDecoder.h"
 
-const uint32_t DefaultSampleRate = 44100;
-const uint32_t DefaultSampleCount = 4096;
-const uint32_t DefaultChannelCount = 2;
-
 /// <summary>
 /// Implements an input decoder.
 /// </summary>
-#pragma warning(disable: 4820) // x bytes padding added after data member
+#pragma warning(disable: 4820) // x bytes padding added after last data member
 class InputDecoder : public input_stubs
 {
 public:
     InputDecoder() noexcept :
         _FilePath(), _FileStats(), _FileStats2(),
         _SampleRate(DefaultSampleRate),
-        _Decoder(nullptr)
+        _Decoder(),
+        _SamplesRendered(),
+        _TimeInMS()
     {
     }
 
@@ -90,9 +88,7 @@ public:
 
     t_uint32 get_subsong(unsigned subSongIndex)
     {
-        UNREFERENCED_PARAMETER(subSongIndex);
-
-        return 0;
+        return subSongIndex;
     }
 
     void get_info(t_uint32 subsongIndex, file_info & fileInfo, abort_callback & abortHandler);
@@ -142,5 +138,10 @@ private:
     uint32_t _SampleRate;
 
     PMDDecoder * _Decoder;
+
+    uint64_t _SamplesRendered;
+    uint32_t _TimeInMS;
+
+    static const uint32_t DefaultSampleRate = 44100;
 };
-#pragma warning(default: 4820) // x bytes padding added after data member
+#pragma warning(default: 4820) // x bytes padding added after last data member

@@ -65,7 +65,7 @@
 #define	PPZ8_i6				   5513
 #define	PPZ8_i7				   4135
 
-#define	DEFAULT_REG_WAIT	  15000
+#define	DEFAULT_REG_WAIT	  30000
 #define	MAX_PCMDIR			     64
 #define	MAX_MEMOBUF			   1024
 

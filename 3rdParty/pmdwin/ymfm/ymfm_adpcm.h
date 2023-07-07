@@ -75,7 +75,7 @@ public:
 	static constexpr uint32_t ALL_CHANNELS = (1 << CHANNELS) - 1;
 
 	// constructor
-	adpcm_a_registers() : m_regdata{} { }
+	adpcm_a_registers() { }
 
 	// reset to initial state
 	void reset();
@@ -254,7 +254,7 @@ public:
 	static constexpr uint32_t REGISTERS = 0x11;
 
 	// constructor
-	adpcm_b_registers() : m_regdata{} { }
+	adpcm_b_registers() { }
 
 	// reset to initial state
 	void reset();
@@ -341,11 +341,11 @@ private:
 	// load the start address
 	void load_start();
 
-	// limit checker
-	bool at_limit() const { return (m_curaddress >> address_shift()) >= m_regs.limit(); }
+	// limit checker; stops at the last byte of the chunk described by address_shift()
+	bool at_limit() const { return (m_curaddress == (((m_regs.limit() + 1) << address_shift()) - 1)); }
 
-	// end checker
-	bool at_end() const { return (m_curaddress >> address_shift()) > m_regs.end(); }
+	// end checker; stops at the last byte of the chunk described by address_shift()
+	bool at_end() const { return (m_curaddress == (((m_regs.end() + 1) << address_shift()) - 1)); }
 
 	// internal state
 	uint32_t const m_address_shift; // address bits shift-left
