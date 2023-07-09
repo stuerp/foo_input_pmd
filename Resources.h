@@ -1,5 +1,5 @@
 
-/** $VER: Resources.h (2023.07.04) **/
+/** $VER: Resources.h (2023.07.09) P. Stuer **/
 
 #pragma once
 
@@ -14,10 +14,7 @@
 #define STR_COMPONENT_FILENAME      STR_COMPONENT_BASENAME ".dll"
 #define STR_COMPONENT_COPYRIGHT     "Copyright (c) 2023. All rights reserved."
 #define STR_COMPONENT_COMMENTS      "Written by P. Stuer"
-#define STR_COMPONENT_DESCRIPTION   "Adds playback of PMD files to foobar2000"
-
-#define COMPONENT_GUID              {0xfcd5756a,0x1db5,0x4783,{0xa0,0x74,0xe5,0xc1,0xc1,0x06,0x4e,0xe6}}
-#define COMPONENT_PREFERENCES_GUID  {0x9b698f00,0xf943,0x4c7b,{0xb0,0x24,0xac,0xcb,0xa3,0xc1,0x71,0x4e}}
+#define STR_COMPONENT_DESCRIPTION   "Adds playback of Professional Music Driver (PMD) files to foobar2000"
 
 /** Generic **/
 
@@ -27,8 +24,8 @@
 #define STR_COPYRIGHT           TEXT(STR_COMPONENT_COPYRIGHT)
 
 #define NUM_FILE_MAJOR          0
-#define NUM_FILE_MINOR          0
-#define NUM_FILE_PATCH          1
+#define NUM_FILE_MINOR          1
+#define NUM_FILE_PATCH          0
 #define NUM_FILE_PRERELEASE     0
 
 #define STR_FILE_NAME           TEXT(STR_COMPONENT_FILENAME)
@@ -36,13 +33,48 @@
 #define STR_FILE_DESCRIPTION    TEXT(STR_COMPONENT_DESCRIPTION)
 
 #define NUM_PRODUCT_MAJOR       0
-#define NUM_PRODUCT_MINOR       0
-#define NUM_PRODUCT_PATCH       1
+#define NUM_PRODUCT_MINOR       1
+#define NUM_PRODUCT_PATCH       0
 #define NUM_PRODUCT_PRERELEASE  0
 
 #define STR_PRODUCT_NAME        STR_INTERNAL_NAME
 #define STR_PRODUCT_VERSION     TOSTRING(NUM_PRODUCT_MAJOR) TEXT(".") TOSTRING(NUM_PRODUCT_MINOR) TEXT(".") TOSTRING(NUM_PRODUCT_PATCH) TEXT(".") TOSTRING(NUM_PRODUCT_PRERELEASE)
 
 #define STR_ABOUT_NAME          STR_INTERNAL_NAME
-#define STR_ABOUT_WEB           TEXT("https://github.com/stuerp/foo_input_pmd")
+#define STR_ABOUT_WEB           TEXT("https://github.com/stuerp/") STR_COMPONENT_BASENAME
 #define STR_ABOUT_EMAIL         TEXT("mailto:peter.stuer@outlook.com")
+
+/** Preferences **/
+
+#define IDD_PREFERENCES             1000
+#define IDD_PREFERENCES_NAME        STR_COMPONENT_NAME
+
+#define IDC_SAMPLES_PATH            IDD_PREFERENCES + 1
+#define IDC_SAMPLES_PATH_SELECT     IDC_SAMPLES_PATH + 1
+
+#pragma region("Layout")
+
+#define W_A0    332 // Dialog width as set by foobar2000, in dialog units
+#define H_A0    288 // Dialog height as set by foobar2000, in dialog units
+
+#pragma region("Samples path")
+// Label
+#define X_A1    7
+#define Y_A1    7
+#define W_A1    106
+#define H_A1    8
+
+// Button
+#define W_A3    16
+#define H_A3    14
+#define X_A3    W_A0 - 7 - W_A3
+#define Y_A3    Y_A2
+
+// EditBox
+#define X_A2    X_A1 + W_A1 + 3
+#define Y_A2    Y_A1
+#define W_A2    W_A0 - 7 - W_A1 - 3 - W_A3 - 3 - 7
+#define H_A2    14
+#pragma endregion
+
+#pragma endregion

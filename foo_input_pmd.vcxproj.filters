@@ -3,13 +3,16 @@
   <ItemGroup>
     <ClInclude Include="framework.h" />
     <ClInclude Include="Resources.h" />
-    <ClInclude Include="InputDecoder.h" />
     <ClInclude Include="PMDDecoder.h" />
+    <ClInclude Include="Configuration.h" />
+    <ClInclude Include="Preferences.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="InputDecoder.cpp" />
     <ClCompile Include="PMDDecoder.cpp" />
+    <ClCompile Include="Configuration.cpp" />
+    <ClCompile Include="Preferences.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Build-FB2KComponent.ps1" />

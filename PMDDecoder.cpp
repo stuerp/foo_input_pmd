@@ -1,18 +1,28 @@
 
-/** $VER: PMDDecoder.cpp (2023.07.07) **/
+/** $VER: PMDDecoder.cpp (2023.07.09) P. Stuer **/
 
-#pragma warning(disable: 5045)
+#include <CppCoreCheck/Warnings.h>
+
+#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
 #include "PMDDecoder.h"
 
 #include <sdk/foobar2000-lite.h>
 #include <shared/audio_math.h>
 
-#include <string.h>
+#include "framework.h"
 
-static size_t GetDirectoryPath(const WCHAR * filePath, WCHAR * directoryPath, size_t Size);
+#include <pathcch.h>
+
+#pragma comment(lib, "pathcch")
+
+#pragma hdrstop
+
 static bool ConvertShiftJITo2UTF8(const char * text, pfc::string8 & utf8);
 
+/// <summary>
+/// Initializes a new instance.
+/// </summary>
 PMDDecoder::PMDDecoder() :
     _FilePath(), _Data(), _Size(), _LengthInMS(), _LoopInMS()
 {
@@ -21,9 +31,12 @@ PMDDecoder::PMDDecoder() :
     ::pmdwininit(CurrentDirectory);
     ::setpcmrate(SOUND_55K);
 
-    _Samples = new int16_t[SampleCount * ChannelCount];
+    _Samples = new int16_t[BlockSize * ChannelCount];
 }
 
+/// <summary>
+/// Deletes an instance.
+/// </summary>
 PMDDecoder::~PMDDecoder()
 {
     delete[] _Samples;
@@ -52,40 +65,59 @@ bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
 /// <summary>
 /// Reads the PMD data from memory.
 /// </summary>
-bool PMDDecoder::Read(const uint8_t * data, size_t size, const WCHAR * filePath, const WCHAR * pdxSamplesPath)
+bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size)
 {
+    _FilePath = filePath;
+
     if (!IsPMD(data, size))
         return false;
 
-    _Data = new uint8_t[size];
+    {
+        _Data = new uint8_t[size];
 
-    if (_Data == nullptr)
-        throw exception_io();
+        if (_Data == nullptr)
+            throw exception_io();
 
-    ::memcpy(_Data, data, size);
+        ::memcpy(_Data, data, size);
 
-    _Size = size;
+        _Size = size;
+    }
 
-    ::wcsncpy_s(_FilePath, _countof(_FilePath), filePath, ::wcslen(filePath));
+    WCHAR FilePath[MAX_PATH];
 
     {
+        if (::MultiByteToWideChar(CP_ACP, 0, filePath, -1, FilePath, _countof(FilePath)) == 0)
+            return false;
+
         WCHAR DirectoryPath[MAX_PATH];
+
+        ::wcsncpy_s(DirectoryPath, _countof(DirectoryPath), FilePath, ::wcslen(FilePath));
+        
+        HRESULT hResult = ::PathCchRemoveFileSpec(DirectoryPath, _countof(DirectoryPath));
+
+        if (!SUCCEEDED(hResult))
+            return false;
+
+        WCHAR PDXSamplesPath[MAX_PATH];
+
+        if (::MultiByteToWideChar(CP_ACP, 0, pdxSamplesPath, -1, PDXSamplesPath, _countof(PDXSamplesPath)) == 0)
+            return false;
 
         WCHAR * Parts[4] = { 0 };
 
         const WCHAR * CurrentDirectory = L"./";
 
-        if (::GetDirectoryPath(_FilePath, DirectoryPath, _countof(DirectoryPath)) > 0)
+        if (::wcslen(DirectoryPath) > 0)
         {
             Parts[0] = DirectoryPath;
-            Parts[1] = (WCHAR *) pdxSamplesPath;
+            Parts[1] = (WCHAR *) PDXSamplesPath;
             Parts[2] = (WCHAR *) CurrentDirectory;
             Parts[3] = nullptr;
         }
         else
         {
             Parts[0] = (WCHAR *) CurrentDirectory;
-            Parts[1] = (WCHAR *) pdxSamplesPath;
+            Parts[1] = (WCHAR *) PDXSamplesPath;
             Parts[2] = nullptr;
         }
 
@@ -93,7 +125,7 @@ bool PMDDecoder::Read(const uint8_t * data, size_t size, const WCHAR * filePath,
             return false;
     }
 
-    if (!::getlength(_FilePath, (int *) &_LengthInMS, (int *) &_LoopInMS))
+    if (!::getlength(FilePath, (int *) &_LengthInMS, (int *) &_LoopInMS))
         return false;
 
     {
@@ -121,13 +153,11 @@ bool PMDDecoder::Read(const uint8_t * data, size_t size, const WCHAR * filePath,
     return true;
 }
 
+/// <summary>
+/// Initializes the decoder.
+/// </summary>
 void PMDDecoder::Initialize() const noexcept
 {
-//  ::getppsfilename("")
-//  ::ppc_load("")
-//  ::setrhythmwithssgeffect(true); // true == SSG+RHY, false == SSG
-//  ::setppsuse(true); // PSSDRV FLAG set false at init. true == use PPS, false == do not use PPS
-
     if (::music_load2(_Data, (int) _Size) != PMDWIN_OK)
         return;
 
@@ -137,33 +167,13 @@ void PMDDecoder::Initialize() const noexcept
 /// <summary>
 /// Render a chunk of audio samples.
 /// </summary>
-size_t PMDDecoder::Render(audio_sample * samples, size_t sampleCount) const noexcept
+size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) const noexcept
 {
-    ::getpcmdata(_Samples, (int) SampleCount);
+    ::getpcmdata(_Samples, (int) BlockSize);
 
-    audio_math::convert_from_int16(_Samples, SampleCount, samples, (audio_sample) 2.0);
+    audioChunk.set_data_fixedpoint(_Samples, (t_size) BlockSize * sizeof(int16_t *) * (t_size) (BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
 
     return sampleCount;
-}
-
-/// <summary>
-/// Gets the directory path from the file path.
-/// </summary>
-static size_t GetDirectoryPath(const WCHAR * filePath, WCHAR * directoryPath, size_t Size)
-{
-    size_t Index = 0;
-
-    const WCHAR * p = ::wcsrchr(filePath, '/');
-
-    if (p)
-    {
-        Index = (size_t)(p - filePath);
-        ::wcsncpy_s(directoryPath, Size, filePath, Index);
-    }
-
-    directoryPath[Index] = 0;
-
-    return Index;
 }
 
 /// <summary>

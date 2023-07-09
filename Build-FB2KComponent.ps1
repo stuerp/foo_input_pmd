@@ -50,7 +50,7 @@ if ($Platform -eq 'x64')
     }
 
     Write-Host "Copying `"$OutputPath/pmdwin.dll`" to `"$PackagePath`"...";
-    Copy-Item "$OutputPath/pmdwin.dll" -Destination "$PackagePath";
+    Copy-Item "$OutputPath/pmdwin.dll" -Destination "$PackagePath" -Force;
 
     # install the component in the foobar2000 x86 components directory.
     $foobar2000Path = '../bin/x86';
@@ -95,7 +95,7 @@ elseif ($Platform -eq 'Win32')
     if (!(Test-Path -Path $PackagePath))
     {
         Write-Host "Creating directory `"$PackagePath`"...";
-        $null = New-Item -Path '../out/' -Name "$TargetName/x64" -ItemType 'directory';
+        $null = New-Item -Path '../out/' -Name "$TargetName/x64" -ItemType 'directory' -Force;
     }
 
     if (Test-Path -Path "$OutputPath/$TargetFileName")
@@ -104,13 +104,21 @@ elseif ($Platform -eq 'Win32')
         Copy-Item "$OutputPath/$TargetFileName" -Destination "$PackagePath";
     }
 
+    Write-Host "Copying `"$OutputPath/pmdwin.dll`" to `"$PackagePath`"...";
+    Copy-Item "$OutputPath/pmdwin.dll" -Destination "$PackagePath" -Force;
+
     # install the component in the foobar2000 x86 components directory.
     $foobar2000Path = '../bin/x86';
 
     if (Test-Path -Path "$foobar2000Path/foobar2000.exe")
     {
-        Write-Host "Installing component in foobar2000 32-bit...";
-        Copy-Item "$PackagePath/../*" "$foobar2000Path/profile/user-components/$TargetName" -Force;
+        $ComponentPath = "$foobar2000Path/profile/user-components/$TargetName";
+
+        Write-Host "Creating directory `"$ComponentPath`"...";
+        $null = New-Item -Path "$foobar2000Path/profile/user-components/" -Name "$TargetName" -ItemType 'directory' -Force;
+
+        Write-Host "Copying component files to profile...";
+        Copy-Item "$PackagePath/*" $ComponentPath -Recurse -Force;
     }
     else
     {
@@ -125,10 +133,10 @@ elseif ($Platform -eq 'Win32')
         $ComponentPath = "$foobar2000Path/profile/user-components-x64/$TargetName";
 
         Write-Host "Creating directory `"$ComponentPath`"...";
-        $null = New-Item -Path "$foobar2000Path/profile/user-components-x64/" -Name "$TargetName" -ItemType 'directory';
+        $null = New-Item -Path "$foobar2000Path/profile/user-components-x64/" -Name "$TargetName" -ItemType 'directory' -Force;
 
-        Write-Host "Installing component in foobar2000 64-bit...";
-        Copy-Item "$PackagePath/*" $ComponentPath -Force;
+        Write-Host "Copying component files to profile...";
+        Copy-Item "$PackagePath/*" $ComponentPath -Recurse -Force;
     }
     else
     {

@@ -1,5 +1,5 @@
 
-/** $VER: Resources.rc (2023.07.04) **/
+/** $VER: Resources.rc (2023.07.09) P. Stuer **/
 
 #include "Resources.h"
 
@@ -7,6 +7,15 @@
 
 language LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
+
+IDD_PREFERENCES dialogex 0, 0, 0, 0
+style DS_SETFONT | WS_CHILD
+font 8, "Segoe UI", 400, 0, 1
+{
+    ltext       "YM2608 (OPNA) Drum Samples:", IDC_STATIC,  X_A1, Y_A1 + 2, W_A1, H_A1
+    edittext                   IDC_SAMPLES_PATH,            X_A2, Y_A2,     W_A2, H_A2, ES_AUTOHSCROLL
+    pushbutton  "...",         IDC_SAMPLES_PATH_SELECT,     X_A3, Y_A3,     W_A3, H_A3
+}
 
 VS_VERSION_INFO versioninfo
 fileversion     NUM_FILE_MAJOR,    NUM_FILE_MINOR,    NUM_FILE_PATCH,    NUM_FILE_PRERELEASE

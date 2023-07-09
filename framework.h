@@ -1,5 +1,8 @@
+
+/** $VER: framework.h (2023.07.08) P. Stuer **/
+
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
-// Windows Header Files
-#include <windows.h>
+#include <SDKDDKVer.h>
+
+#include <string.h>

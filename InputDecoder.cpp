@@ -1,181 +1,312 @@
  
-/** $VER: InputDecoder.cpp (2023.07.07) **/
+/** $VER: InputDecoder.cpp (2023.07.09) P. Stuer **/
 
-#pragma warning(disable: 5045 26481 26485)
+#include <CppCoreCheck/Warnings.h>
 
-#include "InputDecoder.h"
+#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
-#include <sdk/hasher_md5.h>
-#include <sdk/metadb_index.h>
-#include <sdk/system_time_keeper.h>
+#include "Configuration.h"
 
-#pragma region("input_impl")
+#pragma hdrstop
+
+
+/** $VER: InputDecoder.h (2023.07.08) P. Stuer **/
+
+#pragma once
+
+#define NOMINMAX
+
+#include <CppCoreCheck/Warnings.h>
+
+#pragma warning(disable: 4625 4626 5045 ALL_CPPCORECHECK_WARNINGS)
+
+#include <sdk/foobar2000-lite.h>
+#include <sdk/input_impl.h>
+#include <sdk/input_file_type.h>
+#include <sdk/file_info_impl.h>
+#include <sdk/tag_processor.h>
+
+#include "framework.h"
+
+#include "Resources.h"
+
+#include "PMDDecoder.h"
+
+#include "Preferences.h"
+
 /// <summary>
-/// Opens the specified file and parses it.
+/// Implements an input decoder.
 /// </summary>
-void InputDecoder::open(service_ptr_t<file> file, const char * filePath, t_input_open_reason, abort_callback & abortHandler)
+#pragma warning(disable: 4820) // x bytes padding added after last data member
+class InputDecoder : public input_stubs
 {
-    delete _Decoder;
-    _Decoder = nullptr;
-
-    _FilePath = filePath;
-
+public:
+    InputDecoder() noexcept :
+        _File(), _FilePath(), _FileStats(),
+        _SampleRate(DefaultSampleRate),
+        _Decoder(),
+        _SamplesRendered(),
+        _TimeInMS()
     {
-        if (file.is_empty())
-            filesystem::g_open(file, _FilePath, filesystem::open_mode_read | filesystem::open_shareable, abortHandler);
+    }
+
+    InputDecoder(const InputDecoder&) = delete;
+    InputDecoder(const InputDecoder&&) = delete;
+    InputDecoder& operator=(const InputDecoder&) = delete;
+    InputDecoder& operator=(InputDecoder&&) = delete;
+
+    ~InputDecoder() noexcept
+    {
+    }
+
+public:
+    #pragma region("input_impl")
+    /// <summary>
+    /// Opens the specified file and parses it.
+    /// </summary>
+    void open(service_ptr_t<file> file, const char * filePath, t_input_open_reason reason, abort_callback & abortHandler)
+    {
+        if (reason == input_open_info_write)
+            throw exception_tagging_unsupported(); // Decoder does not support retagging.
+
+        delete _Decoder;
+        _Decoder = nullptr;
+
+        _File = file;
+        _FilePath = filePath;
+
+        input_open_file_helper(_File, filePath, reason, abortHandler);
 
         {
-            _FileStats = file->get_stats(abortHandler);
+            _FileStats = _File->get_stats(abortHandler);
 
-            if ((_FileStats.m_size == 0) || (_FileStats.m_size > (t_size)(1 << 30)))
-                throw exception_io_unsupported_format();
+            if ((_FileStats.m_size == 0) || (_FileStats.m_size > (t_size)(1 << 16)))
+                throw exception_io_unsupported_format("File too big");
+        }
 
-            _FileStats2 = file->get_stats2_((uint32_t)stats2_all, abortHandler);
+        {
+            std::vector<uint8_t> Data;
 
-            if ((_FileStats2.m_size == 0) || (_FileStats2.m_size > (t_size)(1 << 30)))
-                throw exception_io_unsupported_format();
+            Data.resize((size_t)_FileStats.m_size);
+
+            _File->read_object(&Data[0], (t_size)_FileStats.m_size, abortHandler);
+
+            {
+                _Decoder = new PMDDecoder();
+
+                // Skip past the "file://" prefix.
+                if (::_strnicmp(filePath, "file://", 7) == 0)
+                    filePath += 7;
+
+                if (!_Decoder->Open(filePath, CfgSamplesPath, &Data[0], (size_t) _FileStats.m_size))
+                    throw exception_io_data("Invalid PMD file");
+            }
         }
     }
 
-    uint8_t * Data = new uint8_t[_FileStats.m_size];
-
-    if (Data == nullptr)
-        throw exception_io();
-
-    file->read_object(Data, _FileStats.m_size, abortHandler);
-
+    static bool g_is_our_content_type(const char * contentType)
     {
-        _Decoder = new PMDDecoder();
-
-        WCHAR FilePath[MAX_PATH];
-
-        {
-            // Skip past the "file://" prefix.
-            if (::_strnicmp(filePath, "file://", 7) != 0)
-                return;
-
-            ::MultiByteToWideChar(CP_UTF8, 0, filePath + 7, -1, FilePath, _countof(FilePath));
-        }
-
-        WCHAR PDXSamplesPathName[MAX_PATH] = L".";
-
-        if (!_Decoder->Read(Data, _FileStats.m_size, FilePath, PDXSamplesPathName))
-            throw exception_io_data("Invalid PMD file");
+        return ::stricmp_utf8(contentType, "audio/pmd") == 0;
     }
 
-    delete[] Data;
-}
-#pragma endregion
+    static bool g_is_our_path(const char *, const char * extension)
+    {
+        return (::stricmp_utf8(extension, "m") == 0) || (::stricmp_utf8(extension, "m2") == 0);
+    }
 
-#pragma region("input_info_reader")
-/// <summary>
-/// Retrieves information about specified subsong.
-/// </summary>
-void InputDecoder::get_info(t_uint32 subsongIndex, file_info & fileInfo, abort_callback & abortHandler)
-{
-    UNREFERENCED_PARAMETER(subsongIndex), UNREFERENCED_PARAMETER(abortHandler);
+    static GUID g_get_guid()
+    {
+        static const GUID Guid = {0xfcd5756a,0x1db5,0x4783,{0xa0,0x74,0xe5,0xc1,0xc1,0x06,0x4e,0xe6}};
 
-    // General tags
-    fileInfo.info_set_int("channels", 2);
-    fileInfo.info_set("encoding", "Synthesized");
+        return Guid;
+    }
 
-    fileInfo.set_length(_Decoder->GetLength() * 0.001);
+    static const char * g_get_name()
+    {
+        return STR_COMPONENT_NAME;
+    }
 
-    fileInfo.meta_add("title", _Decoder->GetTitle());
-    fileInfo.meta_add("artist", _Decoder->GetArranger());
-    fileInfo.meta_add("pmd_composer", _Decoder->GetComposer());
-    fileInfo.meta_add("pmd_memo", _Decoder->GetMemo());
-}
-#pragma endregion
+    static GUID g_get_preferences_guid()
+    {
+        return PreferencesPageGUID;
+    }
 
-#pragma region("input_info_writer")
-/// <summary>
-/// Set the tags for the specified file.
-/// </summary>
-void InputDecoder::retag_set_info(t_uint32 subsongIndex, const file_info & fileInfo, abort_callback & abortHandler)
-{
-    UNREFERENCED_PARAMETER(subsongIndex), UNREFERENCED_PARAMETER(fileInfo), UNREFERENCED_PARAMETER(abortHandler);
-
-    throw exception_io_data("You cannot tag PMD files");
-}
-#pragma endregion
-
-#pragma region("input_decoder")
-/// <summary>
-/// Initializes the decoder before playing the specified subsong. Resets playback position to the beginning of specified subsong.
-/// </summary>
-void InputDecoder::decode_initialize(unsigned subsongIndex, unsigned flags, abort_callback & abortHandler)
-{
-    UNREFERENCED_PARAMETER(subsongIndex), UNREFERENCED_PARAMETER(flags), UNREFERENCED_PARAMETER(abortHandler);
-
-    _Decoder->Initialize();
-
-    _SamplesRendered = 0;
-    _TimeInMS = 0;
-}
-
-/// <summary>
-/// Reads/decodes one chunk of audio data.
-/// </summary>
-bool InputDecoder::decode_run(audio_chunk & audioChunk, abort_callback & abortHandler)
-{
-    abortHandler.check();
-
-    uint32_t LengthInMS = _Decoder->GetLength();
-
-    if ((LengthInMS != 0) && (_TimeInMS >= LengthInMS))
+    static bool g_is_low_merit()
+    {
         return false;
+    }
+    #pragma endregion
 
-    // Fill the audio chunk.
+    #pragma region("input_info_reader")
+    unsigned get_subsong_count()
     {
-        const uint32_t SamplesToRender = _Decoder->GetSampleCount();
-        const uint32_t ChannelCount = _Decoder->GetChannelCount();
+        return 1;
+    }
 
-        audioChunk.set_data_size((t_size) SamplesToRender * ChannelCount);
+    t_uint32 get_subsong(unsigned subSongIndex)
+    {
+        return subSongIndex;
+    }
 
-        audio_sample * Samples = audioChunk.get_data();
+    /// <summary>
+    /// Retrieves information about specified subsong.
+    /// </summary>
+    void get_info(t_uint32, file_info & fileInfo, abort_callback &)
+    {
+        fileInfo.set_length(_Decoder->GetLength() * 0.001);
 
-        size_t SamplesRendered =_Decoder->Render(Samples, SamplesToRender);
+        // General tags
+        fileInfo.info_set_int("samplerate", _SampleRate);
+        fileInfo.info_set_int("channels", _Decoder->GetChannelCount());
+        fileInfo.info_set_int("bitspersample", _Decoder->GetBitsPerSample());
+        fileInfo.info_set("encoding", "Synthesized");
+        fileInfo.info_set_bitrate(((t_int64) _Decoder->GetBitsPerSample() * _Decoder->GetChannelCount() * _SampleRate + 500 /* rounding for bps to kbps*/) / 1000 /* bps to kbps */);
 
-        if (SamplesRendered == 0)
+        // Meta data tags
+        fileInfo.meta_add("title", _Decoder->GetTitle());
+        fileInfo.meta_add("artist", _Decoder->GetArranger());
+        fileInfo.meta_add("pmd_composer", _Decoder->GetComposer());
+        fileInfo.meta_add("pmd_memo", _Decoder->GetMemo());
+    }
+    #pragma endregion
+
+    #pragma region("input_info_reader_v2")
+    t_filestats2 get_stats2(uint32_t stats, abort_callback & abortHandler)
+    {
+        return _File->get_stats2_(stats, abortHandler);
+    }
+
+    t_filestats get_file_stats(abort_callback &)
+    {
+        return _FileStats;
+    }
+    #pragma endregion
+
+    #pragma region("input_info_writer")
+    /// <summary>
+    /// Set the tags for the specified file.
+    /// </summary>
+    void retag_set_info(t_uint32, const file_info &, abort_callback &)
+    {
+        throw exception_tagging_unsupported();
+    }
+
+    void retag_commit(abort_callback &)
+    {
+        throw exception_tagging_unsupported();
+    }
+
+    void remove_tags(abort_callback &)
+    {
+        throw exception_tagging_unsupported();
+    }
+    #pragma endregion
+
+    #pragma region("input_decoder")
+    /// <summary>
+    /// Initializes the decoder before playing the specified subsong. Resets playback position to the beginning of specified subsong.
+    /// </summary>
+    void decode_initialize(unsigned, unsigned, abort_callback & abortHandler)
+    {
+        _File->reopen(abortHandler); // Equivalent to seek to zero, except it also works on nonseekable streams
+
+        _Decoder->Initialize();
+
+        _SamplesRendered = 0;
+        _TimeInMS = 0;
+    }
+
+    /// <summary>
+    /// Reads/decodes one chunk of audio data.
+    /// </summary>
+    bool decode_run(audio_chunk & audioChunk, abort_callback & abortHandler)
+    {
+        abortHandler.check();
+
+        uint32_t LengthInMS = _Decoder->GetLength();
+
+        if ((LengthInMS == 0) || ((LengthInMS != 0) && (_TimeInMS >= LengthInMS)))
             return false;
 
-        audioChunk.set_channels(ChannelCount);
-        audioChunk.set_sample_rate(_SampleRate);
-        audioChunk.set_sample_count(SamplesRendered);
+        // Fill the audio chunk.
+        {
+            const uint32_t SamplesToRender = _Decoder->GetBlockSize();
 
-        _SamplesRendered += SamplesRendered;
+            size_t SamplesRendered =_Decoder->Render(audioChunk, SamplesToRender);
+
+            if (SamplesRendered == 0)
+                return false;
+
+            audioChunk.set_sample_count(SamplesRendered);
+
+            _SamplesRendered += SamplesRendered;
+        }
+
+        _TimeInMS = (uint32_t) ((_SamplesRendered * 1000) / _SampleRate);
+
+        return true;
     }
 
-    while (_SamplesRendered >= _SampleRate)
+    /// <summary>
+    /// Seeks to the specified time offset.
+    /// </summary>
+    void decode_seek(double timeInSeconds, abort_callback & abortHandler)
     {
-        _SamplesRendered -= _SampleRate;
-        _TimeInMS += 1000;
+        UNREFERENCED_PARAMETER(timeInSeconds);
+
+        abortHandler.check();
     }
 
-    return true;
-}
+    /// <summary>
+    /// Returns true if the input decoder supports seeking.
+    /// </summary>
+    bool decode_can_seek() noexcept
+    {
+        return true;
+    }
 
-/// <summary>
-/// Seeks to the specified time offset.
-/// </summary>
-void InputDecoder::decode_seek(double timeInSeconds, abort_callback & abortHandler)
-{
-    UNREFERENCED_PARAMETER(timeInSeconds);
+    /// <summary>
+    /// Returns dynamic VBR bitrate etc...
+    /// </summary>
+    bool decode_get_dynamic_info(file_info & fileInfo, double & timestampDelta)
+    {
+        fileInfo.info_set_int("samplerate", _SampleRate);
+        timestampDelta = 0.;
 
-    abortHandler.check();
-}
+        return true;
+    }
 
-/// <summary>
-/// Returns dynamic VBR bitrate etc...
-/// </summary>
-bool InputDecoder::decode_get_dynamic_info(file_info & fileInfo, double & timestampDelta)
-{
-    fileInfo.info_set_int("samplerate", _SampleRate);
-    timestampDelta = 0.;
+    /// <summary>
+    /// Deals with dynamic information such as track changes in live streams.
+    /// </summary>
+    bool decode_get_dynamic_info_track(file_info &, double &) noexcept
+    {
+        return false;
+    }
 
-    return true;
-}
-#pragma endregion
+    void decode_on_idle(abort_callback & abortHandler)
+    {
+        _File->on_idle(abortHandler);
+    }
+    #pragma endregion
+
+private:
+    service_ptr_t<file> _File;
+    pfc::string8 _FilePath;
+    t_filestats _FileStats;
+
+    uint32_t _SampleRate;
+
+    PMDDecoder * _Decoder;
+
+    uint64_t _SamplesRendered;
+    uint32_t _TimeInMS;
+
+    static const uint32_t DefaultSampleRate = 44100;
+};
+#pragma warning(default: 4820) // x bytes padding added after last data member
+
+// Declare the supported file types to make it show in "open file" dialog etc.
+DECLARE_FILE_TYPE("Professional Music Driver (PMD) files", "*.m;*.m2");
 
 static input_factory_t<InputDecoder> _InputDecoderFactory;

@@ -1,7 +1,11 @@
 
-/** $VER: PMDDecoder.h (2023.07.07) **/
+/** $VER: PMDDecoder.h (2023.07.09) P. Stuer **/
 
 #pragma once
+
+#include <CppCoreCheck/Warnings.h>
+
+#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
 #include <sdk/foobar2000-lite.h>
 
@@ -9,33 +13,39 @@
 #include <pmdwin.h>
 #include <ipmdwin.h>
 
-#pragma warning(disable: 4820) // Padding added
+/// <summary>
+/// Implements a PMD decoder
+/// </summary>
+#pragma warning(disable: 4820) // x bytes padding added after last data member
 class PMDDecoder
 {
 public:
     PMDDecoder();
     ~PMDDecoder();
 
-    bool Read(const uint8_t * data, size_t size, const WCHAR * filePath, const WCHAR * pdxSamplesPath);
+    bool Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size);
 
     void Initialize() const noexcept;
-    size_t Render(audio_sample * samples, size_t sampleCount) const noexcept;
+    size_t Render(audio_chunk & audioChunk, size_t sampleCount) const noexcept;
 
     bool IsPMD(const uint8_t * data, size_t size) const noexcept;
 
-    uint32_t GetSampleCount() const { return SampleCount; }
-    uint32_t GetChannelCount() const { return ChannelCount; }
+    uint32_t GetBlockSize() const noexcept { return BlockSize; }
 
-    uint32_t GetLength() const { return _LengthInMS; }
-    uint32_t GetLoop() const { return _LoopInMS; }
+    uint32_t GetSampleRate() const noexcept { return SampleRate; }
+    uint32_t GetChannelCount() const noexcept { return ChannelCount; }
+    uint32_t GetBitsPerSample () const noexcept { return BitsPerSample; }
 
-    const pfc::string8 & GetTitle() const { return _Title; }
-    const pfc::string8 & GetComposer() const { return _Composer; }
-    const pfc::string8 & GetArranger() const { return _Arranger; }
-    const pfc::string8 & GetMemo() const { return _Memo; }
+    uint32_t GetLength() const noexcept { return _LengthInMS; }
+    uint32_t GetLoop() const noexcept { return _LoopInMS; }
+
+    const pfc::string8 & GetTitle() const noexcept { return _Title; }
+    const pfc::string8 & GetComposer() const noexcept { return _Composer; }
+    const pfc::string8 & GetArranger() const noexcept { return _Arranger; }
+    const pfc::string8 & GetMemo() const noexcept { return _Memo; }
 
 private:
-    WCHAR _FilePath[MAX_PATH];
+    pfc::string8 _FilePath;
     uint8_t * _Data;
     size_t _Size;
 
@@ -51,6 +61,9 @@ private:
 
     int16_t * _Samples;
 
-    static const uint32_t SampleCount = 512;
+    static const uint32_t BlockSize = 512; // Number of samples per block
+
+    static const uint32_t SampleRate = 44100;
     static const uint32_t ChannelCount = 2;
+    static const uint32_t BitsPerSample = 16;
 };

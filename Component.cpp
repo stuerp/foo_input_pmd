@@ -1,7 +1,9 @@
 
-/** $VER: Component.cpp (2023.07.04) **/
+/** $VER: Component.cpp (2023.07.09) P. Stuer **/
 
-#pragma warning(disable: 5045)
+#include <CppCoreCheck/Warnings.h>
+
+#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
 #include <sdk/foobar2000-lite.h>
 #include <sdk/componentversion.h>
@@ -14,7 +16,7 @@
 
 namespace
 {
-    #pragma warning(disable: 4265 4625 4626 5026 5027 26433 26436 26455)
+    #pragma warning(disable: 4265 5026 5027 26433 26436 26455)
     DECLARE_COMPONENT_VERSION
     (
         STR_COMPONENT_NAME,
