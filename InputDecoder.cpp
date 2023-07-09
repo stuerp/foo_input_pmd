@@ -162,6 +162,11 @@ public:
         fileInfo.info_set("encoding", "Synthesized");
         fileInfo.info_set_bitrate(((t_int64) _Decoder->GetBitsPerSample() * _Decoder->GetChannelCount() * _SampleRate + 500 /* rounding for bps to kbps*/) / 1000 /* bps to kbps */);
 
+        uint32_t Loop = _Decoder->GetLoop();
+
+        if ((Loop != 0) && ((Loop / 1000) != (_Decoder->GetLength() / 1000)))
+            fileInfo.info_set("pmd_loop", pfc::format_time_ex((double) Loop / 1000.0, 0));
+
         // Meta data tags
         fileInfo.meta_add("title", _Decoder->GetTitle());
         fileInfo.meta_add("artist", _Decoder->GetArranger());

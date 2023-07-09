@@ -35,13 +35,14 @@ You can specify the directory that contains the [YM2608 (OPNA)](https://en.wikip
 
 The following info tags are available:
 
-| Name           | Value       |
-| -------------- | ----------- |
-| samplerate     |       44100 |
-| channels       |           2 |
-| bitspersample  |          16 |
-| encoding       | synthesized |
-| bitrate        |   1411 kpbs |
+| Name           | Value              |
+| -------------- | ------------------ |
+| samplerate     | 44100              |
+| channels       | 2                  |
+| bitspersample  | 16                 |
+| encoding       | synthesized        |
+| bitrate        | 1411 kpbs          |
+| pmd_loop       | loop point (in ms) |
 
 The following meta data tags are available:
 
@@ -101,6 +102,10 @@ If you'd like to contribute, please fork the repository and use a feature
 branch. Pull requests are warmly welcome.
 
 ## Change Log
+
+v0.2.0, 2023-xx-xx, *""*
+
+* Added: pmd_loop info tag
 
 v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 
