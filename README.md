@@ -50,7 +50,7 @@ The following meta data tags are available:
 | title          | Title of the track              |
 | artist         | Arranger specified by the track |
 | pmd_composer   | Composer specified by the track |
-| pmd_memo       | Memo by the track               |
+| pmd_memo       | Memo specified by the track     |
 
 ## Developing
 
