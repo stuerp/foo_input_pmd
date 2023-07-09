@@ -85,7 +85,7 @@ public:
         }
 
         {
-            std::vector<uint8_t> Data;
+            pfc::array_t<t_uint8> Data;
 
             Data.resize((size_t)_FileStats.m_size);
 

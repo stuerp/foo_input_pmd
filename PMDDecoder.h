@@ -26,7 +26,7 @@ public:
     bool Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size);
 
     void Initialize() const noexcept;
-    size_t Render(audio_chunk & audioChunk, size_t sampleCount) const noexcept;
+    size_t Render(audio_chunk & audioChunk, size_t sampleCount) noexcept;
 
     bool IsPMD(const uint8_t * data, size_t size) const noexcept;
 
@@ -57,9 +57,7 @@ private:
     pfc::string8 _Arranger;
     pfc::string8 _Memo;
 
-    OPEN_WORK * _OpenWork = nullptr;
-
-    int16_t * _Samples;
+    pfc::array_t<int16_t> _Samples;
 
     static const uint32_t BlockSize = 512; // Number of samples per block
 

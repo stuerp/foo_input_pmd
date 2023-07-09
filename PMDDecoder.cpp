@@ -31,7 +31,7 @@ PMDDecoder::PMDDecoder() :
     ::pmdwininit(CurrentDirectory);
     ::setpcmrate(SOUND_55K);
 
-    _Samples = new int16_t[BlockSize * ChannelCount];
+    _Samples.set_count((t_size) BlockSize * ChannelCount);
 }
 
 /// <summary>
@@ -39,7 +39,6 @@ PMDDecoder::PMDDecoder() :
 /// </summary>
 PMDDecoder::~PMDDecoder()
 {
-    delete[] _Samples;
 }
 
 /// <summary>
@@ -167,11 +166,11 @@ void PMDDecoder::Initialize() const noexcept
 /// <summary>
 /// Render a chunk of audio samples.
 /// </summary>
-size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) const noexcept
+size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
 {
-    ::getpcmdata(_Samples, (int) BlockSize);
+    ::getpcmdata(&_Samples[0], (int) BlockSize);
 
-    audioChunk.set_data_fixedpoint(_Samples, (t_size) BlockSize * sizeof(int16_t *) * (t_size) (BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
+    audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * sizeof(int16_t *) * (t_size) (BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
 
     return sampleCount;
 }
