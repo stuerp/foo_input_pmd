@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.cpp (2023.07.09) P. Stuer **/
+/** $VER: PMDDecoder.cpp (2023.07.12) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -9,6 +9,10 @@
 
 #include <sdk/foobar2000-lite.h>
 #include <shared/audio_math.h>
+
+#include <ymfm/portability_opna.h>
+#include <pmdwin.h>
+#include <ipmdwin.h>
 
 #include "framework.h"
 
@@ -85,7 +89,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
     WCHAR FilePath[MAX_PATH];
 
     {
-        if (::MultiByteToWideChar(CP_ACP, 0, filePath, -1, FilePath, _countof(FilePath)) == 0)
+        if (::MultiByteToWideChar(CP_UTF8, 0, filePath, -1, FilePath, _countof(FilePath)) == 0)
             return false;
 
         WCHAR DirectoryPath[MAX_PATH];
@@ -99,7 +103,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
 
         WCHAR PDXSamplesPath[MAX_PATH];
 
-        if (::MultiByteToWideChar(CP_ACP, 0, pdxSamplesPath, -1, PDXSamplesPath, _countof(PDXSamplesPath)) == 0)
+        if (::MultiByteToWideChar(CP_UTF8, 0, pdxSamplesPath, -1, PDXSamplesPath, _countof(PDXSamplesPath)) == 0)
             return false;
 
         WCHAR * Parts[4] = { 0 };
@@ -164,16 +168,32 @@ void PMDDecoder::Initialize() const noexcept
 }
 
 /// <summary>
-/// Render a chunk of audio samples.
+/// Renders a chunk of audio samples.
 /// </summary>
 size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
 {
     ::getpcmdata(&_Samples[0], (int) BlockSize);
 
-    audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * sizeof(int16_t *) * (t_size) (BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
+    audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * sizeof(int16_t) * (t_size) (BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
 
     return sampleCount;
 }
+
+/// <summary>
+/// Gets the current position (in ms).
+/// </summary>
+uint32_t PMDDecoder::GetPosition() const noexcept
+{
+    return (uint32_t) ::getpos();
+}
+
+/// <summary>
+/// Sets the current position (in ms).
+/// </summary>
+void PMDDecoder::SetPosition(uint32_t milliseconds) const noexcept
+{
+    ::setpos((int) milliseconds);
+};
 
 /// <summary>
 /// Converts a Shift-JIS character array to an UTF-8 string.

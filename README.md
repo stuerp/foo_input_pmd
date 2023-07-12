@@ -5,6 +5,8 @@
 
 Professional Music Driver (PMD) is a music driver developed by Masahiro Kajihara which utilizes MML (Music Macro Language) to create music files for most Japanese computers of the 80s and early 90s.
 
+PMD can be used to make music for the PC-98, PC-88, X68000, and FM Towns. It's the most used tool to make music for the PC-x801 series, notable examples are Touhou Project and Grounseed.
+
 ![Screenshot](/Resources/Screenshot.png?raw=true "Screenshot")
 
 ## Features
@@ -37,11 +39,6 @@ The following info tags are available:
 
 | Name           | Value              |
 | -------------- | ------------------ |
-| samplerate     | 44100              |
-| channels       | 2                  |
-| bitspersample  | 16                 |
-| encoding       | synthesized        |
-| bitrate        | 1411 kpbs          |
 | pmd_loop       | loop point (in ms) |
 
 The following meta data tags are available:
@@ -50,8 +47,8 @@ The following meta data tags are available:
 | -------------- | ------------------------------- |
 | title          | Title of the track              |
 | artist         | Arranger specified by the track |
-| pmd_composer   | Composer specified by the track |
-| pmd_memo       | Memo specified by the track     |
+| composer       | Composer specified by the track |
+| memo           | Memo specified by the track     |
 
 ## Developing
 
@@ -106,6 +103,9 @@ branch. Pull requests are warmly welcome.
 v0.2.0, 2023-xx-xx, *""*
 
 * Added: pmd_loop info tag
+* Added: Seeking to a position in the current song
+* Fixed: Files with Unicode filenames failed to load.
+* Fixed: Wrong specification of source buffer size.
 
 v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 
@@ -134,14 +134,22 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
   * [Help Solve the File Format Problem](http://justsolve.archiveteam.org/wiki/Professional_Music_Driver_PMD)
   * [PMD Documentation](https://pigu-a.github.io/pmddocs/)
   * [pmdmini](https://github.com/gzaffin/pmdmini)
+  * [pmdmini](https://github.com/mistydemeo/pmdmini)
   * [FMP/PMD plugin for KbMediaPlayer 1.0r6](https://www.purose.net/befis/download/kmp/)
 
 * Music Macro Language
-  * http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language
+  * [PMD MML Command Manual](https://pigu-a.github.io/pmddocs/pmdmml.htm)
+  * [Video Game Music Preservation](http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language)
+  * [Pedipanol](https://mml-guide.readthedocs.io/pmd/intro/)
+
+ * Songs
+  * [Hoot Archive](http://hoot.joshw.info/pc98/)
+  * [Modland FTP server](https://www.exotica.org.uk/wiki/Modland)
+  * [Touhou 7: Perfect Cherry Blossom](https://www.youtube.com/watch?v=7k8BBweVxcw). Check the notes for links to the .M and .MML files.
+  * [Zun](http://www16.big.or.jp/~zun/html/pmd.html)
 
 * Various
   * [RetroPie BIOS Collection](https://github.com/archtaurus/RetroPieBIOS)
-  * [Touhou 7: Perfect Cherry Blossom](https://www.youtube.com/watch?v=7k8BBweVxcw). Check the notes for links to the .M and .MML files.
 
 ## Links
 

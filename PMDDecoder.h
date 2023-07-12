@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.h (2023.07.09) P. Stuer **/
+/** $VER: PMDDecoder.h (2023.07.12) P. Stuer **/
 
 #pragma once
 
@@ -8,10 +8,6 @@
 #pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
 #include <sdk/foobar2000-lite.h>
-
-#include <ymfm/portability_opna.h>
-#include <pmdwin.h>
-#include <ipmdwin.h>
 
 /// <summary>
 /// Implements a PMD decoder
@@ -27,6 +23,9 @@ public:
 
     void Initialize() const noexcept;
     size_t Render(audio_chunk & audioChunk, size_t sampleCount) noexcept;
+
+    uint32_t GetPosition() const noexcept;
+    void SetPosition(uint32_t seconds) const noexcept;
 
     bool IsPMD(const uint8_t * data, size_t size) const noexcept;
 
