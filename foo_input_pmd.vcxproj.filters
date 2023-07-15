@@ -6,6 +6,24 @@
     <ClInclude Include="PMDDecoder.h" />
     <ClInclude Include="Configuration.h" />
     <ClInclude Include="Preferences.h" />
+    <ClInclude Include="PMD\ymfm\ymfm.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_adpcm.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_fm.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_fm.ipp" />
+    <ClInclude Include="PMD\ymfm\ymfm_opn.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_ssg.h" />
+    <ClInclude Include="PMD\file_opna.h" />
+    <ClInclude Include="PMD\ifileio.h" />
+    <ClInclude Include="PMD\ipmdwin.h" />
+    <ClInclude Include="PMD\opna.h" />
+    <ClInclude Include="PMD\opnaw.h" />
+    <ClInclude Include="PMD\p86drv.h" />
+    <ClInclude Include="PMD\PMD.h" />
+    <ClInclude Include="PMD\portability_fmpmdcore.h" />
+    <ClInclude Include="PMD\ppsdrv.h" />
+    <ClInclude Include="PMD\ppz8l.h" />
+    <ClInclude Include="PMD\table.h" />
+    <ClInclude Include="PMD\util.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
@@ -13,6 +31,18 @@
     <ClCompile Include="PMDDecoder.cpp" />
     <ClCompile Include="Configuration.cpp" />
     <ClCompile Include="Preferences.cpp" />
+    <ClCompile Include="PMD\ymfm\ymfm_adpcm.cpp" />
+    <ClCompile Include="PMD\ymfm\ymfm_opn.cpp" />
+    <ClCompile Include="PMD\ymfm\ymfm_ssg.cpp" />
+    <ClCompile Include="PMD\file_opna.cpp" />
+    <ClCompile Include="PMD\opna.cpp" />
+    <ClCompile Include="PMD\opnaw.cpp" />
+    <ClCompile Include="PMD\p86drv.cpp" />
+    <ClCompile Include="PMD\PMD.cpp" />
+    <ClCompile Include="PMD\ppsdrv.cpp" />
+    <ClCompile Include="PMD\ppz8l.cpp" />
+    <ClCompile Include="PMD\table.cpp" />
+    <ClCompile Include="PMD\util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Build-FB2KComponent.ps1" />

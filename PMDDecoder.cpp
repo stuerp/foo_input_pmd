@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.cpp (2023.07.12) P. Stuer **/
+/** $VER: PMDDecoder.cpp (2023.07.15) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -7,11 +7,8 @@
 
 #include "PMDDecoder.h"
 
-#include <sdk/foobar2000-lite.h>
 #include <shared/audio_math.h>
 
-#include <ymfm/portability_opna.h>
-#include <pmdwin.h>
 #include <ipmdwin.h>
 
 #include "framework.h"
@@ -28,12 +25,12 @@ static bool ConvertShiftJITo2UTF8(const char * text, pfc::string8 & utf8);
 /// Initializes a new instance.
 /// </summary>
 PMDDecoder::PMDDecoder() :
-    _FilePath(), _Data(), _Size(), _LengthInMS(), _LoopInMS()
+    _FilePath(), _Data(), _Size(), _PMD(), _Length(), _LoopLength(), _EventCount(), _LoopEventCount(), _MaxLoopNumber()
 {
-    WCHAR CurrentDirectory[] = L".";
+    _PMD = new PMD();
 
-    ::pmdwininit(CurrentDirectory);
-    ::setpcmrate(SOUND_55K);
+    _PMD->Initialize(L".");
+    _PMD->SetSynthesisFrequency(SOUND_55K);
 
     _Samples.set_count((t_size) BlockSize * ChannelCount);
 }
@@ -124,33 +121,44 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
             Parts[2] = nullptr;
         }
 
-        if (!::setpcmdir(Parts))
+        if (!_PMD->SetPaths(Parts))
             return false;
     }
 
-    if (!::getlength(FilePath, (int *) &_LengthInMS, (int *) &_LoopInMS))
-        return false;
-
     {
-        char Note[1024] = { 0 };
+        PMD * pmd = new PMD;
 
-        (void) ::getmemo3(Note, _Data, (int) _Size, 1);
-        ConvertShiftJITo2UTF8(Note, _Title);
+        if (!pmd->Initialize(L"."))
+            return false;
 
-        Note[0] = '\0';
+        pmd->MusicLoad(data, size, NULL);
 
-        (void) ::getmemo3(Note, _Data, (int) _Size, 2);
-        ConvertShiftJITo2UTF8(Note, _Composer);
+        if (!pmd->GetLength((int *) &_Length, (int *) &_LoopLength))
+            return false;
 
-        Note[0] = '\0';
+        if (!pmd->GetLengthInEvents((int *) &_EventCount, (int *) &_LoopEventCount))
+            return false;
 
-        (void) ::getmemo3(Note, _Data, (int) _Size, 3);
-        ConvertShiftJITo2UTF8(Note, _Arranger);
+        {
+            char Note[1024] = { 0 };
 
-        Note[0] = '\0';
+            pmd->GetNote(data, size, 1, Note, _countof(Note));
+            ConvertShiftJITo2UTF8(Note, _Title);
 
-        (void) ::getmemo3(Note, _Data, (int) _Size, 4);
-        ConvertShiftJITo2UTF8(Note, _Memo);
+            Note[0] = '\0';
+            pmd->GetNote(data, size, 2, Note, _countof(Note));
+            ConvertShiftJITo2UTF8(Note, _Composer);
+
+            Note[0] = '\0';
+            pmd->GetNote(data, size, 3, Note, _countof(Note));
+            ConvertShiftJITo2UTF8(Note, _Arranger);
+
+            Note[0] = '\0';
+            pmd->GetNote(data, size, 4, Note, _countof(Note));
+            ConvertShiftJITo2UTF8(Note, _Memo);
+        }
+
+        delete pmd;
     }
 
     return true;
@@ -161,10 +169,10 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
 /// </summary>
 void PMDDecoder::Initialize() const noexcept
 {
-    if (::music_load2(_Data, (int) _Size) != PMDWIN_OK)
+    if (_PMD->MusicLoad(_Data, _Size, NULL) != PMDWIN_OK)
         return;
 
-    ::music_start();
+    _PMD->Start();
 }
 
 /// <summary>
@@ -172,7 +180,23 @@ void PMDDecoder::Initialize() const noexcept
 /// </summary>
 size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
 {
-    ::getpcmdata(&_Samples[0], (int) BlockSize);
+    uint32_t EventCount = GetEventCount();
+    uint32_t LoopEventCount = GetLoopEventCount();
+    uint32_t MaxLoopNumber = GetMaxLoopNumber();
+
+    uint32_t TotalEventCount = EventCount + (LoopEventCount * MaxLoopNumber);
+
+    if (!IsBusy() || (GetEventNumber() > TotalEventCount))
+    {
+        _PMD->Stop();
+
+        return false;
+    }
+
+    if ((MaxLoopNumber > 0) && GetLoopNumber() > MaxLoopNumber - 1)
+        _PMD->SetFadeOutDurationHQ(10 * 1000);
+
+    _PMD->MusicRender(&_Samples[0], (int) BlockSize);
 
     audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * sizeof(int16_t) * (t_size) (BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
 
@@ -180,20 +204,47 @@ size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
 }
 
 /// <summary>
-/// Gets the current position (in ms).
+/// Gets the current decoding position (in ms).
 /// </summary>
 uint32_t PMDDecoder::GetPosition() const noexcept
 {
-    return (uint32_t) ::getpos();
+    return (uint32_t) _PMD->GetPosition();
 }
 
 /// <summary>
-/// Sets the current position (in ms).
+/// Sets the current decoding position (in ms).
 /// </summary>
 void PMDDecoder::SetPosition(uint32_t milliseconds) const noexcept
 {
-    ::setpos((int) milliseconds);
+    _PMD->SetPosition((int) milliseconds);
 };
+
+/// <summary>
+/// Gets the number of the current event.
+/// </summary>
+uint32_t PMDDecoder::GetEventNumber() const noexcept
+{
+    return (uint32_t) _PMD->GetEventNumber();
+}
+
+/// <summary>
+/// Gets the number of the current loop. 0 if not looped yet.
+/// </summary>
+uint32_t PMDDecoder::GetLoopNumber() const noexcept
+{
+    return (uint32_t) _PMD->GetLoopNumber();
+}
+
+/// <summary>
+/// Returns true if a track is being decoded.
+/// </summary>
+/// <returns></returns>
+bool PMDDecoder::IsBusy() const noexcept
+{
+    OPEN_WORK * State = _PMD->GetOpenWork();
+
+    return State->_IsPlaying;
+}
 
 /// <summary>
 /// Converts a Shift-JIS character array to an UTF-8 string.

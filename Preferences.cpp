@@ -1,11 +1,11 @@
 
-/** $VER: Preferences.cpp (2023.07.09) P. Stuer **/
+/** $VER: Preferences.cpp (2023.07.15) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
 #pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
-#include <sdk/foobar2000-lite.h>
+#include "framework.h"
 
 #include <helpers/foobar2000+atl.h>
 #include <helpers/atl-misc.h>

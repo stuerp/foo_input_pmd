@@ -1,13 +1,12 @@
  
-/** $VER: InputDecoder.cpp (2023.07.12) P. Stuer **/
+/** $VER: InputDecoder.cpp (2023.07.15) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
 #pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
-#include "Configuration.h"
+#include "framework.h"
 
-#include <sdk/foobar2000-lite.h>
 #include <sdk/input_impl.h>
 #include <sdk/input_file_type.h>
 #include <sdk/file_info_impl.h>
@@ -15,10 +14,9 @@
 
 #include "framework.h"
 
+#include "Configuration.h"
 #include "Resources.h"
-
 #include "PMDDecoder.h"
-
 #include "Preferences.h"
 
 #pragma hdrstop
@@ -34,8 +32,7 @@ public:
         _File(), _FilePath(), _FileStats(),
         _SampleRate(DefaultSampleRate),
         _Decoder(),
-        _SamplesRendered(),
-        _TimeInMS(),
+        _LoopNumber(),
         _IsDynamicInfoSet(false)
     {
     }
@@ -150,10 +147,10 @@ public:
         // General info tags
         fileInfo.info_set("encoding", "Synthesized");
 
-        double Loop = _Decoder->GetLoop() / 1000.;
+        double Loop = _Decoder->GetLoopLength() / 1000.;
 
-        if ((Loop > 0.) && (Length > 0.) && ((Length - Loop) > 5.))
-            fileInfo.info_set("pmd_loop", pfc::format_time_ex(Loop, 0));
+        if (Loop > 0.)
+            fileInfo.info_set("pmd_loop_length", pfc::format_time_ex(Loop, 0));
 
         // Meta data tags
         fileInfo.meta_add("title", _Decoder->GetTitle());
@@ -204,9 +201,9 @@ public:
         _File->reopen(abortHandler); // Equivalent to seek to zero, except it also works on nonseekable streams
 
         _Decoder->Initialize();
+        _Decoder->SetMaxLoopNumber(CfgMaxLoopNumber);
 
-        _SamplesRendered = 0;
-        _TimeInMS = 0;
+        _LoopNumber = 0;
 
         _IsDynamicInfoSet = false;
     }
@@ -218,11 +215,6 @@ public:
     {
         abortHandler.check();
 
-        uint32_t LengthInMS = _Decoder->GetLength();
-
-        if ((LengthInMS == 0) || ((LengthInMS != 0) && (_TimeInMS >= LengthInMS)))
-            return false;
-
         // Fill the audio chunk.
         {
             const uint32_t SamplesToRender = _Decoder->GetBlockSize();
@@ -233,11 +225,7 @@ public:
                 return false;
 
             audioChunk.set_sample_count(SamplesRendered);
-
-            _SamplesRendered += SamplesRendered;
         }
-
-        _TimeInMS = (uint32_t) ((_SamplesRendered * 1000) / _SampleRate);
 
         return true;
     }
@@ -250,8 +238,6 @@ public:
         abortHandler.check();
 
         _Decoder->SetPosition((uint32_t)(timeInSeconds * 1000.));
-
-        _SamplesRendered = (uint64_t) _Decoder->GetPosition() * _SampleRate;
     }
 
     /// <summary>
@@ -267,15 +253,26 @@ public:
     /// </summary>
     bool decode_get_dynamic_info(file_info & fileInfo, double &) noexcept
     {
+        bool IsDynamicInfoUpdated = false;
+
         if (!_IsDynamicInfoSet)
         {
             fileInfo.info_set_int("samplerate", _SampleRate);
             fileInfo.info_set_bitrate(((t_int64) _Decoder->GetBitsPerSample() * _Decoder->GetChannelCount() * _SampleRate + 500 /* rounding for bps to kbps*/) / 1000 /* bps to kbps */);
 
             _IsDynamicInfoSet = true;
+
+            IsDynamicInfoUpdated = true;
         }
 
-        return false;
+        if (_LoopNumber != _Decoder->GetLoopNumber())
+        {
+            _LoopNumber = _Decoder->GetLoopNumber();
+
+            fileInfo.info_set_int("pmd_loop_number", _LoopNumber);
+        }
+
+        return IsDynamicInfoUpdated;
     }
 
     /// <summary>
@@ -301,8 +298,8 @@ private:
 
     PMDDecoder * _Decoder;
 
-    uint64_t _SamplesRendered;
-    uint32_t _TimeInMS;
+    // Dynamic track info
+    uint32_t _LoopNumber;
 
     bool _IsDynamicInfoSet;
 

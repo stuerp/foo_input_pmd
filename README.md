@@ -35,12 +35,6 @@ You can specify the directory that contains the [YM2608 (OPNA)](https://en.wikip
 
 ### Tags
 
-The following info tags are available:
-
-| Name           | Value              |
-| -------------- | ------------------ |
-| pmd_loop       | loop point (in ms) |
-
 The following meta data tags are available:
 
 | Name           | Value                           |
@@ -49,6 +43,18 @@ The following meta data tags are available:
 | artist         | Arranger specified by the track |
 | composer       | Composer specified by the track |
 | memo           | Memo specified by the track     |
+
+The following info tags are available:
+
+| Name            | Value                              |
+| --------------- | ---------------------------------- |
+| pmd_loop_length | Length of loop (in ms), if defined |
+
+The following info tags are available while playing a track:
+
+| Name            | Value                      |
+| --------------- | -------------------------- |
+| pmd_loop_number | Number of the current loop |
 
 ## Developing
 
@@ -102,8 +108,9 @@ branch. Pull requests are warmly welcome.
 
 v0.2.0, 2023-xx-xx, *""*
 
-* Added: pmd_loop info tag
-* Added: Seeking to a position in the current song
+* Added: pmd_loop_length info tag
+* Added: Seeking to a position in the current song.
+* Added: Loop playing with or without fading.
 * Fixed: Files with Unicode filenames failed to load.
 * Fixed: Wrong specification of source buffer size.
 
