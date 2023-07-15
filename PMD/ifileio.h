@@ -7,9 +7,8 @@
 
 #include <stdint.h>
 
-typedef unsigned int uint;
-
-class IFILEIO
+#pragma warning(disable: 5204)
+class IFileIO
 {
 public:
     enum Flags
@@ -33,7 +32,7 @@ public:
     };
 
     virtual int64_t GetFileSize(const TCHAR * filename) = 0;
-    virtual bool Open(const TCHAR * filename, uint flg = 0) = 0;
+    virtual bool Open(const TCHAR * filename, unsigned int flg = 0) = 0;
     virtual void Close() = 0;
     virtual int32_t Read(void * dest, int32_t len) = 0;
     virtual bool Seek(int32_t fpos, SeekMethod method) = 0;

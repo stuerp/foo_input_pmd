@@ -1,6 +1,10 @@
 ﻿
 // Based on PMDWin code by C60
 
+#include <CppCoreCheck/Warnings.h>
+
+#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+
 #include <Windows.h>
 #include <WCHAR.h>
 
@@ -9,7 +13,7 @@
 
 #define LOG_WRITES (0)
 
-OPNA::OPNA(IFILEIO * pfileio) :
+OPNA::OPNA(IFileIO * fileIO) :
     m_chip(*this),
     m_clock(DEFAULT_CLOCK),
     m_clocks(0),
@@ -17,8 +21,8 @@ OPNA::OPNA(IFILEIO * pfileio) :
     m_step(0),
     m_pos(0),
     rate(8000),
-    frhythm_adpcm_rom(false),
-    rhythm{},
+    _HasADPCMROM(false),
+    _Rhythm{},
     rhythmtvol(0),
     rhythmtl(0),
     rhythmkey(0),
@@ -28,23 +32,23 @@ OPNA::OPNA(IFILEIO * pfileio) :
     timer_count{},
     reg27(0)
 {
-    _pfileio = pfileio;
+    _FileIO = fileIO;
 
-    // テーブル作成
+    // Create the table.
     for (int i = -FM_TLPOS; i < FM_TLENTS; i++)
-        tltable[i + FM_TLPOS] = uint(65536. * pow(2.0, i * -16. / (int) FM_TLENTS)) - 1;
+        tltable[i + FM_TLPOS] = uint32_t(65536. * pow(2.0, i * -16. / (int) FM_TLENTS)) - 1;
 }
 
 OPNA::~OPNA()
 {
     for (int i = 0; i < 6; i++)
-        delete[] rhythm[i].sample;
+        delete[] _Rhythm[i].sample;
 }
 
 // File Stream 設定
-void OPNA::setfileio(IFILEIO * pfileio)
+void OPNA::setfileio(IFileIO * pfileio)
 {
-    _pfileio = pfileio;
+    _FileIO = pfileio;
 }
 
 // 初期化
@@ -96,29 +100,29 @@ bool OPNA::SetRate(uint32_t c, uint32_t r, bool)
 /// </summary>
 bool OPNA::LoadRhythmSamples(const WCHAR * path)
 {
+    _HasADPCMROM = false;
+
     FilePath filepath;
     WCHAR buf[_MAX_PATH] = { 0 };
 
-    frhythm_adpcm_rom = false;
-
     filepath.Makepath_dir_filename(buf, path, L"ym2608_adpcm_rom.bin");
 
-    int32_t size = (int32_t) _pfileio->GetFileSize(buf);
+    int64_t FileSize = _FileIO->GetFileSize(buf);
 
-    if (size > 0 && _pfileio->Open(buf, FileIO::flags_readonly))
+    if (FileSize > 0 && _FileIO->Open(buf, FileIO::flags_readonly))
     {
-        std::vector<uint8_t> temp(size);
+        std::vector<uint8_t> temp(FileSize);
 
-        _pfileio->Read(temp.data(), size);
-        _pfileio->Close();
+        _FileIO->Read(temp.data(), FileSize);
+        _FileIO->Close();
 
-        write_data(ymfm::ACCESS_ADPCM_A, 0, size, temp.data());
+        write_data(ymfm::ACCESS_ADPCM_A, 0, (uint32_t) FileSize, temp.data());
 
-        frhythm_adpcm_rom = true;
+        _HasADPCMROM = true;
     }
     else
     {
-        static const WCHAR * rhythmname[6] =
+        static const WCHAR * InstrumentName[6] =
         {
             L"BD", L"SD", L"TOP", L"HH", L"TOM", L"RIM",
         };
@@ -126,7 +130,7 @@ bool OPNA::LoadRhythmSamples(const WCHAR * path)
         int i;
 
         for (i = 0; i < 6; i++)
-            rhythm[i].pos = ~0;
+            _Rhythm[i].pos = ~0;
 
         for (i = 0; i < 6; i++)
         {
@@ -138,10 +142,10 @@ bool OPNA::LoadRhythmSamples(const WCHAR * path)
                 filepath.Strncpy(buf, path, _MAX_PATH);
 
             filepath.Strncat(buf, L"2608_", _MAX_PATH);
-            filepath.Strncat(buf, rhythmname[i], _MAX_PATH);
+            filepath.Strncat(buf, InstrumentName[i], _MAX_PATH);
             filepath.Strncat(buf, L".WAV", _MAX_PATH);
 
-            if (!_pfileio->Open(buf, FileIO::flags_readonly))
+            if (!_FileIO->Open(buf, FileIO::flags_readonly))
             {
                 if (i != 5)
                     break;
@@ -151,7 +155,7 @@ bool OPNA::LoadRhythmSamples(const WCHAR * path)
 
                 filepath.Strncpy(buf, L"2608_RYM.WAV", _MAX_PATH);
 
-                if (!_pfileio->Open(buf, FileIO::flags_readonly))
+                if (!_FileIO->Open(buf, FileIO::flags_readonly))
                     break;
             }
 
@@ -166,49 +170,52 @@ bool OPNA::LoadRhythmSamples(const WCHAR * path)
                 uint16_t bps;
             } whdr;
 
-            _pfileio->Seek(0x10, FileIO::seekmethod_begin);
-            _pfileio->Read(&whdr.chunksize, sizeof(whdr.chunksize));
-            _pfileio->Read(&whdr.tag, sizeof(whdr.tag));
-            _pfileio->Read(&whdr.nch, sizeof(whdr.nch));
-            _pfileio->Read(&whdr.rate, sizeof(whdr.rate));
-            _pfileio->Read(&whdr.avgbytes, sizeof(whdr.avgbytes));
-            _pfileio->Read(&whdr.align, sizeof(whdr.align));
-            _pfileio->Read(&whdr.bps, sizeof(whdr.bps));
+            _FileIO->Seek(0x10, FileIO::seekmethod_begin);
+            _FileIO->Read(&whdr.chunksize, sizeof(whdr.chunksize));
+            _FileIO->Read(&whdr.tag, sizeof(whdr.tag));
+            _FileIO->Read(&whdr.nch, sizeof(whdr.nch));
+            _FileIO->Read(&whdr.rate, sizeof(whdr.rate));
+            _FileIO->Read(&whdr.avgbytes, sizeof(whdr.avgbytes));
+            _FileIO->Read(&whdr.align, sizeof(whdr.align));
+            _FileIO->Read(&whdr.bps, sizeof(whdr.bps));
 
             uint8_t subchunkname[4];
+
             do
             {
-                _pfileio->Seek(fsize, FileIO::seekmethod_current);
-                _pfileio->Read(&subchunkname, 4);
-                _pfileio->Read(&fsize, 4);
+                _FileIO->Seek(fsize, FileIO::seekmethod_current);
+                _FileIO->Read(&subchunkname, 4);
+                _FileIO->Read(&fsize, 4);
             }
-            while (memcmp("data", subchunkname, 4));
+            while (::memcmp("data", subchunkname, 4));
 
             fsize /= 2;
+
             if (fsize >= 0x100000 || whdr.tag != 1 || whdr.nch != 1)
                 break;
-            fsize = (std::max) ((int32_t) fsize, (int32_t) ((1 << 31) / 1024));
 
-            delete rhythm[i].sample;
-            rhythm[i].sample = new int16_t[fsize];
-            if (!rhythm[i].sample)
+            fsize = (uint32_t) (std::max)((int32_t) fsize, (int32_t) ((1 << 31) / 1024));
+
+            delete _Rhythm[i].sample;
+            _Rhythm[i].sample = new int16_t[fsize];
+            if (!_Rhythm[i].sample)
                 break;
 
-            _pfileio->Read(rhythm[i].sample, fsize * 2);
+            _FileIO->Read(_Rhythm[i].sample, fsize * 2);
 
-            rhythm[i].rate = whdr.rate;
-            rhythm[i].step = rhythm[i].rate * 1024 / rate;
-            rhythm[i].pos = rhythm[i].size = fsize * 1024;
+            _Rhythm[i].rate = whdr.rate;
+            _Rhythm[i].step = _Rhythm[i].rate * 1024 / rate;
+            _Rhythm[i].pos = _Rhythm[i].size = fsize * 1024;
 
-            _pfileio->Close();
+            _FileIO->Close();
         }
 
         if (i != 6)
         {
             for (i = 0; i < 6; i++)
             {
-                delete[] rhythm[i].sample;
-                rhythm[i].sample = 0;
+                delete[] _Rhythm[i].sample;
+                _Rhythm[i].sample = 0;
             }
 
             return false;
@@ -282,13 +289,13 @@ void OPNA::SetVolumeRhythmTotal(int db)
 void OPNA::SetVolumeRhythm(int index, int db)
 {
     db = (std::min) (db, 20);
-    rhythm[index].volume = -(db * 2 / 3);
+    _Rhythm[index].volume = -(db * 2 / 3);
 }
 
 // Set data in register array
 void OPNA::SetReg(uint32_t addr, uint32_t data)
 {
-    if (addr >= 0x10 && addr <= 0x1f && !frhythm_adpcm_rom)
+    if (addr >= 0x10 && addr <= 0x1f && !_HasADPCMROM)
     {
         // rhythmをwavで鳴らす時
 
@@ -298,12 +305,12 @@ void OPNA::SetReg(uint32_t addr, uint32_t data)
                 if (!(data & 0x80))  // KEY ON
                 {
                     rhythmkey |= data & 0x3f;
-                    if (data & 0x01) rhythm[0].pos = 0;
-                    if (data & 0x02) rhythm[1].pos = 0;
-                    if (data & 0x04) rhythm[2].pos = 0;
-                    if (data & 0x08) rhythm[3].pos = 0;
-                    if (data & 0x10) rhythm[4].pos = 0;
-                    if (data & 0x20) rhythm[5].pos = 0;
+                    if (data & 0x01) _Rhythm[0].pos = 0;
+                    if (data & 0x02) _Rhythm[1].pos = 0;
+                    if (data & 0x04) _Rhythm[2].pos = 0;
+                    if (data & 0x08) _Rhythm[3].pos = 0;
+                    if (data & 0x10) _Rhythm[4].pos = 0;
+                    if (data & 0x20) _Rhythm[5].pos = 0;
                 }
                 else
                 {          // DUMP
@@ -321,8 +328,8 @@ void OPNA::SetReg(uint32_t addr, uint32_t data)
             case 0x1b:    // Hihat
             case 0x1c:    // Tom-tom
             case 0x1d:    // Rim shot
-                rhythm[addr & 7].pan = (data >> 6) & 3;
-                rhythm[addr & 7].level = ~data & 31;
+                _Rhythm[addr & 7].pan = (data >> 6) & 3;
+                _Rhythm[addr & 7].level = ~data & 31;
                 break;
         }
 
@@ -460,7 +467,7 @@ void OPNA::Mix(Sample * buffer, int nsamples)
         buffer2++;
     }
 
-    if (!frhythm_adpcm_rom)
+    if (!_HasADPCMROM)
         RhythmMix(buffer, nsamples);
 }
 
@@ -497,15 +504,15 @@ void OPNA::StoreSample(Sample & dest, ISample data)
 }
 
 // リズム合成(wav)
-void OPNA::RhythmMix(Sample * buffer, uint count)
+void OPNA::RhythmMix(Sample * buffer, uint32_t count)
 {
-    if (rhythmtvol < 128 && rhythm[0].sample && (rhythmkey & 0x3f))
+    if (rhythmtvol < 128 && _Rhythm[0].sample && (rhythmkey & 0x3f))
     {
         Sample * limit = buffer + count * 2;
 
         for (int i = 0; i < 6; i++)
         {
-            Rhythm & r = rhythm[i];
+            Rhythm & r = _Rhythm[i];
 
             if ((rhythmkey & (1 << i)) /* //@ && r.level < 128 */)
             {
@@ -546,12 +553,11 @@ uint32_t OPNA::sample_rate() const
 // callback : handle read from the buffer
 uint8_t OPNA::ymfm_external_read(ymfm::access_class type, uint32_t offset)
 {
-    if (!frhythm_adpcm_rom && type == ymfm::ACCESS_ADPCM_A)
-    {
+    if (!_HasADPCMROM && type == ymfm::ACCESS_ADPCM_A)
         return 0;
-    }
 
     auto & data = m_data[type];
+
     return (offset < data.size()) ? data[offset] : 0;
 }
 

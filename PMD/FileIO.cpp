@@ -1,6 +1,10 @@
 ﻿
 // Based on PMDWin code by C60
 
+#include <CppCoreCheck/Warnings.h>
+
+#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "FileIO.h"
@@ -91,7 +95,7 @@ void FilePath::Makepath_dir_filename(WCHAR * path, const WCHAR * dir, const WCHA
     Strcat(path, filename);
 }
 
-void FilePath::Extractpath(WCHAR * dest, const WCHAR * src, uint flg)
+void FilePath::Extractpath(WCHAR * dest, const WCHAR * src, uint32_t flg)
 {
     WCHAR  drive[_MAX_PATH];
     WCHAR  dir[_MAX_PATH];
@@ -128,7 +132,7 @@ void FilePath::Extractpath(WCHAR * dest, const WCHAR * src, uint flg)
     Makepath(dest, pdrive, pdir, pfilename, pext);
 }
 
-int FilePath::Comparepath(WCHAR * filename1, const WCHAR * filename2, uint flg)
+int FilePath::Comparepath(WCHAR * filename1, const WCHAR * filename2, uint32_t flg)
 {
     WCHAR  extfilename1[_MAX_PATH];
     WCHAR  extfilename2[_MAX_PATH];
@@ -198,7 +202,7 @@ int64_t FileIO::GetFileSize(const WCHAR * filename)
     return (((int64_t) fd.nFileSizeHigh) << 32) + fd.nFileSizeLow;
 }
 
-bool FileIO::Open(const WCHAR * filename, uint flg)
+bool FileIO::Open(const WCHAR * filename, uint32_t flg)
 {
     FilePath filepath;
 

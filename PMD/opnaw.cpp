@@ -1,6 +1,9 @@
 ﻿
-// OPNA unit with wait
 // Based on PMDWin code by C60
+
+#include <CppCoreCheck/Warnings.h>
+
+#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
 #include <cmath>
 #include <algorithm>
@@ -14,7 +17,7 @@
 
 #define INTERPOLATION_IN_THIS_UNIT
 
-OPNAW::OPNAW(IFILEIO * pfileio) : OPNA(pfileio)
+OPNAW::OPNAW(IFileIO * pfileio) : OPNA(pfileio)
 {
     _Init();
 }
@@ -24,13 +27,13 @@ OPNAW::~OPNAW()
 }
 
 //  File Stream 設定
-void OPNAW::setfileio(IFILEIO * pfileio)
+void OPNAW::setfileio(IFileIO * pfileio)
 {
     OPNA::setfileio(pfileio);
 }
 
 //  初期化
-bool OPNAW::Init(uint c, uint r, bool ipflag, const WCHAR * path)
+bool OPNAW::Init(uint32_t c, uint32_t r, bool ipflag, const WCHAR * path)
 {
     _Init();
     rate2 = r;
@@ -81,7 +84,7 @@ void OPNAW::_Init()
 }
 
 //  サンプリングレート変更
-bool OPNAW::SetRate(uint c, uint r, bool ipflag)
+bool OPNAW::SetRate(uint32_t c, uint32_t r, bool ipflag)
 {
     bool result;
 
@@ -166,7 +169,7 @@ int OPNAW::GetADPCMWait()
 }
 
 //Set data in register array
-void OPNAW::SetReg(uint addr, uint data)
+void OPNAW::SetReg(uint32_t addr, uint32_t data)
 {
     if (addr < 0x10)
     {          // SSG

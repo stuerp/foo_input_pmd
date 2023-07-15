@@ -21,12 +21,10 @@ PMD::PMD()
 {
     _FileIO = new FileIO();
 
-    pfileio = _FileIO;
-
-    _OPNA = new OPNAW(pfileio);
-    _PPZ8 = new PPZ8(pfileio);
-    _PPS  = new PPSDRV(pfileio);
-    _P86  = new P86DRV(pfileio);
+    _OPNA = new OPNAW(_FileIO);
+    _PPZ8 = new PPZ8(_FileIO);
+    _PPS  = new PPSDRV(_FileIO);
+    _P86  = new P86DRV(_FileIO);
 
     InitializeInternal();
 }
@@ -1500,20 +1498,6 @@ PartState * PMD::GetOpenPartWork(int ch)
         return NULL;
 
     return _OpenWork.MusPart[ch];
-}
-
-//  File Stream 設定
-void PMD::setfileio(IFILEIO * pfileio)
-{
-    if (pfileio == NULL)
-        pfileio = _FileIO;
-
-    this->pfileio = pfileio;
-
-    _OPNA->setfileio(this->pfileio);
-    _PPZ8->setfileio(this->pfileio);
-    _PPS->setfileio(this->pfileio);
-    _P86->setfileio(this->pfileio);
 }
 
 // Timer A processing (main)
@@ -3684,7 +3668,7 @@ void PMD::otodasi8(PartState * qq)
 //  PPZ OTODASI
 void PMD::otodasiz(PartState * qq)
 {
-    uint  cx;
+    uint32_t  cx;
     int64_t  cx2;
     int    ax;
 
@@ -3710,7 +3694,7 @@ void PMD::otodasiz(PartState * qq)
     cx2 = cx + ((int64_t) cx) / 256 * ax;
     if (cx2 > 0xffffffff) cx = 0xffffffff;
     else if (cx2 < 0) cx = 0;
-    else cx = (uint) cx2;
+    else cx = (uint32_t) cx2;
 
     // TONE SET
     _PPZ8->SetOntei(pmdwork.partb, cx);
@@ -4179,7 +4163,7 @@ void PMD::fnumset8(PartState * qq, int al)
 //  PPZ FNUM SET
 void PMD::fnumsetz(PartState * qq, int al)
 {
-    uint  ax;
+    uint32_t  ax;
     int    bx, cl;
 
 
@@ -8840,18 +8824,18 @@ int PMD::LoadPPCInternal(WCHAR * filename)
     if (*filename == '\0')
         return ERR_OPEN_PPC_FILE;
 
-    if (pfileio->Open(filename, FileIO::flags_readonly) == false)
+    if (_FileIO->Open(filename, FileIO::flags_readonly) == false)
         return ERR_OPEN_PPC_FILE;
 
-    int Size = (int) pfileio->GetFileSize(filename);
+    int Size = (int) _FileIO->GetFileSize(filename);
 
     uint8_t * pcmbuf = (uint8_t *) ::malloc(Size);
 
     if (pcmbuf == NULL)
         return ERR_OUT_OF_MEMORY;
 
-    pfileio->Read(pcmbuf, Size);
-    pfileio->Close();
+    _FileIO->Read(pcmbuf, Size);
+    _FileIO->Close();
 
     int result = LoadPPCInternal(pcmbuf, Size);
 
@@ -9001,7 +8985,7 @@ WCHAR * PMD::FindPCMSample(WCHAR * filePath, const WCHAR * filename, const WCHAR
     {
         _FilePath.Makepath_dir_filename(FilePath, currentDirectory, filename);
 
-        if (pfileio->GetFileSize(FilePath) >= 0)
+        if (_FileIO->GetFileSize(FilePath) >= 0)
         {
             _FilePath.Strcpy(filePath, FilePath);
 
@@ -9025,7 +9009,7 @@ WCHAR * PMD::FindPCMSample(WCHAR * filePath, const WCHAR * filename, const WCHAR
         _FilePath.Makepath_dir_filename(FilePath, _OpenWork._SearchPath[i], filename);
 
     }
-    while (pfileio->GetFileSize(FilePath) < 0);
+    while (_FileIO->GetFileSize(FilePath) < 0);
 
     _FilePath.Strcpy(filePath, FilePath);
 

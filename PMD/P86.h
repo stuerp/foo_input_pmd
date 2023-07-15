@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "portability_fmpmdcore.h"
+#include "OPNA.h"
 #include "FileIO.h"
 #include "IFileio.h"
 
@@ -62,20 +62,20 @@ const int ratetable[] =
 class P86DRV
 {
 public:
-    P86DRV(IFILEIO * pfileio);
+    P86DRV(IFileIO * pfileio);
     virtual ~P86DRV();
 
-    void setfileio(IFILEIO * pfileio);
+    void setfileio(IFileIO * pfileio);
 
-    bool Init(uint r, bool ip);            // 初期化
+    bool Init(uint32_t r, bool ip);            // 初期化
     bool Stop(void);                // P86 停止
     bool Play(void);                // P86 再生
     bool Keyoff(void);                // P86 keyoff
     int Load(TCHAR * filename);            // P86 読み込み
-    bool SetRate(uint r, bool ip);          // レート設定
+    bool SetRate(uint32_t r, bool ip);          // レート設定
     void SetVolume(int volume);            // 全体音量調節用
     bool SetVol(int _vol);              // 音量設定
-    bool SetOntei(int rate, uint ontei);      // 音程周波数の設定
+    bool SetOntei(int rate, uint32_t ontei);      // 音程周波数の設定
     bool SetPan(int flag, int data);        // PAN 設定
     bool SetNeiro(int num);              // PCM 番号設定
     bool SetLoop(int loop_start, int loop_end, int release_start, bool adpcm);
@@ -86,12 +86,12 @@ public:
 
 private:
     FilePath  filepath;              // ファイルパス関連のクラスライブラリ
-    IFILEIO * pfileio;              // ファイルアクセス関連のクラスライブラリ
+    IFileIO * pfileio;              // ファイルアクセス関連のクラスライブラリ
 
     bool  interpolation;              // 補完するか？
     int    rate;                  // 再生周波数
     int    srcrate;                // 元データの周波数
-    uint  ontei;                  // 音程(fnum)
+    uint32_t  ontei;                  // 音程(fnum)
     int    vol;                  // 音量
     uint8_t * p86_addr;                // P86 保存用メモリポインタ
     uint8_t * start_ofs;                // 発音中PCMデータ番地
@@ -119,7 +119,7 @@ private:
 
     void  _Init(void);              // 初期化(内部処理)
     void  MakeVolumeTable(int volume);
-    void   ReadHeader(IFILEIO * file, P86HEADER & p86header);
+    void   ReadHeader(IFileIO * file, P86HEADER & p86header);
     void  double_trans(Sample * dest, int nsamples);
     void  double_trans_g(Sample * dest, int nsamples);
     void  left_trans(Sample * dest, int nsamples);

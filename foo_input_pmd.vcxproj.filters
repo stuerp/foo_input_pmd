@@ -19,7 +19,6 @@
     <ClInclude Include="PMD\OPNAW.h" />
     <ClInclude Include="PMD\P86.h" />
     <ClInclude Include="PMD\PMD.h" />
-    <ClInclude Include="PMD\portability_fmpmdcore.h" />
     <ClInclude Include="PMD\PPS.h" />
     <ClInclude Include="PMD\PPZ.h" />
     <ClInclude Include="PMD\Table.h" />
@@ -49,6 +48,7 @@
     <None Include="README.md" />
     <None Include=".gitattributes" />
     <None Include=".gitignore" />
+    <None Include="PMD\ymfm\LICENSE" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources.rc" />

@@ -110,7 +110,7 @@ struct PartState
     uint8_t * partloop; // 2 ｴﾝｿｳ ｶﾞ ｵﾜｯﾀﾄｷ ﾉ ﾓﾄﾞﾘｻｷ
     int leng;  // 1 ﾉｺﾘ LENGTH
     int qdat;  // 1 gatetime (q/Q値を計算した値)
-    uint  fnum;  // 2 ｴﾝｿｳﾁｭｳ ﾉ BLOCK/FNUM
+    unsigned int  fnum;  // 2 ｴﾝｿｳﾁｭｳ ﾉ BLOCK/FNUM
     int detune;  // 2 ﾃﾞﾁｭｰﾝ
     int lfodat;  // 2 LFO DATA
     int porta_num; // 2 ポルタメントの加減値（全体）

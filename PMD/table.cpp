@@ -1,6 +1,10 @@
 ﻿
 // Professional Music Driver [P.M.D.] version 4.8 Constant Tables / Programmed By M. Kajihara / Windows Converted by C60
 
+#include <CppCoreCheck/Warnings.h>
+
+#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+
 #include "table.h"
 
 /******************************************************************************
@@ -104,7 +108,7 @@ const int pcm_tune_data[] =
 /******************************************************************************
 ;	音階DATA(PMD86)
 ******************************************************************************/
-const uint p86_tune_data[] =
+const uint32_t p86_tune_data[] =
 {
     0xff002AB7,	//	o1c
     0xff002D41,	//	o1c+

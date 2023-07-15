@@ -184,7 +184,6 @@
     <ClInclude Include="PMD\OPNAW.h" />
     <ClInclude Include="PMD\P86.h" />
     <ClInclude Include="PMD\PMD.h" />
-    <ClInclude Include="PMD\portability_fmpmdcore.h" />
     <ClInclude Include="PMD\PPS.h" />
     <ClInclude Include="PMD\PPZ.h" />
     <ClInclude Include="PMD\Table.h" />
@@ -221,6 +220,7 @@
     <None Include=".gitattributes" />
     <None Include=".gitignore" />
     <None Include="Build-FB2KComponent.ps1" />
+    <None Include="PMD\ymfm\LICENSE" />
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>

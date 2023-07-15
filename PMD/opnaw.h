@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "portability_fmpmdcore.h"
-#include "ifileio.h"
+#include "OPNA.h"
+#include "IFileio.h"
 
 // Composite frequency when primary interpolation is enabled
 #define  SOUND_55K        55555
@@ -27,12 +27,12 @@
 class OPNAW : public OPNA
 {
 public:
-    OPNAW(IFILEIO * pfileio);
+    OPNAW(IFileIO * pfileio);
     virtual ~OPNAW();
-    void  WINAPI setfileio(IFILEIO * pfileio);
+    void  WINAPI setfileio(IFileIO * pfileio);
 
-    bool  Init(uint c, uint r, bool ipflag, const WCHAR * path);
-    bool  SetRate(uint c, uint r, bool ipflag = false);
+    bool  Init(uint32_t c, uint32_t r, bool ipflag, const WCHAR * path);
+    bool  SetRate(uint32_t c, uint32_t r, bool ipflag = false);
 
     void  SetFMWait(int nsec);        // FM wait(nsec)
     void  SetSSGWait(int nsec);        // SSG wait(nsec)
@@ -44,7 +44,7 @@ public:
     int    GetRhythmWait();        // Rhythm wait(nsec)
     int    GetADPCMWait();          // ADPCM wait(nsec)
 
-    void  SetReg(uint addr, uint data);    // レジスタ設定
+    void  SetReg(uint32_t addr, uint32_t data);    // レジスタ設定
     void  Mix(Sample * buffer, int nsamples);  // 合成
     void  ClearBuffer();          // 内部バッファクリア
 
@@ -66,7 +66,7 @@ private:
     int    count2;                // count 小数部分(*1000)
 
     Sample  ip_buffer[IP_PCM_BUFFER_SIZE * 2];  // 線形補間時のワーク
-    uint  rate2;                // 出力周波数
+    uint32_t  rate2;                // 出力周波数
     bool  interpolation2;            // 一次補間フラグ
     int    delta;                // 差分小数部(16384サンプルで分割)
 

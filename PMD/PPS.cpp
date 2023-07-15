@@ -1,6 +1,10 @@
 ﻿
 // SSG PCM Driver 「PPSDRV」 Unit / Original Programmed  by NaoNeko / Modified by Kaja / Windows Converted by C60
 
+#include <CppCoreCheck/Warnings.h>
+
+#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+
 #include <Windows.h>
 #include <tchar.h>
 
@@ -9,7 +13,7 @@
 
 #include "PPS.h"
 
-PPSDRV::PPSDRV(IFILEIO * pfileio)
+PPSDRV::PPSDRV(IFileIO * pfileio)
 {
     this->pfileio = pfileio;
 
@@ -26,7 +30,7 @@ PPSDRV::~PPSDRV()
 }
 
 //	File Stream 設定
-void PPSDRV::setfileio(IFILEIO * pfileio)
+void PPSDRV::setfileio(IFileIO * pfileio)
 {
     this->pfileio = pfileio;
 }
@@ -161,7 +165,7 @@ bool PPSDRV::Check(void)
 }
 
 //	ヘッダ読み込み
-void PPSDRV::ReadHeader(IFILEIO * file, PPSHEADER & ppsheader)
+void PPSDRV::ReadHeader(IFileIO * file, PPSHEADER & ppsheader)
 {
     uint8_t buf[84];
     file->Read(buf, sizeof(buf));

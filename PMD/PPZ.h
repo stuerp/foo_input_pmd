@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "portability_fmpmdcore.h"
+#include "OPNA.h"
 #include "FileIO.h"
 #include "IFileIO.h"
 
@@ -43,8 +43,8 @@ struct CHANNELWORK
     uint8_t * PCM_END;                // 現在の終了アドレス
     uint8_t * PCM_END_S;                // 本当の終了アドレス
     uint8_t * PCM_LOOP;                // ループ開始アドレス
-    uint    PCM_LOOP_START;            // リニアなループ開始アドレス
-    uint    PCM_LOOP_END;            // リニアなループ終了アドレス
+    uint32_t    PCM_LOOP_START;            // リニアなループ開始アドレス
+    uint32_t    PCM_LOOP_END;            // リニアなループ終了アドレス
     bool    pviflag;                // PVI なら true
 };
 
@@ -83,7 +83,7 @@ struct PVIHEADER
 class PPZ8
 {
 public:
-    PPZ8(IFILEIO * pfileio);
+    PPZ8(IFileIO * pfileio);
     virtual ~PPZ8();
 
     bool __cdecl Init(uint32_t rate, bool ip);            // 00H 初期化
@@ -107,7 +107,7 @@ public:
     //FIFOBUFF_SET        ;1AH (PPZ8)FIFOﾊﾞｯﾌｧの変更
     //RATE_SET        ;1BH (PPZ8)WSS詳細ﾚｰﾄ設定
 
-    void setfileio(IFILEIO * pfileio);
+    void setfileio(IFileIO * pfileio);
     void Mix(Sample * dest, int nsamples);
 
     PZIHEADER PCME_WORK[2];                        // PCMの音色ヘッダー
@@ -116,7 +116,7 @@ public:
 
 private:
     FilePath    filepath;                        // ファイルパス関連のクラスライブラリ
-    IFILEIO * pfileio;                        // ファイルアクセス関連のクラスライブラリ
+    IFileIO * pfileio;                        // ファイルアクセス関連のクラスライブラリ
 
     void    WORK_INIT(void);                    // ﾜｰｸ初期化
     bool    ADPCM_EM_FLG;                        // CH8 でADPCM エミュレートするか？
@@ -136,8 +136,8 @@ private:
 
     void    _Init(void);                        // 初期化(内部処理)
     void    MakeVolumeTable(int vol);            // 音量テーブルの作成
-    void     ReadHeader(IFILEIO * file, PZIHEADER & pziheader);
-    void     ReadHeader(IFILEIO * file, PVIHEADER & pviheader);
+    void     ReadHeader(IFileIO * file, PZIHEADER & pziheader);
+    void     ReadHeader(IFileIO * file, PVIHEADER & pviheader);
 
     inline int Limit(int v, int max, int min)
     {

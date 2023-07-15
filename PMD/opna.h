@@ -4,26 +4,37 @@
 #pragma once
 
 #include "FileIO.h"
-#include "ymfm_opn.h"
 
-//  出力サンプルの型
-#define FM_SAMPLETYPE  int32_t        // int16 or int32
+#include <ymfm_opn.h>
 
-// we use an int64_t as emulated time, as a 16.48 fixed point value
-using emulated_time = int64_t;
-
-typedef FM_SAMPLETYPE    Sample;
-typedef int32_t        ISample;
+typedef int32_t Sample;
+typedef int32_t ISample;
+typedef int64_t emulated_time; // We use an int64_t as emulated time, as a 16.48 fixed point value
   
+struct StereoSample
+{
+    Sample left;
+    Sample right;
+};
+
+#pragma pack(push)
+#pragma pack(2)
+struct Stereo16bit
+{
+    short left;
+    short right;
+} ;
+#pragma pack(pop)
+
+#pragma warning(disable: 4265)
 class OPNA : public ymfm::ymfm_interface
 {
 public:
-    static constexpr uint32_t DEFAULT_CLOCK = 3993600*2;
-    
-    OPNA(IFILEIO * pfileio);
+   
+    OPNA(IFileIO * fileio);
     ~OPNA();
     
-    void setfileio(IFILEIO* pfileio);
+    void setfileio(IFileIO* pfileio);
     
     bool Init(uint32_t c, uint32_t r, bool ip = false, const WCHAR * path = nullptr);
     bool SetRate(uint32_t r);
@@ -48,8 +59,10 @@ public:
     
     void Mix(Sample* buffer, int nsamples);
     
+    static constexpr uint32_t DEFAULT_CLOCK = 3993600*2;
+
 protected:
-    IFILEIO * _pfileio;
+    IFileIO * _FileIO;
     
     // internal state
     ymfm::ym2608 m_chip;
@@ -73,7 +86,7 @@ protected:
         uint32_t  rate;    // さんぷるのれーと
     };
     
-    bool frhythm_adpcm_rom;
+    bool _HasADPCMROM;
     
     static constexpr int32_t FM_TLBITS = 7;
     static constexpr int32_t FM_TLENTS = (1 << FM_TLBITS);
@@ -81,7 +94,7 @@ protected:
     
     int32_t tltable[FM_TLENTS + FM_TLPOS];
     
-    Rhythm  rhythm[6];
+    Rhythm  _Rhythm[6];
     int32_t  rhythmtvol;
     int8_t  rhythmtl;    // リズム全体の音量
     uint8_t  rhythmkey;    // リズムのキー
@@ -123,68 +136,3 @@ inline int Limit(int v, int max, int min)
 {
     return ymfm::clamp(v, min, max);
 }
-
-//  class OPN/OPNA
-//  OPN/OPNA に良く似た音を生成する音源ユニット
-//  
-//  interface:
-//  bool Init(uint32_t clock, uint32_t rate, bool, const WCHAR* path);
-//    初期化．このクラスを使用する前にかならず呼んでおくこと．
-//    OPNA の場合はこの関数でリズムサンプルを読み込む
-//
-//    clock:  OPNA のクロック周波数(Hz)
-//
-//    rate:  生成する PCM の標本周波数(Hz)
-//
-//    path:  リズムサンプルのパス(OPNA のみ有効)
-//        省略時はカレントディレクトリから読み込む
-//        文字列の末尾には '\' や '/' などをつけること
-//
-//    返り値  初期化に成功すれば true
-//
-//  bool LoadRhythmSample(const WCHAR* path)
-//    Rhythm サンプルを読み直す．
-//    path は Init の path と同じ．
-//  
-//  bool SetRate(uint32_t clock, uint32_t rate, bool)
-//    クロックや PCM レートを変更する
-//    引数等は Init を参照のこと．
-//  
-//  void Mix(FM_SAMPLETYPE* dest, int nsamples)
-//    Stereo PCM データを nsamples 分合成し， dest で始まる配列に
-//    加える(加算する)
-//    ・dest には sample*2 個分の領域が必要
-//    ・格納形式は L, R, L, R... となる．
-//    ・あくまで加算なので，あらかじめ配列をゼロクリアする必要がある
-//    ・FM_SAMPLETYPE が short 型の場合クリッピングが行われる.
-//    ・この関数は音源内部のタイマーとは独立している．
-//      Timer は Count と GetNextEvent で操作する必要がある．
-//  
-//  void Reset()
-//    音源をリセット(初期化)する
-//
-//  void SetReg(uint32_t reg, uint32_t data)
-//    音源のレジスタ reg に data を書き込む
-//  
-//  uint32_t GetReg(uint32_t reg)
-//    音源のレジスタ reg の内容を読み出す
-//    読み込むことが出来るレジスタは PSG, ADPCM の一部，ID(0xff) とか
-//  
-//  uint32_t ReadStatus()/ReadStatusEx()
-//    音源のステータスレジスタを読み出す
-//    ReadStatusEx は拡張ステータスレジスタの読み出し(OPNA)
-//    busy フラグは常に 0
-//  
-//  bool Count(uint32 t)
-//    音源のタイマーを t [μ秒] 進める．
-//    音源の内部状態に変化があった時(timer オーバーフロー)
-//    true を返す
-//
-//  uint32 GetNextEvent()
-//    音源のタイマーのどちらかがオーバーフローするまでに必要な
-//    時間[μ秒]を返す
-//    タイマーが停止している場合は ULONG_MAX を返す… と思う
-//  
-//  void SetVolumeFM(int db)/SetVolumePSG(int db) ...
-//    各音源の音量を＋－方向に調節する．標準値は 0.
-//    単位は約 1/2 dB，有効範囲の上限は 20 (10dB)

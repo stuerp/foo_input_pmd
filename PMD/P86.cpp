@@ -1,6 +1,10 @@
 ﻿
 // 86B PCM Driver「P86DRV Unit / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60
 
+#include <CppCoreCheck/Warnings.h>
+
+#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+
 #include <Windows.h>
 #include <tchar.h>
 
@@ -9,7 +13,7 @@
 
 #include "P86.h"
 
-P86DRV::P86DRV(IFILEIO * pfileio)
+P86DRV::P86DRV(IFileIO * pfileio)
 {
     this->pfileio = pfileio;
 
@@ -26,7 +30,7 @@ P86DRV::~P86DRV()
 }
 
 //	File Stream 設定
-void P86DRV::setfileio(IFILEIO * pfileio)
+void P86DRV::setfileio(IFileIO * pfileio)
 {
     this->pfileio = pfileio;
 }
@@ -125,7 +129,7 @@ void P86DRV::MakeVolumeTable(int volume)
 }
 
 //	ヘッダ読み込み
-void P86DRV::ReadHeader(IFILEIO * file, P86HEADER & p86header)
+void P86DRV::ReadHeader(IFileIO * file, P86HEADER & p86header)
 {
     uint8_t buf[1552];
     file->Read(buf, sizeof(buf));
@@ -261,7 +265,7 @@ bool P86DRV::SetVol(int _vol)
 //			6 : 33.08kHz
 //			7 : 44.1kHz
 //		_ontei : 設定音程
-bool P86DRV::SetOntei(int _srcrate, uint _ontei)
+bool P86DRV::SetOntei(int _srcrate, uint32_t _ontei)
 {
     if (_srcrate < 0 || _srcrate > 7) return false;
     if (_ontei > 0x1fffff) return false;
@@ -269,7 +273,7 @@ bool P86DRV::SetOntei(int _srcrate, uint _ontei)
     ontei = _ontei;
     srcrate = ratetable[_srcrate];
 
-    _ontei = (uint) ((uint64_t) _ontei * srcrate / rate);
+    _ontei = (uint32_t) ((uint64_t) _ontei * srcrate / rate);
 
     addsize2 = (_ontei & 0xffff) >> 4;
     addsize1 = _ontei >> 16;

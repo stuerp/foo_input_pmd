@@ -193,7 +193,7 @@ size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
     }
 
     if ((MaxLoopNumber > 0) && GetLoopNumber() > MaxLoopNumber - 1)
-        _PMD->SetFadeOutDurationHQ(CfgFadeOutDuration);
+        _PMD->SetFadeOutDurationHQ((int) CfgFadeOutDuration);
 
     _PMD->Render(&_Samples[0], (int) BlockSize);
 

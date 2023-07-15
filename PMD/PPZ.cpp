@@ -1,6 +1,10 @@
 ﻿
 // 8 Channel PCM Driver「PPZ8」Unit (Light Version) / Programmed by UKKY / Windows Converted by C60
 
+#include <CppCoreCheck/Warnings.h>
+
+#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <Windows.h>
@@ -39,7 +43,7 @@ const int ADPCM_EM_PAN[4] =
     0,9,1,5
 };
 
-PPZ8::PPZ8(IFILEIO * pfileio)
+PPZ8::PPZ8(IFileIO * pfileio)
 {
     this->pfileio = pfileio;
 
@@ -62,7 +66,7 @@ PPZ8::~PPZ8()
 }
 
 //	File Stream 設定
-void PPZ8::setfileio(IFILEIO * pfileio)
+void PPZ8::setfileio(IFileIO * pfileio)
 {
     this->pfileio = pfileio;
 }
@@ -180,7 +184,7 @@ bool PPZ8::Stop(int ch)
 }
 
 //	PZIヘッダ読み込み
-void PPZ8::ReadHeader(IFILEIO * file, PZIHEADER & pziheader)
+void PPZ8::ReadHeader(IFileIO * file, PZIHEADER & pziheader)
 {
     uint8_t buf[2336];
     file->Read(buf, sizeof(buf));
@@ -210,7 +214,7 @@ void PPZ8::ReadHeader(IFILEIO * file, PZIHEADER & pziheader)
 }
 
 //	PVIヘッダ読み込み
-void PPZ8::ReadHeader(IFILEIO * file, PVIHEADER & pviheader)
+void PPZ8::ReadHeader(IFileIO * file, PVIHEADER & pviheader)
 {
     uint8_t buf[528];
     file->Read(buf, sizeof(buf));

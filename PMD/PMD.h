@@ -12,15 +12,13 @@
 #include <Windows.h>
 #include <tchar.h>
 
-#include "portability_fmpmdcore.h"
-
+#include "OPNA.h"
 #include "OPNAW.h"
 #include "PPZ.h"
 #include "PPS.h"
 #include "P86.h"
 
 #include "ipmdwin.h"
-#include "IFileIO.h"
 
 typedef int Sample;
 
@@ -127,7 +125,7 @@ public:
     OPEN_WORK * GetOpenWork();
     PartState * GetOpenPartWork(int ch);
 
-    void setfileio(IFILEIO * pfileio);
+    void setfileio(IFileIO * pfileio);
 
 private:
     OPNAW * _OPNA;
@@ -137,7 +135,6 @@ private:
 
     FilePath _FilePath;
     FileIO * _FileIO;
-    IFILEIO * pfileio;
 
     OPEN_WORK _OpenWork;
 

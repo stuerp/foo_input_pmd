@@ -26,8 +26,8 @@ public:
     WCHAR * Strrchr(const WCHAR * str, WCHAR c);
     WCHAR * AddDelimiter(WCHAR * str);
 
-    void Extractpath(WCHAR * dest, const WCHAR * src, uint flg);
-    int Comparepath(WCHAR * filename1, const WCHAR * filename2, uint flg);
+    void Extractpath(WCHAR * dest, const WCHAR * src, unsigned int flg);
+    int Comparepath(WCHAR * filename1, const WCHAR * filename2, unsigned int flg);
     void Makepath(WCHAR * path, const WCHAR * drive, const WCHAR * dir, const WCHAR * fname, const WCHAR * ext);
     void Makepath_dir_filename(WCHAR * path, const WCHAR * dir, const WCHAR * filename);
     WCHAR * ExchangeExt(WCHAR * dest, WCHAR * src, const WCHAR * ext);
@@ -51,7 +51,8 @@ private:
     FilePath(const FilePath &);
 };
 
-class FileIO : public IFILEIO
+#pragma warning(disable: 4820)
+class FileIO : public IFileIO
 {
 public:
     FileIO();
@@ -59,7 +60,7 @@ public:
 
     int64_t WINAPI GetFileSize(const WCHAR * filename);
 
-    bool WINAPI Open(const WCHAR * filename, uint flg);
+    bool WINAPI Open(const WCHAR * filename, unsigned int flg);
     void WINAPI Close();
 
     Error WINAPI GetError() { return error; }
@@ -67,12 +68,12 @@ public:
     int32_t WINAPI Read(void * dest, int32_t len);
     bool WINAPI Seek(int32_t fpos, SeekMethod method);
 
-    uint WINAPI GetFlags() { return flags; }
+    uint32_t WINAPI GetFlags() { return flags; }
     void WINAPI SetLogicalOrigin(int32_t origin) { lorigin = origin; }
 
 private:
-    uint flags;
-    uint32_t lorigin;
+    uint32_t flags;
+    int32_t lorigin;
     Error error;
     WCHAR * path;
 
