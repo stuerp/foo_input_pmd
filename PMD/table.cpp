@@ -1,6 +1,5 @@
 ﻿
-// Professional Music Driver [P.M.D.] version 4.8 Constant Tables
-// Programmed By M.Kajihara, Windows Converted by C60
+// Professional Music Driver [P.M.D.] version 4.8 Constant Tables / Programmed By M. Kajihara / Windows Converted by C60
 
 #include "table.h"
 

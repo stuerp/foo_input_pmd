@@ -6,6 +6,7 @@
 #pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
 #include "PMDDecoder.h"
+#include "Configuration.h"
 
 #include <shared/audio_math.h>
 
@@ -27,11 +28,6 @@ static bool ConvertShiftJITo2UTF8(const char * text, pfc::string8 & utf8);
 PMDDecoder::PMDDecoder() :
     _FilePath(), _Data(), _Size(), _PMD(), _Length(), _LoopLength(), _EventCount(), _LoopEventCount(), _MaxLoopNumber()
 {
-    _PMD = new PMD();
-
-    _PMD->Initialize(L".");
-    _PMD->SetSynthesisFrequency(SOUND_55K);
-
     _Samples.set_count((t_size) BlockSize * ChannelCount);
 }
 
@@ -40,6 +36,7 @@ PMDDecoder::PMDDecoder() :
 /// </summary>
 PMDDecoder::~PMDDecoder()
 {
+    delete _PMD;
 }
 
 /// <summary>
@@ -83,6 +80,9 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
         _Size = size;
     }
 
+    delete _PMD;
+    _PMD = new PMD();
+
     WCHAR FilePath[MAX_PATH];
 
     {
@@ -103,62 +103,61 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
         if (::MultiByteToWideChar(CP_UTF8, 0, pdxSamplesPath, -1, PDXSamplesPath, _countof(PDXSamplesPath)) == 0)
             return false;
 
-        WCHAR * Parts[4] = { 0 };
+        _PMD->Initialize(PDXSamplesPath);
+        _PMD->SetSynthesisFrequency(SOUND_55K);
 
-        const WCHAR * CurrentDirectory = L"./";
+        const WCHAR * Paths[4] = { 0 };
 
         if (::wcslen(DirectoryPath) > 0)
         {
-            Parts[0] = DirectoryPath;
-            Parts[1] = (WCHAR *) PDXSamplesPath;
-            Parts[2] = (WCHAR *) CurrentDirectory;
-            Parts[3] = nullptr;
+            Paths[0] = DirectoryPath;
+            Paths[1] = PDXSamplesPath;
+            Paths[2] = L"./";
+            Paths[3] = nullptr;
         }
         else
         {
-            Parts[0] = (WCHAR *) CurrentDirectory;
-            Parts[1] = (WCHAR *) PDXSamplesPath;
-            Parts[2] = nullptr;
+            Paths[0] = L"./";
+            Paths[1] = PDXSamplesPath;
+            Paths[2] = nullptr;
         }
 
-        if (!_PMD->SetPaths(Parts))
+        if (!_PMD->SetSearchPaths(Paths))
             return false;
     }
 
     {
-        PMD * pmd = new PMD;
+        PMD pmd;
 
-        if (!pmd->Initialize(L"."))
+        if (!pmd.Initialize(L"."))
             return false;
 
-        pmd->MusicLoad(data, size, NULL);
+        pmd.Load(data, size, NULL);
 
-        if (!pmd->GetLength((int *) &_Length, (int *) &_LoopLength))
+        if (!pmd.GetLength((int *) &_Length, (int *) &_LoopLength))
             return false;
 
-        if (!pmd->GetLengthInEvents((int *) &_EventCount, (int *) &_LoopEventCount))
+        if (!pmd.GetLengthInEvents((int *) &_EventCount, (int *) &_LoopEventCount))
             return false;
 
         {
             char Note[1024] = { 0 };
 
-            pmd->GetNote(data, size, 1, Note, _countof(Note));
+            pmd.GetNote(data, size, 1, Note, _countof(Note));
             ConvertShiftJITo2UTF8(Note, _Title);
 
             Note[0] = '\0';
-            pmd->GetNote(data, size, 2, Note, _countof(Note));
+            pmd.GetNote(data, size, 2, Note, _countof(Note));
             ConvertShiftJITo2UTF8(Note, _Composer);
 
             Note[0] = '\0';
-            pmd->GetNote(data, size, 3, Note, _countof(Note));
+            pmd.GetNote(data, size, 3, Note, _countof(Note));
             ConvertShiftJITo2UTF8(Note, _Arranger);
 
             Note[0] = '\0';
-            pmd->GetNote(data, size, 4, Note, _countof(Note));
+            pmd.GetNote(data, size, 4, Note, _countof(Note));
             ConvertShiftJITo2UTF8(Note, _Memo);
         }
-
-        delete pmd;
     }
 
     return true;
@@ -169,7 +168,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
 /// </summary>
 void PMDDecoder::Initialize() const noexcept
 {
-    if (_PMD->MusicLoad(_Data, _Size, NULL) != PMDWIN_OK)
+    if (_PMD->Load(_Data, _Size, NULL) != PMDWIN_OK)
         return;
 
     _PMD->Start();
@@ -194,9 +193,9 @@ size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
     }
 
     if ((MaxLoopNumber > 0) && GetLoopNumber() > MaxLoopNumber - 1)
-        _PMD->SetFadeOutDurationHQ(10 * 1000);
+        _PMD->SetFadeOutDurationHQ(CfgFadeOutDuration);
 
-    _PMD->MusicRender(&_Samples[0], (int) BlockSize);
+    _PMD->Render(&_Samples[0], (int) BlockSize);
 
     audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * sizeof(int16_t) * (t_size) (BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
 
@@ -208,7 +207,7 @@ size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
 /// </summary>
 uint32_t PMDDecoder::GetPosition() const noexcept
 {
-    return (uint32_t) _PMD->GetPosition();
+    return _PMD->GetPosition();
 }
 
 /// <summary>
@@ -216,7 +215,7 @@ uint32_t PMDDecoder::GetPosition() const noexcept
 /// </summary>
 void PMDDecoder::SetPosition(uint32_t milliseconds) const noexcept
 {
-    _PMD->SetPosition((int) milliseconds);
+    _PMD->SetPosition(milliseconds);
 };
 
 /// <summary>

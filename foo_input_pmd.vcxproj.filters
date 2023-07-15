@@ -12,18 +12,18 @@
     <ClInclude Include="PMD\ymfm\ymfm_fm.ipp" />
     <ClInclude Include="PMD\ymfm\ymfm_opn.h" />
     <ClInclude Include="PMD\ymfm\ymfm_ssg.h" />
-    <ClInclude Include="PMD\file_opna.h" />
-    <ClInclude Include="PMD\ifileio.h" />
+    <ClInclude Include="PMD\FileIO.h" />
+    <ClInclude Include="PMD\IFileIO.h" />
     <ClInclude Include="PMD\ipmdwin.h" />
-    <ClInclude Include="PMD\opna.h" />
-    <ClInclude Include="PMD\opnaw.h" />
-    <ClInclude Include="PMD\p86drv.h" />
+    <ClInclude Include="PMD\OPNA.h" />
+    <ClInclude Include="PMD\OPNAW.h" />
+    <ClInclude Include="PMD\P86.h" />
     <ClInclude Include="PMD\PMD.h" />
     <ClInclude Include="PMD\portability_fmpmdcore.h" />
-    <ClInclude Include="PMD\ppsdrv.h" />
-    <ClInclude Include="PMD\ppz8l.h" />
-    <ClInclude Include="PMD\table.h" />
-    <ClInclude Include="PMD\util.h" />
+    <ClInclude Include="PMD\PPS.h" />
+    <ClInclude Include="PMD\PPZ.h" />
+    <ClInclude Include="PMD\Table.h" />
+    <ClInclude Include="PMD\Utility.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
@@ -34,15 +34,15 @@
     <ClCompile Include="PMD\ymfm\ymfm_adpcm.cpp" />
     <ClCompile Include="PMD\ymfm\ymfm_opn.cpp" />
     <ClCompile Include="PMD\ymfm\ymfm_ssg.cpp" />
-    <ClCompile Include="PMD\file_opna.cpp" />
-    <ClCompile Include="PMD\opna.cpp" />
-    <ClCompile Include="PMD\opnaw.cpp" />
-    <ClCompile Include="PMD\p86drv.cpp" />
+    <ClCompile Include="PMD\FileIO.cpp" />
+    <ClCompile Include="PMD\OPNA.cpp" />
+    <ClCompile Include="PMD\OPNAW.cpp" />
+    <ClCompile Include="PMD\P86.cpp" />
     <ClCompile Include="PMD\PMD.cpp" />
-    <ClCompile Include="PMD\ppsdrv.cpp" />
-    <ClCompile Include="PMD\ppz8l.cpp" />
-    <ClCompile Include="PMD\table.cpp" />
-    <ClCompile Include="PMD\util.cpp" />
+    <ClCompile Include="PMD\PPS.cpp" />
+    <ClCompile Include="PMD\PPZ.cpp" />
+    <ClCompile Include="PMD\Table.cpp" />
+    <ClCompile Include="PMD\Utility.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Build-FB2KComponent.ps1" />
@@ -55,5 +55,8 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="LICENSE.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resources\Screenshot.png" />
   </ItemGroup>
 </Project>

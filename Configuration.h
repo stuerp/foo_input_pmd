@@ -11,5 +11,10 @@
 
 #include <sdk/cfg_var.h>
 
+#define DefaultSamplesPath      "."
+#define DefaultMaxLoopNumber    2
+#define DefaultFadeOutDuration  10 * 1000
+
 extern cfg_string CfgSamplesPath;
 extern cfg_uint CfgMaxLoopNumber;
+extern cfg_uint CfgFadeOutDuration;

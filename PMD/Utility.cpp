@@ -1,7 +1,5 @@
-﻿//=============================================================================
-//			Utility Functions
-//				Programmed by C60
-//=============================================================================
+﻿
+// Based on PMDWin code by C60
 
 #define _CRT_SECURE_NO_WARNINGS
 
@@ -10,7 +8,7 @@
 #include <string.h>
 
 #include "portability_fmpmdcore.h"
-#include "util.h"
+#include "Utility.h"
 
 // Returns true if the byte is the first byte of a multi-byte character.
 bool IsMBBLead(unsigned int c)

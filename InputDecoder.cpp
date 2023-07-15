@@ -270,6 +270,8 @@ public:
             _LoopNumber = _Decoder->GetLoopNumber();
 
             fileInfo.info_set_int("pmd_loop_number", _LoopNumber);
+
+            IsDynamicInfoUpdated = true;
         }
 
         return IsDynamicInfoUpdated;

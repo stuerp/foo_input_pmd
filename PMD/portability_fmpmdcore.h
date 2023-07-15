@@ -1,4 +1,7 @@
-﻿#pragma once
+﻿
+// Based on PMDWin code by C60
+
+#pragma once
 
 #include "opna.h"
 
@@ -10,19 +13,17 @@
 #define min(a,b)            (((a) < (b)) ? (a) : (b))
 #endif
 
-typedef struct stereosampletag
+struct StereoSample
 {
-	FM::Sample left;
-	FM::Sample right;
-} StereoSample;
+    Sample left;
+    Sample right;
+};
 
-#pragma pack( push, enter_include1 )
+#pragma pack(push)
 #pragma pack(2)
-
-typedef struct stereo16bittag
+struct Stereo16bit
 {
-	short left;
-	short right;
-} Stereo16bit;
-
-#pragma pack( pop, enter_include1 )
+    short left;
+    short right;
+} ;
+#pragma pack(pop)

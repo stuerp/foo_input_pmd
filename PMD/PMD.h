@@ -1,5 +1,5 @@
 ﻿
-/** $VER: PMD.h (2023.07.15) P. Stuer **/
+// Based on PMDWin code by C60
 
 #pragma once
 
@@ -14,15 +14,13 @@
 
 #include "portability_fmpmdcore.h"
 
-#include "opnaw.h"
-#include "ppz8l.h"
-#include "ppsdrv.h"
-#include "p86drv.h"
+#include "OPNAW.h"
+#include "PPZ.h"
+#include "PPS.h"
+#include "P86.h"
 
 #include "ipmdwin.h"
-#include "ifileio.h"
-
-#define	DLLVersion 51 // v0.51
+#include "IFileIO.h"
 
 typedef int Sample;
 
@@ -35,17 +33,11 @@ struct PCMEnds
 };
 #pragma pack(pop)
 
-
 #define	PVIHeader   "PVI2"
 #define	PPCHeader   "ADPCM DATA for  PMD ver.4.4-  "
 
-//#define ver   "4.8o"
-//#define vers  0x48
-//#define verc  "o"
-//#define date  "Jun.19th 1997"
-
-#define max_part1   22  // Number of parts to be cleared to 0 (for PDPPZ)
-#define max_part2   11  // Number of parts to initialize (for PMDPPZ)
+#define max_part1       22 // Number of parts to be cleared to 0 (for PDPPZ)
+#define max_part2       11 // Number of parts to initialize (for PMDPPZ)
 
 #define MAX_MDATA_SIZE  64 // KB
 #define MAX_VDATA_SIZE   8 // KB
@@ -59,15 +51,14 @@ public:
     PMD();
     virtual ~PMD();
 
-    // IPCMMusicDriver
     bool Initialize(const WCHAR * path);
 
-    int MusicLoad(const uint8_t * data, size_t size, WCHAR * currentDirectoryPath);
+    int Load(const uint8_t * data, size_t size, WCHAR * currentDirectoryPath);
 
-    void Start(void);
-    void Stop(void);
+    void Start();
+    void Stop();
 
-    void MusicRender(int16_t * sampleData, int sampleCount);
+    void Render(int16_t * sampleData, int sampleCount);
 
     uint32_t GetLoopNumber();
 
@@ -75,11 +66,10 @@ public:
     bool GetLengthInEvents(int * songLength, int * loopLength);
 
     uint32_t GetPosition();
-    void SetPosition(int pos);
+    void SetPosition(uint32_t position);
 
-    // IFMPMD
-    bool LoadRythmSample(TCHAR * path);
-    bool SetPaths(TCHAR ** path);
+    bool LoadRythmSample(WCHAR * path);
+    bool SetSearchPaths(const WCHAR ** path);
     
     void SetSynthesisFrequency(int rate);
     void SetPPZSynthesisFrequency(int rate);
@@ -95,16 +85,15 @@ public:
     void SetFadeOutDurationHQ(int speed);
 
     void SetEventNumber(int pos);
-    int GetEventNumber(void);
+    int GetEventNumber();
 
-    TCHAR * GetPCMFileName(TCHAR * dest);
-    TCHAR * GetPPZFileName(TCHAR * dest, int bufnum);
+    WCHAR * GetPCMFileName(WCHAR * dest);
+    WCHAR * GetPPZFileName(WCHAR * dest, int bufnum);
 
-    // IPMDWin
     void EnablePPS(bool value);
     void EnablePlayRythmWithSSG(bool value);
     void EnablePMDB2CompatibilityMode(bool value);
-    bool GetPMDB2CompatibilityMode(void);
+    bool GetPMDB2CompatibilityMode();
     void setppsinterpolation(bool ip);
     void setp86interpolation(bool ip);
 
@@ -117,45 +106,37 @@ public:
     void setadpcmvoldown(int voldown);
     void setppzvoldown(int voldown);
 
-    int getfmvoldown(void);
-    int getfmvoldown2(void);
-    int getssgvoldown(void);
-    int getssgvoldown2(void);
-    int getrhythmvoldown(void);
-    int getrhythmvoldown2(void);
-    int getadpcmvoldown(void);
-    int getadpcmvoldown2(void);
-    int getppzvoldown(void);
-    int getppzvoldown2(void);
+    int getfmvoldown();
+    int getfmvoldown2();
+    int getssgvoldown();
+    int getssgvoldown2();
+    int getrhythmvoldown();
+    int getrhythmvoldown2();
+    int getadpcmvoldown();
+    int getadpcmvoldown2();
+    int getppzvoldown();
+    int getppzvoldown2();
 
     bool GetNote(const uint8_t * data, size_t size, int al, char * text, size_t textSize);
 
-    TCHAR * getppcfilename(TCHAR * dest);
-    TCHAR * getppsfilename(TCHAR * dest);
-    TCHAR * getp86filename(TCHAR * dest);
+    int LoadPPC(WCHAR * filename);
+    int LoadPPS(WCHAR * filename);
+    int LoadP86(WCHAR * filename);
+    int LoadPPZ(WCHAR * filename, int bufnum);
 
-    int LoadPPC(TCHAR * filename);
-    int LoadPPS(TCHAR * filename);
-    int LoadP86(TCHAR * filename);
-    int LoadPPZ(TCHAR * filename, int bufnum);
-
-    OPEN_WORK * GetOpenWork(void);
+    OPEN_WORK * GetOpenWork();
     PartState * GetOpenPartWork(int ch);
 
-    // IFILESTREAM
     void setfileio(IFILEIO * pfileio);
 
 private:
-    bool GetLengthInternal(int * length, int * loop);
-
-private:
-    FM::OPNAW * _OPNA;
+    OPNAW * _OPNA;
     PPZ8 * _PPZ8; 
     PPSDRV * _PPS;
     P86DRV * _P86;
 
     FilePath _FilePath;
-    FileIO * fileio;
+    FileIO * _FileIO;
     IFILEIO * pfileio;
 
     OPEN_WORK _OpenWork;
@@ -176,36 +157,37 @@ private:
     StereoSample wavbuf[nbufsample];
     StereoSample wavbuf_conv[nbufsample];
 
-    char * _PCMPtr;             // Start position of remaining samples in buf
+    uint8_t * _PCMPtr;          // Start position of remaining samples in buf
     int _SamplesToDo;           // Number of samples remaining in buf
     int64_t _Position;          // Time from start of playing (in μs)
     int64_t _FadeOutPosition;   // SetFadeOutDurationHQ start time
-    int seed;                   // Random seed
+    int _Seed;                  // Random seed
 
     uint8_t _MData[MAX_MDATA_SIZE * 1024];
-    uint8_t _VData[MAX_VDATA_SIZE * 1024]; // @不要？
-    uint8_t _EData[MAX_EDATA_SIZE * 1024]; // @不要？
+    uint8_t _VData[MAX_VDATA_SIZE * 1024];
+    uint8_t _EData[MAX_EDATA_SIZE * 1024];
     PCMEnds pcmends;
 
 protected:
-    void InitializeInternal(void);
-    void opnint_start(void);
-    void data_init(void);
-    void opn_init(void);
-    void mstop(void);
-    void mstop_f(void);
-    void silence(void);
-    void mstart(void);
-    void mstart_f(void);
-    void play_init(void);
-    void setint(void);
-    void calc_tb_tempo(void);
-    void calc_tempo_tb(void);
-    void settempo_b(void);
-    void TimerA_main(void);
-    void TimerB_main(void);
-    void mmain(void);
-    void syousetu_count(void);
+    void InitializeInternal();
+    void opnint_start();
+    void data_init();
+    void opn_init();
+
+    void mstart();
+    void mstop();
+
+    void silence();
+    void play_init();
+    void setint();
+    void calc_tb_tempo();
+    void calc_tempo_tb();
+    void settempo_b();
+    void TimerA_main();
+    void TimerB_main();
+    void mmain();
+    void syousetu_count();
+
     void fmmain(PartState * qq);
     void psgmain(PartState * qq);
     void rhythmmain(PartState * qq);
@@ -218,17 +200,14 @@ protected:
     void effgo(PartState * qq, int al);
     void eff_on2(PartState * qq, int al);
     void eff_main(PartState * qq, int al);
-    void effplay(void);
+    void effplay();
     void efffor(const int * si);
-    void effend(void);
-    void effsweep(void);
+    void effend();
+    void effsweep();
 
     uint8_t * pdrswitch(PartState * qq, uint8_t * si);
 
     char * GetNoteInternal(const uint8_t * data, size_t size, int al, char * text);
-    char * _getmemo2(char * dest, const uint8_t * musdata, int size, int al);
-    int	_fgetmemo(char * dest, TCHAR * filename, int al);
-    int	_fgetmemo2(char * dest, TCHAR * filename, int al);
 
     int silence_fmpart(PartState * qq);
     void keyoff(PartState * qq);
@@ -384,13 +363,13 @@ protected:
     uint8_t * fm_efct_set(PartState * qq, uint8_t * si);
     uint8_t * ssg_efct_set(PartState * qq, uint8_t * si);
 
-    void fout(void);
+    void Fade();
     void neiro_reset(PartState * qq);
 
-    int LoadPPCInternal(TCHAR * filename);
+    int LoadPPCInternal(WCHAR * filename);
     int LoadPPCInternal(uint8_t * pcmdata, int size);
 
-    TCHAR * FindPCMSamples(TCHAR * dest, const TCHAR * filename, const TCHAR * current_dir);
+    WCHAR * FindPCMSample(WCHAR * dest, const WCHAR * filename, const WCHAR * current_dir);
     void swap(int * a, int * b);
 
     inline int Limit(int v, int max, int min)

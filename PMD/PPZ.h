@@ -1,11 +1,11 @@
 ﻿
-// 8 Channel PCM Driver「PPZ8」 Unit (Light Version) Programmed by UKKY. Windows Converted by C60
+// 8 Channel PCM Driver「PPZ8」Unit (Light Version) / Programmed by UKKY / Windows Converted by C60
 
 #pragma once
 
 #include "portability_fmpmdcore.h"
-#include "file_opna.h"
-#include "ifileio.h"
+#include "FileIO.h"
+#include "IFileIO.h"
 
 #define SOUND_44K   44100
 
@@ -17,7 +17,6 @@
 #define X_N0        0x80
 #define DELTA_N0    127
 
-//    DLL の 戻り値
 #define _PPZ8_OK                       0        // 正常終了
 #define _ERR_OPEN_PPZ_FILE              1        // PVI/PZI を開けなかった
 #define _ERR_WRONG_PPZ_FILE               2        // PVI/PZI の形式が異なっている

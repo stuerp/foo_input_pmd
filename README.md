@@ -64,10 +64,6 @@ To build the code you need:
 * [foobar2000 SDK](https://www.foobar2000.org/SDK) 2023-05-10
 * [Windows Template Library (WTL)](https://github.com/Win32-WTL/WTL) 10.0.10320
 
-The following library is included in the code:
-
-* [pmdwin](http://c60.la.coocan.jp/) 0.52
-
 To create the deployment package you need:
 
 * [PowerShell 7.2](https://github.com/PowerShell/PowerShell) or later
@@ -106,11 +102,12 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
-v0.2.0, 2023-xx-xx, *""*
+v0.2.0, 2023-07-16, *"Nice progress"*
 
-* Added: pmd_loop_length info tag
+* Added: pmd_loop_length info tag.
 * Added: Seeking to a position in the current song.
 * Added: Loop playing with or without fading.
+* Improved: Loading and scanning a file.
 * Fixed: Files with Unicode filenames failed to load.
 * Fixed: Wrong specification of source buffer size.
 
@@ -122,6 +119,7 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 
 * Peter Pawlowski for the [foobar2000](https://www.foobar2000.org/) audio player. ![foobar2000](https://www.foobar2000.org/button-small.png)
 * C60 for [PMDWin](http://c60.la.coocan.jp/) a library to render PMD files to PCM.
+  * The PMD driver is a heavily modified version of [PMDWin](http://c60.la.coocan.jp/) 0.52.
 * [Aaron Giles](https://github.com/aaronsgiles) for [ymfm](https://github.com/aaronsgiles/ymfm.git).
 
 ## Reference Material

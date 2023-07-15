@@ -1,4 +1,7 @@
-﻿#pragma once
+﻿
+// Based on PMDWin code by C60
+
+#pragma once
 
 #include <Windows.h>
 
@@ -34,5 +37,4 @@ public:
     virtual void Close() = 0;
     virtual int32_t Read(void * dest, int32_t len) = 0;
     virtual bool Seek(int32_t fpos, SeekMethod method) = 0;
-    virtual int32_t Tellp() = 0;
 };

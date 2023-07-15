@@ -1,8 +1,10 @@
-﻿#pragma once
+﻿
+// Based on PMDWin code by C60
 
-#define InterfaceVersion    118 // v1.18
+#pragma once
 
 #define PMDWIN_OK      0  // 正常終了
+
 #define ERR_OPEN_MUSIC_FILE   1  // 曲 データを開けなかった
 #define ERR_WRONG_MUSIC_FILE    2  // PMD の曲データではなかった
 #define ERR_OPEN_PPC_FILE      3  // PPC を開けなかった
@@ -48,7 +50,7 @@
 
 #define DEFAULT_REG_WAIT    15000
 #define MAX_PCMDIR             64
-#define MAX_MEMO          1024
+#define MAX_MEMO             1024
 
 #define nbufsample          30000
 #define OPNAClock   (3993600 * 2)
@@ -232,14 +234,14 @@ struct OPEN_WORK
     int kshot_dat; // ＳＳＧリズム shot flag
     bool _IsPlaying; // True if a song is playing
     int fade_stop_flag;  // Fadeout後 MSTOPするかどうかのフラグ
-    bool  kp_rhythm_flag;  // K/RpartでRhythm音源を鳴らすかflag
+    bool kp_rhythm_flag;  // K/RpartでRhythm音源を鳴らすかflag
     int pcm_gs_flag;  // ADPCM使用 許可フラグ (0で許可)
     int slot_detune1;  // FM3 Slot Detune値 slot1
     int slot_detune2;  // FM3 Slot Detune値 slot2
     int slot_detune3;  // FM3 Slot Detune値 slot3
     int slot_detune4;  // FM3 Slot Detune値 slot4
     int TimerB_speed;  // TimerBの現在値(=ff_tempoならff中)
-    int fadeout_flag;  // 内部からfoutを呼び出した時1
+    int fadeout_flag;  // When calling Fade from inside 1
     int revpan;  // PCM86逆相flag
     int pcm86_vol; // PCM86の音量をSPBに合わせるか?
     int syousetu; // 小節カウンタ
@@ -251,6 +253,7 @@ struct OPEN_WORK
     int _pcm_voldown;  // PCM voldown 数値 (保存用)
     int _rhythm_voldown; // RHYTHM voldown 数値 (保存用)
     int _pcm86_vol; // PCM86の音量をSPBに合わせるか? (保存用)
+
     int rshot_bd; // リズム音源 shot inc flag (BD)
     int rshot_sd; // リズム音源 shot inc flag (SD)
     int rshot_sym; // リズム音源 shot inc flag (CYM)
@@ -263,6 +266,7 @@ struct OPEN_WORK
     int rdump_hh; // リズム音源 dump inc flag (HH)
     int rdump_tom; // リズム音源 dump inc flag (TOM)
     int rdump_rim; // リズム音源 dump inc flag (RIM)
+
     int ch3mode; // ch3 Mode
     int ppz_voldown;  // PPZ8 voldown 数値
     int _ppz_voldown;  // PPZ8 voldown 数値 (保存用)
@@ -280,6 +284,6 @@ struct OPEN_WORK
 
     int _FadeOutSpeedHQ;                        // Fadeout (High Sound Quality) speed (fadeout at > 0)
 
-    TCHAR ppcfilename[MAX_PATH];              // PPC のFILE名バッファ
-    TCHAR pcmdir[MAX_PCMDIR + 1][MAX_PATH];   // PCM 検索ディレクトリ
+    WCHAR ppcfilename[MAX_PATH];              // PPC のFILE名バッファ
+    WCHAR _SearchPath[MAX_PCMDIR + 1][MAX_PATH];   // PCM Search Path
 };
