@@ -12,9 +12,8 @@
     <ClInclude Include="PMD\ymfm\ymfm_fm.ipp" />
     <ClInclude Include="PMD\ymfm\ymfm_opn.h" />
     <ClInclude Include="PMD\ymfm\ymfm_ssg.h" />
-    <ClInclude Include="PMD\FileIO.h" />
-    <ClInclude Include="PMD\IFileIO.h" />
-    <ClInclude Include="PMD\ipmdwin.h" />
+    <ClInclude Include="PMD\File.h" />
+    <ClInclude Include="PMD\PMDPrivate.h" />
     <ClInclude Include="PMD\OPNA.h" />
     <ClInclude Include="PMD\OPNAW.h" />
     <ClInclude Include="PMD\P86.h" />
@@ -33,7 +32,7 @@
     <ClCompile Include="PMD\ymfm\ymfm_adpcm.cpp" />
     <ClCompile Include="PMD\ymfm\ymfm_opn.cpp" />
     <ClCompile Include="PMD\ymfm\ymfm_ssg.cpp" />
-    <ClCompile Include="PMD\FileIO.cpp" />
+    <ClCompile Include="PMD\File.cpp" />
     <ClCompile Include="PMD\OPNA.cpp" />
     <ClCompile Include="PMD\OPNAW.cpp" />
     <ClCompile Include="PMD\P86.cpp" />

@@ -4,8 +4,6 @@
 #pragma once
 
 #include "OPNA.h"
-#include "FileIO.h"
-#include "IFileIO.h"
 
 #define SOUND_44K   44100
 
@@ -19,8 +17,8 @@
 
 #define _PPZ8_OK                       0        // 正常終了
 #define _ERR_OPEN_PPZ_FILE              1        // PVI/PZI を開けなかった
-#define _ERR_WRONG_PPZ_FILE               2        // PVI/PZI の形式が異なっている
-#define _WARNING_PPZ_ALREADY_LOAD      3        // PVI/PZI はすでに読み込まれている
+#define ERR_PPZ_UNKNOWN_FORMAT               2        // PVI/PZI の形式が異なっている
+#define ERR_PPZ_ALREADY_LOADED      3        // PVI/PZI はすでに読み込まれている
 
 #define _ERR_OUT_OF_MEMORY             99        // メモリを確保できなかった
 
@@ -48,42 +46,42 @@ struct CHANNELWORK
     bool    pviflag;                // PVI なら true
 };
 
-#pragma pack(push, enter_include1)
+#pragma pack(push)
 #pragma pack(1)
 struct PZIHEADER
 {
-    char    header[4];                // 'PZI1'
-    char    dummy1[0x0b - 4];            // 予備１
-    uint8_t    pzinum;                    // PZIデータの定義数
-    char    dummy2[0x20 - 0x0b - 1];    // 予備２
+    char ID[4];                     // 'PZI1'
+    char dummy1[0x0b - 4];
+    uint8_t pzinum;                 // Number of PZI entries available
+    char dummy2[0x20 - 0x0b - 1];
     struct
     {
-        uint32_t    startaddress;    // 先頭アドレス
-        uint32_t    size;            // データ量
-        uint32_t    loop_start;        // ループ開始ポインタ
-        uint32_t    loop_end;        // ループ終了ポインタ
-        uint16_t    rate;            // 再生周波数
+        uint32_t startaddress;      // 先頭アドレス
+        uint32_t size;              // データ量
+        uint32_t loop_start;        // ループ開始ポインタ
+        uint32_t   loop_end;        // ループ終了ポインタ
+        uint16_t rate;              // 再生周波数
     } pcmnum[128];
 };
 
 struct PVIHEADER
 {
-    char    header[4];                // 'PVI2'
-    char    dummy1[0x0b - 4];            // 予備１
-    uint8_t    pvinum;                    // PVIデータの定義数
-    char    dummy2[0x10 - 0x0b - 1];    // 予備２
+    char ID[4];                     // 'PVI2'
+    char dummy1[0x0b - 4];
+    uint8_t pvinum;                 // Number of PVI entries available
+    char dummy2[0x10 - 0x0b - 1];
     struct
     {
-        uint16_t    startaddress;    // 先頭アドレス
-        uint16_t    endaddress;        // データ量
+        uint16_t startaddress;      // Address
+        uint16_t endaddress;        // Size of data
     } pcmnum[128];
 };
-#pragma pack(pop, enter_include1)
+#pragma pack(pop)
 
 class PPZ8
 {
 public:
-    PPZ8(IFileIO * pfileio);
+    PPZ8(File * fileio);
     virtual ~PPZ8();
 
     bool __cdecl Init(uint32_t rate, bool ip);            // 00H 初期化
@@ -91,8 +89,8 @@ public:
     // 01H PCM 発音
     bool __cdecl Stop(int ch);                            // 02H PCM 停止
     int  __cdecl Load(TCHAR * filename, int bufnum);        // 03H PVI/PZIﾌｧｲﾙの読み込み
-    bool __cdecl SetVol(int ch, int vol);                // 07H ﾎﾞﾘｭｰﾑ設定
-    bool __cdecl SetOntei(int ch, uint32_t ontei);        // 0BH 音程周波数の設定
+    bool __cdecl SetVolume(int ch, int vol);                // 07H ﾎﾞﾘｭｰﾑ設定
+    bool __cdecl SetPitchFrequency(int ch, uint32_t ontei);        // 0BH 音程周波数の設定
     bool __cdecl SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);
     // 0EH ﾙｰﾌﾟﾎﾟｲﾝﾀの設定
     void __cdecl AllStop(void);                            // 12H (PPZ8)全停止
@@ -107,7 +105,6 @@ public:
     //FIFOBUFF_SET        ;1AH (PPZ8)FIFOﾊﾞｯﾌｧの変更
     //RATE_SET        ;1BH (PPZ8)WSS詳細ﾚｰﾄ設定
 
-    void setfileio(IFileIO * pfileio);
     void Mix(Sample * dest, int nsamples);
 
     PZIHEADER PCME_WORK[2];                        // PCMの音色ヘッダー
@@ -115,8 +112,7 @@ public:
     TCHAR    PVI_FILE[2][_MAX_PATH];                // ファイル名
 
 private:
-    FilePath    filepath;                        // ファイルパス関連のクラスライブラリ
-    IFileIO * pfileio;                        // ファイルアクセス関連のクラスライブラリ
+    File * _File;                        // ファイルアクセス関連のクラスライブラリ
 
     void    WORK_INIT(void);                    // ﾜｰｸ初期化
     bool    ADPCM_EM_FLG;                        // CH8 でADPCM エミュレートするか？
@@ -134,10 +130,10 @@ private:
     //    static Sample VolumeTable[16][256];            // 音量テーブル
     Sample VolumeTable[16][256];                // 音量テーブル
 
-    void    _Init(void);                        // 初期化(内部処理)
+    void    InitializeInternal(void);                        // 初期化(内部処理)
     void    MakeVolumeTable(int vol);            // 音量テーブルの作成
-    void     ReadHeader(IFileIO * file, PZIHEADER & pziheader);
-    void     ReadHeader(IFileIO * file, PVIHEADER & pviheader);
+    void     ReadHeader(File * file, PZIHEADER & pziheader);
+    void     ReadHeader(File * file, PVIHEADER & pviheader);
 
     inline int Limit(int v, int max, int min)
     {

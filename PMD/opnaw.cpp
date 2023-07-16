@@ -12,30 +12,21 @@
 
 #define M_PI 3.14159265358979323846
 
-// Declare if you want linear interpolation in this unit
-// Added since fmgen 007 deprecated linear interpolation
-
+// Declare if you want linear interpolation in this unit. Added because fmgen 007 deprecated linear interpolation
 #define INTERPOLATION_IN_THIS_UNIT
 
-OPNAW::OPNAW(IFileIO * pfileio) : OPNA(pfileio)
+OPNAW::OPNAW(File * file) : OPNA(file)
 {
-    _Init();
+    InitializeInternal();
 }
 
 OPNAW::~OPNAW()
 {
 }
 
-//  File Stream 設定
-void OPNAW::setfileio(IFileIO * pfileio)
-{
-    OPNA::setfileio(pfileio);
-}
-
-//  初期化
 bool OPNAW::Init(uint32_t c, uint32_t r, bool ipflag, const WCHAR * path)
 {
-    _Init();
+    InitializeInternal();
     rate2 = r;
 
 #ifdef INTERPOLATION_IN_THIS_UNIT
@@ -52,10 +43,9 @@ bool OPNAW::Init(uint32_t c, uint32_t r, bool ipflag, const WCHAR * path)
 #endif
 }
 
-//  初期化(内部処理)
-void OPNAW::_Init()
+void OPNAW::InitializeInternal()
 {
-    memset(pre_buffer, 0, sizeof(pre_buffer));
+    ::memset(pre_buffer, 0, sizeof(pre_buffer));
 
     fmwait = 0;
     ssgwait = 0;
@@ -71,19 +61,21 @@ void OPNAW::_Init()
     write_pos = 0;
     count2 = 0;
 
-    memset(ip_buffer, 0, sizeof(ip_buffer));
+    ::memset(ip_buffer, 0, sizeof(ip_buffer));
     rate2 = 0;
     interpolation2 = false;
     delta = 0;
     delta_double = 0.0;
 
-    //@ 標本化定理及びLPFの仮設定
+    // Sampling theorem and provisional setting of LPF
     ffirst = true;
     rest = 0;
     write_pos_ip = NUMOFINTERPOLATION;
 }
 
-//  サンプリングレート変更
+/// <summary>
+/// Sets the synthesis rate.
+/// </summary>
 bool OPNAW::SetRate(uint32_t c, uint32_t r, bool ipflag)
 {
     bool result;
@@ -98,8 +90,6 @@ bool OPNAW::SetRate(uint32_t c, uint32_t r, bool ipflag)
 
     //@ 標本化定理及びLPFの仮設定
     ffirst = true;
-    //@ rest = IP_PCM_BUFFER_SIZE - NUMOFINTERPOLATION;
-    //@ rest = 0;
 
 #ifdef INTERPOLATION_IN_THIS_UNIT
     if (ipflag)
@@ -114,10 +104,10 @@ bool OPNAW::SetRate(uint32_t c, uint32_t r, bool ipflag)
     result = OPNA::SetRate(c, r, ipflag);
 #endif
 
-    fmwaitcount = fmwait * rate / 1000000;
-    ssgwaitcount = ssgwait * rate / 1000000;
-    rhythmwaitcount = rhythmwait * rate / 1000000;
-    adpcmwaitcount = adpcmwait * rate / 1000000;
+    fmwaitcount = fmwait * _Rate / 1000000;
+    ssgwaitcount = ssgwait * _Rate / 1000000;
+    rhythmwaitcount = rhythmwait * _Rate / 1000000;
+    adpcmwaitcount = adpcmwait * _Rate / 1000000;
 
     return result;
 }
@@ -126,25 +116,25 @@ bool OPNAW::SetRate(uint32_t c, uint32_t r, bool ipflag)
 void OPNAW::SetFMWait(int nsec)
 {
     fmwait = nsec;
-    fmwaitcount = nsec * rate / 1000000;
+    fmwaitcount = nsec * _Rate / 1000000;
 }
 
 void OPNAW::SetSSGWait(int nsec)
 {
     ssgwait = nsec;
-    ssgwaitcount = nsec * rate / 1000000;
+    ssgwaitcount = nsec * _Rate / 1000000;
 }
 
 void OPNAW::SetRhythmWait(int nsec)
 {
     rhythmwait = nsec;
-    rhythmwaitcount = nsec * rate / 1000000;
+    rhythmwaitcount = nsec * _Rate / 1000000;
 }
 
 void OPNAW::SetADPCMWait(int nsec)
 {
     adpcmwait = nsec;
-    adpcmwaitcount = nsec * rate / 1000000;
+    adpcmwaitcount = nsec * _Rate / 1000000;
 }
 
 //  Wait 取得

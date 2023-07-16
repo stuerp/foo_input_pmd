@@ -4,8 +4,6 @@
 #pragma once
 
 #include "OPNA.h"
-#include "FileIO.h"
-#include "IFileio.h"
 
 //  DLL の 戻り値
 #define  _P86DRV_OK            0    // 正常終了
@@ -62,10 +60,8 @@ const int ratetable[] =
 class P86DRV
 {
 public:
-    P86DRV(IFileIO * pfileio);
+    P86DRV(File * file);
     virtual ~P86DRV();
-
-    void setfileio(IFileIO * pfileio);
 
     bool Init(uint32_t r, bool ip);            // 初期化
     bool Stop(void);                // P86 停止
@@ -85,8 +81,7 @@ public:
     P86HEADER2 p86header;              // P86 の音色ヘッダー
 
 private:
-    FilePath  filepath;              // ファイルパス関連のクラスライブラリ
-    IFileIO * pfileio;              // ファイルアクセス関連のクラスライブラリ
+    File * _File;              // ファイルアクセス関連のクラスライブラリ
 
     bool  interpolation;              // 補完するか？
     int    rate;                  // 再生周波数
@@ -119,7 +114,7 @@ private:
 
     void  _Init(void);              // 初期化(内部処理)
     void  MakeVolumeTable(int volume);
-    void   ReadHeader(IFileIO * file, P86HEADER & p86header);
+    void   ReadHeader(File * file, P86HEADER & p86header);
     void  double_trans(Sample * dest, int nsamples);
     void  double_trans_g(Sample * dest, int nsamples);
     void  left_trans(Sample * dest, int nsamples);

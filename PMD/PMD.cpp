@@ -19,12 +19,12 @@
 /// </summary>
 PMD::PMD()
 {
-    _FileIO = new FileIO();
+    _File = new File();
 
-    _OPNA = new OPNAW(_FileIO);
-    _PPZ8 = new PPZ8(_FileIO);
-    _PPS  = new PPSDRV(_FileIO);
-    _P86  = new P86DRV(_FileIO);
+    _OPNA = new OPNAW(_File);
+    _PPZ8 = new PPZ8(_File);
+    _PPS  = new PPSDRV(_File);
+    _P86  = new P86DRV(_File);
 
     InitializeInternal();
 }
@@ -49,8 +49,8 @@ bool PMD::Initialize(const WCHAR * directoryPath)
 
     if (directoryPath != nullptr)
     {
-        _FilePath.Strcpy(Path, directoryPath);
-        _FilePath.AddDelimiter(Path);
+        ::wcscpy(Path, directoryPath);
+        AddBackslash(Path, _countof(Path));
     }
 
     InitializeInternal();
@@ -58,8 +58,6 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _PPZ8->Init(_OpenWork._OPNARate, false);
     _PPS->Init(_OpenWork._OPNARate, false);
     _P86->Init(_OpenWork._OPNARate, false);
-
-    ::memset(_OpenWork._SearchPath, 0, sizeof(_OpenWork._SearchPath));
 
     if (_OPNA->Init(OPNAClock, SOUND_44K, false, Path) == false)
         return false;
@@ -103,9 +101,6 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     }
 
     _OpenWork.ppcfilename[0] = '\0';
-
-    for (int i = 0; i < MAX_PCMDIR + 1; ++i)
-        _OpenWork._SearchPath[i][0] = '\0';
 
     // Initial setting of 088/188/288/388 (same INT number only)
     _OPNA->SetReg(0x29, 0x00);
@@ -260,256 +255,132 @@ void PMD::InitializeInternal()
     effwork.psgefcnum = 0xff;
 }
 
-int PMD::Load(const uint8_t * data, size_t size, WCHAR * currentDirectoryPath)
+int PMD::Load(const uint8_t * data, size_t size)
 {
     if (size > sizeof(_MData))
-        return ERR_WRONG_MUSIC_FILE;
+        return ERR_UNKNOWN_FORMAT;
 
     // 020120 Header parsing only for Towns
     if ((data[0] > 0x0F && data[0] != 0xFF) || (data[1] != 0x18 && data[1] != 0x1A) || data[2] != 0x00)
-        return ERR_WRONG_MUSIC_FILE; //not PMD data
+        return ERR_UNKNOWN_FORMAT;
 
     Stop();
 
     ::memcpy(_MData, data, size);
     ::memset(_MData + size, 0, sizeof(_MData) - size);
 
-    int resultp1= PMDWIN_OK;
-    int resultp2= PMDWIN_OK;
-    int resultpps= PMDWIN_OK;
-    int resultz1= PMDWIN_OK;
-    int resultz2= PMDWIN_OK;
+    if (_OpenWork._SearchPath.size() == 0)
+        return ERR_SUCCES;
+
+    int Result = ERR_SUCCES;
 
     char FileName[MAX_PATH] = { 0 };
-
-    WCHAR PCMFileName[MAX_PATH] = { 0 };
-    WCHAR PPSFileName[MAX_PATH] = { 0 };
-    WCHAR PPZFileName1[MAX_PATH] = { 0 };
-    WCHAR PPZFileName2[MAX_PATH] = { 0 };
+    WCHAR FileNameW[MAX_PATH] = { 0 };
 
     WCHAR FilePath[MAX_PATH] = { 0 };
 
-    // PPC/P86 reading
-    GetNoteInternal(data, size, 0, FileName);
-    _FilePath.CharToWCHARn(PCMFileName, FileName, sizeof(FileName));
-
-    if (*PCMFileName != '\0')
+    // P86/PPC reading
     {
-        if (_FilePath.Comparepath(PCMFileName, _T(".P86"), FilePath::extractpath_ext) == 0)
+        GetNoteInternal(data, size, 0, FileName);
+
+        if (*FileName != '\0')
         {
-            // P86 -> PPC
-            FindPCMSample(FilePath, PCMFileName, currentDirectoryPath);
-            resultp1 = _P86->Load(FilePath);
+            ::MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, FileName, -1, FileNameW, _countof(FileNameW));
 
-            if (resultp1 == _P86DRV_OK || resultp1 == _WARNING_P86_ALREADY_LOAD)
+            if (HasExtension(FileNameW, _countof(FileNameW), L".P86"))
             {
-                _OpenWork._UseP86 = true;
-            }
-            else
-            {
-                _FilePath.ExchangeExt(PCMFileName, PCMFileName, _T(".PPC"));
+                FindPCMSample(FilePath, FileNameW);
 
-                FindPCMSample(FilePath, PCMFileName, currentDirectoryPath);
-                resultp2 = LoadPPCInternal(FilePath);
+                Result = _P86->Load(FilePath);
 
-                if (resultp2 == PMDWIN_OK || resultp2 == WARNING_PPC_ALREADY_LOAD)
-                {
-                    _OpenWork._UseP86 = false;
-                }
-            }
-        }
-        else
-        {
-            // PPC -> P86
-            FindPCMSample(FilePath, PCMFileName, currentDirectoryPath);
-
-            resultp1 = LoadPPCInternal(FilePath);
-
-            if (resultp1 == PMDWIN_OK || resultp1 == WARNING_PPC_ALREADY_LOAD)
-            {
-                _OpenWork._UseP86 = false;
-            }
-            else
-            {
-                _FilePath.ExchangeExt(PCMFileName, PCMFileName, _T(".P86"));
-
-                FindPCMSample(FilePath, PCMFileName, currentDirectoryPath);
-
-                resultp2 = _P86->Load(FilePath);
-
-                if (resultp2 == _P86DRV_OK || resultp2 == _WARNING_P86_ALREADY_LOAD)
-                {
+                if (Result == _P86DRV_OK || Result == _WARNING_P86_ALREADY_LOAD)
                     _OpenWork._UseP86 = true;
-                }
+            }
+            else
+            if (HasExtension(FileNameW, _countof(FileNameW), L".PPC"))
+            {
+                FindPCMSample(FilePath, FileNameW);
+
+                Result = LoadPPCInternal(FilePath);
+
+                if (Result == ERR_SUCCES || Result == ERR_ALREADY_LOADED)
+                    _OpenWork._UseP86 = false;
             }
         }
     }
 
     // PPS import
-    bool ppsext = false;
-
-    GetNoteInternal(data, size, -1, FileName);
-    _FilePath.CharToWCHARn(PCMFileName, FileName, sizeof(FileName));
-
-    if (*PCMFileName != '\0')
     {
-        // 拡張子を .PPS に変換する
-        if (_FilePath.Comparepath(PCMFileName, _T(".PPS"), FilePath::extractpath_ext) == 0)
-            ppsext = true;
-        else
-            _FilePath.ExchangeExt(PCMFileName, PCMFileName, _T(".PPS"));
+        GetNoteInternal(data, size, -1, FileName);
 
-        FindPCMSample(FilePath, PCMFileName, currentDirectoryPath);
-
-        resultpps = _PPS->Load(FilePath);
-
-        if (resultpps == _ERR_OPEN_PPS_FILE && ppsext == false)
+        if (*FileName != '\0')
         {
-            // If the file cannot be read, restore the extension and reopen it
-            FindPCMSample(FilePath, PPSFileName, currentDirectoryPath);
-            resultpps = _PPS->Load(FilePath);
+            ::MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, FileName, -1, FileNameW, _countof(FileNameW));
+
+            if (HasExtension(FileNameW, _countof(FileNameW), L".PPS"))
+            {
+                FindPCMSample(FilePath, FileNameW);
+
+                Result = _PPS->Load(FilePath);
+            }
         }
     }
 
     // 20010120 Ignore if TOWNS
-    GetNoteInternal(data, size, -2, FileName);
-    _FilePath.CharToWCHARn(PPZFileName1, FileName, sizeof(FileName));
-
-    if (*PPZFileName1 != '\0')
     {
-        if (_FilePath.Comparepath(PPZFileName1, _T(".PMB"), FilePath::extractpath_ext) != 0 && data[0] != 0xff)
+        GetNoteInternal(data, size, -2, FileName);
+
+        if (*FileName != '\0')
         {
-            // PPZ 読み込み
-            if (*PPZFileName1 != '\0')
+            ::MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, FileName, -1, FileNameW, _countof(FileNameW));
+
+            if (HasExtension(FileNameW, _countof(FileNameW), L".PZI") && (data[0] != 0xff))
             {
-                WCHAR * p = _FilePath.Strchr(PPZFileName1, ',');
+                FindPCMSample(FilePath, FileNameW);
+
+                Result = _PPZ8->Load(FilePath, 0);
+            }
+            else
+            if (HasExtension(FileNameW, _countof(FileNameW), L".PMB") && (data[0] != 0xff))
+            {
+                WCHAR * p = ::wcschr(FileNameW, ',');
 
                 if (p == NULL)
-                {  // １つのみ
-                    if ((p = _FilePath.Strchr(PPZFileName1, '.')) == NULL)
-                        _FilePath.ExchangeExt(PPZFileName1, PPZFileName1, _T(".PZI"));  // とりあえず pzi にする
+                {
+                    if ((p = ::wcschr(FileNameW, '.')) == NULL)
+                        RenameExtension(FileNameW, _countof(FileNameW), L".PZI");
 
-                    FindPCMSample(FilePath, PPZFileName1, currentDirectoryPath);
-                    resultz1 = _PPZ8->Load(FilePath, 0);
+                    FindPCMSample(FilePath, FileNameW);
+
+                    Result = _PPZ8->Load(FilePath, 0);
                 }
                 else
                 {
                     *p = '\0';
 
-                    _FilePath.Strcpy(PPZFileName2, p + 1);
+                    WCHAR PPZFileName2[MAX_PATH] = { 0 };
 
-                    if ((p = _FilePath.Strchr(PPZFileName1, '.')) == NULL)
-                        _FilePath.ExchangeExt(PPZFileName1, PPZFileName1, _T(".PZI"));  // とりあえず pzi にする
+                    ::wcscpy(PPZFileName2, p + 1);
 
-                    if ((p = _FilePath.Strchr(PPZFileName2, '.')) == NULL)
-                        _FilePath.ExchangeExt(PPZFileName2, PPZFileName2, _T(".PZI"));  // とりあえず pzi にする
+                    if ((p = ::wcschr(FileNameW, '.')) == NULL)
+                        RenameExtension(FileNameW, _countof(FileNameW), L".PZI");
 
-                    FindPCMSample(FilePath, PPZFileName1, currentDirectoryPath);
-                    resultz1 = _PPZ8->Load(FilePath, 0);
+                    if ((p = ::wcschr(PPZFileName2, '.')) == NULL)
+                        RenameExtension(PPZFileName2, _countof(PPZFileName2), L".PZI");
 
-                    FindPCMSample(FilePath, PPZFileName2, currentDirectoryPath);
-                    resultz2 = _PPZ8->Load(FilePath, 1);
+                    FindPCMSample(FilePath, FileNameW);
+
+                    Result = _PPZ8->Load(FilePath, 0);
+
+                    FindPCMSample(FilePath, PPZFileName2);
+
+                    Result = _PPZ8->Load(FilePath, 1);
                 }
             }
         }
     }
 
-    switch (resultp1)
-    {
-        case PMDWIN_OK:
-        case WARNING_PPC_ALREADY_LOAD:
-        case _WARNING_P86_ALREADY_LOAD:
-
-            switch (resultpps)
-            {
-                case _PPSDRV_OK:
-                case _WARNING_PPS_ALREADY_LOAD:
-
-                    switch (resultz1)
-                    {
-                        case PMDWIN_OK:
-                        case _WARNING_PPZ_ALREADY_LOAD:
-
-                            switch (resultz2)
-                            {
-                                case _PPZ8_OK:          return PMDWIN_OK;
-                                case _WARNING_PPZ_ALREADY_LOAD:  return PMDWIN_OK;
-
-                                case _ERR_OPEN_PPZ_FILE:    return ERR_OPEN_PPZ2_FILE;
-                                case _ERR_WRONG_PPZ_FILE:    return ERR_WRONG_PPZ2_FILE;
-                                case _ERR_OUT_OF_MEMORY:    return ERR_OUT_OF_MEMORY;
-                                default:            return resultz2;
-                            }
-
-                        case _ERR_OPEN_PPZ_FILE:      return ERR_OPEN_PPZ1_FILE;
-                        case _ERR_WRONG_PPZ_FILE:      return ERR_WRONG_PPZ1_FILE;
-                        case _ERR_OUT_OF_MEMORY:      return ERR_OUT_OF_MEMORY;
-                        default:              return resultz1;
-                    }
-
-
-                case _ERR_OPEN_PPS_FILE:          return ERR_OPEN_PPS_FILE;
-                case _ERR_OUT_OF_MEMORY:          return ERR_OUT_OF_MEMORY;
-                default:                  return resultpps;
-            }
-
-        case ERR_OPEN_PPC_FILE:
-        case ERR_WRONG_PPC_FILE:
-        case ERR_OUT_OF_MEMORY:
-
-        case _ERR_OPEN_P86_FILE:
-        case _ERR_WRONG_P86_FILE:
-
-            switch (resultp2)
-            {
-                case PMDWIN_OK:
-                case WARNING_PPC_ALREADY_LOAD:
-                case _WARNING_P86_ALREADY_LOAD:
-
-                    switch (resultpps)
-                    {
-                        case _PPSDRV_OK:
-                        case _WARNING_PPS_ALREADY_LOAD:
-
-                            switch (resultz1)
-                            {
-                                case PMDWIN_OK:
-                                case _WARNING_PPZ_ALREADY_LOAD:
-
-                                    switch (resultz2)
-                                    {
-                                        case _PPZ8_OK:          return PMDWIN_OK;
-                                        case _WARNING_PPZ_ALREADY_LOAD:  return PMDWIN_OK;
-
-                                        case _ERR_OPEN_PPZ_FILE:    return ERR_OPEN_PPZ2_FILE;
-                                        case _ERR_WRONG_PPZ_FILE:    return ERR_WRONG_PPZ2_FILE;
-                                        case _ERR_OUT_OF_MEMORY:    return ERR_OUT_OF_MEMORY;
-                                        default:            return resultz2;
-                                    }
-
-                                case _ERR_OPEN_PPZ_FILE:      return ERR_OPEN_PPZ1_FILE;
-                                case _ERR_WRONG_PPZ_FILE:      return ERR_WRONG_PPZ1_FILE;
-                                case _ERR_OUT_OF_MEMORY:      return ERR_OUT_OF_MEMORY;
-                                default:              return resultz1;
-                            }
-
-
-                        case _ERR_OPEN_PPS_FILE:          return ERR_OPEN_PPS_FILE;
-                        case _ERR_OUT_OF_MEMORY:          return ERR_OUT_OF_MEMORY;
-                        default:                  return resultpps;
-                    }
-
-                default:
-                    switch (resultp1)
-                    {
-                        case _ERR_OPEN_P86_FILE:          return ERR_OPEN_P86_FILE;
-                        case _ERR_WRONG_P86_FILE:          return ERR_WRONG_P86_FILE;
-                        default:                  return resultp1;
-                    }
-            }
-    }
-
-    return PMDWIN_OK;
+    return ERR_SUCCES;
 }
 
 /// <summary>
@@ -833,8 +704,8 @@ bool PMD::LoadRythmSample(WCHAR * path)
 {
     WCHAR Path[MAX_PATH];
 
-    _FilePath.Strcpy(Path, path);
-    _FilePath.AddDelimiter(Path);
+    ::wcscpy(Path, path);
+    AddBackslash(Path, _countof(Path));
 
     Stop();
 
@@ -842,27 +713,17 @@ bool PMD::LoadRythmSample(WCHAR * path)
 }
 
 // Sets the PCM search directory
-bool PMD::SetSearchPaths(const WCHAR ** pathList)
+bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
 {
-    int i = 0;
-
-    while ((pathList[i] != nullptr) && (i < MAX_PCMDIR))
+    for (std::vector<const WCHAR *>::iterator iter = paths.begin(); iter < paths.end(); iter++)
     {
-        if (*pathList[i] == '\0')
-            break;
+        WCHAR Path[MAX_PATH];
 
-        _FilePath.Strcpy(_OpenWork._SearchPath[i], pathList[i]);
-        _FilePath.AddDelimiter(_OpenWork._SearchPath[i]);
+        ::wcscpy(Path, *iter);
+        AddBackslash(Path, _countof(Path));
 
-        if (++i == MAX_PCMDIR)
-        {
-            _OpenWork._SearchPath[i][0] = '\0';
-    
-            return false;
-        }
+        _OpenWork._SearchPath.push_back(Path);
     }
-
-    _OpenWork._SearchPath[i][0] = '\0';
 
     return true;
 }
@@ -998,9 +859,9 @@ int PMD::GetEventNumber()
 WCHAR * PMD::GetPCMFileName(WCHAR * filePath)
 {
     if (_OpenWork._UseP86)
-        _FilePath.Strcpy(filePath, _P86->p86_file);
+        ::wcscpy(filePath, _P86->p86_file);
     else
-        _FilePath.Strcpy(filePath, _OpenWork.ppcfilename);
+        ::wcscpy(filePath, _OpenWork.ppcfilename);
 
     return filePath;
 }
@@ -1008,7 +869,7 @@ WCHAR * PMD::GetPCMFileName(WCHAR * filePath)
 // Gets PPZ filename.
 WCHAR * PMD::GetPPZFileName(WCHAR * filePath, int index)
 {
-    _FilePath.Strcpy(filePath, _PPZ8->PVI_FILE[index]);
+    ::wcscpy(filePath, _PPZ8->PVI_FILE[index]);
 
     return filePath;
 }
@@ -1068,7 +929,7 @@ int PMD::maskon(int ch)
     int ah, fmseltmp;
 
     if (ch >= sizeof(_OpenWork.MusPart) / sizeof(PartState *))
-        return ERR_WRONG_PARTNO;    // part number error
+        return ERR_WRONG_PARTNO;
 
     if (part_table[ch][0] < 0)
     {
@@ -1128,18 +989,16 @@ int PMD::maskon(int ch)
         pmdwork.fmsel = fmseltmp;
     }
 
-    return PMDWIN_OK;
+    return ERR_SUCCES;
 }
 
-//  パートのマスク解除
+/// <summary>
+/// Unmask the specified channel.
+/// </summary>
 int PMD::maskoff(int ch)
 {
-    int fmseltmp;
-
     if (ch >= sizeof(_OpenWork.MusPart) / sizeof(PartState *))
-    {
-        return ERR_WRONG_PARTNO;    // part number error
-    }
+        return ERR_WRONG_PARTNO;
 
     if (part_table[ch][0] < 0)
     {
@@ -1148,8 +1007,9 @@ int PMD::maskoff(int ch)
     else
     {
         if (_OpenWork.MusPart[ch]->partmask == 0)
-            return ERR_NOT_MASKED;  // マスクされていない
-        // 効果音でまだマスクされている
+            return ERR_NOT_MASKED;
+
+        // Still masked by sound effects
 
         if ((_OpenWork.MusPart[ch]->partmask &= 0xfe) != 0)
             return ERR_EFFECT_USED;
@@ -1158,7 +1018,8 @@ int PMD::maskoff(int ch)
         if (!_OpenWork._IsPlaying)
             return ERR_MUSIC_STOPPED;
 
-        fmseltmp = pmdwork.fmsel;
+        int fmseltmp = pmdwork.fmsel;
+
         if (_OpenWork.MusPart[ch]->address != NULL)
         {
             if (part_table[ch][2] == 0)
@@ -1174,10 +1035,12 @@ int PMD::maskoff(int ch)
                 neiro_reset(_OpenWork.MusPart[ch]);
             }
         }
+
         pmdwork.fmsel = fmseltmp;
 
     }
-    return PMDWIN_OK;
+
+    return ERR_SUCCES;
 }
 
 //  FM Volume Down の設定
@@ -1417,13 +1280,13 @@ char * PMD::GetNoteInternal(const uint8_t * data, size_t size, int index, char *
 }
 
 // Load PPC
-int PMD::LoadPPC(WCHAR * filename)
+int PMD::LoadPPC(WCHAR * filePath)
 {
     Stop();
 
-    int Result = LoadPPCInternal(filename);
+    int Result = LoadPPCInternal(filePath);
 
-    if (Result == PMDWIN_OK || Result == WARNING_PPC_ALREADY_LOAD)
+    if (Result == ERR_SUCCES || Result == ERR_ALREADY_LOADED)
         _OpenWork._UseP86 = false;
 
     return Result;
@@ -1438,11 +1301,11 @@ int PMD::LoadPPS(WCHAR * filename)
 
     switch (Result)
     {
-        case _PPSDRV_OK:                return PMDWIN_OK;
-        case _ERR_OPEN_PPS_FILE:        return ERR_OPEN_PPS_FILE;
-        case _WARNING_PPS_ALREADY_LOAD: return WARNING_PPS_ALREADY_LOAD;
+        case _PPSDRV_OK:                return ERR_SUCCES;
+        case _ERR_OPEN_PPS_FILE:        return ERR_OPEN_FAILED;
+        case _WARNING_PPS_ALREADY_LOAD: return ERR_ALREADY_LOADED;
         case _ERR_OUT_OF_MEMORY:        return ERR_OUT_OF_MEMORY;
-        default:                        return ERR_OTHER;
+        default:                        return ERR_UNKNOWN;
     }
 }
 
@@ -1458,12 +1321,12 @@ int PMD::LoadP86(WCHAR * filename)
 
     switch (Result)
     {
-        case _P86DRV_OK:                return PMDWIN_OK;
-        case _ERR_OPEN_P86_FILE:        return ERR_OPEN_P86_FILE;
-        case _ERR_WRONG_P86_FILE:       return ERR_WRONG_P86_FILE;
-        case _WARNING_P86_ALREADY_LOAD: return WARNING_P86_ALREADY_LOAD;
+        case _P86DRV_OK:                return ERR_SUCCES;
+        case _ERR_OPEN_P86_FILE:        return ERR_OPEN_FAILED;
+        case _ERR_WRONG_P86_FILE:       return ERR_UNKNOWN_FORMAT;
+        case _WARNING_P86_ALREADY_LOAD: return ERR_ALREADY_LOADED;
         case _ERR_OUT_OF_MEMORY:        return ERR_OUT_OF_MEMORY;
-        default:                        return ERR_OTHER;
+        default:                        return ERR_UNKNOWN;
     }
 }
 
@@ -1476,12 +1339,12 @@ int PMD::LoadPPZ(WCHAR * filename, int bufnum)
 
     switch (Result)
     {
-        case _PPZ8_OK:                  return PMDWIN_OK;
-        case _ERR_OPEN_PPZ_FILE:        return bufnum ? ERR_OPEN_PPZ2_FILE : ERR_OPEN_PPZ1_FILE;
-        case _ERR_WRONG_PPZ_FILE:       return bufnum ? ERR_WRONG_PPZ2_FILE : ERR_WRONG_PPZ1_FILE;
-        case _WARNING_PPZ_ALREADY_LOAD: return bufnum ? WARNING_PPZ2_ALREADY_LOAD : WARNING_PPZ1_ALREADY_LOAD;
+        case _PPZ8_OK:                  return ERR_SUCCES;
+        case _ERR_OPEN_PPZ_FILE:        return ERR_OPEN_FAILED;
+        case ERR_PPZ_UNKNOWN_FORMAT:       return ERR_UNKNOWN_FORMAT;
+        case ERR_PPZ_ALREADY_LOADED: return ERR_ALREADY_LOADED;
         case _ERR_OUT_OF_MEMORY:        return ERR_OUT_OF_MEMORY;
-        default:                        return ERR_OTHER;
+        default:                        return ERR_UNKNOWN;
     }
 }
 
@@ -3697,7 +3560,7 @@ void PMD::otodasiz(PartState * qq)
     else cx = (uint32_t) cx2;
 
     // TONE SET
-    _PPZ8->SetOntei(pmdwork.partb, cx);
+    _PPZ8->SetPitchFrequency(pmdwork.partb, cx);
 }
 
 //  PCM VOLUME SET
@@ -3975,7 +3838,7 @@ void PMD::volsetz(PartState * qq)
     if (al == 0)
     {
         //*@
-        _PPZ8->SetVol(pmdwork.partb, 0);
+        _PPZ8->SetVolume(pmdwork.partb, 0);
         _PPZ8->Stop(pmdwork.partb);
         return;
     }
@@ -4061,7 +3924,7 @@ void PMD::volsetz(PartState * qq)
 
     if (al)
     {
-        _PPZ8->SetVol(pmdwork.partb, al >> 4);
+        _PPZ8->SetVolume(pmdwork.partb, al >> 4);
     }
     else
     {
@@ -8818,42 +8681,49 @@ void PMD::pcmstore(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf)
         _OPNA->SetReg(0x108, *buf++);
 }
 
-// LoadPPC (internal processing)
-int PMD::LoadPPCInternal(WCHAR * filename)
+/// <summary>
+/// Loads the PPC file.
+/// </summary>
+int PMD::LoadPPCInternal(WCHAR * filePath)
 {
-    if (*filename == '\0')
-        return ERR_OPEN_PPC_FILE;
+    if (*filePath == '\0')
+        return ERR_OPEN_FAILED;
 
-    if (_FileIO->Open(filename, FileIO::flags_readonly) == false)
-        return ERR_OPEN_PPC_FILE;
+    if (!_File->Open(filePath))
+        return ERR_OPEN_FAILED;
 
-    int Size = (int) _FileIO->GetFileSize(filename);
+    int64_t Size = _File->GetFileSize(filePath);
 
-    uint8_t * pcmbuf = (uint8_t *) ::malloc(Size);
+    if (Size < 0)
+        return ERR_OPEN_FAILED;
+
+    uint8_t * pcmbuf = (uint8_t *) ::malloc((size_t) Size);
 
     if (pcmbuf == NULL)
         return ERR_OUT_OF_MEMORY;
 
-    _FileIO->Read(pcmbuf, Size);
-    _FileIO->Close();
+    _File->Read(pcmbuf, Size);
+    _File->Close();
 
-    int result = LoadPPCInternal(pcmbuf, Size);
+    int Result = LoadPPCInternal(pcmbuf, Size);
 
-    _FilePath.Strcpy(_OpenWork.ppcfilename, filename);
+    ::wcscpy(_OpenWork.ppcfilename, filePath);
 
     free(pcmbuf);
 
-    return result;
+    return Result;
 }
 
-// LoadPPC 3 (from memory)
+/// <summary>
+/// Loads the PPC data.
+/// </summary>
 int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 {
     if (size < 0x10)
     {
         _OpenWork.ppcfilename[0] = '\0';
 
-        return ERR_WRONG_PPC_FILE; // Not PPC/PVI
+        return ERR_UNKNOWN_FORMAT;
     }
 
     bool FoundPVI;
@@ -8901,10 +8771,10 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
         pcmdata2 = (uint16_t *) pcmdata + 30 / 2;
 
         if (size < 30 + 4 * 256 + 2)
-        {   // not PPC
+        {
             _OpenWork.ppcfilename[0] = '\0';
 
-            return ERR_WRONG_PPC_FILE; // Not PPC/PVI
+            return ERR_UNKNOWN_FORMAT;
         }
 
         pcmends.pcmends = *pcmdata2++;
@@ -8916,10 +8786,10 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
         }
     }
     else
-    {   // Not PPC/PVI
+    {
         _OpenWork.ppcfilename[0] = '\0';
 
-        return ERR_WRONG_PPC_FILE; // Not PPC/PVI
+        return ERR_UNKNOWN_FORMAT;
     }
 
     uint8_t tempbuf[0x26 * 32];
@@ -8930,7 +8800,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
     // Skip the "ADPCM?" header
     // Ignore file name (PMDWin specification)
     if (::memcmp(&tempbuf[30], &pcmends, sizeof(pcmends)) == 0)
-        return WARNING_PPC_ALREADY_LOAD;
+        return ERR_ALREADY_LOADED;
 
     uint8_t tempbuf2[30 + 4 * 256 + 128 + 2];
 
@@ -8947,10 +8817,9 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
         if (size < (int) (pcmends.pcmends - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
         {
-            // Not PVI
             _OpenWork.ppcfilename[0] = '\0';
 
-            return ERR_WRONG_PPC_FILE;
+            return ERR_UNKNOWN_FORMAT;
         }
     }
     else
@@ -8959,10 +8828,9 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
         if (size < (pcmends.pcmends - ((30 + 4 * 256 + 2) / 2)) * 32)
         {
-            // Not PPC
             _OpenWork.ppcfilename[0] = '\0';
 
-            return ERR_WRONG_PPC_FILE;
+            return ERR_UNKNOWN_FORMAT;
         }
     }
 
@@ -8971,49 +8839,27 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
     pcmstore(pcmstart, pcmstop, (uint8_t *) pcmdata2);
 
-    return PMDWIN_OK;
+    return ERR_SUCCES;
 }
 
 /// <summary>
 /// Finds a PCM sample in the specified search path.
 /// </summary>
-WCHAR * PMD::FindPCMSample(WCHAR * filePath, const WCHAR * filename, const WCHAR * currentDirectory)
+WCHAR * PMD::FindPCMSample(WCHAR * filePath, const WCHAR * filename)
 {
     WCHAR FilePath[MAX_PATH];
 
-    if (currentDirectory != nullptr)
+    for (int i = 0; i < _OpenWork._SearchPath.size(); ++i)
     {
-        _FilePath.Makepath_dir_filename(FilePath, currentDirectory, filename);
+        CombinePath(FilePath, _countof(FilePath), _OpenWork._SearchPath[i].c_str(), filename);
 
-        if (_FileIO->GetFileSize(FilePath) >= 0)
+        if (_File->GetFileSize(FilePath) > 0)
         {
-            _FilePath.Strcpy(filePath, FilePath);
+            ::wcscpy(filePath, FilePath);
 
             return filePath;
         }
     }
-
-    int i = -1;
-
-    do
-    {
-        i++;
-
-        if (_OpenWork._SearchPath[i][0] == '\0')
-        {
-            *filePath = '\0';
-
-            return filePath;
-        }
-
-        _FilePath.Makepath_dir_filename(FilePath, _OpenWork._SearchPath[i], filename);
-
-    }
-    while (_FileIO->GetFileSize(FilePath) < 0);
-
-    _FilePath.Strcpy(filePath, FilePath);
-
-    return filePath;
 }
 
 //  fm effect

@@ -13,29 +13,17 @@
 
 #include "PPS.h"
 
-PPSDRV::PPSDRV(IFileIO * pfileio)
+PPSDRV::PPSDRV(File * file) : _File(file), dataarea1()
 {
-    this->pfileio = pfileio;
-
-    dataarea1 = NULL;
     _Init();
 }
 
 PPSDRV::~PPSDRV()
 {
-    if (dataarea1 != NULL)
-    {
-        free(dataarea1);		// メモリ開放
-    }
+    if (dataarea1)
+        free(dataarea1);
 }
 
-//	File Stream 設定
-void PPSDRV::setfileio(IFileIO * pfileio)
-{
-    this->pfileio = pfileio;
-}
-
-//	初期化
 bool PPSDRV::Init(uint32_t r, bool ip)
 {
     _Init();
@@ -43,23 +31,23 @@ bool PPSDRV::Init(uint32_t r, bool ip)
     return true;
 }
 
-//	初期化(内部処理)
+//  初期化(内部処理)
 void PPSDRV::_Init(void)
 {
     memset(&ppsheader, 0, sizeof(PPSHEADER));
     memset(pps_file, 0, sizeof(pps_file));
 
     interpolation = false;
-    rate = SOUND_44K;			// 再生周波数
+    rate = SOUND_44K;      // 再生周波数
 
     if (dataarea1 != NULL)
     {
-        free(dataarea1);		// メモリ開放
+        free(dataarea1);    // メモリ開放
         dataarea1 = NULL;
     }
 
     single_flag = false;
-    //	single_flag = true;		// ２重再生禁止(@暫定)
+    //  single_flag = true;    // ２重再生禁止(@暫定)
     low_cpu_check_flag = false;
     keyon_flag = false;
     data_offset1 = NULL;
@@ -76,25 +64,25 @@ void PPSDRV::_Init(void)
     volume2 = 0;
     keyoff_vol = 0;
 
-    //	psg.SetClock(3993600 / 4, SOUND_44K);
-    //	psg.SetReg(0x07, 4);						// Tone C のみ
+    //  psg.SetClock(3993600 / 4, SOUND_44K);
+    //  psg.SetReg(0x07, 4);            // Tone C のみ
     SetVolume(-10);
 }
 
-//	00H PDR 停止
+//  00H PDR 停止
 bool PPSDRV::Stop(void)
 {
     keyon_flag = false;
     data_offset1 = data_offset2 = NULL;
     data_size1 = data_size2 = 0;
-    //	psg.SetReg(0x0a, 0);
+    //  psg.SetReg(0x0a, 0);
     return true;
 }
 
-//	01H PDR 再生
+//  01H PDR 再生
 bool PPSDRV::Play(int num, int shift, int volshift)
 {
-    int		al;
+    int    al;
 
     if (ppsheader.pcmnum[num].address == 0) return false;
 
@@ -121,8 +109,8 @@ bool PPSDRV::Play(int num, int shift, int volshift)
 
     if (single_flag == false && keyon_flag)
     {
-        //	２重発音処理
-        volume2 = volume1;					// １音目を２音目に移動
+        //  ２重発音処理
+        volume2 = volume1;          // １音目を２音目に移動
         data_offset2 = data_offset1;
         data_size2 = data_size1;
         data_xor2 = data_xor1;
@@ -131,14 +119,14 @@ bool PPSDRV::Play(int num, int shift, int volshift)
     }
     else
     {
-        //	１音目で再生
-        data_size2 = 0;						// ２音目は停止中
+        //  １音目で再生
+        data_size2 = 0;            // ２音目は停止中
     }
 
     volume1 = ppsheader.pcmnum[num].volumeofs + volshift;
     data_offset1
         = &dataarea1[(ppsheader.pcmnum[num].address - PPSHEADERSIZE) * 2];
-    data_size1 = ppsheader.pcmnum[num].leng * 2;	// １音目を消して再生
+    data_size1 = ppsheader.pcmnum[num].leng * 2;  // １音目を消して再生
     data_xor1 = 0;
     if (low_cpu_check_flag)
     {
@@ -153,19 +141,19 @@ bool PPSDRV::Play(int num, int shift, int volshift)
         tick1 >>= 16;
     }
 
-    //	psg.SetReg(0x07, psg.GetReg(0x07) | 0x24);	// Tone/Noise C off
-    keyon_flag = true;						// 発音開始
+    //  psg.SetReg(0x07, psg.GetReg(0x07) | 0x24);  // Tone/Noise C off
+    keyon_flag = true;            // 発音開始
     return true;
 }
 
-//	再生中かどうかのチェック
+//  再生中かどうかのチェック
 bool PPSDRV::Check(void)
 {
     return keyon_flag;
 }
 
-//	ヘッダ読み込み
-void PPSDRV::ReadHeader(IFileIO * file, PPSHEADER & ppsheader)
+//  ヘッダ読み込み
+void PPSDRV::ReadHeader(File * file, PPSHEADER & ppsheader)
 {
     uint8_t buf[84];
     file->Read(buf, sizeof(buf));
@@ -179,47 +167,47 @@ void PPSDRV::ReadHeader(IFileIO * file, PPSHEADER & ppsheader)
     }
 }
 
-//	PPS 読み込み
-int PPSDRV::Load(TCHAR * filename)
+//  PPS 読み込み
+int PPSDRV::Load(WCHAR * filePath)
 {
-    int			i, size;
-    uint32_t	j, start_pps, end_pps;
-    PPSHEADER	ppsheader2;
-    uint8_t * psrc, * psrc2;
-    Sample * pdst;
-
     Stop();
 
     pps_file[0] = '\0';
 
-    if (*filename == '\0')
+    if (*filePath == '\0')
         return _ERR_OPEN_PPS_FILE;
 
-    if (pfileio->Open(filename, FileIO::flags_readonly) == false)
+    if (!_File->Open(filePath))
     {
         if (dataarea1 != NULL)
         {
-            free(dataarea1);		// 開放
+            free(dataarea1);    // 開放
             dataarea1 = NULL;
             memset(&ppsheader, 0, sizeof(ppsheader));
         }
-        return _ERR_OPEN_PPS_FILE;						//	ファイルが開けない
+        return _ERR_OPEN_PPS_FILE;            //  ファイルが開けない
     }
 
-    size = (int) pfileio->GetFileSize(filename);		// ファイルサイズ
-    //@ pfileio->Read(&ppsheader2, sizeof(ppsheader2));
-    ReadHeader(pfileio, ppsheader2);
+    int i;
+    uint32_t  j, start_pps, end_pps;
+    PPSHEADER  ppsheader2;
+    uint8_t * psrc, * psrc2;
+    Sample * pdst;
 
-    if (memcmp(&ppsheader, &ppsheader2, sizeof(ppsheader)) == 0)
+    int size = (int) _File->GetFileSize(filePath);    // ファイルサイズ
+
+    ReadHeader(_File, ppsheader2);
+
+    if (::memcmp(&ppsheader, &ppsheader2, sizeof(ppsheader)) == 0)
     {
-        filepath.Strcpy(pps_file, filename);
-        pfileio->Close();
-        return _WARNING_PPS_ALREADY_LOAD;		// 同じファイル
+        ::wcscpy_s(pps_file, filePath);
+        _File->Close();
+        return _WARNING_PPS_ALREADY_LOAD;    // 同じファイル
     }
 
     if (dataarea1 != NULL)
     {
-        free(dataarea1);		// いったん開放
+        free(dataarea1);    // いったん開放
         dataarea1 = NULL;
     }
 
@@ -227,21 +215,20 @@ int PPSDRV::Load(TCHAR * filename)
 
     size -= PPSHEADERSIZE;
 
-    if ((pdst = dataarea1
-        = (Sample *) malloc(size * sizeof(Sample) * 2 / sizeof(uint8_t))) == NULL)
+    if ((pdst = dataarea1 = (Sample *) malloc(size * sizeof(Sample) * 2 / sizeof(uint8_t))) == NULL)
     {
-        pfileio->Close();
-        return _ERR_OUT_OF_MEMORY;			// メモリが確保できない
+        _File->Close();
+        return _ERR_OUT_OF_MEMORY;      // メモリが確保できない
     }
 
     if ((psrc = psrc2 = (uint8_t *) malloc(size)) == NULL)
     {
-        pfileio->Close();
-        return _ERR_OUT_OF_MEMORY;			// メモリが確保できない（テンポラリ）
+        _File->Close();
+        return _ERR_OUT_OF_MEMORY;      // メモリが確保できない（テンポラリ）
     }
 
-    //	仮バッファに読み込み
-    pfileio->Read(psrc, size);
+    //  仮バッファに読み込み
+    _File->Read(psrc, size);
 
     for (i = 0; i < size / (int) sizeof(uint8_t); i++)
     {
@@ -253,7 +240,7 @@ int PPSDRV::Load(TCHAR * filename)
     }
 
 
-    //	PPS 補正(プチノイズ対策）／160 サンプルで減衰させる
+    //  PPS 補正(プチノイズ対策）／160 サンプルで減衰させる
     for (i = 0; i < MAX_PPS; i++)
     {
         end_pps = ppsheader.pcmnum[i].address - PPSHEADERSIZE * 2
@@ -271,20 +258,20 @@ int PPSDRV::Load(TCHAR * filename)
         }
     }
 
-    //	仮バッファ開放
+    //  仮バッファ開放
     free(psrc2);
 
-    //	ファイル名登録
-    filepath.Strcpy(pps_file, filename);
+    //  ファイル名登録
+    ::wcscpy_s(pps_file, filePath);
 
-    pfileio->Close();
+    _File->Close();
 
     data_offset1 = data_offset2 = NULL;
 
     return _PPSDRV_OK;
 }
 
-//	05H PDRパラメータの設定
+//  05H PDRパラメータの設定
 bool PPSDRV::SetParam(int paramno, bool data)
 {
     switch (paramno)
@@ -299,7 +286,7 @@ bool PPSDRV::SetParam(int paramno, bool data)
     }
 }
 
-//	06H PDRパラメータの取得
+//  06H PDRパラメータの取得
 bool PPSDRV::GetParam(int paramno)
 {
     switch (paramno)
@@ -310,18 +297,18 @@ bool PPSDRV::GetParam(int paramno)
     }
 }
 
-//	再生周波数、一次補完設定設定
-bool PPSDRV::SetRate(uint32_t r, bool ip)		// レート設定
+//  再生周波数、一次補完設定設定
+bool PPSDRV::SetRate(uint32_t r, bool ip)    // レート設定
 {
     rate = r;
     interpolation = ip;
     return true;
 }
 
-//	音量設定
-void PPSDRV::SetVolume(int vol)					// 音量設定
+//  音量設定
+void PPSDRV::SetVolume(int vol)          // 音量設定
 {
-    //	psg.SetVolume(vol);
+    //  psg.SetVolume(vol);
 
     double base = 0x4000 * 2 / 3.0 * pow(10.0, vol / 40.0);
     for (int i = 15; i >= 1; i--)
@@ -332,11 +319,11 @@ void PPSDRV::SetVolume(int vol)					// 音量設定
     EmitTable[0] = 0;
 }
 
-//	合成
-void PPSDRV::Mix(Sample * dest, int nsamples)	// 合成
+//  合成
+void PPSDRV::Mix(Sample * dest, int nsamples)  // 合成
 {
-    int		i, al1, al2, ah1, ah2;
-    Sample	data;
+    int    i, al1, al2, ah1, ah2;
+    Sample  data;
 
     /*
         static const int table[16*16] = {
@@ -390,8 +377,8 @@ void PPSDRV::Mix(Sample * dest, int nsamples)	// 合成
             ah1 = ah2 = 0;
         }
 
-        //		al1 = table[(al1 << 4) + ah1];
-        //		psg.SetReg(0x0a, al1);
+        //    al1 = table[(al1 << 4) + ah1];
+        //    psg.SetReg(0x0a, al1);
         if (interpolation)
         {
             data =
@@ -408,11 +395,11 @@ void PPSDRV::Mix(Sample * dest, int nsamples)	// 合成
         *dest++ += data;
         *dest++ += data;
 
-        //		psg.Mix(dest, 1);
-        //		dest += 2;
+        //    psg.Mix(dest, 1);
+        //    dest += 2;
 
         if (data_size2 > 1)
-        {	// ２音合成再生
+        {  // ２音合成再生
             data_xor2 += tick_xor2;
             if (data_xor2 >= 0x10000)
             {
@@ -461,17 +448,17 @@ void PPSDRV::Mix(Sample * dest, int nsamples)	// 合成
         }
 
         if (data_size1 <= 1 && data_size2 <= 1)
-        {		// 両方停止
+        {    // 両方停止
             if (keyon_flag)
             {
                 keyoff_vol += EmitTable[data_offset1[data_size1 - 1]];
             }
-            keyon_flag = false;		// 発音停止
-            //			psg.SetReg(0x0a, 0);	// Volume を0に
-            //			return;
+            keyon_flag = false;    // 発音停止
+            //      psg.SetReg(0x0a, 0);  // Volume を0に
+            //      return;
         }
         else if (data_size1 <= 1 && data_size2 > 1)
-        {	// １音目のみが停止
+        {  // １音目のみが停止
             volume1 = volume2;
             data_size1 = data_size2;
             data_offset1 = data_offset2;
@@ -486,7 +473,7 @@ void PPSDRV::Mix(Sample * dest, int nsamples)	// 合成
             */
         }
         else if (data_size1 > 1 && data_size2 < 1)
-        {	// ２音目のみが停止
+        {  // ２音目のみが停止
             if (data_offset2 != NULL)
             {
                 keyoff_vol += EmitTable[data_offset2[data_size2 - 1]];

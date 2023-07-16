@@ -5,7 +5,6 @@
 #pragma once
 
 #include "OPNA.h"
-#include "IFileio.h"
 
 // Composite frequency when primary interpolation is enabled
 #define  SOUND_55K        55555
@@ -27,9 +26,8 @@
 class OPNAW : public OPNA
 {
 public:
-    OPNAW(IFileIO * pfileio);
+    OPNAW(File * file);
     virtual ~OPNAW();
-    void  WINAPI setfileio(IFileIO * pfileio);
 
     bool  Init(uint32_t c, uint32_t r, bool ipflag, const WCHAR * path);
     bool  SetRate(uint32_t c, uint32_t r, bool ipflag = false);
@@ -76,7 +74,7 @@ private:
     double  rest;                // 標本化定理リサンプリング時の前回の残りサンプルデータ位置
     int    write_pos_ip;            // 書き込み位置(ip)
 
-    void  _Init();            // 初期化(内部処理)
+    void  InitializeInternal();            // 初期化(内部処理)
     void  CalcWaitPCM(int waitcount);      // SetReg() wait 時の PCM を計算
     double  Sinc(double x);            // Sinc関数
     void  _Mix(Sample * buffer, int nsamples);  // 合成（一次補間なしVer.)

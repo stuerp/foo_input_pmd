@@ -18,7 +18,7 @@
 #include "PPS.h"
 #include "P86.h"
 
-#include "ipmdwin.h"
+#include "PMDPrivate.h"
 
 typedef int Sample;
 
@@ -51,7 +51,7 @@ public:
 
     bool Initialize(const WCHAR * path);
 
-    int Load(const uint8_t * data, size_t size, WCHAR * currentDirectoryPath);
+    int Load(const uint8_t * data, size_t size);
 
     void Start();
     void Stop();
@@ -67,7 +67,7 @@ public:
     void SetPosition(uint32_t position);
 
     bool LoadRythmSample(WCHAR * path);
-    bool SetSearchPaths(const WCHAR ** path);
+    bool SetSearchPaths(std::vector<const WCHAR *> & paths);
     
     void SetSynthesisFrequency(int rate);
     void SetPPZSynthesisFrequency(int rate);
@@ -125,16 +125,13 @@ public:
     OPEN_WORK * GetOpenWork();
     PartState * GetOpenPartWork(int ch);
 
-    void setfileio(IFileIO * pfileio);
-
 private:
+    File * _File;
+
     OPNAW * _OPNA;
     PPZ8 * _PPZ8; 
     PPSDRV * _PPS;
     P86DRV * _P86;
-
-    FilePath _FilePath;
-    FileIO * _FileIO;
 
     OPEN_WORK _OpenWork;
 
@@ -366,7 +363,7 @@ protected:
     int LoadPPCInternal(WCHAR * filename);
     int LoadPPCInternal(uint8_t * pcmdata, int size);
 
-    WCHAR * FindPCMSample(WCHAR * dest, const WCHAR * filename, const WCHAR * current_dir);
+    WCHAR * FindPCMSample(WCHAR * dest, const WCHAR * filename);
     void swap(int * a, int * b);
 
     inline int Limit(int v, int max, int min)

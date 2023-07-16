@@ -3,34 +3,19 @@
 
 #pragma once
 
-#define PMDWIN_OK      0  // 正常終了
+#define ERR_SUCCES                  0
 
-#define ERR_OPEN_MUSIC_FILE   1  // 曲 データを開けなかった
-#define ERR_WRONG_MUSIC_FILE    2  // PMD の曲データではなかった
-#define ERR_OPEN_PPC_FILE      3  // PPC を開けなかった
-#define ERR_OPEN_P86_FILE      4  // P86 を開けなかった
-#define ERR_OPEN_PPS_FILE      5  // PPS を開けなかった
-#define ERR_OPEN_PPZ1_FILE      6  // PPZ1 を開けなかった
-#define ERR_OPEN_PPZ2_FILE      7  // PPZ2 を開けなかった
-#define ERR_WRONG_PPC_FILE      8  // PPC/PVI ではなかった
-#define ERR_WRONG_P86_FILE      9  // P86 ではなかった
-#define ERR_WRONG_PPS_FILE     10  // PPS ではなかった
-#define ERR_WRONG_PPZ1_FILE     11  // PVI/PZI ではなかった(PPZ1)
-#define ERR_WRONG_PPZ2_FILE     12  // PVI/PZI ではなかった(PPZ2)
-#define WARNING_PPC_ALREADY_LOAD  13  // PPC はすでに読み込まれている
-#define WARNING_P86_ALREADY_LOAD  14  // P86 はすでに読み込まれている
-#define WARNING_PPS_ALREADY_LOAD  15  // PPS はすでに読み込まれている
-#define WARNING_PPZ1_ALREADY_LOAD  16  // PPZ1 はすでに読み込まれている
-#define WARNING_PPZ2_ALREADY_LOAD  17  // PPZ2 はすでに読み込まれている
+#define ERR_OPEN_FAILED             1
+#define ERR_UNKNOWN_FORMAT          2
+#define ERR_ALREADY_LOADED          3
+#define ERR_OUT_OF_MEMORY           4
 
-#define ERR_WRONG_PARTNO  30  // パート番号が不適
-//#define ERR_ALREADY_MASKED   31  // 指定パートはすでにマスクされている
-#define ERR_NOT_MASKED   32  // 指定パートはマスクされていない
-#define ERR_MUSIC_STOPPED  33  // 曲が止まっているのにマスク操作をした
-#define ERR_EFFECT_USED   34  // 効果音で使用中なのでマスクを操作できない
+#define ERR_WRONG_PARTNO           32
+#define ERR_NOT_MASKED             33 // The specified part is not masked.
+#define ERR_EFFECT_USED            34 // The mask cannot be operated because it is being used by sound effects.
+#define ERR_MUSIC_STOPPED          99 // You performed a mask operation while the song was stopped.
 
-#define ERR_OUT_OF_MEMORY  99  // メモリを確保できなかった
-#define ERR_OTHER   999  // その他のエラー
+#define ERR_UNKNOWN               999
 
 #define SOUND_55K           55555
 #define SOUND_55K_2         55466
@@ -273,7 +258,6 @@ struct OPEN_WORK
     int TimerAflag; // TimerA割り込み中？フラグ（＠不要？）
     int TimerBflag; // TimerB割り込み中？フラグ（＠不要？）
 
-    // for PMDWin
     int _OPNARate;    // PCM 出力周波数(11k, 22k, 44k, 55k)
     int _PPZ8Rate;   // PPZ 出力周波数
     bool  fmcalc55k;   // FM で 55kHz 合成をするか？
@@ -284,6 +268,6 @@ struct OPEN_WORK
 
     int _FadeOutSpeedHQ;                        // Fadeout (High Sound Quality) speed (fadeout at > 0)
 
-    WCHAR ppcfilename[MAX_PATH];              // PPC のFILE名バッファ
-    WCHAR _SearchPath[MAX_PCMDIR + 1][MAX_PATH];   // PCM Search Path
+    WCHAR ppcfilename[MAX_PATH];
+    std::vector<std::wstring> _SearchPath;
 };

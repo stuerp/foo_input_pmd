@@ -4,7 +4,6 @@
 #pragma once
 
 #include "OPNA.h"
-#include "FileIO.h"
 
 //  DLL の 戻り値
 #define  _PPSDRV_OK            0    // 正常終了
@@ -41,9 +40,8 @@ const size_t PPSHEADERSIZE = (sizeof(uint16_t) * 2 + sizeof(uint8_t) * 2) * MAX_
 class PPSDRV
 {
 public:
-    PPSDRV(IFileIO * pfileio);
+    PPSDRV(File * file);
     virtual ~PPSDRV();
-    void  setfileio(IFileIO * pfileio);
 
     bool  Init(uint32_t r, bool ip);          //     初期化
     bool  Stop(void);                // 00H PDR 停止
@@ -52,17 +50,16 @@ public:
     bool  SetParam(int paramno, bool data);    // 05H PDRパラメータの設定
     bool  GetParam(int paramno);          // 06H PDRパラメータの取得
 
-    int    Load(TCHAR * filename);          // PPS 読み込み
+    int    Load(WCHAR * filename);          // PPS 読み込み
     bool  SetRate(uint32_t r, bool ip);        // レート設定
     void  SetVolume(int vol);            // 音量設定
     void  Mix(Sample * dest, int nsamples);    // 合成
 
     PPSHEADER  ppsheader;              // PCMの音色ヘッダー
-    TCHAR  pps_file[_MAX_PATH];          // ファイル名
+    WCHAR  pps_file[_MAX_PATH];          // ファイル名
 
 private:
-    FilePath  filepath;              // ファイルパス関連のクラスライブラリ
-    IFileIO * pfileio;              // ファイルアクセス関連のクラスライブラリ
+    File * _File;              // ファイルアクセス関連のクラスライブラリ
 
     bool  interpolation;              // 補完するか？
     int    rate;
@@ -87,5 +84,5 @@ private:
     //  PSG    psg;                  // @暫定
 
     void  _Init(void);
-    void   ReadHeader(IFileIO * file, PPSHEADER & ppsheader);
+    void   ReadHeader(File * file, PPSHEADER & ppsheader);
 };

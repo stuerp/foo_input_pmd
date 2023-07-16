@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "FileIO.h"
+#include "File.h"
 
 #include <ymfm_opn.h>
 
@@ -30,11 +30,8 @@ struct Stereo16bit
 class OPNA : public ymfm::ymfm_interface
 {
 public:
-   
-    OPNA(IFileIO * fileio);
+    OPNA(File * file);
     ~OPNA();
-    
-    void setfileio(IFileIO* pfileio);
     
     bool Init(uint32_t c, uint32_t r, bool ip = false, const WCHAR * path = nullptr);
     bool SetRate(uint32_t r);
@@ -62,17 +59,17 @@ public:
     static constexpr uint32_t DEFAULT_CLOCK = 3993600*2;
 
 protected:
-    IFileIO * _FileIO;
-    
-    // internal state
+    File * _File;
+
+    // Internal state
     ymfm::ym2608 m_chip;
-    uint32_t m_clock;
+    uint32_t _Clock;
     uint64_t m_clocks;
     typename ymfm::ym2608::output_data m_output;
     emulated_time m_step;
     emulated_time m_pos;
     
-    uint32_t rate;                // FM 音源合成レート
+    uint32_t _Rate;     // FM synthesis rate
     
     struct Rhythm
     {

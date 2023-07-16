@@ -6,34 +6,32 @@
 #pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
 #include <Windows.h>
-#include <WCHAR.h>
+#include <strsafe.h>
 
-#include <algorithm>
-#include "opna.h"
+#include "OPNA.h"
 
 #define LOG_WRITES (0)
 
-OPNA::OPNA(IFileIO * fileIO) :
+OPNA::OPNA(File * file) :
+    _File(file),
     m_chip(*this),
-    m_clock(DEFAULT_CLOCK),
+    _Clock(DEFAULT_CLOCK),
     m_clocks(0),
     m_output(),
     m_step(0),
     m_pos(0),
-    rate(8000),
+    _Rate(8000),
     _HasADPCMROM(false),
     _Rhythm{},
     rhythmtvol(0),
     rhythmtl(0),
     rhythmkey(0),
-    output_step(0x1000000000000ull / rate),
+    output_step(0x1000000000000ull / _Rate),
     output_pos(0),
     timer_period{},
     timer_count{},
     reg27(0)
 {
-    _FileIO = fileIO;
-
     // Create the table.
     for (int i = -FM_TLPOS; i < FM_TLENTS; i++)
         tltable[i + FM_TLPOS] = uint32_t(65536. * pow(2.0, i * -16. / (int) FM_TLENTS)) - 1;
@@ -45,19 +43,12 @@ OPNA::~OPNA()
         delete[] _Rhythm[i].sample;
 }
 
-// File Stream 設定
-void OPNA::setfileio(IFileIO * pfileio)
-{
-    _FileIO = pfileio;
-}
-
-// 初期化
 bool OPNA::Init(uint32_t c, uint32_t r, bool ip, const WCHAR * path)
 {
-    m_clock = c;
-    rate = r;
+    _Clock = c;
+    _Rate = r;
     m_clocks = 0;
-    m_step = 0x1000000000000ull / m_chip.sample_rate(m_clock);
+    m_step = 0x1000000000000ull / m_chip.sample_rate(_Clock);
     m_pos = 0;
 
     LoadRhythmSamples(path);
@@ -77,11 +68,14 @@ bool OPNA::Init(uint32_t c, uint32_t r, bool ip, const WCHAR * path)
     return true;
 }
 
-// サンプリングレート変更
-bool OPNA::SetRate(uint32_t r)
+/// <summary>
+/// Sets the synthesis rate.
+/// </summary>
+bool OPNA::SetRate(uint32_t rate)
 {
-    rate = r;
-    output_step = 0x1000000000000ull / rate;
+    _Rate = rate;
+    output_step = 0x1000000000000ull / _Rate;
+
     return true;
 }
 
@@ -89,8 +83,8 @@ bool OPNA::SetRate(uint32_t c, uint32_t r, bool)
 {
     SetRate(r);
 
-    m_clock = c;
-    rate = r;
+    _Clock = c;
+    _Rate = r;
 
     return true;
 }
@@ -102,19 +96,18 @@ bool OPNA::LoadRhythmSamples(const WCHAR * path)
 {
     _HasADPCMROM = false;
 
-    FilePath filepath;
     WCHAR buf[_MAX_PATH] = { 0 };
 
-    filepath.Makepath_dir_filename(buf, path, L"ym2608_adpcm_rom.bin");
+    CombinePath(buf, _countof(buf), path, L"ym2608_adpcm_rom.bin");
 
-    int64_t FileSize = _FileIO->GetFileSize(buf);
+    int64_t FileSize = _File->GetFileSize(buf);
 
-    if (FileSize > 0 && _FileIO->Open(buf, FileIO::flags_readonly))
+    if (FileSize > 0 && _File->Open(buf))
     {
         std::vector<uint8_t> temp(FileSize);
 
-        _FileIO->Read(temp.data(), FileSize);
-        _FileIO->Close();
+        _File->Read(temp.data(), FileSize);
+        _File->Close();
 
         write_data(ymfm::ACCESS_ADPCM_A, 0, (uint32_t) FileSize, temp.data());
 
@@ -124,38 +117,28 @@ bool OPNA::LoadRhythmSamples(const WCHAR * path)
     {
         static const WCHAR * InstrumentName[6] =
         {
-            L"BD", L"SD", L"TOP", L"HH", L"TOM", L"RIM",
+            L"bd", L"sd", L"top", L"hh", L"tom", L"rim",
         };
 
         int i;
 
         for (i = 0; i < 6; i++)
-            _Rhythm[i].pos = ~0;
+            _Rhythm[i].pos = ~0U;
 
         for (i = 0; i < 6; i++)
         {
-            FilePath filepath;
-            uint32_t fsize = 0;
-            WCHAR buf[_MAX_PATH] = { 0 };
+            WCHAR InstrumentPath[_MAX_PATH] = { 0 };
 
-            if (path)
-                filepath.Strncpy(buf, path, _MAX_PATH);
+            ::StringCbPrintfW(InstrumentPath, _countof(InstrumentPath), L"%s2608_%s.wav", path, InstrumentName[i]);
 
-            filepath.Strncat(buf, L"2608_", _MAX_PATH);
-            filepath.Strncat(buf, InstrumentName[i], _MAX_PATH);
-            filepath.Strncat(buf, L".WAV", _MAX_PATH);
-
-            if (!_FileIO->Open(buf, FileIO::flags_readonly))
+            if (!_File->Open(InstrumentPath))
             {
                 if (i != 5)
                     break;
 
-                if (path)
-                    filepath.Strncpy(buf, path, _MAX_PATH);
+                CombinePath(InstrumentPath, _countof(InstrumentPath), path, L"2608_rym.wav");
 
-                filepath.Strncpy(buf, L"2608_RYM.WAV", _MAX_PATH);
-
-                if (!_FileIO->Open(buf, FileIO::flags_readonly))
+                if (!_File->Open(InstrumentPath))
                     break;
             }
 
@@ -170,22 +153,25 @@ bool OPNA::LoadRhythmSamples(const WCHAR * path)
                 uint16_t bps;
             } whdr;
 
-            _FileIO->Seek(0x10, FileIO::seekmethod_begin);
-            _FileIO->Read(&whdr.chunksize, sizeof(whdr.chunksize));
-            _FileIO->Read(&whdr.tag, sizeof(whdr.tag));
-            _FileIO->Read(&whdr.nch, sizeof(whdr.nch));
-            _FileIO->Read(&whdr.rate, sizeof(whdr.rate));
-            _FileIO->Read(&whdr.avgbytes, sizeof(whdr.avgbytes));
-            _FileIO->Read(&whdr.align, sizeof(whdr.align));
-            _FileIO->Read(&whdr.bps, sizeof(whdr.bps));
+            _File->Seek(0x10, File::SeekBegin);
+
+            _File->Read(&whdr.chunksize, sizeof(whdr.chunksize));
+            _File->Read(&whdr.tag, sizeof(whdr.tag));
+            _File->Read(&whdr.nch, sizeof(whdr.nch));
+            _File->Read(&whdr.rate, sizeof(whdr.rate));
+            _File->Read(&whdr.avgbytes, sizeof(whdr.avgbytes));
+            _File->Read(&whdr.align, sizeof(whdr.align));
+            _File->Read(&whdr.bps, sizeof(whdr.bps));
 
             uint8_t subchunkname[4];
 
+            uint32_t fsize = 0;
+
             do
             {
-                _FileIO->Seek(fsize, FileIO::seekmethod_current);
-                _FileIO->Read(&subchunkname, 4);
-                _FileIO->Read(&fsize, 4);
+                _File->Seek(fsize, File::SeekCurrent);
+                _File->Read(&subchunkname, 4);
+                _File->Read(&fsize, 4);
             }
             while (::memcmp("data", subchunkname, 4));
 
@@ -197,17 +183,19 @@ bool OPNA::LoadRhythmSamples(const WCHAR * path)
             fsize = (uint32_t) (std::max)((int32_t) fsize, (int32_t) ((1 << 31) / 1024));
 
             delete _Rhythm[i].sample;
+
             _Rhythm[i].sample = new int16_t[fsize];
+
             if (!_Rhythm[i].sample)
                 break;
 
-            _FileIO->Read(_Rhythm[i].sample, fsize * 2);
+            _File->Read(_Rhythm[i].sample, fsize * 2);
 
             _Rhythm[i].rate = whdr.rate;
-            _Rhythm[i].step = _Rhythm[i].rate * 1024 / rate;
+            _Rhythm[i].step = _Rhythm[i].rate * 1024 / _Rate;
             _Rhythm[i].pos = _Rhythm[i].size = fsize * 1024;
 
-            _FileIO->Close();
+            _File->Close();
         }
 
         if (i != 6)
@@ -345,7 +333,7 @@ void OPNA::SetReg(uint32_t addr, uint32_t data)
         if (addr1 != 0xffff)
         {
             if (LOG_WRITES)
-                printf("Write %10.5f: %03X=%02X\n", double(m_clocks) / double(m_chip.sample_rate(m_clock)), data1, data2);
+                printf("Write %10.5f: %03X=%02X\n", double(m_clocks) / double(m_chip.sample_rate(_Clock)), data1, data2);
             m_chip.write(addr1, data1);
             m_chip.write(addr2, data2);
         }
@@ -366,7 +354,7 @@ uint32_t OPNA::GetReg(uint32_t addr)
         m_chip.write(addr1, data1);
         result = m_chip.read(addr2);
         if (LOG_WRITES)
-            printf("Read  %10.5f: %03X=%02X\n", double(m_clocks) / double(m_chip.sample_rate(m_clock)), data1, result);
+            printf("Read  %10.5f: %03X=%02X\n", double(m_clocks) / double(m_chip.sample_rate(_Clock)), data1, result);
 
     }
     else
@@ -547,7 +535,7 @@ void OPNA::write_data(ymfm::access_class type, uint32_t base, uint32_t length, u
 // Get sample rate
 uint32_t OPNA::sample_rate() const
 {
-    return m_chip.sample_rate(m_clock);
+    return m_chip.sample_rate(_Clock);
 }
 
 // callback : handle read from the buffer
@@ -591,7 +579,7 @@ void OPNA::ymfm_set_timer(uint32_t tnum, int32_t duration_in_clocks)
 {
     if (duration_in_clocks >= 0)
     {
-        timer_period[tnum] = (((emulated_time) duration_in_clocks << 43) / m_clock) << 5;
+        timer_period[tnum] = (((emulated_time) duration_in_clocks << 43) / _Clock) << 5;
         timer_count[tnum] = timer_period[tnum];
     }
     else

@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.cpp (2023.07.15) P. Stuer **/
+/** $VER: PMDDecoder.cpp (2023.07.16) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -8,12 +8,9 @@
 #include "PMDDecoder.h"
 #include "Configuration.h"
 
-#include <shared/audio_math.h>
-
-#include <ipmdwin.h>
-
 #include "framework.h"
 
+#include <shared/audio_math.h>
 #include <pathcch.h>
 
 #pragma comment(lib, "pathcch")
@@ -37,26 +34,6 @@ PMDDecoder::PMDDecoder() :
 PMDDecoder::~PMDDecoder()
 {
     delete _PMD;
-}
-
-/// <summary>
-/// Returns true if  the buffer points to PMD data.
-/// </summary>
-bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
-{
-    if (size < 3)
-        return false;
-
-    if (data[0] > 0x0F)
-        return false;
-
-    if (data[1] != 0x18 && data[1] != 0x1A)
-        return false;
-
-    if (data[2] != 0x00 && data[2] != 0xE6)
-        return false;
-
-    return true;
 }
 
 /// <summary>
@@ -84,55 +61,50 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
     _PMD = new PMD();
 
     WCHAR FilePath[MAX_PATH];
+    WCHAR PDXSamplesPath[MAX_PATH];
 
     {
         if (::MultiByteToWideChar(CP_UTF8, 0, filePath, -1, FilePath, _countof(FilePath)) == 0)
             return false;
 
+        if (::MultiByteToWideChar(CP_UTF8, 0, pdxSamplesPath, -1, PDXSamplesPath, _countof(PDXSamplesPath)) == 0)
+            return false;
+    }
+
+    {
         WCHAR DirectoryPath[MAX_PATH];
 
         ::wcsncpy_s(DirectoryPath, _countof(DirectoryPath), FilePath, ::wcslen(FilePath));
         
-        HRESULT hResult = ::PathCchRemoveFileSpec(DirectoryPath, _countof(DirectoryPath));
-
-        if (!SUCCEEDED(hResult))
-            return false;
-
-        WCHAR PDXSamplesPath[MAX_PATH];
-
-        if (::MultiByteToWideChar(CP_UTF8, 0, pdxSamplesPath, -1, PDXSamplesPath, _countof(PDXSamplesPath)) == 0)
+        if (!SUCCEEDED(::PathCchRemoveFileSpec(DirectoryPath, _countof(DirectoryPath))))
             return false;
 
         _PMD->Initialize(PDXSamplesPath);
         _PMD->SetSynthesisFrequency(SOUND_55K);
 
-        const WCHAR * Paths[4] = { 0 };
-
-        if (::wcslen(DirectoryPath) > 0)
         {
-            Paths[0] = DirectoryPath;
-            Paths[1] = PDXSamplesPath;
-            Paths[2] = L"./";
-            Paths[3] = nullptr;
-        }
-        else
-        {
-            Paths[0] = L"./";
-            Paths[1] = PDXSamplesPath;
-            Paths[2] = nullptr;
-        }
+            std::vector<const WCHAR *> Paths;
 
-        if (!_PMD->SetSearchPaths(Paths))
-            return false;
+            if (::wcslen(DirectoryPath) > 0)
+                Paths.push_back(DirectoryPath);
+
+            Paths.push_back(L".\\");
+
+            if (::wcslen(DirectoryPath) > 0)
+                Paths.push_back(PDXSamplesPath);
+
+            if (!_PMD->SetSearchPaths(Paths))
+                return false;
+        }
     }
 
     {
         PMD pmd;
 
-        if (!pmd.Initialize(L"."))
+        if (!pmd.Initialize(PDXSamplesPath))
             return false;
 
-        pmd.Load(data, size, NULL);
+        pmd.Load(data, size);
 
         if (!pmd.GetLength((int *) &_Length, (int *) &_LoopLength))
             return false;
@@ -164,11 +136,31 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
 }
 
 /// <summary>
+/// Returns true if  the buffer points to PMD data.
+/// </summary>
+bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
+{
+    if (size < 3)
+        return false;
+
+    if (data[0] > 0x0F)
+        return false;
+
+    if (data[1] != 0x18 && data[1] != 0x1A)
+        return false;
+
+    if (data[2] != 0x00 && data[2] != 0xE6)
+        return false;
+
+    return true;
+}
+
+/// <summary>
 /// Initializes the decoder.
 /// </summary>
 void PMDDecoder::Initialize() const noexcept
 {
-    if (_PMD->Load(_Data, _Size, NULL) != PMDWIN_OK)
+    if (_PMD->Load(_Data, _Size) != ERR_SUCCES)
         return;
 
     _PMD->Start();
