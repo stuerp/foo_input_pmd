@@ -6,6 +6,22 @@
     <ClInclude Include="PMDDecoder.h" />
     <ClInclude Include="Configuration.h" />
     <ClInclude Include="Preferences.h" />
+    <ClInclude Include="PMD\ymfm\ymfm.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_adpcm.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_fm.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_fm.ipp" />
+    <ClInclude Include="PMD\ymfm\ymfm_opn.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_ssg.h" />
+    <ClInclude Include="PMD\File.h" />
+    <ClInclude Include="PMD\PMDPrivate.h" />
+    <ClInclude Include="PMD\OPNA.h" />
+    <ClInclude Include="PMD\OPNAW.h" />
+    <ClInclude Include="PMD\P86.h" />
+    <ClInclude Include="PMD\PMD.h" />
+    <ClInclude Include="PMD\PPS.h" />
+    <ClInclude Include="PMD\PPZ.h" />
+    <ClInclude Include="PMD\Table.h" />
+    <ClInclude Include="PMD\Utility.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
@@ -13,17 +29,33 @@
     <ClCompile Include="PMDDecoder.cpp" />
     <ClCompile Include="Configuration.cpp" />
     <ClCompile Include="Preferences.cpp" />
+    <ClCompile Include="PMD\ymfm\ymfm_adpcm.cpp" />
+    <ClCompile Include="PMD\ymfm\ymfm_opn.cpp" />
+    <ClCompile Include="PMD\ymfm\ymfm_ssg.cpp" />
+    <ClCompile Include="PMD\File.cpp" />
+    <ClCompile Include="PMD\OPNA.cpp" />
+    <ClCompile Include="PMD\OPNAW.cpp" />
+    <ClCompile Include="PMD\P86.cpp" />
+    <ClCompile Include="PMD\PMD.cpp" />
+    <ClCompile Include="PMD\PPS.cpp" />
+    <ClCompile Include="PMD\PPZ.cpp" />
+    <ClCompile Include="PMD\Table.cpp" />
+    <ClCompile Include="PMD\Utility.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Build-FB2KComponent.ps1" />
     <None Include="README.md" />
     <None Include=".gitattributes" />
     <None Include=".gitignore" />
+    <None Include="PMD\ymfm\LICENSE" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources.rc" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="LICENSE.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resources\Screenshot.png" />
   </ItemGroup>
 </Project>

@@ -5,6 +5,8 @@
 
 Professional Music Driver (PMD) is a music driver developed by Masahiro Kajihara which utilizes MML (Music Macro Language) to create music files for most Japanese computers of the 80s and early 90s.
 
+PMD can be used to make music for the PC-98, PC-88, X68000, and FM Towns. It's the most used tool to make music for the PC-x801 series, notable examples are Touhou Project and Grounseed.
+
 ![Screenshot](/Resources/Screenshot.png?raw=true "Screenshot")
 
 ## Features
@@ -33,24 +35,26 @@ You can specify the directory that contains the [YM2608 (OPNA)](https://en.wikip
 
 ### Tags
 
-The following info tags are available:
-
-| Name           | Value       |
-| -------------- | ----------- |
-| samplerate     |       44100 |
-| channels       |           2 |
-| bitspersample  |          16 |
-| encoding       | synthesized |
-| bitrate        |   1411 kpbs |
-
 The following meta data tags are available:
 
 | Name           | Value                           |
 | -------------- | ------------------------------- |
 | title          | Title of the track              |
 | artist         | Arranger specified by the track |
-| pmd_composer   | Composer specified by the track |
-| pmd_memo       | Memo specified by the track     |
+| composer       | Composer specified by the track |
+| memo           | Memo specified by the track     |
+
+The following info tags are available:
+
+| Name            | Value                              |
+| --------------- | ---------------------------------- |
+| pmd_loop_length | Length of loop (in ms), if defined |
+
+The following info tags are available while playing a track:
+
+| Name            | Value                      |
+| --------------- | -------------------------- |
+| pmd_loop_number | Number of the current loop |
 
 ## Developing
 
@@ -59,10 +63,6 @@ To build the code you need:
 * [Microsoft Visual Studio 2022 Community Edition](https://visualstudio.microsoft.com/downloads/) or later
 * [foobar2000 SDK](https://www.foobar2000.org/SDK) 2023-05-10
 * [Windows Template Library (WTL)](https://github.com/Win32-WTL/WTL) 10.0.10320
-
-The following library is included in the code:
-
-* [pmdwin](http://c60.la.coocan.jp/) 0.52
 
 To create the deployment package you need:
 
@@ -102,6 +102,15 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
+v0.2.0, 2023-07-16, *"Nice progress"*
+
+* Added: pmd_loop_length info tag.
+* Added: Seeking to a position in the current song.
+* Added: Loop playing with or without fading.
+* Improved: Loading and scanning a file.
+* Fixed: Files with Unicode filenames failed to load.
+* Fixed: Wrong specification of source buffer size.
+
 v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 
 * Initial release.
@@ -110,6 +119,7 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 
 * Peter Pawlowski for the [foobar2000](https://www.foobar2000.org/) audio player. ![foobar2000](https://www.foobar2000.org/button-small.png)
 * C60 for [PMDWin](http://c60.la.coocan.jp/) a library to render PMD files to PCM.
+  * The PMD driver is a heavily modified version of [PMDWin](http://c60.la.coocan.jp/) 0.52.
 * [Aaron Giles](https://github.com/aaronsgiles) for [ymfm](https://github.com/aaronsgiles/ymfm.git).
 
 ## Reference Material
@@ -129,14 +139,22 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
   * [Help Solve the File Format Problem](http://justsolve.archiveteam.org/wiki/Professional_Music_Driver_PMD)
   * [PMD Documentation](https://pigu-a.github.io/pmddocs/)
   * [pmdmini](https://github.com/gzaffin/pmdmini)
+  * [pmdmini](https://github.com/mistydemeo/pmdmini)
   * [FMP/PMD plugin for KbMediaPlayer 1.0r6](https://www.purose.net/befis/download/kmp/)
 
 * Music Macro Language
-  * http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language
+  * [PMD MML Command Manual](https://pigu-a.github.io/pmddocs/pmdmml.htm)
+  * [Video Game Music Preservation](http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language)
+  * [Pedipanol](https://mml-guide.readthedocs.io/pmd/intro/)
+
+ * Songs
+  * [Hoot Archive](http://hoot.joshw.info/pc98/)
+  * [Modland FTP server](https://www.exotica.org.uk/wiki/Modland)
+  * [Touhou 7: Perfect Cherry Blossom](https://www.youtube.com/watch?v=7k8BBweVxcw). Check the notes for links to the .M and .MML files.
+  * [Zun](http://www16.big.or.jp/~zun/html/pmd.html)
 
 * Various
   * [RetroPie BIOS Collection](https://github.com/archtaurus/RetroPieBIOS)
-  * [Touhou 7: Perfect Cherry Blossom](https://www.youtube.com/watch?v=7k8BBweVxcw). Check the notes for links to the .M and .MML files.
 
 ## Links
 

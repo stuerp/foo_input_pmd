@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -123,7 +123,7 @@
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>../3rdParty/WTL10_10320/Include;../sdk/foobar2000/sdk;../sdk/foobar2000/shared;../sdk/foobar2000;../sdk;3rdParty/pmdwin;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../3rdParty/WTL10_10320/Include;../sdk/foobar2000/sdk;../sdk/foobar2000/shared;../sdk/foobar2000;../sdk;PMD;PMD/ymfm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <DisableAnalyzeExternal>true</DisableAnalyzeExternal>
@@ -152,7 +152,7 @@
       <Optimization>MinSpace</Optimization>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <AdditionalOptions>/d2notypeopt</AdditionalOptions>
-      <AdditionalIncludeDirectories>../3rdParty/WTL10_10320/Include;../sdk/foobar2000/sdk;../sdk/foobar2000/shared;../sdk/foobar2000;../sdk;3rdParty/pmdwin;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../3rdParty/WTL10_10320/Include;../sdk/foobar2000/sdk;../sdk/foobar2000/shared;../sdk/foobar2000;../sdk;PMD;PMD/ymfm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <DisableAnalyzeExternal>true</DisableAnalyzeExternal>
       <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
@@ -177,6 +177,22 @@
     <ClInclude Include="Configuration.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="PMDDecoder.h" />
+    <ClInclude Include="PMD\File.h" />
+    <ClInclude Include="PMD\PMDPrivate.h" />
+    <ClInclude Include="PMD\OPNA.h" />
+    <ClInclude Include="PMD\OPNAW.h" />
+    <ClInclude Include="PMD\P86.h" />
+    <ClInclude Include="PMD\PMD.h" />
+    <ClInclude Include="PMD\PPS.h" />
+    <ClInclude Include="PMD\PPZ.h" />
+    <ClInclude Include="PMD\Table.h" />
+    <ClInclude Include="PMD\Utility.h" />
+    <ClInclude Include="PMD\ymfm\ymfm.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_adpcm.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_fm.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_fm.ipp" />
+    <ClInclude Include="PMD\ymfm\ymfm_opn.h" />
+    <ClInclude Include="PMD\ymfm\ymfm_ssg.h" />
     <ClInclude Include="Preferences.h" />
     <ClInclude Include="Resources.h" />
   </ItemGroup>
@@ -185,12 +201,25 @@
     <ClCompile Include="Configuration.cpp" />
     <ClCompile Include="InputDecoder.cpp" />
     <ClCompile Include="PMDDecoder.cpp" />
+    <ClCompile Include="PMD\File.cpp" />
+    <ClCompile Include="PMD\OPNA.cpp" />
+    <ClCompile Include="PMD\OPNAW.cpp" />
+    <ClCompile Include="PMD\P86.cpp" />
+    <ClCompile Include="PMD\PMD.cpp" />
+    <ClCompile Include="PMD\PPS.cpp" />
+    <ClCompile Include="PMD\PPZ.cpp" />
+    <ClCompile Include="PMD\Table.cpp" />
+    <ClCompile Include="PMD\Utility.cpp" />
+    <ClCompile Include="PMD\ymfm\ymfm_adpcm.cpp" />
+    <ClCompile Include="PMD\ymfm\ymfm_opn.cpp" />
+    <ClCompile Include="PMD\ymfm\ymfm_ssg.cpp" />
     <ClCompile Include="Preferences.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitattributes" />
     <None Include=".gitignore" />
     <None Include="Build-FB2KComponent.ps1" />
+    <None Include="PMD\ymfm\LICENSE" />
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
@@ -212,12 +241,12 @@
     <ProjectReference Include="..\sdk\pfc\pfc.vcxproj">
       <Project>{ebfffb4e-261d-44d3-b89c-957b31a0bf9c}</Project>
     </ProjectReference>
-    <ProjectReference Include="3rdParty\pmdwin\pmdwin.vcxproj">
-      <Project>{cd1a1ace-a51a-4492-beb5-d83baf0cb3a9}</Project>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Text Include="LICENSE.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resources\Screenshot.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
