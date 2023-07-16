@@ -35,8 +35,8 @@ bool P86DRV::Init(uint32_t r, bool ip)
 //  初期化(内部処理)
 void P86DRV::_Init(void)
 {
-    memset(p86_file, 0, sizeof(p86_file));
-    memset(&p86header, 0, sizeof(p86header));
+    ::memset(_FileName, 0, sizeof(_FileName));
+    ::memset(&p86header, 0, sizeof(p86header));
 
     interpolation = false;
     rate = SOUND_44K;
@@ -118,51 +118,53 @@ void P86DRV::MakeVolumeTable(int volume)
 }
 
 //  ヘッダ読み込み
-void P86DRV::ReadHeader(File * file, P86HEADER & p86header)
+void P86DRV::ReadHeader(File * file, P86HEADER & header)
 {
     uint8_t buf[1552];
+
     file->Read(buf, sizeof(buf));
 
-    memcpy(p86header.header, &buf[0x00], 12);
-    p86header.Version = buf[0x0c];
-    memcpy(p86header.All_Size, &buf[0x0d], 3);
+    ::memcpy(header.header, &buf[0x00], 12);
+
+    header.Version = buf[0x0c];
+
+    ::memcpy(header.All_Size, &buf[0x0d], 3);
 
     for (int i = 0; i < MAX_P86; i++)
     {
-        memcpy(&p86header.pcmnum[i].start[0], &buf[0x10 + i * 6], 3);
-        memcpy(&p86header.pcmnum[i].size[0], &buf[0x13 + i * 6], 3);
+        ::memcpy(&header.pcmnum[i].start[0], &buf[0x10 + i * 6], 3);
+        ::memcpy(&header.pcmnum[i].size[0], &buf[0x13 + i * 6], 3);
     }
 }
 
-//  P86 読み込み
-int P86DRV::Load(TCHAR * filename)
+int P86DRV::Load(WCHAR * fileName)
 {
     Stop();
 
-    p86_file[0] = '\0';
+    _FileName[0] = '\0';
 
-    if (*filename == '\0')
+    if (*fileName == '\0')
         return _ERR_OPEN_P86_FILE;
 
-    if (!_File->Open(filename))
+    if (!_File->Open(fileName))
     {
         if (p86_addr != NULL)
         {
             ::free(p86_addr);    // 開放
             p86_addr = NULL;
 
-            memset(&p86header, 0, sizeof(p86header));
-            memset(p86_file, 0, sizeof(p86_file));
+            ::memset(&p86header, 0, sizeof(p86header));
+            ::memset(_FileName, 0, sizeof(_FileName));
         }
 
         return _ERR_OPEN_P86_FILE;            //  ファイルが開けない
     }
 
-    int      i, size;
+    int i;
     P86HEADER  _p86header;
     P86HEADER2  p86header2;
 
-    size = (int) _File->GetFileSize(filename);    // ファイルサイズ
+    size_t FileSize = (size_t) _File->GetFileSize(fileName);    // ファイルサイズ
 
     ReadHeader(_File, _p86header);
 
@@ -177,7 +179,7 @@ int P86DRV::Load(TCHAR * filename)
 
     if (::memcmp(&p86header, &p86header2, sizeof(p86header)) == 0)
     {
-        ::wcscpy_s(p86_file, filename);
+        ::wcscpy_s(_FileName, fileName);
 
         _File->Close();
 
@@ -192,20 +194,20 @@ int P86DRV::Load(TCHAR * filename)
 
     ::memcpy(&p86header, &p86header2, sizeof(p86header));
 
-    size -= P86HEADERSIZE;
+    FileSize -= P86HEADERSIZE;
 
-    if ((p86_addr = (uint8_t *) malloc(size)) == NULL)
+    if ((p86_addr = (uint8_t *) malloc(FileSize)) == NULL)
     {
         _File->Close();
         return _ERR_OUT_OF_MEMORY;      // メモリが確保できない
     }
 
-    _File->Read(p86_addr, size);
+    _File->Read(p86_addr, (uint32_t) FileSize);
 
-    //  ファイル名登録
-    ::wcscpy_s(p86_file, filename);
+    ::wcscpy_s(_FileName, fileName);
 
     _File->Close();
+
     return _P86DRV_OK;
 }
 

@@ -50,7 +50,7 @@
 #define NumOfPPZ8Part           8
 #define NumOfAllPart            (NumOfFMPart+NumOfSSGPart+NumOfADPCMPart+NumOfOPNARhythmPart+NumOfExtPart+NumOfRhythmPart+NumOfEffPart+NumOfPPZ8Part)
 
-typedef struct PMDworktag
+struct PMDWORK
 {
     int partb;  // 処理中パート番号
     int tieflag; // &のフラグ(1 : tie)
@@ -60,7 +60,7 @@ typedef struct PMDworktag
     int omote_key[3];  // FM keyondata表(=0)
     int ura_key[3]; // FM keyondata裏(=0x100)
     int loop_work; // Loop Work
-    bool  _UsePPS;  // ppsdrv を使用するか？flag(ユーザーが代入)
+    bool _UsePPS;  // ppsdrv を使用するか？flag(ユーザーが代入)
     int pcmrepeat1; // PCMのリピートアドレス1
     int pcmrepeat2; // PCMのリピートアドレス2
     int pcmrelease; // PCMのRelease開始アドレス
@@ -71,7 +71,7 @@ typedef struct PMDworktag
     int fm3_alg_fb; // FM3chの最後に定義した音色のalg/fb
     int af_check; // FM3chのalg/fbを設定するかしないかflag
     int lfo_switch; // 局所LFOスイッチ
-} PMDWORK;
+};
 
 struct EffectState
 {
@@ -268,6 +268,6 @@ struct OPEN_WORK
 
     int _FadeOutSpeedHQ;                        // Fadeout (High Sound Quality) speed (fadeout at > 0)
 
-    WCHAR ppcfilename[MAX_PATH];
+    WCHAR _PPCFileName[MAX_PATH];
     std::vector<std::wstring> _SearchPath;
 };

@@ -153,17 +153,18 @@ bool PPSDRV::Check(void)
 }
 
 //  ヘッダ読み込み
-void PPSDRV::ReadHeader(File * file, PPSHEADER & ppsheader)
+void PPSDRV::ReadHeader(File * file, PPSHEADER & header)
 {
     uint8_t buf[84];
+
     file->Read(buf, sizeof(buf));
 
     for (int i = 0; i < MAX_PPS; i++)
     {
-        ppsheader.pcmnum[i].address = buf[i * 6] | (buf[i * 6 + 1] << 8);
-        ppsheader.pcmnum[i].leng = buf[i * 6 + 2] | (buf[i * 6 + 3] << 8);
-        ppsheader.pcmnum[i].toneofs = buf[i * 6 + 4];
-        ppsheader.pcmnum[i].volumeofs = buf[i * 6 + 5];
+        header.pcmnum[i].address = buf[i * 6] | (buf[i * 6 + 1] << 8);
+        header.pcmnum[i].leng = buf[i * 6 + 2] | (buf[i * 6 + 3] << 8);
+        header.pcmnum[i].toneofs = buf[i * 6 + 4];
+        header.pcmnum[i].volumeofs = buf[i * 6 + 5];
     }
 }
 
@@ -188,13 +189,12 @@ int PPSDRV::Load(WCHAR * filePath)
         return _ERR_OPEN_PPS_FILE;            //  ファイルが開けない
     }
 
-    int i;
     uint32_t  j, start_pps, end_pps;
     PPSHEADER  ppsheader2;
     uint8_t * psrc, * psrc2;
     Sample * pdst;
 
-    int size = (int) _File->GetFileSize(filePath);    // ファイルサイズ
+    size_t size = (size_t) _File->GetFileSize(filePath);    // ファイルサイズ
 
     ReadHeader(_File, ppsheader2);
 
@@ -228,9 +228,9 @@ int PPSDRV::Load(WCHAR * filePath)
     }
 
     //  仮バッファに読み込み
-    _File->Read(psrc, size);
+    _File->Read(psrc, (uint32_t) size);
 
-    for (i = 0; i < size / (int) sizeof(uint8_t); i++)
+    for (size_t i = 0; i < size / (int) sizeof(uint8_t); i++)
     {
         *pdst = (*psrc) / 16;
         pdst++;
@@ -241,20 +241,20 @@ int PPSDRV::Load(WCHAR * filePath)
 
 
     //  PPS 補正(プチノイズ対策）／160 サンプルで減衰させる
-    for (i = 0; i < MAX_PPS; i++)
+    for (size_t i = 0; i < MAX_PPS; i++)
     {
-        end_pps = ppsheader.pcmnum[i].address - PPSHEADERSIZE * 2
-            + ppsheader.pcmnum[i].leng * 2;
+        end_pps   = ppsheader.pcmnum[i].address - PPSHEADERSIZE * 2 + ppsheader.pcmnum[i].leng * 2;
         start_pps = end_pps - 160;
+
         if (start_pps < ppsheader.pcmnum[i].address - PPSHEADERSIZE * 2)
-        {
             start_pps = ppsheader.pcmnum[i].address - PPSHEADERSIZE * 2;
-        }
 
         for (j = start_pps; j < end_pps; j++)
         {
             dataarea1[j] = dataarea1[j] - (j - start_pps) * 16 / (end_pps - start_pps);
-            if (dataarea1[j] < 0) dataarea1[j] = 0;
+
+            if (dataarea1[j] < 0)
+                dataarea1[j] = 0;
         }
     }
 

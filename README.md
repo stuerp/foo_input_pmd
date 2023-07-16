@@ -102,7 +102,7 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
-v0.2.0, 2023-07-16, *"Nice progress"*
+v0.2.0, 2023-07-16, *"That's a wrap"*
 
 * Added: pmd_loop_length info tag.
 * Added: Seeking to a position in the current song.

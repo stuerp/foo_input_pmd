@@ -100,7 +100,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
         pcmends.pcmadrs[i][1] = 0;
     }
 
-    _OpenWork.ppcfilename[0] = '\0';
+    _OpenWork._PPCFileName[0] = '\0';
 
     // Initial setting of 088/188/288/388 (same INT number only)
     _OPNA->SetReg(0x29, 0x00);
@@ -110,7 +110,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _OPNA->SetReg(0x27, 0x3f);
 
     // Start the OPN interrupt.
-    opnint_start();
+    StartOPNInterrupt();
 
     return true;
 }
@@ -289,7 +289,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
             if (HasExtension(FileNameW, _countof(FileNameW), L".P86"))
             {
-                FindPCMSample(FilePath, FileNameW);
+                FindSampleFile(FilePath, FileNameW);
 
                 Result = _P86->Load(FilePath);
 
@@ -299,7 +299,7 @@ int PMD::Load(const uint8_t * data, size_t size)
             else
             if (HasExtension(FileNameW, _countof(FileNameW), L".PPC"))
             {
-                FindPCMSample(FilePath, FileNameW);
+                FindSampleFile(FilePath, FileNameW);
 
                 Result = LoadPPCInternal(FilePath);
 
@@ -319,7 +319,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
             if (HasExtension(FileNameW, _countof(FileNameW), L".PPS"))
             {
-                FindPCMSample(FilePath, FileNameW);
+                FindSampleFile(FilePath, FileNameW);
 
                 Result = _PPS->Load(FilePath);
             }
@@ -336,7 +336,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
             if (HasExtension(FileNameW, _countof(FileNameW), L".PZI") && (data[0] != 0xff))
             {
-                FindPCMSample(FilePath, FileNameW);
+                FindSampleFile(FilePath, FileNameW);
 
                 Result = _PPZ8->Load(FilePath, 0);
             }
@@ -350,7 +350,7 @@ int PMD::Load(const uint8_t * data, size_t size)
                     if ((p = ::wcschr(FileNameW, '.')) == NULL)
                         RenameExtension(FileNameW, _countof(FileNameW), L".PZI");
 
-                    FindPCMSample(FilePath, FileNameW);
+                    FindSampleFile(FilePath, FileNameW);
 
                     Result = _PPZ8->Load(FilePath, 0);
                 }
@@ -368,11 +368,11 @@ int PMD::Load(const uint8_t * data, size_t size)
                     if ((p = ::wcschr(PPZFileName2, '.')) == NULL)
                         RenameExtension(PPZFileName2, _countof(PPZFileName2), L".PZI");
 
-                    FindPCMSample(FilePath, FileNameW);
+                    FindSampleFile(FilePath, FileNameW);
 
                     Result = _PPZ8->Load(FilePath, 0);
 
-                    FindPCMSample(FilePath, PPZFileName2);
+                    FindSampleFile(FilePath, PPZFileName2);
 
                     Result = _PPZ8->Load(FilePath, 1);
                 }
@@ -859,9 +859,9 @@ int PMD::GetEventNumber()
 WCHAR * PMD::GetPCMFileName(WCHAR * filePath)
 {
     if (_OpenWork._UseP86)
-        ::wcscpy(filePath, _P86->p86_file);
+        ::wcscpy(filePath, _P86->_FileName);
     else
-        ::wcscpy(filePath, _OpenWork.ppcfilename);
+        ::wcscpy(filePath, _OpenWork._PPCFileName);
 
     return filePath;
 }
@@ -1227,7 +1227,9 @@ char * PMD::GetNoteInternal(const uint8_t * data, size_t size, int index, char *
 
     Src = &Data[*(uint16_t *) Src];
 
-    int i, dx;
+    int i;
+
+    int dx = 0;
 
     for (i = 0; i <= index; i++)
     {
@@ -2250,12 +2252,9 @@ void PMD::volset(PartState * qq)
         }
     }
 
-    //------------------------------------------------------------------------
     //  音量をcarrierに設定 & 音量LFO処理
     //    input  cl to Volume[0-127]
     //      bl to SlotMask
-    //------------------------------------------------------------------------
-
     bh = 0;          // Vol Slot Mask
     bl = qq->slotmask;    // ch=SlotMask Push
 
@@ -2300,12 +2299,10 @@ void PMD::volset(PartState * qq)
     if (bh & 0x10) volset_slot(dh - 12, qq->slot1, vol_tbl[3]);
 }
 
-//-----------------------------------------------------------------------------
 //  スロット毎の計算 & 出力 マクロ
 //      in.  dl  元のTL値
 //        dh  Outするレジスタ
 //        al  音量変動値 中心=80h
-//-----------------------------------------------------------------------------
 void PMD::volset_slot(int dh, int dl, int al)
 {
     if ((al += dl) > 255) al = 255;
@@ -2313,10 +2310,8 @@ void PMD::volset_slot(int dh, int dl, int al)
     _OPNA->SetReg(pmdwork.fmsel + dh, al);
 }
 
-//-----------------------------------------------------------------------------
 //  音量LFO用サブ
-//-----------------------------------------------------------------------------
-void PMD::fmlfo_sub(PartState * qq, int al, int bl, uint8_t * vol_tbl)
+void PMD::fmlfo_sub(PartState *, int al, int bl, uint8_t * vol_tbl)
 {
     if (bl & 0x80) vol_tbl[0] = Limit(vol_tbl[0] - al, 255, 0);
     if (bl & 0x40) vol_tbl[1] = Limit(vol_tbl[1] - al, 255, 0);
@@ -2619,8 +2614,6 @@ void PMD::rhythmmain(PartState * qq)
 // PSG Rhythm ON
 uint8_t * PMD::rhythmon(PartState * qq, uint8_t * bx, int al, int * result)
 {
-    int    cl, dl, bx_;
-
     if (al & 0x40)
     {
         bx = commandsr(qq, bx - 1);
@@ -2637,31 +2630,36 @@ uint8_t * PMD::rhythmon(PartState * qq, uint8_t * bx, int al, int * result)
     }
 
     al = ((al << 8) + *bx++) & 0x3fff;
+
     _OpenWork.kshot_dat = al;
-    if (al == 0) return bx;
+
+    if (al == 0)
+        return bx;
+
     _OpenWork.rhyadr = bx;
 
     if (_OpenWork.kp_rhythm_flag)
     {
-        for (cl = 0; cl < 11; cl++)
+        for (int cl = 0; cl < 11; cl++)
         {
             if (al & (1 << cl))
             {
                 _OPNA->SetReg(rhydat[cl][0], rhydat[cl][1]);
-                if ((dl = (rhydat[cl][2] & _OpenWork.rhythmmask)))
+
+                int dl = rhydat[cl][2] & _OpenWork.rhythmmask;
+
+                if (dl != 0)
                 {
                     if (dl < 0x80)
-                    {
                         _OPNA->SetReg(0x10, dl);
-                    }
                     else
                     {
                         _OPNA->SetReg(0x10, 0x84);
+
                         dl = _OpenWork.rhythmmask & 8;
+
                         if (dl)
-                        {
                             _OPNA->SetReg(0x10, dl);
-                        }
                     }
                 }
             }
@@ -2672,13 +2670,14 @@ uint8_t * PMD::rhythmon(PartState * qq, uint8_t * bx, int al, int * result)
     {
         if (_OpenWork.kp_rhythm_flag)
         {
-            dl = _OpenWork.rhyvol;
+            int dl = _OpenWork.rhyvol;
+
             if (_OpenWork.fadeout_volume)
-            {
                 dl = ((256 - _OpenWork.fadeout_volume) * dl) >> 8;
-            }
+
             _OPNA->SetReg(0x11, dl);
         }
+
         if (pmdwork._UsePPS == false)
         {  // fadeout時ppsdrvでなら発音しない
             bx = _OpenWork.rhyadr;
@@ -2686,8 +2685,10 @@ uint8_t * PMD::rhythmon(PartState * qq, uint8_t * bx, int al, int * result)
         }
     }
 
-    bx_ = al;
+    int bx_ = al;
+
     al = 0;
+
     do
     {
         while ((bx_ & 1) == 0)
@@ -2695,7 +2696,9 @@ uint8_t * PMD::rhythmon(PartState * qq, uint8_t * bx, int al, int * result)
             bx_ >>= 1;
             al++;
         }
+
         effgo(qq, al);
+
         bx_ >>= 1;
     }
     while (pmdwork._UsePPS && bx_);  // PPSDRVなら２音目以上も鳴らしてみる
@@ -2887,7 +2890,7 @@ void PMD::effsweep()
 }
 
 //  PDRのswitch
-uint8_t * PMD::pdrswitch(PartState * qq, uint8_t * si)
+uint8_t * PMD::pdrswitch(PartState *, uint8_t * si)
 {
     if (pmdwork._UsePPS == false)
         return si + 1;
@@ -4296,7 +4299,7 @@ uint8_t * PMD::pansetm_ex(PartState * qq, uint8_t * si)
 }
 
 //  リピート設定
-uint8_t * PMD::pcmrepeat_set(PartState * qq, uint8_t * si)
+uint8_t * PMD::pcmrepeat_set(PartState *, uint8_t * si)
 {
     int    ax;
 
@@ -4343,7 +4346,7 @@ uint8_t * PMD::pcmrepeat_set(PartState * qq, uint8_t * si)
 }
 
 //  リピート設定(PMD86)
-uint8_t * PMD::pcmrepeat_set8(PartState * qq, uint8_t * si)
+uint8_t * PMD::pcmrepeat_set8(PartState *, uint8_t * si)
 {
     int16_t loop_start, loop_end, release_start;
 
@@ -4431,7 +4434,7 @@ uint8_t * PMD::pansetm(PartState * qq, uint8_t * si)
 //  p1    右
 //  p2    左
 //  p3    中
-uint8_t * PMD::panset8(PartState * qq, uint8_t * si)
+uint8_t * PMD::panset8(PartState *, uint8_t * si)
 {
     int    flag, data;
 
@@ -4810,7 +4813,10 @@ uint8_t * PMD::commandsp(PartState * qq, uint8_t * si)
         case 0xbf: lfo_change(qq); si = lfoset(qq, si); lfo_change(qq); break;
         case 0xbe:
             qq->lfoswi = (qq->lfoswi & 0x8f) | ((*si++ & 7) << 4);
-            lfo_change(qq); lfoinit_main(qq); lfo_change(qq);
+
+            lfo_change(qq);
+            lfoinit_main(qq);
+            lfo_change(qq);
             break;
 
         case 0xbd:
@@ -4820,19 +4826,31 @@ uint8_t * PMD::commandsp(PartState * qq, uint8_t * si)
             lfo_change(qq);
             break;
 
-        case 0xbc: lfo_change(qq); qq->lfo_wave = *si++; lfo_change(qq); break;
+        case 0xbc:
+            lfo_change(qq);
+
+            qq->lfo_wave = *si++;
+
+            lfo_change(qq);
+            break;
+
         case 0xbb:
             lfo_change(qq);
+
             qq->extendmode = (qq->extendmode & 0xfd) | ((*si++ & 1) << 1);
+
             lfo_change(qq);
             break;
 
         case 0xba: si++; break;
         case 0xb9:
             lfo_change(qq);
+
             qq->delay = qq->delay2 = *si++;
             lfoinit_main(qq);
-            break;
+
+// FIXME    break;
+
             lfo_change(qq);
             break;
 
@@ -5077,22 +5095,37 @@ uint8_t * PMD::commandsm(PartState * qq, uint8_t * si)
         case 0xbe: si = _lfoswitch(qq, si); break;
         case 0xbd:
             lfo_change(qq);
+
             qq->mdspd = qq->mdspd2 = *si++;
             qq->mdepth = *(int8_t *) si++;
+
             lfo_change(qq);
             break;
 
-        case 0xbc: lfo_change(qq); qq->lfo_wave = *si++; lfo_change(qq); break;
+        case 0xbc:
+            lfo_change(qq);
+
+            qq->lfo_wave = *si++;
+
+            lfo_change(qq);
+            break;
+
         case 0xbb:
             lfo_change(qq);
+
             qq->extendmode = (qq->extendmode & 0xfd) | ((*si++ & 1) << 1);
+
             lfo_change(qq);
             break;
 
         case 0xba: si = _volmask_set(qq, si); break;
         case 0xb9:
             lfo_change(qq);
-            qq->delay = qq->delay2 = *si++; lfoinit_main(qq); break;
+
+            qq->delay = qq->delay2 = *si++;
+            lfoinit_main(qq);
+// FIXME    break;
+
             lfo_change(qq);
             break;
 
@@ -5369,7 +5402,10 @@ uint8_t * PMD::commandsz(PartState * qq, uint8_t * si)
         case 0xba: si = _volmask_set(qq, si); break;
         case 0xb9:
             lfo_change(qq);
-            qq->delay = qq->delay2 = *si++; lfoinit_main(qq); break;
+
+            qq->delay = qq->delay2 = *si++;
+            lfoinit_main(qq);
+// FIXME     break;
             lfo_change(qq);
             break;
 
@@ -8117,8 +8153,10 @@ void PMD::syousetu_count()
     }
 }
 
-//  ＯＰＮ割り込み許可処理
-void PMD::opnint_start()
+/// <summary>
+/// Starts the OPN interrupt.
+/// </summary>
+void PMD::StartOPNInterrupt()
 {
     ::memset(FMPart, 0, sizeof(FMPart));
     ::memset(SSGPart, 0, sizeof(SSGPart));
@@ -8707,7 +8745,7 @@ int PMD::LoadPPCInternal(WCHAR * filePath)
 
     int Result = LoadPPCInternal(pcmbuf, Size);
 
-    ::wcscpy(_OpenWork.ppcfilename, filePath);
+    ::wcscpy(_OpenWork._PPCFileName, filePath);
 
     free(pcmbuf);
 
@@ -8721,7 +8759,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 {
     if (size < 0x10)
     {
-        _OpenWork.ppcfilename[0] = '\0';
+        _OpenWork._PPCFileName[0] = '\0';
 
         return ERR_UNKNOWN_FORMAT;
     }
@@ -8772,7 +8810,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
         if (size < 30 + 4 * 256 + 2)
         {
-            _OpenWork.ppcfilename[0] = '\0';
+            _OpenWork._PPCFileName[0] = '\0';
 
             return ERR_UNKNOWN_FORMAT;
         }
@@ -8787,7 +8825,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
     }
     else
     {
-        _OpenWork.ppcfilename[0] = '\0';
+        _OpenWork._PPCFileName[0] = '\0';
 
         return ERR_UNKNOWN_FORMAT;
     }
@@ -8817,7 +8855,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
         if (size < (int) (pcmends.pcmends - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
         {
-            _OpenWork.ppcfilename[0] = '\0';
+            _OpenWork._PPCFileName[0] = '\0';
 
             return ERR_UNKNOWN_FORMAT;
         }
@@ -8828,7 +8866,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
         if (size < (pcmends.pcmends - ((30 + 4 * 256 + 2) / 2)) * 32)
         {
-            _OpenWork.ppcfilename[0] = '\0';
+            _OpenWork._PPCFileName[0] = '\0';
 
             return ERR_UNKNOWN_FORMAT;
         }
@@ -8845,11 +8883,11 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 /// <summary>
 /// Finds a PCM sample in the specified search path.
 /// </summary>
-WCHAR * PMD::FindPCMSample(WCHAR * filePath, const WCHAR * filename)
+WCHAR * PMD::FindSampleFile(WCHAR * filePath, const WCHAR * filename)
 {
     WCHAR FilePath[MAX_PATH];
 
-    for (int i = 0; i < _OpenWork._SearchPath.size(); ++i)
+    for (size_t i = 0; i < _OpenWork._SearchPath.size(); ++i)
     {
         CombinePath(FilePath, _countof(FilePath), _OpenWork._SearchPath[i].c_str(), filename);
 
@@ -8860,10 +8898,12 @@ WCHAR * PMD::FindPCMSample(WCHAR * filePath, const WCHAR * filename)
             return filePath;
         }
     }
+
+    return nullptr;
 }
 
 //  fm effect
-uint8_t * PMD::fm_efct_set(PartState * qq, uint8_t * si)
+uint8_t * PMD::fm_efct_set(PartState *, uint8_t * si)
 {
     return si + 1;
 }

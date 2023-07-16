@@ -460,22 +460,21 @@ void OPNA::Mix(Sample * buffer, int nsamples)
 }
 
 // generate one output sample of output
-void OPNA::generate(emulated_time output_start, emulated_time output_step, int32_t * buffer)
+void OPNA::generate(emulated_time output_start, emulated_time, int32_t * buffer)
 {
-    uint32_t addr1 = 0xffff, addr2 = 0xffff;
-    uint8_t data1 = 0, data2 = 0;
+//  uint32_t addr1 = 0xffff, addr2 = 0xffff;
+//  uint8_t data1 = 0, data2 = 0;
 
     // generate at the appropriate sample rate
     for (; m_pos <= output_start; m_pos += m_step)
-    {
         m_chip.generate(&m_output);
-    }
 
     // add the final result to the buffer
 
     int32_t out0 = m_output.data[0];
     int32_t out1 = m_output.data[1 % ymfm::ym2608::OUTPUTS];
     int32_t out2 = m_output.data[2 % ymfm::ym2608::OUTPUTS];
+
     *buffer++ += out0 + out2;
     *buffer++ += out1 + out2;
 

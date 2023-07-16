@@ -164,7 +164,7 @@ private:
 
 protected:
     void InitializeInternal();
-    void opnint_start();
+    void StartOPNInterrupt();
     void data_init();
     void opn_init();
 
@@ -363,7 +363,7 @@ protected:
     int LoadPPCInternal(WCHAR * filename);
     int LoadPPCInternal(uint8_t * pcmdata, int size);
 
-    WCHAR * FindPCMSample(WCHAR * dest, const WCHAR * filename);
+    WCHAR * FindSampleFile(WCHAR * dest, const WCHAR * filename);
     void swap(int * a, int * b);
 
     inline int Limit(int v, int max, int min)

@@ -67,7 +67,7 @@ public:
     bool Stop(void);                // P86 停止
     bool Play(void);                // P86 再生
     bool Keyoff(void);                // P86 keyoff
-    int Load(TCHAR * filename);            // P86 読み込み
+    int Load(WCHAR * filename);            // P86 読み込み
     bool SetRate(uint32_t r, bool ip);          // レート設定
     void SetVolume(int volume);            // 全体音量調節用
     bool SetVol(int _vol);              // 音量設定
@@ -77,7 +77,8 @@ public:
     bool SetLoop(int loop_start, int loop_end, int release_start, bool adpcm);
     // ループ設定
     void Mix(Sample * dest, int nsamples);      // 合成
-    TCHAR  p86_file[_MAX_PATH];          // ファイル名
+
+    WCHAR  _FileName[_MAX_PATH];
     P86HEADER2 p86header;              // P86 の音色ヘッダー
 
 private:
