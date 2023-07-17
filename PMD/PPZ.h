@@ -78,6 +78,9 @@ struct PVIHEADER
 };
 #pragma pack(pop)
 
+/// <summary>
+/// Implements a Rhythm Sound Source module, a six-channel ADPCM system, enabling playback of six percussion "rhythm tones" from a built-in ROM.
+/// </summary>
 class PPZ8
 {
 public:

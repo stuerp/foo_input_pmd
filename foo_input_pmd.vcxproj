@@ -186,6 +186,7 @@
     <ClInclude Include="PMD\PMD.h" />
     <ClInclude Include="PMD\PPS.h" />
     <ClInclude Include="PMD\PPZ.h" />
+    <ClInclude Include="PMD\RIFF.h" />
     <ClInclude Include="PMD\Table.h" />
     <ClInclude Include="PMD\Utility.h" />
     <ClInclude Include="PMD\ymfm\ymfm.h" />

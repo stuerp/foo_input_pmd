@@ -26,13 +26,14 @@ public:
     void Initialize() const noexcept;
     size_t Render(audio_chunk & audioChunk, size_t sampleCount) noexcept;
 
+    bool IsPMD(const uint8_t * data, size_t size) const noexcept;
+
+    #pragma region(State)
     uint32_t GetPosition() const noexcept;
     void SetPosition(uint32_t seconds) const noexcept;
 
     uint32_t GetEventNumber() const noexcept;
     uint32_t GetLoopNumber() const noexcept;
-
-    bool IsPMD(const uint8_t * data, size_t size) const noexcept;
 
     uint32_t GetBlockSize() const noexcept { return BlockSize; }
 
@@ -46,13 +47,16 @@ public:
     uint32_t GetEventCount() const noexcept { return _EventCount; }
     uint32_t GetLoopEventCount() const noexcept { return _LoopEventCount; }
 
-    uint32_t GetMaxLoopNumber() const noexcept { return _MaxLoopNumber; }
-    void SetMaxLoopNumber(uint32_t maxLoopNumber) noexcept { _MaxLoopNumber = maxLoopNumber; }
-
     const pfc::string8 & GetTitle() const noexcept { return _Title; }
     const pfc::string8 & GetComposer() const noexcept { return _Composer; }
     const pfc::string8 & GetArranger() const noexcept { return _Arranger; }
     const pfc::string8 & GetMemo() const noexcept { return _Memo; }
+    #pragma endregion
+
+    #pragma region(Configuration)
+    uint32_t GetMaxLoopNumber() const noexcept { return _MaxLoopNumber; }
+    void SetMaxLoopNumber(uint32_t maxLoopNumber) noexcept { _MaxLoopNumber = maxLoopNumber; }
+    #pragma endregion
 
 private:
     bool IsBusy() const noexcept;
@@ -62,6 +66,7 @@ private:
     uint8_t * _Data;
     size_t _Size;
 
+    // State
     PMD * _PMD;
 
     uint32_t _Length;           // Length of the song in ms.
@@ -70,14 +75,15 @@ private:
     uint32_t _EventCount;       // Number of events in the song
     uint32_t _LoopEventCount;   // Number of events in the loop part of the song
 
-    uint32_t _MaxLoopNumber;    // Maximum number of times to loop. 0 if looping is disabled.
-
     pfc::string8 _Title;
     pfc::string8 _Composer;
     pfc::string8 _Arranger;
     pfc::string8 _Memo;
 
     pfc::array_t<int16_t> _Samples;
+
+    // Configuration
+    uint32_t _MaxLoopNumber;    // Maximum number of times to loop. 0 if looping is disabled.
 
     static const uint32_t BlockSize = 512; // Number of samples per block
 

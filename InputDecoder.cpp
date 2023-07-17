@@ -1,5 +1,5 @@
  
-/** $VER: InputDecoder.cpp (2023.07.15) P. Stuer **/
+/** $VER: InputDecoder.cpp (2023.07.17) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -30,7 +30,7 @@ class InputDecoder : public input_stubs
 public:
     InputDecoder() noexcept :
         _File(), _FilePath(), _FileStats(),
-        _SampleRate(DefaultSampleRate),
+        _SynthesisRate(CfgSynthesisRate),
         _Decoder(),
         _LoopNumber(),
         _IsDynamicInfoSet(false)
@@ -257,8 +257,8 @@ public:
 
         if (!_IsDynamicInfoSet)
         {
-            fileInfo.info_set_int("samplerate", _SampleRate);
-            fileInfo.info_set_bitrate(((t_int64) _Decoder->GetBitsPerSample() * _Decoder->GetChannelCount() * _SampleRate + 500 /* rounding for bps to kbps*/) / 1000 /* bps to kbps */);
+            fileInfo.info_set_int("synthesis_rate", _SynthesisRate);
+            fileInfo.info_set_bitrate(((t_int64) _Decoder->GetBitsPerSample() * _Decoder->GetChannelCount() * _SynthesisRate + 500 /* rounding for bps to kbps*/) / 1000 /* bps to kbps */);
 
             _IsDynamicInfoSet = true;
 
@@ -269,7 +269,7 @@ public:
         {
             _LoopNumber = _Decoder->GetLoopNumber();
 
-            fileInfo.info_set_int("pmd_loop_number", _LoopNumber);
+            fileInfo.info_set_int("loop_number", _LoopNumber);
 
             IsDynamicInfoUpdated = true;
         }
@@ -296,7 +296,7 @@ private:
     pfc::string8 _FilePath;
     t_filestats _FileStats;
 
-    uint32_t _SampleRate;
+    uint32_t _SynthesisRate;
 
     PMDDecoder * _Decoder;
 
@@ -304,8 +304,6 @@ private:
     uint32_t _LoopNumber;
 
     bool _IsDynamicInfoSet;
-
-    static const uint32_t DefaultSampleRate = 44100;
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member
 

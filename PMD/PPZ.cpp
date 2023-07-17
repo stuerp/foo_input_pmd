@@ -45,8 +45,8 @@ const int ADPCM_EM_PAN[4] =
 
 PPZ8::PPZ8(File * file) : _File(file)
 {
-    XMS_FRAME_ADR[0] = NULL;
-    XMS_FRAME_ADR[1] = NULL;
+    XMS_FRAME_ADR[0] = nullptr;
+    XMS_FRAME_ADR[1] = nullptr;
 
     InitializeInternal();
 }

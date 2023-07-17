@@ -5,7 +5,6 @@
 
 #include "OPNA.h"
 
-//  DLL の 戻り値
 #define  _PPSDRV_OK            0    // 正常終了
 #define  _ERR_OPEN_PPS_FILE        1    // PPS を開けなかった
 #define  _ERR_WRONG_PPS_FILE         2    // PPS の形式が異なっている
@@ -37,6 +36,10 @@ struct PPSHEADER
 const size_t PPSHEADERSIZE = (sizeof(uint16_t) * 2 + sizeof(uint8_t) * 2) * MAX_PPS;
 #pragma pack(pop)
 
+/// <summary>
+/// Implemnts a SSG Sound Source module, a complete internal implementation of the Yamaha YM2149/SSG,
+/// a variant of the popular AY-3-8910/PSG for producing three channels of square wave synthesis or noise.
+/// </summary>
 class PPSDRV
 {
 public:

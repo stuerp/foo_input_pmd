@@ -52,9 +52,10 @@ The following info tags are available:
 
 The following info tags are available while playing a track:
 
-| Name            | Value                      |
-| --------------- | -------------------------- |
-| pmd_loop_number | Number of the current loop |
+| Name           | Value                      |
+| -------------- | -------------------------- |
+| synthesis_rate | Synthesis rate in Hz       |
+| loop_number    | Number of the current loop |
 
 ## Developing
 
@@ -102,12 +103,19 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
+v0.3.0, 2023-xx-xx, *""*
+
+* Improved: Added all configuration parameters to the Preferences page.
+* Improved: Upgraded the [ymfm](https://github.com/aaronsgiles/ymfm.git) sound core to the latest version.
+* Fixed: Wrong specification of source buffer size (again).
+
 v0.2.0, 2023-07-16, *"That's a wrap"*
 
 * Added: pmd_loop_length info tag.
 * Added: Seeking to a position in the current song.
 * Added: Loop playing with or without fading.
 * Improved: Loading and scanning a file.
+* Improved: Removed dependency on PMDWin.dll.
 * Fixed: Files with Unicode filenames failed to load.
 * Fixed: Wrong specification of source buffer size.
 
@@ -147,7 +155,7 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
   * [Video Game Music Preservation](http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language)
   * [Pedipanol](https://mml-guide.readthedocs.io/pmd/intro/)
 
- * Songs
+* Songs
   * [Hoot Archive](http://hoot.joshw.info/pc98/)
   * [Modland FTP server](https://www.exotica.org.uk/wiki/Modland)
   * [Touhou 7: Perfect Cherry Blossom](https://www.youtube.com/watch?v=7k8BBweVxcw). Check the notes for links to the .M and .MML files.

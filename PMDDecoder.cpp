@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.cpp (2023.07.16) P. Stuer **/
+/** $VER: PMDDecoder.cpp (2023.07.17) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -99,35 +99,35 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
     }
 
     {
-        PMD pmd;
+        PMD * pmd = new PMD();
 
-        if (!pmd.Initialize(PDXSamplesPath))
+        if (!pmd->Initialize(PDXSamplesPath))
             return false;
 
-        pmd.Load(data, size);
+        pmd->Load(data, size);
 
-        if (!pmd.GetLength((int *) &_Length, (int *) &_LoopLength))
+        if (!pmd->GetLength((int *) &_Length, (int *) &_LoopLength))
             return false;
 
-        if (!pmd.GetLengthInEvents((int *) &_EventCount, (int *) &_LoopEventCount))
+        if (!pmd->GetLengthInEvents((int *) &_EventCount, (int *) &_LoopEventCount))
             return false;
 
         {
             char Note[1024] = { 0 };
 
-            pmd.GetNote(data, size, 1, Note, _countof(Note));
+            pmd->GetNote(data, size, 1, Note, _countof(Note));
             ConvertShiftJITo2UTF8(Note, _Title);
 
             Note[0] = '\0';
-            pmd.GetNote(data, size, 2, Note, _countof(Note));
+            pmd->GetNote(data, size, 2, Note, _countof(Note));
             ConvertShiftJITo2UTF8(Note, _Composer);
 
             Note[0] = '\0';
-            pmd.GetNote(data, size, 3, Note, _countof(Note));
+            pmd->GetNote(data, size, 3, Note, _countof(Note));
             ConvertShiftJITo2UTF8(Note, _Arranger);
 
             Note[0] = '\0';
-            pmd.GetNote(data, size, 4, Note, _countof(Note));
+            pmd->GetNote(data, size, 4, Note, _countof(Note));
             ConvertShiftJITo2UTF8(Note, _Memo);
         }
     }
@@ -171,11 +171,9 @@ void PMDDecoder::Initialize() const noexcept
 /// </summary>
 size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
 {
-    uint32_t EventCount = GetEventCount();
-    uint32_t LoopEventCount = GetLoopEventCount();
-    uint32_t MaxLoopNumber = GetMaxLoopNumber();
+_MaxLoopNumber = 0;/*** REMOVE ME ***/
 
-    uint32_t TotalEventCount = EventCount + (LoopEventCount * MaxLoopNumber);
+    const uint32_t TotalEventCount = _EventCount + (_LoopEventCount * _MaxLoopNumber);
 
     if (!IsBusy() || (GetEventNumber() > TotalEventCount))
     {
@@ -184,12 +182,12 @@ size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
         return false;
     }
 
-    if ((MaxLoopNumber > 0) && GetLoopNumber() > MaxLoopNumber - 1)
+    if ((_MaxLoopNumber > 0) && (GetLoopNumber() > _MaxLoopNumber - 1))
         _PMD->SetFadeOutDurationHQ((int) CfgFadeOutDuration);
 
     _PMD->Render(&_Samples[0], (int) BlockSize);
 
-    audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * sizeof(int16_t) * (t_size) (BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
+    audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * (t_size) (BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
 
     return sampleCount;
 }

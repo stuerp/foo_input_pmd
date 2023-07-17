@@ -1,5 +1,4 @@
 ﻿
-// OPNA unit with wait
 // Based on PMDWin code by C60
 
 #pragma once
@@ -26,21 +25,25 @@
 class OPNAW : public OPNA
 {
 public:
-    OPNAW(File * file);
-    virtual ~OPNAW();
+    OPNAW(File * file) : OPNA(file)
+    {
+        InitializeInternal();
+    }
 
-    bool  Init(uint32_t c, uint32_t r, bool ipflag, const WCHAR * path);
-    bool  SetRate(uint32_t c, uint32_t r, bool ipflag = false);
+    virtual ~OPNAW() { }
 
-    void  SetFMWait(int nsec);        // FM wait(nsec)
-    void  SetSSGWait(int nsec);        // SSG wait(nsec)
-    void  SetRhythmWait(int nsec);      // Rhythm wait(nsec)
-    void  SetADPCMWait(int nsec);        // ADPCM wait(nsec)
+    bool Init(uint32_t c, uint32_t r, bool ipflag, const WCHAR * path);
+    bool SetRate(uint32_t c, uint32_t r, bool ipflag = false);
 
-    int    GetFMWait();          // FM wait(nsec)
-    int    GetSSGWait();          // SSG wait(nsec)
-    int    GetRhythmWait();        // Rhythm wait(nsec)
-    int    GetADPCMWait();          // ADPCM wait(nsec)
+    void SetFMWait(int nsec);
+    void SetSSGWait(int nsec);
+    void SetRhythmWait(int nsec);
+    void SetADPCMWait(int nsec);
+
+    int GetFMWait() const { return fmwait; }          // FM wait in ns
+    int GetSSGWait() const { return ssgwait; }        // SSG wait in ns
+    int GetRhythmWait() const { return rhythmwait; }  // Rythm wait in ns
+    int GetADPCMWait() { return adpcmwait; }    // ADPCM wait in ns
 
     void  SetReg(uint32_t addr, uint32_t data);    // レジスタ設定
     void  Mix(Sample * buffer, int nsamples);  // 合成

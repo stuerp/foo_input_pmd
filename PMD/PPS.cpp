@@ -1,5 +1,5 @@
 ﻿
-// SSG PCM Driver 「PPSDRV」 Unit / Original Programmed  by NaoNeko / Modified by Kaja / Windows Converted by C60
+// SSG PCM Driver「PPSDRV」 Unit / Original Programmed  by NaoNeko / Modified by Kaja / Windows Converted by C60
 
 #include <CppCoreCheck/Warnings.h>
 

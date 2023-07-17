@@ -9,6 +9,7 @@
 
 #include "Utility.h"
 #include "Table.h"
+
 #include "OPNAW.h"
 #include "PPZ.h"
 #include "PPS.h"
@@ -45,12 +46,12 @@ PMD::~PMD()
 /// </summary>
 bool PMD::Initialize(const WCHAR * directoryPath)
 {
-    WCHAR Path[MAX_PATH] = { 0 };
+    WCHAR DirectoryPath[MAX_PATH] = { 0 };
 
     if (directoryPath != nullptr)
     {
-        ::wcscpy(Path, directoryPath);
-        AddBackslash(Path, _countof(Path));
+        ::wcscpy(DirectoryPath, directoryPath);
+        AddBackslash(DirectoryPath, _countof(DirectoryPath));
     }
 
     InitializeInternal();
@@ -59,7 +60,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _PPS->Init(_OpenWork._OPNARate, false);
     _P86->Init(_OpenWork._OPNARate, false);
 
-    if (_OPNA->Init(OPNAClock, SOUND_44K, false, Path) == false)
+    if (_OPNA->Init(OPNAClock, SOUND_44K, false, DirectoryPath) == false)
         return false;
 
     // Initialize ADPCM RAM.
@@ -1509,12 +1510,10 @@ void PMD::mmain()
 // FM sound source performance main
 void PMD::fmmain(PartState * qq)
 {
-    uint8_t * si;
-
     if (qq->address == NULL)
         return;
 
-    si = qq->address;
+    uint8_t * si = qq->address;
 
     qq->leng--;
 

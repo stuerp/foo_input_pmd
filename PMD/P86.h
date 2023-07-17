@@ -57,6 +57,9 @@ const int ratetable[] =
     4135, 5513, 8270, 11025, 16540, 22050, 33080, 44100
 };
 
+/// <summary>
+/// Implements a ADPCM Sound Source module, a single channel for samples in 4-bit ADPCM format at a sampling rate between 2–55 kHz.
+/// </summary>
 class P86DRV
 {
 public:
