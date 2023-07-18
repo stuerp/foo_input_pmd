@@ -23,10 +23,10 @@ OPNA::OPNA(File * file) :
     _Step(0),
     _Pos(0),
 
-    _Rhythm{},
-    _RhythmTotalVolume(0),
-    rhythmtl(0),
-    rhythmkey(0),
+    _Instrument{},
+    _InstrumentVolume(0),
+    _InstrumentTL(0),
+    _InstrumentKey(0),
     _HasADPCMROM(false),
 
     output_step(0x1000000000000ull / _SynthesisRate),
@@ -42,8 +42,8 @@ OPNA::OPNA(File * file) :
 
 OPNA::~OPNA()
 {
-    for (int i = 0; i < 6; i++)
-        delete[] _Rhythm[i].Sample;
+    for (int i = 0; i < _countof(_Instrument); ++i)
+        _Instrument[i].Wave.Reset();
 }
 
 bool OPNA::Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath)
@@ -62,7 +62,7 @@ bool OPNA::Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, c
     SetVolumeADPCM(0);
     SetVolumeRhythmTotal(0);
 
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < _countof(_Instrument); i++)
         SetVolumeRhythm(0, 0);
 
     LoadRhythmSamples(directoryPath);
@@ -119,97 +119,56 @@ bool OPNA::LoadRhythmSamples(const WCHAR * directoryPath)
     }
     else
     {
-        static const WCHAR * InstrumentName[6] =
+        static const WCHAR * InstrumentName[_countof(_Instrument)] =
         {
             L"bd", L"sd", L"top", L"hh", L"tom", L"rim",
         };
 
         int i;
 
-        for (i = 0; i < 6; i++)
-            _Rhythm[i].Pos = ~0U;
+        for (i = 0; i < _countof(_Instrument); i++)
+            _Instrument[i].Pos = ~0U;
 
-        for (i = 0; i < 6; i++)
+        for (i = 0; i < _countof(_Instrument); i++)
         {
             FilePath[0] = '\0';
 
             ::StringCbPrintfW(FilePath, _countof(FilePath), L"%s2608_%s.wav", directoryPath, InstrumentName[i]);
 
-            if (!_File->Open(FilePath))
+            WAVEReader & wr = _Instrument[i].Wave;
+
             {
-                if (i != 5)
-                    break;
+                wr.Reset();
 
-                CombinePath(FilePath, _countof(FilePath), directoryPath, L"2608_rym.wav");
+                if (!wr.Open(FilePath))
+                {
+                    if (i != 5)
+                        break;
 
-                if (!_File->Open(FilePath))
+                    CombinePath(FilePath, _countof(FilePath), directoryPath, L"2608_rym.wav");
+
+                    if (!wr.Open(FilePath))
+                        break;
+                }
+
+                wr.Close();
+
+                if (!(wr.Format() == 1) && (wr.ChannelCount() == 1) && (wr.SampleRate() == 44100) && (wr.BitsPerSample() == 16))
                     break;
             }
 
-            struct
-            {
-                uint32_t chunksize;
-                uint16_t tag;
-                uint16_t nch;
-                uint32_t rate;
-                uint32_t avgbytes;
-                uint16_t align;
-                uint16_t bps;
-            } whdr;
+            uint32_t SampleCount = wr.Size() / 2;
 
-            _File->Seek(0x10, File::SeekBegin);
-
-            _File->Read(&whdr.chunksize, sizeof(whdr.chunksize));
-            _File->Read(&whdr.tag, sizeof(whdr.tag));
-            _File->Read(&whdr.nch, sizeof(whdr.nch));
-            _File->Read(&whdr.rate, sizeof(whdr.rate));
-            _File->Read(&whdr.avgbytes, sizeof(whdr.avgbytes));
-            _File->Read(&whdr.align, sizeof(whdr.align));
-            _File->Read(&whdr.bps, sizeof(whdr.bps));
-
-            uint8_t subchunkname[4];
-
-            uint32_t SampleCount = 0;
-
-            do
-            {
-                _File->Seek(SampleCount, File::SeekCurrent);
-                _File->Read(&subchunkname, 4);
-                _File->Read(&SampleCount, 4);
-            }
-            while (::memcmp("data", subchunkname, 4));
-
-            SampleCount /= 2;
-
-            if (SampleCount >= 0x100000 || whdr.tag != 1 || whdr.nch != 1)
-                break;
-
-            SampleCount = (uint32_t) (std::max)((int32_t) SampleCount, (int32_t) ((1 << 31) / 1024));
-
-            delete _Rhythm[i].Sample;
-
-            _Rhythm[i].Sample = new int16_t[SampleCount];
-
-            if (_Rhythm[i].Sample == nullptr)
-                break;
-
-            _File->Read(_Rhythm[i].Sample, SampleCount * 2);
-
-            _Rhythm[i].Rate = whdr.rate;
-            _Rhythm[i].Step = _Rhythm[i].Rate * 1024 / _SynthesisRate;
-            _Rhythm[i].Pos =
-            _Rhythm[i].Size = SampleCount * 1024;
-
-            _File->Close();
+            _Instrument[i].Sample = (const int16_t *) wr.Data();
+            _Instrument[i].Size   = SampleCount * 1024;
+            _Instrument[i].Step   = wr.SampleRate() * 1024 / _SynthesisRate;
+            _Instrument[i].Pos    = 0;
         }
 
-        if (i != 6)
+        if (i != _countof(_Instrument))
         {
-            for (i = 0; i < 6; i++)
-            {
-                delete[] _Rhythm[i].Sample;
-                _Rhythm[i].Sample = nullptr;
-            }
+            for (i = 0; i < _countof(_Instrument); i++)
+                _Instrument[i].Wave.Reset();
 
             return false;
         }
@@ -252,7 +211,7 @@ void OPNA::SetVolumeRhythmTotal(int dB)
 {
     dB = (std::min)(dB, 20);
 
-    _RhythmTotalVolume = -(dB * 2 / 3);
+    _InstrumentVolume = -(dB * 2 / 3);
 
     int32_t Volume = (dB > -192) ? int(65536.0 * ::pow(10.0, dB / 40.0)) : 0;
 
@@ -263,10 +222,12 @@ void OPNA::SetVolumeRhythm(int index, int dB)
 {
     dB = (std::min)(dB, 20);
 
-    _Rhythm[index].Volume = -(dB * 2 / 3);
+    _Instrument[index].Volume = -(dB * 2 / 3);
 }
 
-// Set data in register array
+/// <summary>
+/// Sets the value of a register.
+/// </summary>
 void OPNA::SetReg(uint32_t addr, uint32_t data)
 {
     if ((addr >= 0x10) && (addr <= 0x1f) && !_HasADPCMROM)
@@ -277,21 +238,21 @@ void OPNA::SetReg(uint32_t addr, uint32_t data)
             case 0x10: // DM / KEYON
                 if (!(data & 0x80)) // Key On
                 {
-                    rhythmkey |= data & 0x3f;
+                    _InstrumentKey |= data & 0x3f;
 
-                    if (data & 0x01) _Rhythm[0].Pos = 0;
-                    if (data & 0x02) _Rhythm[1].Pos = 0;
-                    if (data & 0x04) _Rhythm[2].Pos = 0;
-                    if (data & 0x08) _Rhythm[3].Pos = 0;
-                    if (data & 0x10) _Rhythm[4].Pos = 0;
-                    if (data & 0x20) _Rhythm[5].Pos = 0;
+                    if (data & 0x01) _Instrument[0].Pos = 0;
+                    if (data & 0x02) _Instrument[1].Pos = 0;
+                    if (data & 0x04) _Instrument[2].Pos = 0;
+                    if (data & 0x08) _Instrument[3].Pos = 0;
+                    if (data & 0x10) _Instrument[4].Pos = 0;
+                    if (data & 0x20) _Instrument[5].Pos = 0;
                 }
                 else
-                    rhythmkey &= ~data; // Dump
+                    _InstrumentKey &= ~data; // Dump
                 break;
 
             case 0x11:
-                rhythmtl = ~data & 63;
+                _InstrumentTL = ~data & 63;
                 break;
 
             case 0x18: // Bass Drum
@@ -300,8 +261,8 @@ void OPNA::SetReg(uint32_t addr, uint32_t data)
             case 0x1b: // Hihat
             case 0x1c: // Tom-tom
             case 0x1d: // Rim shot
-                _Rhythm[addr & 7].Pan   = (data >> 6) & 3;
-                _Rhythm[addr & 7].Level = ~data & 31;
+                _Instrument[addr & 7].Pan   = (data >> 6) & 3;
+                _Instrument[addr & 7].Level = ~data & 31;
                 break;
         }
     }
@@ -309,6 +270,7 @@ void OPNA::SetReg(uint32_t addr, uint32_t data)
     {
         uint32_t addr1 = 0 + 2 * ((addr >> 8) & 3);
         uint8_t data1 = addr & 0xff;
+
         uint32_t addr2 = addr1 + 1;
         uint8_t data2 = data;
 
@@ -321,7 +283,9 @@ void OPNA::SetReg(uint32_t addr, uint32_t data)
     }
 }
 
-// Get register
+/// <summary>
+/// Gets the value of a register.
+/// </summary>
 uint32_t OPNA::GetReg(uint32_t addr)
 {
     uint32_t addr1 = 0 + 2 * ((addr >> 8) & 3);
@@ -330,7 +294,6 @@ uint32_t OPNA::GetReg(uint32_t addr)
     uint32_t addr2 = addr1 + 1;
     uint8_t result = 0;
 
-    // write to the chip
     if (addr1 != 0xffff)
     {
         _Chip.write(addr1, data1);
@@ -338,9 +301,7 @@ uint32_t OPNA::GetReg(uint32_t addr)
         result = _Chip.read(addr2);
     }
     else
-    {
         result = 1;
-    }
 
     return result;
 }
@@ -392,7 +353,7 @@ uint32_t OPNA::GetNextEvent()
     for (int i = 0; i < sizeof(timer_count) / sizeof(emulated_time); i++)
     {
         if (timer_count[i] > 0)
-            result = (std::min) (result, timer_count[i]);
+            result = (std::min)(result, timer_count[i]);
     }
 
     return (result + ((emulated_time) 1 << 48) / 1000000) * (1000000 >> 6) >> (48 - 6);
@@ -427,17 +388,17 @@ void OPNA::Mix(Sample * sampleData, int sampleCount)
 /// </summary>
 void OPNA::RhythmMix(Sample * sampleData, uint32_t sampleCount)
 {
-    if ((_RhythmTotalVolume < 128) && _Rhythm[0].Sample && (rhythmkey & 0x3f))
+    if (_Instrument[0].Sample && (_InstrumentVolume < 128) && (_InstrumentKey & 0x3f))
     {
         Sample * SampleDataEnd = sampleData + (sampleCount * 2);
 
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < _countof(_Instrument); i++)
         {
-            Rhythm & r = _Rhythm[i];
+            Instrument & r = _Instrument[i];
 
-            if ((rhythmkey & (1 << i)) /* //@ && r.level < 128 */)
+            if ((_InstrumentKey & (1 << i)) /* //@ && r.level < 128 */)
             {
-                int dB = Limit(rhythmtl + _RhythmTotalVolume + r.Level + r.Volume, 127, -31);
+                int dB = Limit(_InstrumentTL + _InstrumentVolume + r.Level + r.Volume, 127, -31);
 
                 int Vol   = tltable[FM_TLPOS + (dB << (FM_TLBITS - 7))] >> 4;
                 int MaskL = -((r.Pan >> 1) & 1);
@@ -474,9 +435,6 @@ void OPNA::StoreSample(Sample & dest, ISample data)
 /// </summary>
 void OPNA::generate(emulated_time output_start, emulated_time, int32_t * buffer)
 {
-//  uint32_t addr1 = 0xffff, addr2 = 0xffff;
-//  uint8_t data1 = 0, data2 = 0;
-
     // Generate at the appropriate sample rate
     for (; _Pos <= output_start; _Pos += _Step)
         _Chip.generate(&_Output);
@@ -506,7 +464,7 @@ void OPNA::write_data(ymfm::access_class type, uint32_t base, uint32_t length, u
 // callback : handle read from the buffer
 uint8_t OPNA::ymfm_external_read(ymfm::access_class type, uint32_t offset)
 {
-    if (!_HasADPCMROM && type == ymfm::ACCESS_ADPCM_A)
+    if (!_HasADPCMROM && (type == ymfm::ACCESS_ADPCM_A))
         return 0;
 
     auto & data = m_data[type];
@@ -525,17 +483,19 @@ void OPNA::ymfm_sync_mode_write(uint8_t data)
 {
     reg27 = data;
 
-    /* //@ とりあえず無効化
-    if (reg27 & 0x10) {
+/* Unused for now
+    if (reg27 & 0x10)
+    {
         timer_count[0] = timer_period[0];
         reg27 &= ~0x10;
     }
-    if (reg27 & 0x20) {
+
+    if (reg27 & 0x20)
+    {
         timer_count[1] = timer_period[1];
         reg27 &= ~0x20;
     }
-    */
-
+*/
     ymfm_interface::ymfm_sync_mode_write(reg27);
 }
 

@@ -197,6 +197,8 @@
     <ClInclude Include="PMD\ymfm\ymfm_ssg.h" />
     <ClInclude Include="Preferences.h" />
     <ClInclude Include="Resources.h" />
+    <ClInclude Include="PMD\RIFFReader.h" />
+    <ClInclude Include="PMD\WAVEReader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />

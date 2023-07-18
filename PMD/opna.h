@@ -4,6 +4,7 @@
 #pragma once
 
 #include "File.h"
+#include "WAVEReader.h"
 
 #include <ymfm_opn.h>
 
@@ -51,8 +52,8 @@ public:
     uint32_t GetReg(uint32_t addr);
     
     void Reset() { _Chip.reset(); }
-    uint32_t ReadStatus() { return _Chip.read_status(); }
-    uint32_t ReadStatusEx() { return _Chip.read_status_hi(); }
+    uint32_t ReadStatus() { return _Chip.read_status(); }       // Reads the status register.
+    uint32_t ReadStatusEx() { return _Chip.read_status_hi(); }  // Reads the status register (extended addressing).
 
     bool Count(uint32_t us);
     uint32_t GetNextEvent();
@@ -87,11 +88,12 @@ protected:
 
     int32_t tltable[FM_TLENTS + FM_TLPOS];
 
-    struct Rhythm
+    struct Instrument
     {
-        int16_t * Sample;
+        WAVEReader Wave;
+
+        const int16_t * Sample;
         uint32_t Size;
-        uint32_t Rate;
         uint32_t Step;
 
         uint32_t Pos;
@@ -101,10 +103,12 @@ protected:
         int8_t Level;
     };
     
-    Rhythm _Rhythm[6];
-    int32_t _RhythmTotalVolume;
-    int8_t rhythmtl;    // Overall rhythm volume
-    uint8_t rhythmkey;  // Rythm key
+    Instrument _Instrument[6];
+
+    int32_t _InstrumentVolume;
+
+    int8_t _InstrumentTL;
+    uint8_t _InstrumentKey;
     
     bool _HasADPCMROM;
 
