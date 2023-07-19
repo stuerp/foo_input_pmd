@@ -1,5 +1,5 @@
  
-/** $VER: InputDecoder.cpp (2023.07.17) P. Stuer **/
+/** $VER: InputDecoder.cpp (2023.07.19) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -44,6 +44,7 @@ public:
 
     ~InputDecoder() noexcept
     {
+        delete _Decoder;
     }
 
 public:
@@ -85,7 +86,7 @@ public:
                 if (::_strnicmp(filePath, "file://", 7) == 0)
                     filePath += 7;
 
-                if (!_Decoder->Open(filePath, CfgSamplesPath, &Data[0], (size_t) _FileStats.m_size))
+                if (!_Decoder->Open(filePath, CfgSamplesPath, &Data[0], (size_t) _FileStats.m_size, CfgSynthesisRate))
                     throw exception_io_data("Invalid PMD file");
             }
         }
@@ -201,7 +202,9 @@ public:
         _File->reopen(abortHandler); // Equivalent to seek to zero, except it also works on nonseekable streams
 
         _Decoder->Initialize();
-        _Decoder->SetMaxLoopNumber(CfgMaxLoopNumber);
+
+        _Decoder->SetMaxLoopNumber(CfgLoopCount);
+        _Decoder->SetFadeOutDuration(CfgFadeOutDuration);
 
         _LoopNumber = 0;
 

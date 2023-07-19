@@ -78,10 +78,10 @@ bool PMD::Initialize(const WCHAR * directoryPath)
             pcmstore((uint16_t) i * sizeof(Page) / 32, (uint16_t) (i + 1) * sizeof(Page) / 32, Page);
     }
 
-    _OPNA->SetVolumeFM(0);
-    _OPNA->SetVolumePSG(-18);
-    _OPNA->SetVolumeADPCM(0);
-    _OPNA->SetVolumeRhythmTotal(0);
+    _OPNA->SetFMVolume(0);
+    _OPNA->SetPSGVolume(-18);
+    _OPNA->SetADPCMVolume(0);
+    _OPNA->SetOverallRhythmVolume(0);
 
     _PPZ8->SetVolume(0);
 
@@ -710,7 +710,7 @@ bool PMD::LoadRythmSample(WCHAR * path)
 
     Stop();
 
-    return _OPNA->LoadRhythmSamples(Path);
+    return _OPNA->LoadInstruments(Path);
 }
 
 // Sets the PCM search directory
@@ -729,30 +729,35 @@ bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
     return true;
 }
 
-// Sets the synthesis frequency at which raw PCM data is generated (in Hz, for example 44100)
-void PMD::SetSynthesisFrequency(int frequency)
+/// <summary>
+/// Sets the rate at which raw PCM data is synthesized (in Hz, for example 44100)
+/// </summary>
+void PMD::SetSynthesisRate(int frequency)
 {
     if (frequency == SOUND_55K || frequency == SOUND_55K_2)
     {
-        _OpenWork._OPNARate      =
-        _OpenWork._PPZ8Rate   = SOUND_44K;
+        _OpenWork._OPNARate =
+        _OpenWork._PPZ8Rate = SOUND_44K;
         _OpenWork.fmcalc55k = true;
     }
     else
     {
-        _OpenWork._OPNARate      =
-        _OpenWork._PPZ8Rate   = frequency;
+        _OpenWork._OPNARate =
+        _OpenWork._PPZ8Rate = frequency;
         _OpenWork.fmcalc55k = false;
     }
 
     _OPNA->SetRate(OPNAClock, _OpenWork._OPNARate, _OpenWork.fmcalc55k);
+
     _PPZ8->SetRate(_OpenWork._PPZ8Rate, _OpenWork.ppz8ip);
     _PPS->SetRate(_OpenWork._OPNARate, _OpenWork.ppsip);
     _P86->SetRate(_OpenWork._OPNARate, _OpenWork.p86ip);
 }
 
-// Sets the PPZ synthesis frequency.
-void PMD::SetPPZSynthesisFrequency(int frequency)
+/// <summary>
+/// Sets the rate at which raw PPZ data is synthesized (in Hz, for example 44100)
+/// </summary>
+void PMD::SetPPZSynthesisRate(int frequency)
 {
     _OpenWork._PPZ8Rate = frequency;
 

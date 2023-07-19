@@ -69,8 +69,8 @@ public:
     bool LoadRythmSample(WCHAR * path);
     bool SetSearchPaths(std::vector<const WCHAR *> & paths);
     
-    void SetSynthesisFrequency(int rate);
-    void SetPPZSynthesisFrequency(int rate);
+    void SetSynthesisRate(int value);
+    void SetPPZSynthesisRate(int value);
     void EnableFM55kHzSynthesis(bool flag);
     void EnablePPZInterpolation(bool ip);
 

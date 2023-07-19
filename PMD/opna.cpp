@@ -36,7 +36,7 @@ OPNA::OPNA(File * file) :
     reg27(0U)
 {
     // Create the table.
-    for (int i = -FM_TLPOS; i < FM_TLENTS; i++)
+    for (int i = -FM_TLPOS; i < FM_TLENTS; ++i)
         tltable[i + FM_TLPOS] = uint32_t(65536. * pow(2.0, i * -16. / (int) FM_TLENTS)) - 1;
 }
 
@@ -57,15 +57,15 @@ bool OPNA::Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, c
 
     _Chip.reset();
 
-    SetVolumeFM(0);
-    SetVolumePSG(0);
-    SetVolumeADPCM(0);
-    SetVolumeRhythmTotal(0);
+    SetFMVolume(0);
+    SetPSGVolume(0);
+    SetADPCMVolume(0);
+    SetOverallRhythmVolume(0);
 
     for (int i = 0; i < _countof(_Instrument); i++)
-        SetVolumeRhythm(0, 0);
+        SetRhythmVolume(i, 0);
 
-    LoadRhythmSamples(directoryPath);
+    LoadInstruments(directoryPath);
 
     return true;
 }
@@ -96,7 +96,7 @@ bool OPNA::SetRate(uint32_t synthesisRate)
 /// <summary>
 /// Loads the rythm samples.
 /// </summary>
-bool OPNA::LoadRhythmSamples(const WCHAR * directoryPath)
+bool OPNA::LoadInstruments(const WCHAR * directoryPath)
 {
     _HasADPCMROM = false;
 
@@ -116,62 +116,62 @@ bool OPNA::LoadRhythmSamples(const WCHAR * directoryPath)
         write_data(ymfm::ACCESS_ADPCM_A, 0, (uint32_t) FileSize, temp.data());
 
         _HasADPCMROM = true;
+
+        return true;
     }
-    else
+ 
+    static const WCHAR * InstrumentName[_countof(_Instrument)] =
     {
-        static const WCHAR * InstrumentName[_countof(_Instrument)] =
+        L"bd", L"sd", L"top", L"hh", L"tom", L"rim",
+    };
+
+    int i;
+
+    for (i = 0; i < _countof(_Instrument); i++)
+        _Instrument[i].Pos = ~0U;
+
+    for (i = 0; i < _countof(_Instrument); i++)
+    {
+        FilePath[0] = '\0';
+
+        ::StringCbPrintfW(FilePath, _countof(FilePath), L"%s2608_%s.wav", directoryPath, InstrumentName[i]);
+
+        WAVEReader & wr = _Instrument[i].Wave;
+
         {
-            L"bd", L"sd", L"top", L"hh", L"tom", L"rim",
-        };
+            wr.Reset();
 
-        int i;
-
-        for (i = 0; i < _countof(_Instrument); i++)
-            _Instrument[i].Pos = ~0U;
-
-        for (i = 0; i < _countof(_Instrument); i++)
-        {
-            FilePath[0] = '\0';
-
-            ::StringCbPrintfW(FilePath, _countof(FilePath), L"%s2608_%s.wav", directoryPath, InstrumentName[i]);
-
-            WAVEReader & wr = _Instrument[i].Wave;
-
+            if (!wr.Open(FilePath))
             {
-                wr.Reset();
+                if (i != 5)
+                    break;
+
+                CombinePath(FilePath, _countof(FilePath), directoryPath, L"2608_rym.wav");
 
                 if (!wr.Open(FilePath))
-                {
-                    if (i != 5)
-                        break;
-
-                    CombinePath(FilePath, _countof(FilePath), directoryPath, L"2608_rym.wav");
-
-                    if (!wr.Open(FilePath))
-                        break;
-                }
-
-                wr.Close();
-
-                if (!(wr.Format() == 1) && (wr.ChannelCount() == 1) && (wr.SampleRate() == 44100) && (wr.BitsPerSample() == 16))
                     break;
             }
 
-            uint32_t SampleCount = wr.Size() / 2;
+            wr.Close();
 
-            _Instrument[i].Sample = (const int16_t *) wr.Data();
-            _Instrument[i].Size   = SampleCount * 1024;
-            _Instrument[i].Step   = wr.SampleRate() * 1024 / _SynthesisRate;
-            _Instrument[i].Pos    = 0;
+            if (!(wr.Format() == 1) && (wr.ChannelCount() == 1) && (wr.SampleRate() == 44100) && (wr.BitsPerSample() == 16))
+                break;
         }
 
-        if (i != _countof(_Instrument))
-        {
-            for (i = 0; i < _countof(_Instrument); i++)
-                _Instrument[i].Wave.Reset();
+        uint32_t SampleCount = wr.Size() / 2;
 
-            return false;
-        }
+        _Instrument[i].Sample = (const int16_t *) wr.Data();
+        _Instrument[i].Size   = SampleCount * 1024;
+        _Instrument[i].Step   = wr.SampleRate() * 1024 / _SynthesisRate;
+        _Instrument[i].Pos    = 0U;
+    }
+
+    if (i != _countof(_Instrument))
+    {
+        for (i = 0; i < _countof(_Instrument); i++)
+            _Instrument[i].Wave.Reset();
+
+        return false;
     }
 
     return true;
@@ -180,7 +180,7 @@ bool OPNA::LoadRhythmSamples(const WCHAR * directoryPath)
 /// <summary>
 /// Sets the FM volume
 /// </summary>
-void OPNA::SetVolumeFM(int dB)
+void OPNA::SetFMVolume(int dB)
 {
     dB = (std::min)(dB, 20);
 
@@ -189,7 +189,7 @@ void OPNA::SetVolumeFM(int dB)
     _Chip.setfmvolume(Volume);
 }
 
-void OPNA::SetVolumePSG(int dB)
+void OPNA::SetPSGVolume(int dB)
 {
     dB = (std::min)(dB, 20);
 
@@ -198,7 +198,7 @@ void OPNA::SetVolumePSG(int dB)
     _Chip.setpsgvolume(Volume);
 }
 
-void OPNA::SetVolumeADPCM(int dB)
+void OPNA::SetADPCMVolume(int dB)
 {
     dB = (std::min)(dB, 20);
 
@@ -207,7 +207,7 @@ void OPNA::SetVolumeADPCM(int dB)
     _Chip.setadpcmvolume(Volume);
 }
 
-void OPNA::SetVolumeRhythmTotal(int dB)
+void OPNA::SetOverallRhythmVolume(int dB)
 {
     dB = (std::min)(dB, 20);
 
@@ -218,7 +218,7 @@ void OPNA::SetVolumeRhythmTotal(int dB)
     _Chip.setrhythmvolume(Volume);
 }
 
-void OPNA::SetVolumeRhythm(int index, int dB)
+void OPNA::SetRhythmVolume(int index, int dB)
 {
     dB = (std::min)(dB, 20);
 

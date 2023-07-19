@@ -40,13 +40,13 @@ public:
     bool Init(uint32_t c, uint32_t r, bool ip = false, const WCHAR * directoryPath = nullptr);
     bool SetRate(uint32_t r);
     bool SetRate(uint32_t c, uint32_t r, bool = false);
-    bool LoadRhythmSamples(const WCHAR *);
+    bool LoadInstruments(const WCHAR *);
 
-    void SetVolumeFM(int dB);
-    void SetVolumePSG(int dB);
-    void SetVolumeADPCM(int dB);
-    void SetVolumeRhythmTotal(int dB);
-    void SetVolumeRhythm(int index, int dB);
+    void SetFMVolume(int dB);
+    void SetPSGVolume(int dB);
+    void SetADPCMVolume(int dB);
+    void SetOverallRhythmVolume(int dB);
+    void SetRhythmVolume(int index, int dB);
     
     void SetReg(uint32_t addr, uint32_t data);
     uint32_t GetReg(uint32_t addr);
@@ -94,8 +94,8 @@ protected:
 
         const int16_t * Sample;
         uint32_t Size;
-        uint32_t Step;
 
+        uint32_t Step;
         uint32_t Pos;
 
         int32_t Volume;

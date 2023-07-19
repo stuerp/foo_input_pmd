@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.cpp (2023.07.17) P. Stuer **/
+/** $VER: PMDDecoder.cpp (2023.07.19) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -23,7 +23,8 @@ static bool ConvertShiftJITo2UTF8(const char * text, pfc::string8 & utf8);
 /// Initializes a new instance.
 /// </summary>
 PMDDecoder::PMDDecoder() :
-    _FilePath(), _Data(), _Size(), _PMD(), _Length(), _LoopLength(), _EventCount(), _LoopEventCount(), _MaxLoopNumber()
+    _FilePath(), _Data(), _Size(), _PMD(), _Length(), _LoopLength(), _EventCount(), _LoopEventCount(),
+    _MaxLoopNumber(DefaultLoopCount), _FadeOutDuration(DefaultFadeOutDuration), _SynthesisRate(DefaultSynthesisRate)
 {
     _Samples.set_count((t_size) BlockSize * ChannelCount);
 }
@@ -33,13 +34,14 @@ PMDDecoder::PMDDecoder() :
 /// </summary>
 PMDDecoder::~PMDDecoder()
 {
+    delete[] _Data;
     delete _PMD;
 }
 
 /// <summary>
 /// Reads the PMD data from memory.
 /// </summary>
-bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size)
+bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size, uint32_t synthesisRate)
 {
     _FilePath = filePath;
 
@@ -56,6 +58,8 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
 
         _Size = size;
     }
+
+    _SynthesisRate = synthesisRate;
 
     delete _PMD;
     _PMD = new PMD();
@@ -80,7 +84,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
             return false;
 
         _PMD->Initialize(PDXSamplesPath);
-        _PMD->SetSynthesisFrequency(SOUND_55K);
+        _PMD->SetSynthesisRate(_SynthesisRate);
 
         {
             std::vector<const WCHAR *> Paths;
@@ -101,8 +105,8 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
     {
         PMD * pmd = new PMD();
 
-        if (!pmd->Initialize(PDXSamplesPath))
-            return false;
+        pmd->Initialize(PDXSamplesPath);
+        pmd->SetSynthesisRate(_SynthesisRate);
 
         pmd->Load(data, size);
 
@@ -130,6 +134,8 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
             pmd->GetNote(data, size, 4, Note, _countof(Note));
             ConvertShiftJITo2UTF8(Note, _Memo);
         }
+
+        delete pmd;
     }
 
     return true;
@@ -171,19 +177,20 @@ void PMDDecoder::Initialize() const noexcept
 /// </summary>
 size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
 {
-_MaxLoopNumber = 0;/*** REMOVE ME ***/
+    uint32_t TotalEventCount = _EventCount;
 
-    const uint32_t TotalEventCount = _EventCount + (_LoopEventCount * _MaxLoopNumber);
+    if ((CfgPlaybackMode == PlaybackModes::Loop) || (CfgPlaybackMode == PlaybackModes::LoopWithFadeOut))
+        TotalEventCount += (_LoopEventCount * _MaxLoopNumber);
 
-    if (!IsBusy() || (GetEventNumber() > TotalEventCount))
+    if (!IsBusy() || ((CfgPlaybackMode != LoopForever) && (GetEventNumber() > TotalEventCount)))
     {
         _PMD->Stop();
 
         return false;
     }
 
-    if ((_MaxLoopNumber > 0) && (GetLoopNumber() > _MaxLoopNumber - 1))
-        _PMD->SetFadeOutDurationHQ((int) CfgFadeOutDuration);
+    if ((CfgPlaybackMode == PlaybackModes::LoopWithFadeOut) && (_MaxLoopNumber > 0) && (GetLoopNumber() > _MaxLoopNumber - 1))
+        _PMD->SetFadeOutDurationHQ((int) _FadeOutDuration);
 
     _PMD->Render(&_Samples[0], (int) BlockSize);
 

@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.h (2023.07.16) P. Stuer **/
+/** $VER: PMDDecoder.h (2023.07.18) P. Stuer **/
 
 #pragma once
 
@@ -21,7 +21,7 @@ public:
     PMDDecoder();
     ~PMDDecoder();
 
-    bool Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size);
+    bool Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size, uint32_t synthesisRate);
 
     void Initialize() const noexcept;
     size_t Render(audio_chunk & audioChunk, size_t sampleCount) noexcept;
@@ -55,7 +55,10 @@ public:
 
     #pragma region(Configuration)
     uint32_t GetMaxLoopNumber() const noexcept { return _MaxLoopNumber; }
-    void SetMaxLoopNumber(uint32_t maxLoopNumber) noexcept { _MaxLoopNumber = maxLoopNumber; }
+    void SetMaxLoopNumber(uint32_t value) noexcept { _MaxLoopNumber = value; }
+
+    uint32_t GetFadeOutDuration() const noexcept { return _FadeOutDuration; }
+    void SetFadeOutDuration(uint32_t value) noexcept { _FadeOutDuration = value; }
     #pragma endregion
 
 private:
@@ -84,6 +87,8 @@ private:
 
     // Configuration
     uint32_t _MaxLoopNumber;    // Maximum number of times to loop. 0 if looping is disabled.
+    uint32_t _FadeOutDuration;  // Fade out duration (in ms).
+    uint32_t _SynthesisRate;    // Fade out duration (in Hz).
 
     static const uint32_t BlockSize = 512; // Number of samples per block
 

@@ -1,5 +1,5 @@
 
-/** $VER: Preferences.h (2023.07.15) P. Stuer **/
+/** $VER: Preferences.h (2023.07.19) P. Stuer **/
 
 #pragma once
 
