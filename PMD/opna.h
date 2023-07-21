@@ -48,7 +48,7 @@ public:
     void SetRhythmMasterVolume(int dB);
     void SetRhythmVolume(int index, int dB);
     
-    void SetReg(uint32_t addr, uint32_t data);
+    void SetReg(uint32_t addr, uint32_t value);
     uint32_t GetReg(uint32_t addr);
     
     void Reset() { _Chip.reset(); }
