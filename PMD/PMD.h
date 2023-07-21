@@ -72,7 +72,7 @@ public:
     void SetSynthesisRate(int value);
     void SetPPZSynthesisRate(int value);
     void EnableFM55kHzSynthesis(bool flag);
-    void EnablePPZInterpolation(bool ip);
+    void EnablePPZInterpolation(bool flag);
 
     void SetFMWait(int nsec);
     void SetSSGWait(int nsec);

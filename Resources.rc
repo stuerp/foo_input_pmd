@@ -1,5 +1,5 @@
 
-/** $VER: Resources.rc (2023.07.19) P. Stuer **/
+/** $VER: Resources.rc (2023.07.21) P. Stuer **/
 
 #include "Resources.h"
 
@@ -26,10 +26,11 @@ font 8, "Segoe UI", 400, 0, 1
         rtext       "Fade out duration:", IDC_STATIC,            X_A09, Y_A09, W_A09, H_A09
         edittext                          IDC_FADE_OUT_DURATION, X_A10, Y_A10, W_A10, H_A10, ES_AUTOHSCROLL | ES_RIGHT
         ltext       "ms",                 IDC_STATIC,            X_A11, Y_A11, W_A11, H_A11
-
+/*
     rtext       "Synthesis rate:", IDC_STATIC,      X_A12, Y_A12, W_A12, H_A12
     combobox                       IDC_SYNTHESIS_RATE, X_A13, Y_A13, W_A13, H_A13, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     ltext       "Hz",              IDC_STATIC,      X_A14, Y_A14, W_A14, H_A14
+*/
 }
 
 VS_VERSION_INFO versioninfo

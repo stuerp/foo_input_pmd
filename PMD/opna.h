@@ -45,7 +45,7 @@ public:
     void SetFMVolume(int dB);
     void SetPSGVolume(int dB);
     void SetADPCMVolume(int dB);
-    void SetOverallRhythmVolume(int dB);
+    void SetRhythmMasterVolume(int dB);
     void SetRhythmVolume(int index, int dB);
     
     void SetReg(uint32_t addr, uint32_t data);
@@ -92,7 +92,7 @@ protected:
     {
         WAVEReader Wave;
 
-        const int16_t * Sample;
+        const int16_t * Samples;
         uint32_t Size;
 
         uint32_t Step;
@@ -105,7 +105,7 @@ protected:
     
     Instrument _Instrument[6];
 
-    int32_t _InstrumentVolume;
+    int32_t _MasterVolume;
 
     int8_t _InstrumentTL;
     uint8_t _InstrumentKey;

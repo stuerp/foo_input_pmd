@@ -1,5 +1,5 @@
 
-/** $VER: Preferences.cpp (2023.07.19) P. Stuer **/
+/** $VER: Preferences.cpp (2023.07.21) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -30,7 +30,7 @@ const WCHAR * PlaybackModes[] =
     L"Loop with fade out",
     L"Loop forever"
 };
-
+/*
 const uint32_t SynthesisRates[] =
 {
     SOUND_55K,
@@ -40,7 +40,7 @@ const uint32_t SynthesisRates[] =
     SOUND_22K,
     SOUND_11K,
 };
-
+*/
 /// <summary>
 /// Implements the preferences page for the component.
 /// </summary>
@@ -106,14 +106,14 @@ public:
     BEGIN_MSG_MAP_EX(Preferences)
         MSG_WM_INITDIALOG(OnInitDialog)
 
-        COMMAND_HANDLER_EX(IDC_SAMPLES_PATH, EN_KILLFOCUS, OnLostFocus)
+        COMMAND_HANDLER_EX(IDC_SAMPLES_PATH, EN_KILLFOCUS, OnEditUpdate)
         COMMAND_HANDLER_EX(IDC_SAMPLES_PATH_SELECT, BN_CLICKED, OnButtonClicked)
 
         COMMAND_HANDLER_EX(IDC_PLAYBACK_MODE, CBN_SELCHANGE, OnSelectionChanged)
         COMMAND_HANDLER_EX(IDC_LOOP_COUNT, EN_UPDATE, OnEditUpdate)
         COMMAND_HANDLER_EX(IDC_FADE_OUT_DURATION, EN_UPDATE, OnEditUpdate)
 
-        COMMAND_HANDLER_EX(IDC_SYNTHESIS_RATE, CBN_SELCHANGE, OnSelectionChanged)
+//      COMMAND_HANDLER_EX(IDC_SYNTHESIS_RATE, CBN_SELCHANGE, OnSelectionChanged)
     END_MSG_MAP()
 
 private:
@@ -138,15 +138,12 @@ private:
             for (int i = 0; i < _countof(PlaybackModes); ++i)
                 cb.AddString(PlaybackModes[i]);
 
-            cb.SetCurSel(_PlaybackMode);
+            cb.SetCurSel((int) _PlaybackMode);
         }
 
-        _OldLoopCount = pfc::format_int(_LoopCount);
-        ::uSetDlgItemText(m_hWnd, IDC_LOOP_COUNT, _OldLoopCount);
-
-        _OldFadeOutDuration = pfc::format_int(_FadeOutDuration);
-        ::uSetDlgItemText(m_hWnd, IDC_FADE_OUT_DURATION, _OldFadeOutDuration);
-
+        ::uSetDlgItemText(m_hWnd, IDC_LOOP_COUNT, pfc::format_int(_LoopCount));
+        ::uSetDlgItemText(m_hWnd, IDC_FADE_OUT_DURATION, pfc::format_int(_FadeOutDuration));
+/*
         {
             auto cb = (CComboBox) GetDlgItem(IDC_SYNTHESIS_RATE);
 
@@ -162,12 +159,12 @@ private:
 
             cb.SetCurSel(Index);
         }
-
+*/
         UpdateDialog();
 
         return FALSE;
     }
-
+/*
     /// <summary>
     /// Handles the notification when a control loses focus.
     /// </summary>
@@ -184,7 +181,7 @@ private:
 
         OnChanged();
     }
-
+*/
     /// <summary>
     /// Handles a click on a button.
     /// </summary>
@@ -218,16 +215,18 @@ private:
             {
                 auto cb = (CComboBox) GetDlgItem(IDC_PLAYBACK_MODE);
 
-                _PlaybackMode = cb.GetCurSel();
+                _PlaybackMode = (uint32_t) cb.GetCurSel();
                 break;
             }
-
+/*
             case IDC_SYNTHESIS_RATE:
             {
                 auto cb = (CComboBox) GetDlgItem(IDC_SYNTHESIS_RATE);
 
                 _SynthesisRate = SynthesisRates[cb.GetCurSel()];
+                break;
             }
+*/
         }
 
         UpdateDialog();
@@ -242,15 +241,22 @@ private:
     {
         switch (id)
         {
+            case IDC_SAMPLES_PATH:
+            {
+                _SamplesPath = ::uGetDlgItemText(m_hWnd, IDC_SAMPLES_PATH);
+                OnChanged();
+                break;
+            }
+
             case IDC_LOOP_COUNT:
             {
                 pfc::string8 Text = ::uGetDlgItemText(m_hWnd, IDC_LOOP_COUNT);
 
                 char * p; long Value = ::strtol(Text, &p, 10);
 
-                if ((*p == 0) && (Value > 0))
+                if ((*p == '\0') && (Value > 0) && (Value <= ~0U))
                 {
-                    _LoopCount = Value;
+                    _LoopCount = (uint32_t) Value;
                     OnChanged();
                 }
                 break;
@@ -262,9 +268,9 @@ private:
 
                 char * p; long Value = ::strtol(Text, &p, 10);
 
-                if ((*p == 0) && (Value > 0))
+                if ((*p == '\0') && (Value > 0) && (Value <= ~0U))
                 {
-                    _FadeOutDuration = Value;
+                    _FadeOutDuration = (uint32_t) Value;
                     OnChanged();
                 }
                 break;
@@ -289,8 +295,8 @@ private:
         if (_FadeOutDuration != CfgFadeOutDuration)
             return true;
 
-        if (_SynthesisRate != CfgSynthesisRate)
-            return true;
+//      if (_SynthesisRate != CfgSynthesisRate)
+//          return true;
 
         return false;
     }
@@ -327,9 +333,6 @@ private:
     uint32_t _LoopCount;
     uint32_t _FadeOutDuration;
     uint32_t _SynthesisRate;
-
-    pfc::string8 _OldLoopCount;
-    pfc::string8 _OldFadeOutDuration;
 };
 
 #pragma region("PreferencesPage")

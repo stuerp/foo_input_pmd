@@ -1,5 +1,5 @@
  
-/** $VER: InputDecoder.cpp (2023.07.19) P. Stuer **/
+/** $VER: InputDecoder.cpp (2023.07.21) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -30,7 +30,7 @@ class InputDecoder : public input_stubs
 public:
     InputDecoder() noexcept :
         _File(), _FilePath(), _FileStats(),
-        _SynthesisRate(CfgSynthesisRate),
+        _SynthesisRate(DefaultSynthesisRate),
         _Decoder(),
         _LoopNumber(),
         _IsDynamicInfoSet(false)
@@ -151,7 +151,7 @@ public:
         double Loop = _Decoder->GetLoopLength() / 1000.;
 
         if (Loop > 0.)
-            fileInfo.info_set("pmd_loop_length", pfc::format_time_ex(Loop, 0));
+            fileInfo.info_set("loop_length", pfc::format_time_ex(Loop, 0));
 
         // Meta data tags
         fileInfo.meta_add("title", _Decoder->GetTitle());

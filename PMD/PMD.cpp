@@ -81,7 +81,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _OPNA->SetFMVolume(0);
     _OPNA->SetPSGVolume(-18);
     _OPNA->SetADPCMVolume(0);
-    _OPNA->SetOverallRhythmVolume(0);
+    _OPNA->SetRhythmMasterVolume(0);
 
     _PPZ8->SetVolume(0);
 

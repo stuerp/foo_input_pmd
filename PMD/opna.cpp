@@ -24,7 +24,7 @@ OPNA::OPNA(File * file) :
     _Pos(0),
 
     _Instrument{},
-    _InstrumentVolume(0),
+    _MasterVolume(0),
     _InstrumentTL(0),
     _InstrumentKey(0),
     _HasADPCMROM(false),
@@ -43,7 +43,10 @@ OPNA::OPNA(File * file) :
 OPNA::~OPNA()
 {
     for (int i = 0; i < _countof(_Instrument); ++i)
+    {
         _Instrument[i].Wave.Reset();
+        _Instrument[i].Samples = nullptr;
+    }
 }
 
 bool OPNA::Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath)
@@ -60,7 +63,7 @@ bool OPNA::Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, c
     SetFMVolume(0);
     SetPSGVolume(0);
     SetADPCMVolume(0);
-    SetOverallRhythmVolume(0);
+    SetRhythmMasterVolume(0);
 
     for (int i = 0; i < _countof(_Instrument); i++)
         SetRhythmVolume(i, 0);
@@ -160,16 +163,19 @@ bool OPNA::LoadInstruments(const WCHAR * directoryPath)
 
         uint32_t SampleCount = wr.Size() / 2;
 
-        _Instrument[i].Sample = (const int16_t *) wr.Data();
-        _Instrument[i].Size   = SampleCount * 1024;
-        _Instrument[i].Step   = wr.SampleRate() * 1024 / _SynthesisRate;
-        _Instrument[i].Pos    = 0U;
+        _Instrument[i].Samples = (const int16_t *) wr.Data();
+        _Instrument[i].Size    = SampleCount * 1024;
+        _Instrument[i].Step    = wr.SampleRate() * 1024 / _SynthesisRate;
+        _Instrument[i].Pos     = 0U;
     }
 
     if (i != _countof(_Instrument))
     {
         for (i = 0; i < _countof(_Instrument); i++)
+        {
             _Instrument[i].Wave.Reset();
+            _Instrument[i].Samples = nullptr;
+        }
 
         return false;
     }
@@ -207,11 +213,11 @@ void OPNA::SetADPCMVolume(int dB)
     _Chip.setadpcmvolume(Volume);
 }
 
-void OPNA::SetOverallRhythmVolume(int dB)
+void OPNA::SetRhythmMasterVolume(int dB)
 {
     dB = (std::min)(dB, 20);
 
-    _InstrumentVolume = -(dB * 2 / 3);
+    _MasterVolume = -(dB * 2 / 3);
 
     int32_t Volume = (dB > -192) ? int(65536.0 * ::pow(10.0, dB / 40.0)) : 0;
 
@@ -384,31 +390,31 @@ void OPNA::Mix(Sample * sampleData, int sampleCount)
 }
 
 /// <summary>
-/// Synthesize a rhythm sample using WAV.
+/// Synthesizes a rhythm sample using WAV.
 /// </summary>
 void OPNA::RhythmMix(Sample * sampleData, uint32_t sampleCount)
 {
-    if (_Instrument[0].Sample && (_InstrumentVolume < 128) && (_InstrumentKey & 0x3f))
+    if (_Instrument[0].Samples && (_MasterVolume < 128) && (_InstrumentKey & 0x3f))
     {
         Sample * SampleDataEnd = sampleData + (sampleCount * 2);
 
         for (int i = 0; i < _countof(_Instrument); i++)
         {
-            Instrument & r = _Instrument[i];
+            Instrument & Ins = _Instrument[i];
 
             if ((_InstrumentKey & (1 << i)) /* //@ && r.level < 128 */)
             {
-                int dB = Limit(_InstrumentTL + _InstrumentVolume + r.Level + r.Volume, 127, -31);
+                int dB = Limit(_InstrumentTL + _MasterVolume + Ins.Level + Ins.Volume, 127, -31);
 
                 int Vol   = tltable[FM_TLPOS + (dB << (FM_TLBITS - 7))] >> 4;
-                int MaskL = -((r.Pan >> 1) & 1);
-                int MaskR = - (r.Pan       & 1);
+                int MaskL = -((Ins.Pan >> 1) & 1);
+                int MaskR = - (Ins.Pan       & 1);
 
-                for (Sample * SampleData = sampleData; (SampleData < SampleDataEnd) && (r.Pos < r.Size); SampleData += 2)
+                for (Sample * SampleData = sampleData; (SampleData < SampleDataEnd) && (Ins.Pos < Ins.Size); SampleData += 2)
                 {
-                    int Sample = (r.Sample[r.Pos / 1024] * Vol) >> 12;
+                    int Sample = (Ins.Samples[Ins.Pos / 1024] * Vol) >> 12;
 
-                    r.Pos += r.Step;
+                    Ins.Pos += Ins.Step;
 
                     StoreSample(SampleData[0], Sample & MaskL);
                     StoreSample(SampleData[1], Sample & MaskR);

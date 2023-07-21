@@ -25,7 +25,7 @@ enum PlaybackModes
 
 #define DefaultPlaybackMode     PlaybackModes::LoopNever
 #define DefaultLoopCount        2
-#define DefaultFadeOutDuration  10 * 1000
+#define DefaultFadeOutDuration  3000
 
 #define DefaultSynthesisRate    SOUND_55K
 

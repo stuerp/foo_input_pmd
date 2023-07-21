@@ -46,9 +46,9 @@ The following meta data tags are available:
 
 The following info tags are available:
 
-| Name            | Value                              |
-| --------------- | ---------------------------------- |
-| pmd_loop_length | Length of loop (in ms), if defined |
+| Name        | Value                              |
+| ----------- | ---------------------------------- |
+| loop_length | Length of loop (in ms), if defined |
 
 The following info tags are available while playing a track:
 
@@ -106,7 +106,6 @@ branch. Pull requests are warmly welcome.
 v0.3.0, 2023-xx-xx, *""*
 
 * Improved: Added all configuration parameters to the Preferences page.
-* Improved: Upgraded the [ymfm](https://github.com/aaronsgiles/ymfm.git) sound core to the latest version.
 * Improved: Several performance improvements.
 * Fixed: Wrong specification of source buffer size (again).
 
