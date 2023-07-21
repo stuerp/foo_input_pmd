@@ -50,6 +50,7 @@
 #define NumOfPPZ8Part           8
 #define NumOfAllPart            (NumOfFMPart+NumOfSSGPart+NumOfADPCMPart+NumOfOPNARhythmPart+NumOfExtPart+NumOfRhythmPart+NumOfEffPart+NumOfPPZ8Part)
 
+#pragma warning(disable: 4820) // x bytes padding added after last data member
 struct PMDWORK
 {
     int partb;  // 処理中パート番号
@@ -72,6 +73,7 @@ struct PMDWORK
     int af_check; // FM3chのalg/fbを設定するかしないかflag
     int lfo_switch; // 局所LFOスイッチ
 };
+#pragma warning(default: 4820)
 
 struct EffectState
 {
@@ -181,6 +183,7 @@ struct PartState
     int qdat3;  // 1 q Random
 };
 
+#pragma warning(disable: 4820) // x bytes padding added after last data member
 struct OPEN_WORK
 {
     PartState * MusPart[NumOfAllPart]; // パートワークのポインタ
@@ -200,7 +203,7 @@ struct OPEN_WORK
     int prg_flg; // 曲データに音色が含まれているかflag
     int x68_flg; // OPM flag
     int status;  // status1
-    int _LoopCount; // _LoopCount
+    int _LoopCount;
     int tempo_d; // tempo (TIMER-B)
     int fadeout_speed;  // Fadeout速度
     int fadeout_volume;  // Fadeout音量
@@ -252,22 +255,24 @@ struct OPEN_WORK
     int rdump_tom; // リズム音源 dump inc flag (TOM)
     int rdump_rim; // リズム音源 dump inc flag (RIM)
 
-    int ch3mode; // ch3 Mode
+    uint32_t ch3mode; // ch3 Mode
     int ppz_voldown;  // PPZ8 voldown 数値
     int _ppz_voldown;  // PPZ8 voldown 数値 (保存用)
     int TimerAflag; // TimerA割り込み中？フラグ（＠不要？）
     int TimerBflag; // TimerB割り込み中？フラグ（＠不要？）
 
-    int _OPNARate;    // PCM 出力周波数(11k, 22k, 44k, 55k)
-    int _PPZ8Rate;   // PPZ 出力周波数
-    bool  fmcalc55k;   // FM で 55kHz 合成をするか？
-    bool  ppz8ip;    // PPZ8 で補完するか
-    bool  ppsip;    // PPS  で補完するか
-    bool  p86ip;    // P86  で補完するか
-    bool  _UseP86;   // P86  を使用しているか
+    uint32_t _OPNARate; // PCM output frequency (11k, 22k, 44k, 55k)
+    uint32_t _PPZ8Rate; // PPZ output frequency
 
-    int _FadeOutSpeedHQ;                        // Fadeout (High Sound Quality) speed (fadeout at > 0)
+    bool fmcalc55k;   // Do 55kHz FM synthesis?
+    bool ppz8ip;    // Complement with PPZ8?
+    bool ppsip;    // Complement with PPS?
+    bool p86ip;    // Complement with PPS?
+    bool _UseP86;   // Are we using P86?
+
+    int _FadeOutSpeedHQ; // Fadeout (High Sound Quality) speed (fadeout at > 0)
 
     WCHAR _PPCFileName[MAX_PATH];
     std::vector<std::wstring> _SearchPath;
 };
+#pragma warning(default: 4820) // x bytes padding added after last data member

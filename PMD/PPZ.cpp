@@ -128,8 +128,8 @@ bool PPZ8::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
     }
     else
     {
-        channelwork[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].startaddress];
-        channelwork[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].startaddress + PCME_WORK[bufnum].pcmnum[num].size];
+        channelwork[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start];
+        channelwork[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size];
 
         if (channelwork[ch].PCM_LOOP_FLG == 0)
         {
@@ -139,27 +139,15 @@ bool PPZ8::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
         else
         {
             // ループあり
-            if (channelwork[ch].PCM_LOOP_START >= PCME_WORK[bufnum].pcmnum[num].size)
-            {
-                channelwork[ch].PCM_LOOP
-                    = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].startaddress + PCME_WORK[bufnum].pcmnum[num].size - 1];
-            }
+            if (channelwork[ch].PCM_LOOP_START >= PCME_WORK[bufnum].pcmnum[num].Size)
+                channelwork[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size - 1];
             else
-            {
-                channelwork[ch].PCM_LOOP
-                    = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].startaddress + channelwork[ch].PCM_LOOP_START];
-            }
+                channelwork[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + channelwork[ch].PCM_LOOP_START];
 
-            if (channelwork[ch].PCM_LOOP_END >= PCME_WORK[bufnum].pcmnum[num].size)
-            {
-                channelwork[ch].PCM_END
-                    = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].startaddress + PCME_WORK[bufnum].pcmnum[num].size];
-            }
+            if (channelwork[ch].PCM_LOOP_END >= PCME_WORK[bufnum].pcmnum[num].Size)
+                channelwork[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size];
             else
-            {
-                channelwork[ch].PCM_END
-                    = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].startaddress + channelwork[ch].PCM_LOOP_END];
-            }
+                channelwork[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + channelwork[ch].PCM_LOOP_END];
         }
     }
 
@@ -178,26 +166,25 @@ bool PPZ8::Stop(int ch)
 /// <summary>
 /// Reads the PZI header.
 /// </summary>
-void PPZ8::ReadHeader(File * file, PZIHEADER & pziheader)
+void PPZ8::ReadHeader(File * file, PZIHEADER & ph)
 {
     uint8_t Data[2336];
 
-    file->Read(Data, sizeof(Data));
+    if (file->Read(Data, sizeof(Data)) != sizeof(Data))
+        return;
 
-    ::memcpy(pziheader.ID, &Data[0x00], 4);
-    ::memcpy(pziheader.dummy1, &Data[0x04], 0x0b - 4);
-
-    pziheader.pzinum = Data[0x0b];
-
-    ::memcpy(pziheader.dummy2, &Data[0x0c], 0x20 - 0x0b - 1);
+    ::memcpy(ph.ID,     &Data[0x00], sizeof(ph.ID));
+    ::memcpy(ph.Dummy1, &Data[0x04], sizeof(ph.Dummy1));
+    ph.Count = Data[0x0B];
+    ::memcpy(ph.Dummy2, &Data[0x0C], sizeof(ph.Dummy2));
 
     for (int i = 0; i < 128; i++)
     {
-        pziheader.pcmnum[i].startaddress = (Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24);
-        pziheader.pcmnum[i].size         = (Data[0x24 + i * 18]) | (Data[0x25 + i * 18] << 8) | (Data[0x26 + i * 18] << 16) | (Data[0x27 + i * 18] << 24);
-        pziheader.pcmnum[i].loop_start   = (Data[0x28 + i * 18]) | (Data[0x29 + i * 18] << 8) | (Data[0x2a + i * 18] << 16) | (Data[0x2b + i * 18] << 24);
-        pziheader.pcmnum[i].loop_end     = (Data[0x2c + i * 18]) | (Data[0x2d + i * 18] << 8) | (Data[0x2e + i * 18] << 16) | (Data[0x2f + i * 18] << 24);
-        pziheader.pcmnum[i].rate         = (Data[0x30 + i * 18]) | (Data[0x31 + i * 18] << 8);
+        ph.pcmnum[i].Start      = (uint32_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
+        ph.pcmnum[i].Size       = (uint32_t) ((Data[0x24 + i * 18]) | (Data[0x25 + i * 18] << 8) | (Data[0x26 + i * 18] << 16) | (Data[0x27 + i * 18] << 24));
+        ph.pcmnum[i].LoopStart  = (uint32_t) ((Data[0x28 + i * 18]) | (Data[0x29 + i * 18] << 8) | (Data[0x2a + i * 18] << 16) | (Data[0x2b + i * 18] << 24));
+        ph.pcmnum[i].LoopEnd    = (uint32_t) ((Data[0x2c + i * 18]) | (Data[0x2d + i * 18] << 8) | (Data[0x2e + i * 18] << 16) | (Data[0x2f + i * 18] << 24));
+        ph.pcmnum[i].SampleRate = (uint16_t) ((Data[0x30 + i * 18]) | (Data[0x31 + i * 18] << 8));
     }
 }
 
@@ -219,9 +206,10 @@ void PPZ8::ReadHeader(File * file, PVIHEADER & pviheader)
 
     for (int i = 0; i < 128; i++)
     {
-        pviheader.pcmnum[i].startaddress = (Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24);
-        pviheader.pcmnum[i].startaddress = (Data[0x10 + i * 4]) | (Data[0x11 + i * 4] << 8); // FIXME
-        pviheader.pcmnum[i].endaddress   = (Data[0x12 + i * 4]) | (Data[0x13 + i * 4] << 8);
+        pviheader.pcmnum[i].startaddress = (uint16_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
+//FIXME: Why is startaddress overwritten here?
+        pviheader.pcmnum[i].startaddress = (uint16_t) ((Data[0x10 + i * 4]) | (Data[0x11 + i * 4] << 8));
+        pviheader.pcmnum[i].endaddress   = (uint16_t) ((Data[0x12 + i * 4]) | (Data[0x13 + i * 4] << 8));
     }
 }
 
@@ -301,16 +289,16 @@ int PPZ8::Load(TCHAR * filePath, int bufnum)
 
         uint8_t * Data;
 
-        if ((Data = (uint8_t *) ::malloc(Size)) == NULL)
+        if ((Data = (uint8_t *) ::malloc((size_t) Size)) == NULL)
         {
             _File->Close();
 
             return _ERR_OUT_OF_MEMORY;
         }
 
-        ::memset(Data, 0, Size);
+        ::memset(Data, 0, (size_t) Size);
 
-        _File->Read(Data, Size);
+        _File->Read(Data, (uint32_t) Size);
 
         XMS_FRAME_ADR[bufnum] = Data;
         XMS_FRAME_SIZE[bufnum] = Size;
@@ -331,28 +319,28 @@ int PPZ8::Load(TCHAR * filePath, int bufnum)
             return ERR_PPZ_UNKNOWN_FORMAT;
         }
 
-        strncpy(PZIHeader.ID, "PZI1", 4);
+        ::strncpy(PZIHeader.ID, "PZI1", 4);
 
         int PVISize = 0;
 
         for (int i = 0; i < PVIHeader.pvinum; ++i)
         {
-            PZIHeader.pcmnum[i].startaddress = (PVIHeader.pcmnum[i].startaddress << (5 + 1));
-            PZIHeader.pcmnum[i].size = ((PVIHeader.pcmnum[i].endaddress - PVIHeader.pcmnum[i].startaddress + 1 ) << (5 + 1));
-            PVISize += PZIHeader.pcmnum[i].size;
+            PZIHeader.pcmnum[i].Start      = (uint32_t) ((                                 PVIHeader.pcmnum[i].startaddress      << (5 + 1)));
+            PZIHeader.pcmnum[i].Size       = (uint32_t) ((PVIHeader.pcmnum[i].endaddress - PVIHeader.pcmnum[i].startaddress + 1) << (5 + 1));
+            PZIHeader.pcmnum[i].LoopStart  = 0xFFFF;
+            PZIHeader.pcmnum[i].LoopEnd    = 0xFFFF;
+            PZIHeader.pcmnum[i].SampleRate = 16000; // 16kHz
 
-            PZIHeader.pcmnum[i].loop_start = 0xffff;
-            PZIHeader.pcmnum[i].loop_end = 0xffff;
-            PZIHeader.pcmnum[i].rate = 16000;  // 16kHz
+            PVISize += PZIHeader.pcmnum[i].Size;
         }
 
         for (int i = PVIHeader.pvinum; i < 128; ++i)
         {
-            PZIHeader.pcmnum[i].startaddress = 0;
-            PZIHeader.pcmnum[i].size = 0;
-            PZIHeader.pcmnum[i].loop_start = 0xffff;
-            PZIHeader.pcmnum[i].loop_end = 0xffff;
-            PZIHeader.pcmnum[i].rate = 16000;  // 16kHz
+            PZIHeader.pcmnum[i].Start      = 0;
+            PZIHeader.pcmnum[i].Size       = 0;
+            PZIHeader.pcmnum[i].LoopStart  = 0xFFFF;
+            PZIHeader.pcmnum[i].LoopEnd    = 0xFFFF;
+            PZIHeader.pcmnum[i].SampleRate = 0;
         }
 
         if (::memcmp(&PCME_WORK[bufnum].pcmnum, &PZIHeader.pcmnum, sizeof(PZIHEADER) - 0x20) == 0)
@@ -378,7 +366,7 @@ int PPZ8::Load(TCHAR * filePath, int bufnum)
         Size -= sizeof(PVIHEADER);
         PVISize /= 2;
 
-        size_t DstSize = (std::max)(Size, PVISize) * 2;
+        size_t DstSize = (size_t) (std::max)(Size, PVISize) * 2;
 
         uint8_t * pdst = (uint8_t *) ::malloc(DstSize);
 
@@ -407,7 +395,7 @@ int PPZ8::Load(TCHAR * filePath, int bufnum)
 
             ::memset(psrc, 0, SrcSize);
 
-            _File->Read(psrc, Size);
+            _File->Read(psrc, (uint32_t) Size);
 
             uint8_t * psrc2 = psrc;
 
@@ -417,20 +405,18 @@ int PPZ8::Load(TCHAR * filePath, int bufnum)
                 int X_N     = X_N0;     // Xn (ADPCM>PCM 変換用)
                 int DELTA_N = DELTA_N0; // DELTA_N(ADPCM>PCM 変換用)
 
-                for (int j = 0; j < (int) PZIHeader.pcmnum[i].size / 2; ++j)
+                for (int j = 0; j < (int) PZIHeader.pcmnum[i].Size / 2; ++j)
                 {
 
                     X_N     = Limit(X_N + table1[(*psrc >> 4) & 0x0f] * DELTA_N / 8, 32767, -32768);
                     DELTA_N = Limit(DELTA_N * table2[(*psrc >> 4) & 0x0f] / 64, 24576, 127);
 
-                    *pdst = X_N / (32768 / 128) + 128;
-                    pdst++;
+                    *pdst++ = (uint8_t) (X_N / (32768 / 128) + 128);
 
                     X_N     = Limit(X_N + table1[*psrc & 0x0f] * DELTA_N / 8, 32767, -32768);
                     DELTA_N = Limit(DELTA_N * table2[*psrc++ & 0x0f] / 64, 24576, 127);
 
-                    *pdst = X_N / (32768 / 128) + 128;
-                    pdst++;
+                    *pdst++ = (uint8_t) (X_N / (32768 / 128) + 128);
                 }
             }
 
@@ -472,8 +458,8 @@ bool PPZ8::SetPitchFrequency(int ch, uint32_t frequency)
         frequency = (frequency & 0xffff) * 0x8000 / 0x49ba;
     }
 
-    channelwork[ch].PCM_ADDS_L = frequency & 0xffff;
-    channelwork[ch].PCM_ADDS_H = frequency >> 16;
+    channelwork[ch].PCM_ADDS_L = (int) (frequency & 0xffff);
+    channelwork[ch].PCM_ADDS_H = (int) (frequency >> 16);
 
     channelwork[ch].PCM_ADD_H = (int) ((((int64_t) (channelwork[ch].PCM_ADDS_H) << 16) + channelwork[ch].PCM_ADDS_L) * 2 * channelwork[ch].PCM_SORC_F / DIST_F);
     channelwork[ch].PCM_ADD_L = channelwork[ch].PCM_ADD_H & 0xffff;
@@ -537,8 +523,9 @@ bool PPZ8::SetPan(int ch, int pan)
 //  14H (PPZ8)ﾚｰﾄ設定
 bool PPZ8::SetRate(uint32_t rate, bool ip)
 {
-    DIST_F = rate;
+    DIST_F = (int) rate;
     interpolation = ip;
+
     return true;
 }
 
@@ -617,21 +604,24 @@ void PPZ8::WORK_INIT(void)
 }
 
 //  合成、出力
-void PPZ8::Mix(Sample * dest, int nsamples)
+void PPZ8::Mix(Sample * sampleData, int sampleCount)
 {
-    int    i;
     Sample * di;
     Sample  bx;
 
-    for (i = 0; i < PCM_CNL_MAX; i++)
+    for (int i = 0; i < PCM_CNL_MAX; i++)
     {
-        if (PCM_VOLUME == 0) break;
-        if (channelwork[i].PCM_FLG == 0) continue;
+        if (PCM_VOLUME == 0)
+            break;
+
+        if (channelwork[i].PCM_FLG == 0)
+            continue;
+
         if (channelwork[i].PCM_VOL == 0)
         {
             // PCM_NOW ポインタの移動(ループ、end 等も考慮して)
-            channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L * nsamples;
-            channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H * nsamples + channelwork[i].PCM_NOW_XOR / 0x10000;
+            channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L * sampleCount;
+            channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H * sampleCount + channelwork[i].PCM_NOW_XOR / 0x10000;
             channelwork[i].PCM_NOW_XOR %= 0x10000;
 
             while (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
@@ -650,6 +640,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
             }
             continue;
         }
+
         if (channelwork[i].PCM_PAN == 0)
         {
             channelwork[i].PCM_FLG = 0;
@@ -658,11 +649,12 @@ void PPZ8::Mix(Sample * dest, int nsamples)
 
         if (interpolation)
         {
-            di = dest;
+            di = sampleData;
+
             switch (channelwork[i].PCM_PAN)
             {
                 case 1:  //  1 , 0
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         *di++ += (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
                             + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
@@ -696,7 +688,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 2:  //  1 ,1/4
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
                             + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
@@ -732,7 +724,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 3:  //  1 ,2/4
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
                             + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
@@ -740,8 +732,9 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                         *di++ += bx;
                         *di++ += bx / 2;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
+                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -755,8 +748,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -768,7 +760,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 4:  //  1 ,3/4
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
                             + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
@@ -776,8 +768,9 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                         *di++ += bx;
                         *di++ += bx * 3 / 4;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
+                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -787,12 +780,10 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                         if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
-
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -804,7 +795,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 5:  //  1 , 1
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
                             + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
@@ -812,8 +803,9 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                         *di++ += bx;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
+                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -823,12 +815,10 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                         if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
-
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -840,7 +830,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 6:  // 3/4, 1
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
                             + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
@@ -848,8 +838,9 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                         *di++ += bx * 3 / 4;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
+                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -859,12 +850,10 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                         if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
-
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -876,7 +865,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 7:  // 2/4, 1
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
                             + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
@@ -884,8 +873,9 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                         *di++ += bx / 2;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
+                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -895,12 +885,10 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                         if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
-
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -912,7 +900,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 8:  // 1/4, 1
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
                             + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
@@ -920,8 +908,9 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                         *di++ += bx / 4;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
+                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -931,12 +920,10 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                         if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
-
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -948,15 +935,15 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 9:  //  0 , 1
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
-
                         di++;    // 右のみ
                         *di++ += (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
                             + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
+                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -970,8 +957,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -985,17 +971,19 @@ void PPZ8::Mix(Sample * dest, int nsamples)
         }
         else
         {
-            di = dest;
+            di = sampleData;
+
             switch (channelwork[i].PCM_PAN)
             {
                 case 1:  //  1 , 0
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         *di++ += VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
                         di++;    // 左のみ
 
                         channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -1007,8 +995,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -1020,7 +1007,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 2:  //  1 ,1/4
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
                         *di++ += bx;
@@ -1028,6 +1015,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
 
                         channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -1039,8 +1027,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -1052,7 +1039,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 3:  //  1 ,2/4
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
                         *di++ += bx;
@@ -1060,6 +1047,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
 
                         channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -1071,8 +1059,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -1084,7 +1071,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 4:  //  1 ,3/4
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
                         *di++ += bx;
@@ -1092,6 +1079,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
 
                         channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -1103,8 +1091,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -1116,7 +1103,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 5:  //  1 , 1
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
                         *di++ += bx;
@@ -1124,6 +1111,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
 
                         channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -1135,8 +1123,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -1148,7 +1135,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 6:  // 3/4, 1
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
                         *di++ += bx * 3 / 4;
@@ -1156,6 +1143,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
 
                         channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -1167,8 +1155,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -1180,7 +1167,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 7:  // 2/4, 1
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
                         *di++ += bx / 2;
@@ -1188,6 +1175,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
 
                         channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
                         channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+
                         if (channelwork[i].PCM_NOW_XOR > 0xffff)
                         {
                             channelwork[i].PCM_NOW_XOR -= 0x10000;
@@ -1199,8 +1187,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -1212,7 +1199,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 8:  // 1/4, 1
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
                         *di++ += bx / 4;
@@ -1231,8 +1218,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {
@@ -1244,7 +1230,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                     break;
 
                 case 9:  //  0 , 1
-                    while (di < &dest[nsamples * 2])
+                    while (di < &sampleData[sampleCount * 2])
                     {
                         di++;      // 右のみ
                         *di++ += VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
@@ -1262,8 +1248,7 @@ void PPZ8::Mix(Sample * dest, int nsamples)
                             if (channelwork[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
                             }
                             else
                             {

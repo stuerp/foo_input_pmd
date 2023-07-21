@@ -27,7 +27,7 @@ class OPNAW : public OPNA
 public:
     OPNAW(File * file) : OPNA(file)
     {
-        InitializeInternal();
+        Reset();
     }
 
     virtual ~OPNAW() { }
@@ -40,51 +40,54 @@ public:
     void SetRhythmWait(int nsec);
     void SetADPCMWait(int nsec);
 
-    int GetFMWait() const { return fmwait; }          // FM wait in ns
-    int GetSSGWait() const { return ssgwait; }        // SSG wait in ns
-    int GetRhythmWait() const { return rhythmwait; }  // Rythm wait in ns
-    int GetADPCMWait() { return adpcmwait; }    // ADPCM wait in ns
+    int GetFMWait() const { return _FMWait; }          // FM wait in ns
+    int GetSSGWait() const { return _SSGWait; }        // SSG wait in ns
+    int GetRhythmWait() const { return _RhythmWait; }  // Rythm wait in ns
+    int GetADPCMWait() { return _ADPCMWait; }    // ADPCM wait in ns
 
     void  SetReg(uint32_t addr, uint32_t data);    // レジスタ設定
     void  Mix(Sample * buffer, int nsamples);  // 合成
     void  ClearBuffer();          // 内部バッファクリア
 
 private:
-    Sample  pre_buffer[WAIT_PCM_BUFFER_SIZE * 2];
-    // wait 時の合成音の退避
-    int    fmwait;                // FM Wait(nsec)
-    int    ssgwait;              // SSG Wait(nsec)
-    int    rhythmwait;              // Rhythm Wait(nsec)
-    int    adpcmwait;              // ADPCM Wait(nsec)
-
-    int    fmwaitcount;            // FM Wait(count*1000)
-    int    ssgwaitcount;            // SSG Wait(count*1000)
-    int    rhythmwaitcount;          // Rhythm Wait(count*1000)
-    int    adpcmwaitcount;            // ADPCM Wait(count*1000)
-
-    int    read_pos;              // 書き込み位置
-    int    write_pos;              // 読み出し位置
-    int    count2;                // count 小数部分(*1000)
-
-    Sample  ip_buffer[IP_PCM_BUFFER_SIZE * 2];  // 線形補間時のワーク
-    uint32_t  rate2;                // 出力周波数
-    bool  interpolation2;            // 一次補間フラグ
-    int    delta;                // 差分小数部(16384サンプルで分割)
-
-    double  delta_double;            // 差分小数部
-
-    bool  ffirst;                // データ初回かどうかのフラグ
-    double  rest;                // 標本化定理リサンプリング時の前回の残りサンプルデータ位置
-    int    write_pos_ip;            // 書き込み位置(ip)
-
-    void  InitializeInternal();            // 初期化(内部処理)
-    void  CalcWaitPCM(int waitcount);      // SetReg() wait 時の PCM を計算
-    double  Sinc(double x);            // Sinc関数
-    void  _Mix(Sample * buffer, int nsamples);  // 合成（一次補間なしVer.)
-    double  Fmod2(double x, double y);      // 最小非負剰余
+    void Reset() noexcept;
+    void CalcWaitPCM(int waitcount);
+    double Sinc(double x);
+    double Fmod2(double x, double y);
+    void MixInternal(Sample * buffer, int nsamples);
 
     inline int Limit(int v, int max, int min)
     {
         return v > max ? max : (v < min ? min : v);
     }
+
+private:
+    Sample  pre_buffer[WAIT_PCM_BUFFER_SIZE * 2];
+
+    // Synthetic sound saving during wait
+    int    _FMWait; // in ns
+    int    _SSGWait; // in ns
+    int    _ADPCMWait; // in ns
+    int    _RhythmWait; // in ns
+
+    int    _FMWaitCount;
+    int    _SSGWaitCount;
+    int    _ADPCMWaitCount;
+    int    _RhythmWaitCount;
+
+    int    read_pos;              // Write position
+    int    write_pos;              // Read position
+    int    count2;                // Count decimal part (*1000)
+
+    Sample ip_buffer[IP_PCM_BUFFER_SIZE * 2];  // Work area for linear interpolation
+
+    uint32_t _OutputRate; // in Hz
+    bool  interpolation2;            // First order interpolation flag
+    int    delta;                // Difference fraction (divided by 16384 samples)
+
+    double  delta_double;            // Difference fraction
+
+    bool  ffirst;                // Data first time flag
+    double  rest;                // Position of the previous remaining sample data when resampling the sampling theorem
+    int    write_pos_ip;            // Write position (ip)
 };

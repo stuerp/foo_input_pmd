@@ -1,5 +1,5 @@
 ﻿
-// Based on PMDWin code by C60
+// OPNA module with waiting / Based on PMDWin code by C60
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -10,263 +10,157 @@
 
 #include "OPNAW.h"
 
-#define M_PI 3.14159265358979323846
+// Declare if you want linear interpolation in this unit. Added because fmgen 007 deprecated linear interpolation.
+#define USE_INTERPOLATION
 
-// Declare if you want linear interpolation in this unit. Added because fmgen 007 deprecated linear interpolation
-#define INTERPOLATION_IN_THIS_UNIT
-
-bool OPNAW::Init(uint32_t c, uint32_t r, bool ipflag, const WCHAR * directoryPath)
+/// <summary>
+/// Initializes the module.
+/// </summary>
+bool OPNAW::Init(uint32_t c, uint32_t synthesisRate, bool ipflag, const WCHAR * directoryPath)
 {
-    InitializeInternal();
+    Reset();
 
-    rate2 = r;
+    _OutputRate = synthesisRate;
 
-#ifdef INTERPOLATION_IN_THIS_UNIT
-    return ipflag ? OPNA::Init(c, SOUND_55K_2, false, directoryPath) : OPNA::Init(c, r, false, directoryPath);
+#ifdef USE_INTERPOLATION
+    return ipflag ? OPNA::Init(c, SOUND_55K_2, false, directoryPath) : OPNA::Init(c, synthesisRate, false, directoryPath);
 #else
     return OPNA::Init(c, r, ipflag, directoryPath);
 #endif
 }
 
-void OPNAW::InitializeInternal()
-{
-    ::memset(pre_buffer, 0, sizeof(pre_buffer));
-
-    fmwait = 0;
-    ssgwait = 0;
-    rhythmwait = 0;
-    adpcmwait = 0;
-
-    fmwaitcount = 0;
-    ssgwaitcount = 0;
-    rhythmwaitcount = 0;
-    adpcmwaitcount = 0;
-
-    read_pos = 0;
-    write_pos = 0;
-    count2 = 0;
-
-    ::memset(ip_buffer, 0, sizeof(ip_buffer));
-
-    rate2 = 0;
-    interpolation2 = false;
-    delta = 0;
-    delta_double = 0.0;
-
-    // Sampling theorem and provisional setting of LPF
-    ffirst = true;
-    rest = 0;
-    write_pos_ip = NUMOFINTERPOLATION;
-}
-
 /// <summary>
 /// Sets the synthesis rate.
 /// </summary>
-bool OPNAW::SetRate(uint32_t c, uint32_t r, bool ipflag)
+bool OPNAW::SetRate(uint32_t c, uint32_t synthesisRate, bool useFM55kHzSynthesis)
 {
-    bool result;
+    SetFMWait(_FMWait);
+    SetSSGWait(_SSGWait);
+    SetRhythmWait(_RhythmWait);
+    SetADPCMWait(_ADPCMWait);
 
-    SetFMWait(fmwait);
-    SetSSGWait(ssgwait);
-    SetRhythmWait(rhythmwait);
-    SetADPCMWait(adpcmwait);
-
-    interpolation2 = ipflag;
-    rate2 = r;
+    interpolation2 = useFM55kHzSynthesis;
+    _OutputRate = synthesisRate;
 
     // Sampling theorem and provisional setting of LPF.
     ffirst = true;
 
-#ifdef INTERPOLATION_IN_THIS_UNIT
-    result = ipflag ? OPNA::SetRate(c, SOUND_55K_2, false) : OPNA::SetRate(c, r, false);
+#ifdef USE_INTERPOLATION
+    bool Result = useFM55kHzSynthesis ? OPNA::SetRate(c, SOUND_55K_2, false) : OPNA::SetRate(c, synthesisRate, false);
 #else
-    result = OPNA::SetRate(c, r, ipflag);
+    bool Result = OPNA::SetRate(c, r, useFM55kHzSynthesis);
 #endif
-
-    fmwaitcount = fmwait * _SynthesisRate / 1000000;
-    ssgwaitcount = ssgwait * _SynthesisRate / 1000000;
-    rhythmwaitcount = rhythmwait * _SynthesisRate / 1000000;
-    adpcmwaitcount = adpcmwait * _SynthesisRate / 1000000;
-
-    return result;
+/*
+    _FMWaitCount = (int) (_FMWait * _SynthesisRate / 1000000);
+    _SSGWaitCount = (int) (_SSGWait * _SynthesisRate / 1000000);
+    _RhythmWaitCount = (int) (_RhythmWait * _SynthesisRate / 1000000);
+    _ADPCMWaitCount = (int) (_ADPCMWait * _SynthesisRate / 1000000);
+*/
+    return Result;
 }
 
-void OPNAW::SetFMWait(int nsec)
+/// <summary>
+/// Sets the FM delay.
+/// </summary>
+void OPNAW::SetFMWait(int ns)
 {
-    fmwait      = nsec;
-    fmwaitcount = nsec * _SynthesisRate / 1000000;
+    _FMWait      = ns;
+    _FMWaitCount = (int) (ns * _SynthesisRate / 1000000);
 }
 
-void OPNAW::SetSSGWait(int nsec)
+/// <summary>
+/// Sets the SSG delay.
+/// </summary>
+void OPNAW::SetSSGWait(int ns)
 {
-    ssgwait      = nsec;
-    ssgwaitcount = nsec * _SynthesisRate / 1000000;
+    _SSGWait      = ns;
+    _SSGWaitCount = (int) (ns * _SynthesisRate / 1000000);
 }
 
-void OPNAW::SetRhythmWait(int nsec)
+/// <summary>
+/// Sets the ADPCM delay.
+/// </summary>
+void OPNAW::SetADPCMWait(int ns)
 {
-    rhythmwait      = nsec;
-    rhythmwaitcount = nsec * _SynthesisRate / 1000000;
+    _ADPCMWait      = ns;
+    _ADPCMWaitCount = (int) (ns * _SynthesisRate / 1000000);
 }
 
-void OPNAW::SetADPCMWait(int nsec)
+/// <summary>
+/// Sets the Rhythm delay.
+/// </summary>
+void OPNAW::SetRhythmWait(int ns)
 {
-    adpcmwait      = nsec;
-    adpcmwaitcount = nsec * _SynthesisRate / 1000000;
+    _RhythmWait      = ns;
+    _RhythmWaitCount = (int) (ns * _SynthesisRate / 1000000);
 }
 
-//Set data in register array
-void OPNAW::SetReg(uint32_t addr, uint32_t data)
+/// <summary>
+/// Sets the value of a register.
+/// </summary>
+void OPNAW::SetReg(uint32_t addr, uint32_t value)
 {
     if (addr < 0x10)
     {   // SSG
-        if (ssgwaitcount)
-            CalcWaitPCM(ssgwaitcount);
+        if (_SSGWaitCount != 0)
+            CalcWaitPCM(_SSGWaitCount);
     }
     else
     if ((addr % 0x100) <= 0x10)
     {   // ADPCM
-        if (adpcmwaitcount)
-            CalcWaitPCM(adpcmwaitcount);
+        if (_ADPCMWaitCount !=0)
+            CalcWaitPCM(_ADPCMWaitCount);
     }
     else
     if (addr < 0x20)
     {   // RHYTHM
-        if (rhythmwaitcount)
-            CalcWaitPCM(rhythmwaitcount);
+        if (_RhythmWaitCount != 0)
+            CalcWaitPCM(_RhythmWaitCount);
     }
     else
     {   // FM
-        if (fmwaitcount)
-            CalcWaitPCM(fmwaitcount);
+        if (_FMWaitCount != 0)
+            CalcWaitPCM(_FMWaitCount);
     }
 
-    OPNA::SetReg(addr, data);
+    OPNA::SetReg(addr, value);
 }
 
-// Calculate PCM when SetReg() wait
-void OPNAW::CalcWaitPCM(int waitcount)
+/// <summary>
+/// Synthesizes a buffer with samples.
+/// </summary>
+void OPNAW::Mix(Sample * sampleData, int sampleCount)
 {
-    count2 += waitcount % 1000;
-    waitcount /= 1000;
+#ifdef USE_INTERPOLATION
 
-    if (count2 > 1000)
-    {
-        waitcount++;
-        count2 -= 1000;
-    }
-
-    int outsamples;
-
-    do
-    {
-        if (write_pos + waitcount > WAIT_PCM_BUFFER_SIZE)
-            outsamples = WAIT_PCM_BUFFER_SIZE - write_pos;
-        else
-            outsamples = waitcount;
-
-        ::memset(&pre_buffer[write_pos * 2], 0, outsamples * 2 * sizeof(Sample));
-
-        OPNA::Mix(&pre_buffer[write_pos * 2], outsamples);
-
-        write_pos += outsamples;
-
-        if (write_pos == WAIT_PCM_BUFFER_SIZE)
-            write_pos = 0;
-
-        waitcount -= outsamples;
-    }
-    while (waitcount > 0);
-}
-
-// Sinc function
-double OPNAW::Sinc(double x)
-{
-    return (x != 0.0) ? sin(M_PI * x) / (M_PI * x) : 1.0;
-}
-
-// Synthesis (Ver. without primary interpolation)
-void OPNAW::_Mix(Sample * buffer, int nsamples)
-{
-    if (read_pos != write_pos)
-    {
-        int bufsamples;
-        int outsamples;
-
-        // Output from buffer
-        if (read_pos < write_pos)
-            bufsamples = write_pos - read_pos;
-        else
-            bufsamples = write_pos - read_pos + WAIT_PCM_BUFFER_SIZE;
-
-        if (bufsamples > nsamples)
-            bufsamples = nsamples;
-
-        do
-        {
-            if (read_pos + bufsamples > WAIT_PCM_BUFFER_SIZE)
-                outsamples = WAIT_PCM_BUFFER_SIZE - read_pos;
-            else
-                outsamples = bufsamples;
-
-            for (int i = 0; i < outsamples * 2; i++)
-                *buffer++ += pre_buffer[read_pos * 2 + i];
-
-        //  memcpy(buffer, &pre_buffer[read_pos * 2], outsamples * 2 * sizeof(Sample));
-
-            read_pos += outsamples;
-
-            if (read_pos == WAIT_PCM_BUFFER_SIZE)
-                read_pos = 0;
-
-            nsamples -= outsamples;
-            bufsamples -= outsamples;
-        }
-        while (bufsamples > 0);
-    }
-
-    OPNA::Mix(buffer, nsamples);
-}
-
-// Least nonnegative remainder
-double OPNAW::Fmod2(double x, double y)
-{
-    return x - std::floor((double) x / y) * y;
-}
-
-// Synthesis
-void OPNAW::Mix(Sample * buffer, int nsamples)
-{
-#ifdef INTERPOLATION_IN_THIS_UNIT
-
-    if (interpolation2 && rate2 != SOUND_55K_2)
+    if (interpolation2 && (_OutputRate != SOUND_55K_2))
     {
     #if 0  
         int  nmixdata2;
 
-        while (nsamples > 0)
+        while (sampleCount > 0)
         {
-            int nmixdata = (int) (delta + ((int64_t) nsamples) * (SOUND_55K_2 * 16384 / rate2)) / 16384;
+            int nmixdata = (int) (delta + ((int64_t) sampleCount) * (SOUND_55K_2 * 16384 / _OutputRate)) / 16384;
 
             if (nmixdata > (IP_PCM_BUFFER_SIZE - 1))
             {
-                int snsamples = (IP_PCM_BUFFER_SIZE - 2) * rate2 / SOUND_55K_2;
-                nmixdata = (delta + (snsamples) * (SOUND_55K_2 * 16384 / rate2)) / 16384;
+                int snsamples = (IP_PCM_BUFFER_SIZE - 2) * _OutputRate / SOUND_55K_2;
+                nmixdata = (delta + (snsamples) * (SOUND_55K_2 * 16384 / _OutputRate)) / 16384;
             }
 
             ::memset(&ip_buffer[2], 0, sizeof(Sample) * 2 * nmixdata);
-            _Mix(&ip_buffer[2], nmixdata);
+            MixInternal(&ip_buffer[2], nmixdata);
 
             nmixdata2 = 0;
 
             while (nmixdata > nmixdata2)
             {
-                *buffer++ += (ip_buffer[nmixdata2 * 2] * (16384 - delta) + ip_buffer[nmixdata2 * 2 + 2] * delta) / 16384;
-                *buffer++ += (ip_buffer[nmixdata2 * 2 + 1] * (16384 - delta) + ip_buffer[nmixdata2 * 2 + 3] * delta) / 16384;
-                delta += SOUND_55K_2 * 16384 / rate2;
+                *sampleData++ += (ip_buffer[nmixdata2 * 2] * (16384 - delta) + ip_buffer[nmixdata2 * 2 + 2] * delta) / 16384;
+                *sampleData++ += (ip_buffer[nmixdata2 * 2 + 1] * (16384 - delta) + ip_buffer[nmixdata2 * 2 + 3] * delta) / 16384;
+                delta += SOUND_55K_2 * 16384 / _OutputRate;
                 nmixdata2 += delta / 16384;
                 delta %= 16384;
-                nsamples--;
+                sampleCount--;
             }
 
             ip_buffer[0] = ip_buffer[nmixdata * 2];
@@ -274,13 +168,13 @@ void OPNAW::Mix(Sample * buffer, int nsamples)
         }
     #endif
 
-        for (int i = 0; i < nsamples; i++)
+        for (int i = 0; i < sampleCount; i++)
         {
             int irest = (int) rest;
 
             if (write_pos_ip - (irest + NUMOFINTERPOLATION) < 0)
             {
-                int nrefill = (int) (rest + (nsamples - i - 1) * ((double) SOUND_55K_2 / rate2)) + NUMOFINTERPOLATION - write_pos_ip;
+                int nrefill = (int) (rest + (sampleCount - i - 1) * ((double) SOUND_55K_2 / _OutputRate)) + NUMOFINTERPOLATION - write_pos_ip;
 
                 if (write_pos_ip + nrefill - IP_PCM_BUFFER_SIZE > irest)
                     nrefill = irest + IP_PCM_BUFFER_SIZE - write_pos_ip;
@@ -290,10 +184,10 @@ void OPNAW::Mix(Sample * buffer, int nsamples)
                 int nrefill2 = nrefill - nrefill1;
 
                 ::memset(&ip_buffer[(write_pos_ip % IP_PCM_BUFFER_SIZE) * 2], 0, sizeof(Sample) * 2 * nrefill1);
-                _Mix(&ip_buffer[(write_pos_ip % IP_PCM_BUFFER_SIZE) * 2], nrefill1);
+                MixInternal(&ip_buffer[(write_pos_ip % IP_PCM_BUFFER_SIZE) * 2], nrefill1);
 
                 ::memset(&ip_buffer[0 * 2], 0, sizeof(Sample) * 2 * nrefill2);
-                _Mix(&ip_buffer[0], nrefill2);
+                MixInternal(&ip_buffer[0], nrefill2);
 
                 write_pos_ip += nrefill;
             }
@@ -306,21 +200,22 @@ void OPNAW::Mix(Sample * buffer, int nsamples)
                 double temps;
 
                 temps = Sinc((double) j - rest - NUMOFINTERPOLATION / 2 + 1);
+
                 tempL += temps * ip_buffer[(j % IP_PCM_BUFFER_SIZE) * 2];
                 tempR += temps * ip_buffer[(j % IP_PCM_BUFFER_SIZE) * 2 + 1];
             }
 
-            *buffer++ += Limit((int) tempL, 32767, -32768);
-            *buffer++ += Limit((int) tempR, 32767, -32768);
+            *sampleData++ += Limit((int) tempL, 32767, -32768);
+            *sampleData++ += Limit((int) tempR, 32767, -32768);
 
-            rest += (double) SOUND_55K_2 / rate2;
+            rest += (double) SOUND_55K_2 / _OutputRate;
         }
 
     }
     else
-        _Mix(buffer, nsamples);
+        MixInternal(sampleData, sampleCount);
 #else
-    _Mix(buffer, nsamples);
+    MixInternal(sampleData, sampleCount);
 #endif
 }
 
@@ -335,3 +230,139 @@ void OPNAW::ClearBuffer()
     rest = 0;
     write_pos_ip = NUMOFINTERPOLATION;
 }
+
+#pragma region("Private")
+/// <summary>
+/// Resets the module.
+/// </summary>
+void OPNAW::Reset() noexcept
+{
+    ::memset(pre_buffer, 0, sizeof(pre_buffer));
+
+    _FMWait = 0;
+    _SSGWait = 0;
+    _RhythmWait = 0;
+    _ADPCMWait = 0;
+
+    _FMWaitCount = 0;
+    _SSGWaitCount = 0;
+    _RhythmWaitCount = 0;
+    _ADPCMWaitCount = 0;
+
+    read_pos = 0;
+    write_pos = 0;
+    count2 = 0;
+
+    ::memset(ip_buffer, 0, sizeof(ip_buffer));
+
+    _OutputRate = 0;
+    interpolation2 = false;
+    delta = 0;
+    delta_double = 0.0;
+
+    // Sampling theorem and provisional setting of LPF
+    ffirst = true;
+    rest = 0;
+    write_pos_ip = NUMOFINTERPOLATION;
+}
+
+/// <summary>
+/// Calculates the PCM delay whenever a register gets set.
+/// </summary>
+void OPNAW::CalcWaitPCM(int value)
+{
+    count2 += value % 1000;
+    value /= 1000;
+
+    if (count2 > 1000)
+    {
+        value++;
+        count2 -= 1000;
+    }
+
+    int SampleCount;
+
+    do
+    {
+        if (write_pos + value > WAIT_PCM_BUFFER_SIZE)
+            SampleCount = WAIT_PCM_BUFFER_SIZE - write_pos;
+        else
+            SampleCount = value;
+
+        ::memset(&pre_buffer[write_pos * 2], 0, (size_t) SampleCount * 2 * sizeof(Sample));
+
+        OPNA::Mix(&pre_buffer[write_pos * 2], SampleCount);
+
+        write_pos += SampleCount;
+
+        if (write_pos == WAIT_PCM_BUFFER_SIZE)
+            write_pos = 0;
+
+        value -= SampleCount;
+    }
+    while (value > 0);
+}
+
+/// <summary>
+/// Sinc function
+/// </summary>
+double OPNAW::Sinc(double x)
+{
+#define M_PI 3.14159265358979323846
+
+    return (x != 0.0) ? sin(M_PI * x) / (M_PI * x) : 1.0;
+}
+
+/// <summary>
+/// Least nonnegative remainder
+/// </summary>
+double OPNAW::Fmod2(double x, double y)
+{
+    return x - std::floor((double) x / y) * y;
+}
+
+/// <summary>
+/// Synthesizes a buffer without primary interpolation.
+/// </summary>
+void OPNAW::MixInternal(Sample * sampleData, int sampleCount)
+{
+    if (read_pos != write_pos)
+    {
+        int bufsamples;
+        int outsamples;
+
+        // Output from buffer
+        if (read_pos < write_pos)
+            bufsamples = write_pos - read_pos;
+        else
+            bufsamples = write_pos - read_pos + WAIT_PCM_BUFFER_SIZE;
+
+        if (bufsamples > sampleCount)
+            bufsamples = sampleCount;
+
+        do
+        {
+            if (read_pos + bufsamples > WAIT_PCM_BUFFER_SIZE)
+                outsamples = WAIT_PCM_BUFFER_SIZE - read_pos;
+            else
+                outsamples = bufsamples;
+
+            for (int i = 0; i < outsamples * 2; i++)
+                *sampleData++ += pre_buffer[read_pos * 2 + i];
+
+        //  memcpy(buffer, &pre_buffer[read_pos * 2], outsamples * 2 * sizeof(Sample));
+
+            read_pos += outsamples;
+
+            if (read_pos == WAIT_PCM_BUFFER_SIZE)
+                read_pos = 0;
+
+            sampleCount -= outsamples;
+            bufsamples -= outsamples;
+        }
+        while (bufsamples > 0);
+    }
+
+    OPNA::Mix(sampleData, sampleCount);
+}
+#pragma endregion

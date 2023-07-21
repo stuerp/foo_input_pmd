@@ -108,7 +108,7 @@ protected:
     int32_t _MasterVolume;
 
     int8_t _InstrumentTL;
-    uint8_t _InstrumentKey;
+    uint8_t _InstrumentMask; // 1 bit per percussion instrument
     
     bool _HasADPCMROM;
 

@@ -5,11 +5,13 @@
 
 #include "OPNA.h"
 
+#pragma warning(disable: 4820) // x bytes padding added after last data member
 struct EFFTBL
 {
     int priority;
     const int * table;
 };
+#pragma warning(default: 4820) // x bytes padding added after last data member
 
 extern const int part_table[][3];
 extern const int fnum_data[];

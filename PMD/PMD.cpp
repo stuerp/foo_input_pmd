@@ -288,9 +288,9 @@ int PMD::Load(const uint8_t * data, size_t size)
         {
             ::MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, FileName, -1, FileNameW, _countof(FileNameW));
 
-            if (HasExtension(FileNameW, _countof(FileNameW), L".P86"))
+            if (HasExtension(FileNameW, _countof(FileNameW), L".P86")) // Is it a Professional Music Driver P86 Samples Pack file?
             {
-                FindSampleFile(FilePath, FileNameW);
+                FindFile(FilePath, FileNameW);
 
                 Result = _P86->Load(FilePath);
 
@@ -300,7 +300,7 @@ int PMD::Load(const uint8_t * data, size_t size)
             else
             if (HasExtension(FileNameW, _countof(FileNameW), L".PPC"))
             {
-                FindSampleFile(FilePath, FileNameW);
+                FindFile(FilePath, FileNameW);
 
                 Result = LoadPPCInternal(FilePath);
 
@@ -320,7 +320,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
             if (HasExtension(FileNameW, _countof(FileNameW), L".PPS"))
             {
-                FindSampleFile(FilePath, FileNameW);
+                FindFile(FilePath, FileNameW);
 
                 Result = _PPS->Load(FilePath);
             }
@@ -337,7 +337,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
             if (HasExtension(FileNameW, _countof(FileNameW), L".PZI") && (data[0] != 0xff))
             {
-                FindSampleFile(FilePath, FileNameW);
+                FindFile(FilePath, FileNameW);
 
                 Result = _PPZ8->Load(FilePath, 0);
             }
@@ -351,7 +351,7 @@ int PMD::Load(const uint8_t * data, size_t size)
                     if ((p = ::wcschr(FileNameW, '.')) == NULL)
                         RenameExtension(FileNameW, _countof(FileNameW), L".PZI");
 
-                    FindSampleFile(FilePath, FileNameW);
+                    FindFile(FilePath, FileNameW);
 
                     Result = _PPZ8->Load(FilePath, 0);
                 }
@@ -369,11 +369,11 @@ int PMD::Load(const uint8_t * data, size_t size)
                     if ((p = ::wcschr(PPZFileName2, '.')) == NULL)
                         RenameExtension(PPZFileName2, _countof(PPZFileName2), L".PZI");
 
-                    FindSampleFile(FilePath, FileNameW);
+                    FindFile(FilePath, FileNameW);
 
                     Result = _PPZ8->Load(FilePath, 0);
 
-                    FindSampleFile(FilePath, PPZFileName2);
+                    FindFile(FilePath, PPZFileName2);
 
                     Result = _PPZ8->Load(FilePath, 1);
                 }
@@ -415,7 +415,7 @@ bool PMD::GetLength(int * songLength, int * loopLength)
 
             _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30); // Timer Reset (Both timer A and B)
 
-            int us = _OPNA->GetNextEvent();
+            uint32_t us = _OPNA->GetNextEvent();
 
             _OPNA->Count(us);
             _Position += us;
@@ -494,7 +494,7 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
 
             _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30);  // Timer Reset (Both timer A and B)
 
-            int us = _OPNA->GetNextEvent();
+            uint32_t us = _OPNA->GetNextEvent();
 
             _OPNA->Count(us);
             _Position += us;
@@ -545,7 +545,7 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
 // Gets the current loop number.
 uint32_t PMD::GetLoopNumber()
 {
-    return _OpenWork._LoopCount;
+    return (uint32_t) _OpenWork._LoopCount;
 }
 
 // Gets the playback position (in ms)
@@ -579,7 +579,7 @@ void PMD::SetPosition(uint32_t position)
 
         _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30); // Timer Reset (Both timer A and B)
 
-        int us = _OPNA->GetNextEvent();
+        uint32_t us = _OPNA->GetNextEvent();
 
         _OPNA->Count(us);
         _Position += us;
@@ -626,7 +626,7 @@ void PMD::Render(int16_t * sampleData, int sampleCount)
                 _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30); // Timer Reset (Both timer A and B)
             }
 
-            int us = _OPNA->GetNextEvent(); // in microseconds
+            uint32_t us = _OPNA->GetNextEvent(); // in microseconds
 
             {
                 _SamplesToDo = (int) ((double) us * _OpenWork._OPNARate / 1000000.0);
@@ -639,8 +639,8 @@ void PMD::Render(int16_t * sampleData, int sampleCount)
                 else
                 {
                     // PCM frequency transform of ppz8 (no interpolation)
-                    int ppzsample = _SamplesToDo * _OpenWork._PPZ8Rate / _OpenWork._OPNARate + 1;
-                    int delta     = 8192         * _OpenWork._PPZ8Rate / _OpenWork._OPNARate;
+                    int ppzsample = (int) (_SamplesToDo * _OpenWork._PPZ8Rate / _OpenWork._OPNARate + 1);
+                    int delta     = (int) (8192         * _OpenWork._PPZ8Rate / _OpenWork._OPNARate);
 
                     ::memset(wavbuf_conv, 0, ppzsample * sizeof(Sample) * 2);
 
@@ -678,8 +678,8 @@ void PMD::Render(int16_t * sampleData, int sampleCount)
 
                     for (int i = 0; i < _SamplesToDo; i++)
                     {
-                        wavbuf2[i].left  = Limit(wavbuf[i].left  * ftemp >> 10, 32767, -32768);
-                        wavbuf2[i].right = Limit(wavbuf[i].right * ftemp >> 10, 32767, -32768);
+                        wavbuf2[i].left  = (short) Limit(wavbuf[i].left  * ftemp >> 10, 32767, -32768);
+                        wavbuf2[i].right = (short) Limit(wavbuf[i].right * ftemp >> 10, 32767, -32768);
                     }
 
                     // Fadeout end
@@ -690,8 +690,8 @@ void PMD::Render(int16_t * sampleData, int sampleCount)
                 {
                     for (int i = 0; i < _SamplesToDo; i++)
                     {
-                        wavbuf2[i].left  = Limit(wavbuf[i].left,  32767, -32768);
-                        wavbuf2[i].right = Limit(wavbuf[i].right, 32767, -32768);
+                        wavbuf2[i].left  = (short) Limit(wavbuf[i].left,  32767, -32768);
+                        wavbuf2[i].right = (short) Limit(wavbuf[i].right, 32767, -32768);
                     }
                 }
             }
@@ -732,7 +732,7 @@ bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
 /// <summary>
 /// Sets the rate at which raw PCM data is synthesized (in Hz, for example 44100)
 /// </summary>
-void PMD::SetSynthesisRate(int frequency)
+void PMD::SetSynthesisRate(uint32_t frequency)
 {
     if (frequency == SOUND_55K || frequency == SOUND_55K_2)
     {
@@ -757,7 +757,7 @@ void PMD::SetSynthesisRate(int frequency)
 /// <summary>
 /// Sets the rate at which raw PPZ data is synthesized (in Hz, for example 44100)
 /// </summary>
-void PMD::SetPPZSynthesisRate(int frequency)
+void PMD::SetPPZSynthesisRate(uint32_t frequency)
 {
     _OpenWork._PPZ8Rate = frequency;
 
@@ -1789,21 +1789,15 @@ void PMD::otodasi(PartState * qq)
     // Portament/LFO/Detune SET
     ax += qq->porta_num + qq->detune;
 
-    if (pmdwork.partb == 3 && pmdwork.fmsel == 0 && _OpenWork.ch3mode != 0x3f)
-    {
+    if ((pmdwork.partb == 3) && (pmdwork.fmsel == 0) && (_OpenWork.ch3mode != 0x3f))
         ch3_special(qq, ax, cx);
-    }
     else
     {
         if (qq->lfoswi & 1)
-        {
             ax += qq->lfodat;
-        }
 
         if (qq->lfoswi & 0x10)
-        {
             ax += qq->_lfodat;
-        }
 
         fm_block_calc(&cx, &ax);
 
@@ -1895,17 +1889,19 @@ void PMD::cm_clear(int * ah, int * al)
 //  FM3のmodeを設定する
 void PMD::ch3mode_set(PartState * qq)
 {
-    int    ah, al;
+    int al;
 
     if (qq == &FMPart[3 - 1])
     {
         al = 1;
     }
-    else if (qq == &ExtPart[0])
+    else
+    if (qq == &ExtPart[0])
     {
         al = 2;
     }
-    else if (qq == &ExtPart[1])
+    else
+    if (qq == &ExtPart[1])
     {
         al = 4;
     }
@@ -1914,29 +1910,36 @@ void PMD::ch3mode_set(PartState * qq)
         al = 8;
     }
 
+    int ah;
+
     if ((qq->slotmask & 0xf0) == 0)
     {  // s0
         cm_clear(&ah, &al);
     }
-    else if (qq->slotmask != 0xf0)
+    else
+    if (qq->slotmask != 0xf0)
     {
         pmdwork.slot3_flag |= al;
         ah = 0x7f;
     }
-    else if ((qq->volmask & 0x0f) == 0)
+    else
+    if ((qq->volmask & 0x0f) == 0)
     {
         cm_clear(&ah, &al);
     }
-    else if ((qq->lfoswi & 1) != 0)
+    else
+    if ((qq->lfoswi & 1) != 0)
     {
         pmdwork.slot3_flag |= al;
         ah = 0x7f;
     }
-    else if ((qq->_volmask & 0x0f) == 0)
+    else
+    if ((qq->_volmask & 0x0f) == 0)
     {
         cm_clear(&ah, &al);
     }
-    else if (qq->lfoswi & 0x10)
+    else
+    if (qq->lfoswi & 0x10)
     {
         pmdwork.slot3_flag |= al;
         ah = 0x7f;
@@ -1946,18 +1949,31 @@ void PMD::ch3mode_set(PartState * qq)
         cm_clear(&ah, &al);
     }
 
-    if (ah == _OpenWork.ch3mode) return;    // 以前と変更無しなら何もしない
+    if (ah == _OpenWork.ch3mode)
+        return;
+
     _OpenWork.ch3mode = ah;
-    _OPNA->SetReg(0x27, ah & 0xcf);      // Resetはしない
 
-    //  効果音モードに移った場合はそれ以前のFM3パートで音程書き換え
-    if (ah == 0x3f || qq == &FMPart[2]) return;
+    _OPNA->SetReg(0x27, ah & 0xcf); // Don't reset.
 
-    if (FMPart[2].partmask == 0) otodasi(&FMPart[2]);
-    if (qq == &ExtPart[0]) return;
-    if (ExtPart[0].partmask == 0) otodasi(&ExtPart[0]);
-    if (qq == &ExtPart[1]) return;
-    if (ExtPart[1].partmask == 0) otodasi(&ExtPart[1]);
+    // When moving to sound effect mode, the pitch is rewritten with the previous FM3 part
+    if (ah == 0x3f || qq == &FMPart[2])
+        return;
+
+    if (FMPart[2].partmask == 0)
+        otodasi(&FMPart[2]);
+
+    if (qq == &ExtPart[0])
+        return;
+
+    if (ExtPart[0].partmask == 0)
+        otodasi(&ExtPart[0]);
+
+    if (qq == &ExtPart[1])
+        return;
+
+    if (ExtPart[1].partmask == 0)
+        otodasi(&ExtPart[1]);
 }
 
 //  ch3=効果音モード を使用する場合の音程設定
@@ -4373,45 +4389,42 @@ uint8_t * PMD::pcmrepeat_set8(PartState *, uint8_t * si)
 }
 
 //  リピート設定
-uint8_t * PMD::ppzrepeat_set(PartState * qq, uint8_t * si)
+uint8_t * PMD::ppzrepeat_set(PartState * qq, uint8_t * data)
 {
-    int    ax, ax2;
+    int LoopStart, LoopEnd;
 
     if ((qq->voicenum & 0x80) == 0)
     {
-        ax = *(int16_t *) si;
-        si += 2;
-        if (ax < 0)
-        {
-            ax = _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].size - ax;
-        }
+        LoopStart = *(int16_t *) data;
+        data += 2;
 
-        ax2 = *(int16_t *) si;
-        si += 2;
-        if (ax2 < 0)
-        {
-            ax2 = _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].size - ax;
-        }
+        if (LoopStart < 0)
+            LoopStart = _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].Size - LoopStart;
+
+        LoopEnd = *(int16_t *) data;
+        data += 2;
+
+        if (LoopEnd < 0)
+            LoopEnd = _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].Size - LoopStart;
     }
     else
     {
-        ax = *(int16_t *) si;
-        si += 2;
-        if (ax < 0)
-        {
-            ax = _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].size - ax;
-        }
+        LoopStart = *(int16_t *) data;
+        data += 2;
 
-        ax2 = *(int16_t *) si;
-        si += 2;
-        if (ax2 < 0)
-        {
-            ax2 = _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].size - ax2;
-        }
+        if (LoopStart < 0)
+            LoopStart = _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].Size - LoopStart;
+
+        LoopEnd = *(int16_t *) data;
+        data += 2;
+
+        if (LoopEnd < 0)
+            LoopEnd = _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].Size - LoopEnd;
     }
 
-    _PPZ8->SetLoop(pmdwork.partb, ax, ax2);
-    return si + 2;
+    _PPZ8->SetLoop(pmdwork.partb, LoopStart, LoopEnd);
+
+    return data + 2;
 }
 
 uint8_t * PMD::vol_one_up_pcm(PartState * qq, uint8_t * si)
@@ -4529,19 +4542,13 @@ uint8_t * PMD::comatz(PartState * qq, uint8_t * si)
 
     if ((qq->voicenum & 0x80) == 0)
     {
-        _PPZ8->SetLoop(pmdwork.partb,
-            _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].loop_start,
-            _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].loop_end);
-        _PPZ8->SetSourceRate(pmdwork.partb,
-            _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].rate);
+        _PPZ8->SetLoop(pmdwork.partb, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].LoopStart, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].LoopEnd);
+        _PPZ8->SetSourceRate(pmdwork.partb, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].SampleRate);
     }
     else
     {
-        _PPZ8->SetLoop(pmdwork.partb,
-            _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].loop_start,
-            _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].loop_end);
-        _PPZ8->SetSourceRate(pmdwork.partb,
-            _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].rate);
+        _PPZ8->SetLoop(pmdwork.partb, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].LoopStart, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].LoopEnd);
+        _PPZ8->SetSourceRate(pmdwork.partb, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].SampleRate);
     }
     return si;
 }
@@ -5740,24 +5747,19 @@ uint8_t * PMD::toneadr_calc(PartState * qq, int dl)
     uint8_t * bx;
 
     if (_OpenWork.prg_flg == 0 && qq != &EffPart)
-    {
-        return _OpenWork.tondat + (dl << 5);
-    }
-    else
-    {
-        bx = _OpenWork.prgdat_adr;
+        return _OpenWork.tondat + ((size_t) dl << 5);
 
-        while (*bx != dl)
-        {
-            bx += 26;
-            if (bx > _MData + sizeof(_MData) - 26)
-            {
-                return _OpenWork.prgdat_adr + 1;  // 見つからないときは最初の音色を設定
-            }
-        }
+    bx = _OpenWork.prgdat_adr;
 
-        return bx + 1;
+    while (*bx != dl)
+    {
+        bx += 26;
+
+        if (bx > _MData + sizeof(_MData) - 26)
+            return _OpenWork.prgdat_adr + 1; // Set first timbre if not found.
     }
+
+    return bx + 1;
 }
 
 // FM tone generator hard LFO setting (V2.4 expansion)
@@ -5910,56 +5912,47 @@ uint8_t * PMD::slotmask_set(PartState * qq, uint8_t * si)
     }
 
     ah &= 0xf0;
+
     if (qq->slotmask != ah)
     {
         qq->slotmask = ah;
+
         if ((ah & 0xf0) == 0)
-        {
-            qq->partmask |= 0x20;  // s0の時パートマスク
-        }
+            qq->partmask |= 0x20;  // Part mask at s0
         else
-        {
-            qq->partmask &= 0xdf;  // s0以外の時パートマスク解除
-        }
+            qq->partmask &= 0xdf;  // Unmask part when other than s0
 
         if (ch3_setting(qq))
-        {    // FM3chの場合のみ ch3modeの変更処理
-// ch3なら、それ以前のFM3パートでkeyon処理
+        {   // Change process of ch3mode only for FM3ch. If it is ch3, keyon processing in the previous FM3 part
             if (qq != &FMPart[2])
             {
-                if (FMPart[2].partmask == 0 &&
-                    (FMPart[2].keyoff_flag & 1) == 0)
-                {
+                if (FMPart[2].partmask == 0 && (FMPart[2].keyoff_flag & 1) == 0)
                     keyon(&FMPart[2]);
-                }
 
                 if (qq != &ExtPart[0])
                 {
-                    if (ExtPart[0].partmask == 0 &&
-                        (ExtPart[0].keyoff_flag & 1) == 0)
-                    {
+                    if (ExtPart[0].partmask == 0 && (ExtPart[0].keyoff_flag & 1) == 0)
                         keyon(&ExtPart[0]);
-                    }
 
                     if (qq != &ExtPart[1])
                     {
-                        if (ExtPart[1].partmask == 0 &&
-                            (ExtPart[1].keyoff_flag & 1) == 0)
-                        {
+                        if (ExtPart[1].partmask == 0 && (ExtPart[1].keyoff_flag & 1) == 0)
                             keyon(&ExtPart[1]);
-                        }
                     }
                 }
             }
         }
 
         ah = 0;
+
         if (qq->slotmask & 0x80) ah += 0x11;    // slot4
         if (qq->slotmask & 0x40) ah += 0x44;    // slot3
         if (qq->slotmask & 0x20) ah += 0x22;    // slot2
         if (qq->slotmask & 0x10) ah += 0x88;    // slot1
+
         qq->neiromask = ah;
     }
+
     return si;
 }
 
@@ -8887,7 +8880,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 /// <summary>
 /// Finds a PCM sample in the specified search path.
 /// </summary>
-WCHAR * PMD::FindSampleFile(WCHAR * filePath, const WCHAR * filename)
+WCHAR * PMD::FindFile(WCHAR * filePath, const WCHAR * filename)
 {
     WCHAR FilePath[MAX_PATH];
 

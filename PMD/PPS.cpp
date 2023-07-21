@@ -152,19 +152,21 @@ bool PPSDRV::Check(void)
     return keyon_flag;
 }
 
-//  ヘッダ読み込み
+/// <summary>
+/// Reads  the header.
+/// </summary>
 void PPSDRV::ReadHeader(File * file, PPSHEADER & header)
 {
-    uint8_t buf[84];
+    uint8_t Data[84];
 
-    file->Read(buf, sizeof(buf));
+    file->Read(Data, sizeof(Data));
 
     for (int i = 0; i < MAX_PPS; i++)
     {
-        header.pcmnum[i].address = buf[i * 6] | (buf[i * 6 + 1] << 8);
-        header.pcmnum[i].leng = buf[i * 6 + 2] | (buf[i * 6 + 3] << 8);
-        header.pcmnum[i].toneofs = buf[i * 6 + 4];
-        header.pcmnum[i].volumeofs = buf[i * 6 + 5];
+        header.pcmnum[i].address   = (uint16_t) (Data[i * 6]     | (Data[i * 6 + 1] << 8));
+        header.pcmnum[i].leng      = (uint16_t) (Data[i * 6 + 2] | (Data[i * 6 + 3] << 8));
+        header.pcmnum[i].toneofs   =             Data[i * 6 + 4];
+        header.pcmnum[i].volumeofs =             Data[i * 6 + 5];
     }
 }
 
@@ -251,7 +253,7 @@ int PPSDRV::Load(WCHAR * filePath)
 
         for (j = start_pps; j < end_pps; j++)
         {
-            dataarea1[j] = dataarea1[j] - (j - start_pps) * 16 / (end_pps - start_pps);
+            dataarea1[j] = (Sample) (dataarea1[j] - (j - start_pps) * 16 / (end_pps - start_pps));
 
             if (dataarea1[j] < 0)
                 dataarea1[j] = 0;
@@ -300,7 +302,7 @@ bool PPSDRV::GetParam(int paramno)
 //  再生周波数、一次補完設定設定
 bool PPSDRV::SetRate(uint32_t r, bool ip)    // レート設定
 {
-    rate = r;
+    rate = (int) r;
     interpolation = ip;
     return true;
 }

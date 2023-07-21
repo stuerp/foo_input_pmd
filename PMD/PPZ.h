@@ -51,16 +51,16 @@ struct CHANNELWORK
 struct PZIHEADER
 {
     char ID[4];                     // 'PZI1'
-    char dummy1[0x0b - 4];
-    uint8_t pzinum;                 // Number of PZI entries available
-    char dummy2[0x20 - 0x0b - 1];
+    char Dummy1[7];
+    uint8_t Count;                  // Number of PCM entries available
+    char Dummy2[22];
     struct
     {
-        uint32_t startaddress;      // 先頭アドレス
-        uint32_t size;              // データ量
-        uint32_t loop_start;        // ループ開始ポインタ
-        uint32_t   loop_end;        // ループ終了ポインタ
-        uint16_t rate;              // 再生周波数
+        uint32_t Start;
+        uint32_t Size;
+        uint32_t LoopStart;
+        uint32_t LoopEnd;
+        uint16_t SampleRate;
     } pcmnum[128];
 };
 

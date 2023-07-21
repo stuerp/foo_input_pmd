@@ -1,5 +1,5 @@
 
-/** $VER: WAVEReader.h (2023.07.18) P. Stuer **/
+/** $VER: WAVEReader.h (2023.07.21) P. Stuer **/
 
 #pragma once
 
@@ -11,7 +11,7 @@
 class WAVEReader : public RIFFReader
 {
 public:
-    WAVEReader() : _Format(), _Data(), _Size(), RIFFReader()
+    WAVEReader() : RIFFReader(), _Format(), _Data(), _Size()
     {
     }
 

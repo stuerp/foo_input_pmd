@@ -3,7 +3,7 @@
 
 [foo_input_pmd](https://github.com/stuerp/foo_input_pmd/releases) is a [foobar2000](https://www.foobar2000.org/) component that adds playback of Professional Music Driver (PMD) files to foobar2000.
 
-Professional Music Driver (PMD) is a music driver developed by Masahiro Kajihara which utilizes MML (Music Macro Language) to create music files for most Japanese computers of the 80s and early 90s.
+Professional Music Driver (PMD) is a music driver developed by Masahiro Kajihara (KAJA) which utilizes MML (Music Macro Language) to create music files for most Japanese computers of the 80s and early 90s.
 
 PMD can be used to make music for the PC-98, PC-88, X68000, and FM Towns. It's the most used tool to make music for the PC-x801 series, notable examples are Touhou Project and Grounseed.
 

@@ -43,6 +43,7 @@ struct PCMEnds
 
 #define fmvd_init        0 // 98 has a smaller FM sound source than 88
 
+#pragma warning(disable: 4820) // x bytes padding added after last data member
 class PMD
 {
 public:
@@ -69,8 +70,8 @@ public:
     bool LoadRythmSample(WCHAR * path);
     bool SetSearchPaths(std::vector<const WCHAR *> & paths);
     
-    void SetSynthesisRate(int value);
-    void SetPPZSynthesisRate(int value);
+    void SetSynthesisRate(uint32_t value);
+    void SetPPZSynthesisRate(uint32_t value);
     void EnableFM55kHzSynthesis(bool flag);
     void EnablePPZInterpolation(bool flag);
 
@@ -363,7 +364,7 @@ protected:
     int LoadPPCInternal(WCHAR * filename);
     int LoadPPCInternal(uint8_t * pcmdata, int size);
 
-    WCHAR * FindSampleFile(WCHAR * dest, const WCHAR * filename);
+    WCHAR * FindFile(WCHAR * dest, const WCHAR * filename);
     void swap(int * a, int * b);
 
     inline int Limit(int v, int max, int min)
@@ -371,3 +372,4 @@ protected:
         return v > max ? max : (v < min ? min : v);
     }
 };
+#pragma warning(default: 4820) // x bytes padding added after last data member

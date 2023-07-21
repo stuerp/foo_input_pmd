@@ -5,7 +5,7 @@
 
 #pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
-#include <Windows.h>
+#include <windows.h>
 #include <tchar.h>
 
 #include <stdlib.h>
@@ -28,7 +28,9 @@ P86DRV::~P86DRV()
 bool P86DRV::Init(uint32_t r, bool ip)
 {
     _Init();
+
     SetRate(r, ip);
+
     return true;
 }
 
@@ -70,20 +72,21 @@ void P86DRV::_Init(void)
     play86_flag = false;
 
     AVolume = 0;
+
     SetVolume(0);
 }
 
-//  再生周波数、一次補完設定設定
+// Playback frequency, primary complement setting
 bool P86DRV::SetRate(uint32_t r, bool ip)
 {
     uint32_t  _ontei;
 
-    rate = r;
+    rate = (int) r;
     interpolation = ip;
 
     _ontei = (uint32_t) ((uint64_t) ontei * srcrate / rate);
-    addsize2 = (_ontei & 0xffff) >> 4;
-    addsize1 = _ontei >> 16;
+    addsize2 = (int) ((_ontei & 0xffff) >> 4);
+    addsize1 = (int) (_ontei >> 16);
 
     return true;
 }
@@ -137,6 +140,9 @@ void P86DRV::ReadHeader(File * file, P86HEADER & header)
     }
 }
 
+/// <summary>
+/// Loads a P86 file (Professional Music Driver P86 Samples Pack file)
+/// </summary>
 int P86DRV::Load(WCHAR * fileName)
 {
     Stop();
@@ -160,6 +166,8 @@ int P86DRV::Load(WCHAR * fileName)
         return _ERR_OPEN_P86_FILE;            //  ファイルが開けない
     }
 
+
+    // Header Hexdump:  50 43 4D 38 36 20 44 41 54 41 0A
     int i;
     P86HEADER  _p86header;
     P86HEADER2  p86header2;
@@ -243,7 +251,7 @@ bool P86DRV::SetVol(int _vol)
     return true;
 }
 
-//  音程周波数の設定
+// Setting the pitch frequency
 //    _srcrate : 入力データの周波数
 //      0 : 4.13kHz
 //      1 : 5.52kHz
@@ -256,16 +264,20 @@ bool P86DRV::SetVol(int _vol)
 //    _ontei : 設定音程
 bool P86DRV::SetOntei(int _srcrate, uint32_t _ontei)
 {
-    if (_srcrate < 0 || _srcrate > 7) return false;
-    if (_ontei > 0x1fffff) return false;
+    if (_srcrate < 0 || _srcrate > 7)
+        return false;
+
+    if (_ontei > 0x1fffff)
+        return false;
 
     ontei = _ontei;
     srcrate = ratetable[_srcrate];
 
     _ontei = (uint32_t) ((uint64_t) _ontei * srcrate / rate);
 
-    addsize2 = (_ontei & 0xffff) >> 4;
-    addsize1 = _ontei >> 16;
+    addsize2 = (int) ((_ontei & 0xffff) >> 4);
+    addsize1 = (int) (_ontei >> 16);
+
     return true;
 }
 
@@ -304,11 +316,11 @@ bool P86DRV::SetLoop(int loop_start, int loop_end, int release_start, bool adpcm
 
         repeat_size = ax;  // リピートサイズ＝neg(指定値)
         repeat_ofs = _start_ofs + dx;  //リピート開始位置に(全体サイズ-指定値)を加算
-
     }
 
     // ２個目 = リピート終了位置
     ax = loop_end;
+
     if (ax > 0)
     {
         // 正の場合
@@ -321,7 +333,8 @@ bool P86DRV::SetLoop(int loop_start, int loop_end, int release_start, bool adpcm
         // リピートサイズから(旧サイズ-新サイズ)を引く
         repeat_size -= dx;
     }
-    else if (ax < 0)
+    else
+    if (ax < 0)
     {
         // 負の場合
         ax = -ax;
@@ -460,8 +473,7 @@ void P86DRV::double_trans_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x)
-            + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         *dest++ += data;
         *dest++ += data;
 
@@ -481,8 +493,7 @@ void P86DRV::double_trans_g_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x)
-            + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         *dest++ += data;
         *dest++ -= data;
 
@@ -502,8 +513,7 @@ void P86DRV::left_trans_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x)
-            + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         *dest++ += data;
         data = data * pcm86_pan_dat / (256 / 2);
         *dest++ += data;
@@ -524,8 +534,7 @@ void P86DRV::left_trans_g_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x)
-            + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         *dest++ += data;
         data = data * pcm86_pan_dat / (256 / 2);
         *dest++ -= data;
@@ -546,8 +555,7 @@ void P86DRV::right_trans_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x)
-            + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         data2 = data * pcm86_pan_dat / (256 / 2);
         *dest++ += data2;
         *dest++ += data;
@@ -568,8 +576,7 @@ void P86DRV::right_trans_g_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x)
-            + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         data2 = data * pcm86_pan_dat / (256 / 2);
         *dest++ += data2;
         *dest++ -= data;
@@ -632,6 +639,7 @@ void P86DRV::left_trans(Sample * dest, int nsamples)
     {
         data = VolumeTable[vol][*start_ofs];
         *dest++ += data;
+
         data = data * pcm86_pan_dat / (256 / 2);
         *dest++ += data;
 
@@ -653,6 +661,7 @@ void P86DRV::left_trans_g(Sample * dest, int nsamples)
     {
         data = VolumeTable[vol][*start_ofs];
         *dest++ += data;
+
         data = data * pcm86_pan_dat / (256 / 2);
         *dest++ -= data;
 
@@ -706,29 +715,31 @@ void P86DRV::right_trans_g(Sample * dest, int nsamples)
     }
 }
 
-//  アドレス加算
-bool P86DRV::add_address(void)
+/// <summary>
+/// Adds an address.
+/// </summary>
+bool P86DRV::add_address()
 {
     start_ofs_x += addsize2;
+
     if (start_ofs_x >= 0x1000)
     {
         start_ofs_x -= 0x1000;
         start_ofs++;
         size--;
     }
+
     start_ofs += addsize1;
     size -= addsize1;
 
     if (size > 1)
-    {    // 一次補間対策
-        return false;
-    }
-    else if (repeat_flag == false || release_flag2)
-    {
+        return false; // Primary interpolation measures
+
+    if (repeat_flag == false || release_flag2)
         return true;
-    }
 
     size = repeat_size;
     start_ofs = repeat_ofs;
+
     return false;
 }

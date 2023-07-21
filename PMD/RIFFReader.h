@@ -79,11 +79,11 @@ public:
         }
     }
 
-    virtual bool HandleChunk(uint32_t chunkId, uint32_t chunkSize)
+    virtual bool HandleChunk(uint32_t, uint32_t chunkSize)
     {
         DWORD Size = chunkSize + (chunkSize & 1);
 
-        return (::SetFilePointer(_hFile, Size, nullptr, FILE_CURRENT) != INVALID_SET_FILE_POINTER);
+        return (::SetFilePointer(_hFile, (LONG) Size, nullptr, FILE_CURRENT) != INVALID_SET_FILE_POINTER);
     }
 
 private:
