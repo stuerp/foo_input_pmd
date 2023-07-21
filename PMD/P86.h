@@ -5,46 +5,46 @@
 
 #include "OPNA.h"
 
-//  DLL の 戻り値
-#define  _P86DRV_OK            0    // 正常終了
-#define  _ERR_OPEN_P86_FILE       81    // P86 を開けなかった
-#define  _ERR_WRONG_P86_FILE        82    // P86 の形式が異なっている
-#define  _WARNING_P86_ALREADY_LOAD   83    // P86 はすでに読み込まれている
-#define  _ERR_OUT_OF_MEMORY       99    // メモリを確保できなかった
+#define P86_VERSION     "1.1c"
+#define vers            0x11
+#define date            "Sep.11th 1996"
 
-#define  SOUND_44K          44100
-#define  SOUND_22K          22050
-#define  SOUND_11K          11025
+#define P86_SUCCESS          0
+#define P86_OPEN_FAILED     81
+#define P86_UNKNOWN_FORMAT  82
+#define P86_ALREADY_LOADED  83
+#define PPZ_OUT_OF_MEMORY   99
 
-#define  P86DRV_VER         "1.1c"
-#define  MAX_P86            256
-#define vers             0x11
-#define date      "Sep.11th 1996"
+#define SOUND_44K   44100
+#define SOUND_22K   22050
+#define SOUND_11K   11025
 
-typedef int        Sample;
+#define MAX_P86     256
+
+typedef int32_t Sample;
 
 #pragma pack(push)
 #pragma pack(1)
 struct P86HEADER // header(original)
 {
-    char  header[12];      // "PCM86 DATA",0,0
-    uint8_t  Version;
-    char  All_Size[3];
+    char header[12];      // "PCM86 DATA",0,0
+    uint8_t Version;
+    char All_Size[3];
     struct
     {
         uint8_t  start[3];
         uint8_t  size[3];
     } pcmnum[MAX_P86];
 };
+#pragma pack(pop)
 
 const size_t P86HEADERSIZE = sizeof(char) * 12 + sizeof(uint8_t) + sizeof(char) * 3 + sizeof(uint8_t) * (3 + 3) * MAX_P86;
-#pragma pack(pop)
 
 struct P86HEADER2  // header(for PMDWin, int alignment)
 {
-    char  header[12];      // "PCM86 DATA",0,0
-    int    Version;
-    int    All_Size;
+    char header[12];      // "PCM86 DATA",0,0
+    int Version;
+    int All_Size;
     struct
     {
         int    start;
@@ -57,6 +57,9 @@ const int ratetable[] =
     4135, 5513, 8270, 11025, 16540, 22050, 33080, 44100
 };
 
+/// <summary>
+/// Implements a ADPCM Sound Source module, a single channel for samples in 4-bit ADPCM format at a sampling rate between 2–55 kHz.
+/// </summary>
 class P86DRV
 {
 public:
@@ -67,7 +70,7 @@ public:
     bool Stop(void);                // P86 停止
     bool Play(void);                // P86 再生
     bool Keyoff(void);                // P86 keyoff
-    int Load(TCHAR * filename);            // P86 読み込み
+    int Load(const WCHAR * filePath);
     bool SetRate(uint32_t r, bool ip);          // レート設定
     void SetVolume(int volume);            // 全体音量調節用
     bool SetVol(int _vol);              // 音量設定
@@ -77,7 +80,8 @@ public:
     bool SetLoop(int loop_start, int loop_end, int release_start, bool adpcm);
     // ループ設定
     void Mix(Sample * dest, int nsamples);      // 合成
-    TCHAR  p86_file[_MAX_PATH];          // ファイル名
+
+    WCHAR  _FileName[_MAX_PATH];
     P86HEADER2 p86header;              // P86 の音色ヘッダー
 
 private:

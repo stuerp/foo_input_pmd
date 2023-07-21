@@ -79,6 +79,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>../3rdParty/WTL10_10320/Include;../sdk/foobar2000/sdk;../sdk/foobar2000/shared;../sdk/foobar2000;../sdk;PMD;PMD/ymfm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -94,7 +95,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>../3rdParty/WTL10_10320/Include;../sdk/foobar2000/sdk;../sdk/foobar2000/shared;../sdk/foobar2000;../sdk;3rdParty/pmdwin;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../3rdParty/WTL10_10320/Include;../sdk/foobar2000/sdk;../sdk/foobar2000/shared;../sdk/foobar2000;../sdk;PMD;PMD/ymfm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>MinSpace</Optimization>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
@@ -185,6 +186,7 @@
     <ClInclude Include="PMD\PMD.h" />
     <ClInclude Include="PMD\PPS.h" />
     <ClInclude Include="PMD\PPZ.h" />
+    <ClInclude Include="PMD\RIFF.h" />
     <ClInclude Include="PMD\Table.h" />
     <ClInclude Include="PMD\Utility.h" />
     <ClInclude Include="PMD\ymfm\ymfm.h" />
@@ -195,6 +197,8 @@
     <ClInclude Include="PMD\ymfm\ymfm_ssg.h" />
     <ClInclude Include="Preferences.h" />
     <ClInclude Include="Resources.h" />
+    <ClInclude Include="PMD\RIFFReader.h" />
+    <ClInclude Include="PMD\WAVEReader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />

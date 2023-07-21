@@ -3,7 +3,7 @@
 
 #pragma once
 
-#define ERR_SUCCES                  0
+#define ERR_SUCCESS                 0
 
 #define ERR_OPEN_FAILED             1
 #define ERR_UNKNOWN_FORMAT          2
@@ -50,7 +50,8 @@
 #define NumOfPPZ8Part           8
 #define NumOfAllPart            (NumOfFMPart+NumOfSSGPart+NumOfADPCMPart+NumOfOPNARhythmPart+NumOfExtPart+NumOfRhythmPart+NumOfEffPart+NumOfPPZ8Part)
 
-typedef struct PMDworktag
+#pragma warning(disable: 4820) // x bytes padding added after last data member
+struct PMDWORK
 {
     int partb;  // 処理中パート番号
     int tieflag; // &のフラグ(1 : tie)
@@ -60,18 +61,19 @@ typedef struct PMDworktag
     int omote_key[3];  // FM keyondata表(=0)
     int ura_key[3]; // FM keyondata裏(=0x100)
     int loop_work; // Loop Work
-    bool  _UsePPS;  // ppsdrv を使用するか？flag(ユーザーが代入)
+    bool _UsePPS;  // ppsdrv を使用するか？flag(ユーザーが代入)
     int pcmrepeat1; // PCMのリピートアドレス1
     int pcmrepeat2; // PCMのリピートアドレス2
     int pcmrelease; // PCMのRelease開始アドレス
-    int lastTimerAtime;  // 一個前の割り込み時のTimerATime値
+    int _OldTimerATime;  // 一個前の割り込み時の_TimerATime値
     int music_flag; // B0:次でMSTART 1:次でMSTOP のFlag
     int slotdetune_flag; // FM3 Slot Detuneを使っているか
     int slot3_flag; // FM3 Slot毎 要効果音モードフラグ
     int fm3_alg_fb; // FM3chの最後に定義した音色のalg/fb
     int af_check; // FM3chのalg/fbを設定するかしないかflag
     int lfo_switch; // 局所LFOスイッチ
-} PMDWORK;
+};
+#pragma warning(default: 4820)
 
 struct EffectState
 {
@@ -93,9 +95,10 @@ struct PartState
 {
     uint8_t * address; // 2 ｴﾝｿｳﾁｭｳ ﾉ ｱﾄﾞﾚｽ
     uint8_t * partloop; // 2 ｴﾝｿｳ ｶﾞ ｵﾜｯﾀﾄｷ ﾉ ﾓﾄﾞﾘｻｷ
+
     int leng;  // 1 ﾉｺﾘ LENGTH
     int qdat;  // 1 gatetime (q/Q値を計算した値)
-    unsigned int  fnum;  // 2 ｴﾝｿｳﾁｭｳ ﾉ BLOCK/FNUM
+    uint32_t fnum;  // 2 ｴﾝｿｳﾁｭｳ ﾉ BLOCK/FNUM
     int detune;  // 2 ﾃﾞﾁｭｰﾝ
     int lfodat;  // 2 LFO DATA
     int porta_num; // 2 ポルタメントの加減値（全体）
@@ -112,6 +115,7 @@ struct PartState
     int step2;  // 1 [STEP_2]
     int time2;  // 1 [TIME_2]
     int lfoswi;  // 1 LFOSW. B0/tone B1/vol B2/同期 B3/porta
+
     //          B4/tone B5/vol B6/同期
     int volpush; // 1 Volume PUSHarea
     int mdepth;  // 1 M depth
@@ -144,6 +148,7 @@ struct PartState
     int neiromask; // 1 FM 音色定義用maskdata
     int lfo_wave; // 1 LFOの波形
     int partmask; // 1 PartMask b0:通常 b1:効果音 b2:NECPCM用
+
     //    b3:none b4:PPZ/ADE用 b5:s0時 b6:m b7:一時
     int keyoff_flag;  // 1 KeyoffしたかどうかのFlag
     int volmask; // 1 音量LFOのマスク
@@ -181,9 +186,10 @@ struct PartState
     int qdat3;  // 1 q Random
 };
 
+#pragma warning(disable: 4820) // x bytes padding added after last data member
 struct OPEN_WORK
 {
-    PartState * MusPart[NumOfAllPart]; // パートワークのポインタ
+    PartState * Part[NumOfAllPart]; // パートワークのポインタ
 
     uint8_t * mmlbuf;  // Musicdataのaddress+1
     uint8_t * tondat;  // Voicedataのaddress
@@ -192,22 +198,30 @@ struct OPEN_WORK
     uint16_t * radtbl;  // R part offset table 先頭番地
     uint8_t * rhyadr;  // R part 演奏中番地
 
+    bool _IsPlaying; // True if the driver is playing
+    bool _UseRhythmSoundSource;  // Play Rhythm sound source with K/Rpart flag
+
     int rhythmmask; // Rhythm音源のマスク x8c/10hのbitに対応
+
     int fm_voldown; // FM voldown 数値
     int ssg_voldown;  // PSG voldown 数値
     int pcm_voldown;  // ADPCM voldown 数値
     int rhythm_voldown;  // RHYTHM voldown 数値
+
     int prg_flg; // 曲データに音色が含まれているかflag
     int x68_flg; // OPM flag
     int status;  // status1
-    int _LoopCount; // _LoopCount
+
+    int _LoopCount;
+
     int tempo_d; // tempo (TIMER-B)
-    int fadeout_speed;  // Fadeout速度
-    int fadeout_volume;  // Fadeout音量
     int tempo_d_push;  // tempo (TIMER-B) / 保存用
+
+    int _FadeOutSpeed;  // Fadeout速度
+    int _FadeOutVolume;  // Fadeout音量
+
     int syousetu_lng;  // 小節の長さ
     int opncount; // 最短音符カウンタ
-    int TimerAtime; // TimerAカウンタ
     int effflag; // PSG効果音発声on/off flag(ユーザーが代入)
     int psnoi;  // PSG noise周波数
     int psnoi_last; // PSG noise周波数(最後に定義した数値)
@@ -217,15 +231,14 @@ struct OPEN_WORK
     int rdat[6]; // リズム音源 音量/パンデータ
     int rhyvol;  // リズムトータルレベル
     int kshot_dat; // ＳＳＧリズム shot flag
-    bool _IsPlaying; // True if a song is playing
     int fade_stop_flag;  // Fadeout後 MSTOPするかどうかのフラグ
-    bool kp_rhythm_flag;  // K/RpartでRhythm音源を鳴らすかflag
     int pcm_gs_flag;  // ADPCM使用 許可フラグ (0で許可)
+
     int slot_detune1;  // FM3 Slot Detune値 slot1
     int slot_detune2;  // FM3 Slot Detune値 slot2
     int slot_detune3;  // FM3 Slot Detune値 slot3
     int slot_detune4;  // FM3 Slot Detune値 slot4
-    int TimerB_speed;  // TimerBの現在値(=ff_tempoならff中)
+
     int fadeout_flag;  // When calling Fade from inside 1
     int revpan;  // PCM86逆相flag
     int pcm86_vol; // PCM86の音量をSPBに合わせるか?
@@ -233,6 +246,7 @@ struct OPEN_WORK
     int port22h; // OPN-PORT 22H に最後に出力した値(hlfo)
     int tempo_48; // 現在のテンポ(clock=48 tの値)
     int tempo_48_push;  // 現在のテンポ(同上/保存用)
+
     int _fm_voldown;  // FM voldown 数値 (保存用)
     int _ssg_voldown;  // PSG voldown 数値 (保存用)
     int _pcm_voldown;  // PCM voldown 数値 (保存用)
@@ -252,22 +266,28 @@ struct OPEN_WORK
     int rdump_tom; // リズム音源 dump inc flag (TOM)
     int rdump_rim; // リズム音源 dump inc flag (RIM)
 
-    int ch3mode; // ch3 Mode
+    uint32_t ch3mode; // ch3 Mode
     int ppz_voldown;  // PPZ8 voldown 数値
     int _ppz_voldown;  // PPZ8 voldown 数値 (保存用)
-    int TimerAflag; // TimerA割り込み中？フラグ（＠不要？）
-    int TimerBflag; // TimerB割り込み中？フラグ（＠不要？）
 
-    int _OPNARate;    // PCM 出力周波数(11k, 22k, 44k, 55k)
-    int _PPZ8Rate;   // PPZ 出力周波数
-    bool  fmcalc55k;   // FM で 55kHz 合成をするか？
-    bool  ppz8ip;    // PPZ8 で補完するか
-    bool  ppsip;    // PPS  で補完するか
-    bool  p86ip;    // P86  で補完するか
-    bool  _UseP86;   // P86  を使用しているか
+    bool _IsTimerABusy;
+    int _TimerATime;
 
-    int _FadeOutSpeedHQ;                        // Fadeout (High Sound Quality) speed (fadeout at > 0)
+    bool _IsTimerBBusy;
+    int _TimerBSpeed;  // Current value of TimerB (= ff_tempo during ff)
 
-    WCHAR ppcfilename[MAX_PATH];
+    uint32_t _OPNARate; // PCM output frequency (11k, 22k, 44k, 55k)
+    uint32_t _PPZ8Rate; // PPZ output frequency
+
+    bool fmcalc55k;   // Do 55kHz FM synthesis?
+    bool ppz8ip;    // Complement with PPZ8?
+    bool ppsip;    // Complement with PPS?
+    bool p86ip;    // Complement with PPS?
+    bool _UseP86;   // Are we using P86?
+
+    int _FadeOutSpeedHQ; // Fadeout (High Sound Quality) speed (fadeout at > 0)
+
+    WCHAR _PPCFileName[MAX_PATH];
     std::vector<std::wstring> _SearchPath;
 };
+#pragma warning(default: 4820) // x bytes padding added after last data member

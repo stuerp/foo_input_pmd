@@ -43,6 +43,7 @@ struct PCMEnds
 
 #define fmvd_init        0 // 98 has a smaller FM sound source than 88
 
+#pragma warning(disable: 4820) // x bytes padding added after last data member
 class PMD
 {
 public:
@@ -69,10 +70,10 @@ public:
     bool LoadRythmSample(WCHAR * path);
     bool SetSearchPaths(std::vector<const WCHAR *> & paths);
     
-    void SetSynthesisFrequency(int rate);
-    void SetPPZSynthesisFrequency(int rate);
+    void SetSynthesisRate(uint32_t value);
+    void SetPPZSynthesisRate(uint32_t value);
     void EnableFM55kHzSynthesis(bool flag);
-    void EnablePPZInterpolation(bool ip);
+    void EnablePPZInterpolation(bool flag);
 
     void SetFMWait(int nsec);
     void SetSSGWait(int nsec);
@@ -88,10 +89,12 @@ public:
     WCHAR * GetPCMFileName(WCHAR * dest);
     WCHAR * GetPPZFileName(WCHAR * dest, int bufnum);
 
-    void EnablePPS(bool value);
-    void EnablePlayRythmWithSSG(bool value);
+    void UsePPS(bool value) noexcept;
+    void UseSSG(bool value) noexcept;
+
     void EnablePMDB2CompatibilityMode(bool value);
     bool GetPMDB2CompatibilityMode();
+
     void setppsinterpolation(bool ip);
     void setp86interpolation(bool ip);
 
@@ -117,10 +120,10 @@ public:
 
     bool GetNote(const uint8_t * data, size_t size, int al, char * text, size_t textSize);
 
-    int LoadPPC(WCHAR * filename);
-    int LoadPPS(WCHAR * filename);
-    int LoadP86(WCHAR * filename);
-    int LoadPPZ(WCHAR * filename, int bufnum);
+    int LoadPPC(const WCHAR * filePath);
+    int LoadPPS(const WCHAR * filePath);
+    int LoadP86(const WCHAR * filePath);
+    int LoadPPZ(const WCHAR * filePath, int bufnum);
 
     OPEN_WORK * GetOpenWork();
     PartState * GetOpenPartWork(int ch);
@@ -164,85 +167,85 @@ private:
 
 protected:
     void InitializeInternal();
-    void opnint_start();
-    void data_init();
+    void StartOPNInterrupt();
+    void InitializeDataArea();
     void opn_init();
 
-    void mstart();
-    void mstop();
+    void DriverStart();
+    void DriverStop();
 
-    void silence();
+    void Silence();
     void play_init();
     void setint();
     void calc_tb_tempo();
     void calc_tempo_tb();
     void settempo_b();
-    void TimerA_main();
-    void TimerB_main();
-    void mmain();
+    void HandleTimerA();
+    void HandleTimerB();
+    void DriverMain();
     void syousetu_count();
 
-    void fmmain(PartState * qq);
-    void psgmain(PartState * qq);
-    void rhythmmain(PartState * qq);
-    void adpcmmain(PartState * qq);
-    void pcm86main(PartState * qq);
-    void ppz8main(PartState * qq);
+    void FMMain(PartState * ps);
+    void PSGMain(PartState * ps);
+    void RhythmMain(PartState * ps);
+    void ADPCMMain(PartState * ps);
+    void PCM86Main(PartState * ps);
+    void PPZ8Main(PartState * ps);
 
-    uint8_t * rhythmon(PartState * qq, uint8_t * bx, int al, int * result);
+    uint8_t * FMCommands(PartState * ps, uint8_t * si);
+    uint8_t * PSGCommands(PartState * ps, uint8_t * si);
+    uint8_t * RhythmCommands(PartState * ps, uint8_t * si);
+    uint8_t * ADPCMCommands(PartState * ps, uint8_t * si);
+    uint8_t * PCM86Commands(PartState * ps, uint8_t * si);
+    uint8_t * PPZ8Commands(PartState * ps, uint8_t * si);
 
-    void effgo(PartState * qq, int al);
-    void eff_on2(PartState * qq, int al);
-    void eff_main(PartState * qq, int al);
+    uint8_t * rhythmon(PartState * ps, uint8_t * bx, int al, int * result);
+
+    void effgo(PartState * ps, int al);
+    void eff_on2(PartState * ps, int al);
+    void eff_main(PartState * ps, int al);
     void effplay();
     void efffor(const int * si);
     void effend();
     void effsweep();
 
-    uint8_t * pdrswitch(PartState * qq, uint8_t * si);
+    uint8_t * pdrswitch(PartState * ps, uint8_t * si);
 
     char * GetNoteInternal(const uint8_t * data, size_t size, int al, char * text);
 
-    int silence_fmpart(PartState * qq);
-    void keyoff(PartState * qq);
-    void kof1(PartState * qq);
-    void keyoffp(PartState * qq);
-    void keyoffm(PartState * qq);
-    void keyoff8(PartState * qq);
-    void keyoffz(PartState * qq);
+    int MuteFMPart(PartState * ps);
+    void keyoff(PartState * ps);
+    void kof1(PartState * ps);
+    void keyoffp(PartState * ps);
+    void keyoffm(PartState * ps);
+    void keyoff8(PartState * ps);
+    void keyoffz(PartState * ps);
 
-    int ssgdrum_check(PartState * qq, int al);
+    int ssgdrum_check(PartState * ps, int al);
 
-    uint8_t * commands(PartState * qq, uint8_t * si);
-    uint8_t * commandsp(PartState * qq, uint8_t * si);
-    uint8_t * commandsr(PartState * qq, uint8_t * si);
-    uint8_t * commandsm(PartState * qq, uint8_t * si);
-    uint8_t * commands8(PartState * qq, uint8_t * si);
-    uint8_t * commandsz(PartState * qq, uint8_t * si);
+    uint8_t * special_0c0h(PartState * ps, uint8_t * si, uint8_t al);
 
-    uint8_t * special_0c0h(PartState * qq, uint8_t * si, uint8_t al);
-
-    uint8_t * _vd_fm(PartState * qq, uint8_t * si);
-    uint8_t * _vd_ssg(PartState * qq, uint8_t * si);
-    uint8_t * _vd_pcm(PartState * qq, uint8_t * si);
-    uint8_t * _vd_rhythm(PartState * qq, uint8_t * si);
-    uint8_t * _vd_ppz(PartState * qq, uint8_t * si);
+    uint8_t * _vd_fm(PartState * ps, uint8_t * si);
+    uint8_t * _vd_ssg(PartState * ps, uint8_t * si);
+    uint8_t * _vd_pcm(PartState * ps, uint8_t * si);
+    uint8_t * _vd_rhythm(PartState * ps, uint8_t * si);
+    uint8_t * _vd_ppz(PartState * ps, uint8_t * si);
 
     uint8_t * comt(uint8_t * si);
-    uint8_t * comat(PartState * qq, uint8_t * si);
-    uint8_t * comatm(PartState * qq, uint8_t * si);
-    uint8_t * comat8(PartState * qq, uint8_t * si);
-    uint8_t * comatz(PartState * qq, uint8_t * si);
-    uint8_t * comstloop(PartState * qq, uint8_t * si);
-    uint8_t * comedloop(PartState * qq, uint8_t * si);
-    uint8_t * comexloop(PartState * qq, uint8_t * si);
-    uint8_t * extend_psgenvset(PartState * qq, uint8_t * si);
+    uint8_t * comat(PartState * ps, uint8_t * si);
+    uint8_t * comatm(PartState * ps, uint8_t * si);
+    uint8_t * comat8(PartState * ps, uint8_t * si);
+    uint8_t * comatz(PartState * ps, uint8_t * si);
+    uint8_t * comstloop(PartState * ps, uint8_t * si);
+    uint8_t * comedloop(PartState * ps, uint8_t * si);
+    uint8_t * comexloop(PartState * ps, uint8_t * si);
+    uint8_t * extend_psgenvset(PartState * ps, uint8_t * si);
 
-    int lfoinit(PartState * qq, int al);
-    int lfoinitp(PartState * qq, int al);
+    int lfoinit(PartState * ps, int al);
+    int lfoinitp(PartState * ps, int al);
 
-    uint8_t * lfoset(PartState * qq, uint8_t * si);
-    uint8_t * psgenvset(PartState * qq, uint8_t * si);
+    uint8_t * lfoset(PartState * ps, uint8_t * si);
+    uint8_t * psgenvset(PartState * ps, uint8_t * si);
     uint8_t * rhykey(uint8_t * si);
     uint8_t * rhyvs(uint8_t * si);
     uint8_t * rpnset(uint8_t * si);
@@ -250,120 +253,120 @@ protected:
     uint8_t * rmsvs_sft(uint8_t * si);
     uint8_t * rhyvs_sft(uint8_t * si);
 
-    uint8_t * vol_one_up_psg(PartState * qq, uint8_t * si);
-    uint8_t * vol_one_up_pcm(PartState * qq, uint8_t * si);
-    uint8_t * vol_one_down(PartState * qq, uint8_t * si);
-    uint8_t * portap(PartState * qq, uint8_t * si);
-    uint8_t * portam(PartState * qq, uint8_t * si);
-    uint8_t * portaz(PartState * qq, uint8_t * si);
+    uint8_t * vol_one_up_psg(PartState * ps, uint8_t * si);
+    uint8_t * vol_one_up_pcm(PartState * ps, uint8_t * si);
+    uint8_t * vol_one_down(PartState * ps, uint8_t * si);
+    uint8_t * portap(PartState * ps, uint8_t * si);
+    uint8_t * portam(PartState * ps, uint8_t * si);
+    uint8_t * portaz(PartState * ps, uint8_t * si);
     uint8_t * psgnoise_move(uint8_t * si);
-    uint8_t * mdepth_count(PartState * qq, uint8_t * si);
-    uint8_t * toneadr_calc(PartState * qq, int dl);
+    uint8_t * mdepth_count(PartState * ps, uint8_t * si);
+    uint8_t * toneadr_calc(PartState * ps, int dl);
 
-    void neiroset(PartState * qq, int dl);
+    void neiroset(PartState * ps, int dl);
 
-    int oshift(PartState * qq, int al);
-    int oshiftp(PartState * qq, int al);
-    void fnumset(PartState * qq, int al);
-    void fnumsetp(PartState * qq, int al);
-    void fnumsetm(PartState * qq, int al);
-    void fnumset8(PartState * qq, int al);
-    void fnumsetz(PartState * qq, int al);
+    int oshift(PartState * ps, int al);
+    int oshiftp(PartState * ps, int al);
+    void fnumset(PartState * ps, int al);
+    void fnumsetp(PartState * ps, int al);
+    void fnumsetm(PartState * ps, int al);
+    void fnumset8(PartState * ps, int al);
+    void fnumsetz(PartState * ps, int al);
 
-    uint8_t * panset(PartState * qq, uint8_t * si);
-    uint8_t * panset_ex(PartState * qq, uint8_t * si);
-    uint8_t * pansetm(PartState * qq, uint8_t * si);
-    uint8_t * panset8(PartState * qq, uint8_t * si);
-    uint8_t * pansetz(PartState * qq, uint8_t * si);
-    uint8_t * pansetz_ex(PartState * qq, uint8_t * si);
-    void panset_main(PartState * qq, int al);
+    uint8_t * panset(PartState * ps, uint8_t * si);
+    uint8_t * panset_ex(PartState * ps, uint8_t * si);
+    uint8_t * pansetm(PartState * ps, uint8_t * si);
+    uint8_t * panset8(PartState * ps, uint8_t * si);
+    uint8_t * pansetz(PartState * ps, uint8_t * si);
+    uint8_t * pansetz_ex(PartState * ps, uint8_t * si);
+    void panset_main(PartState * ps, int al);
 
-    uint8_t calc_panout(PartState * qq);
-    uint8_t * calc_q(PartState * qq, uint8_t * si);
+    uint8_t calc_panout(PartState * ps);
+    uint8_t * calc_q(PartState * ps, uint8_t * si);
     void fm_block_calc(int * cx, int * ax);
-    int ch3_setting(PartState * qq);
+    int ch3_setting(PartState * ps);
     void cm_clear(int * ah, int * al);
-    void ch3mode_set(PartState * qq);
-    void ch3_special(PartState * qq, int ax, int cx);
+    void ch3mode_set(PartState * ps);
+    void ch3_special(PartState * ps, int ax, int cx);
 
-    void volset(PartState * qq);
-    void volsetp(PartState * qq);
-    void volsetm(PartState * qq);
-    void volset8(PartState * qq);
-    void volsetz(PartState * qq);
+    void volset(PartState * ps);
+    void volsetp(PartState * ps);
+    void volsetm(PartState * ps);
+    void volset8(PartState * ps);
+    void volsetz(PartState * ps);
 
-    void otodasi(PartState * qq);
-    void otodasip(PartState * qq);
-    void otodasim(PartState * qq);
-    void otodasi8(PartState * qq);
-    void otodasiz(PartState * qq);
+    void otodasi(PartState * ps);
+    void otodasip(PartState * ps);
+    void otodasim(PartState * ps);
+    void otodasi8(PartState * ps);
+    void otodasiz(PartState * ps);
 
-    void keyon(PartState * qq);
-    void keyonp(PartState * qq);
-    void keyonm(PartState * qq);
-    void keyon8(PartState * qq);
-    void keyonz(PartState * qq);
+    void keyon(PartState * ps);
+    void keyonp(PartState * ps);
+    void keyonm(PartState * ps);
+    void keyon8(PartState * ps);
+    void keyonz(PartState * ps);
 
-    int lfo(PartState * qq);
-    int lfop(PartState * qq);
-    uint8_t * lfoswitch(PartState * qq, uint8_t * si);
-    void lfoinit_main(PartState * qq);
-    void lfo_change(PartState * qq);
-    void lfo_exit(PartState * qq);
-    void lfin1(PartState * qq);
-    void lfo_main(PartState * qq);
+    int lfo(PartState * ps);
+    int lfop(PartState * ps);
+    uint8_t * lfoswitch(PartState * ps, uint8_t * si);
+    void lfoinit_main(PartState * ps);
+    void lfo_change(PartState * ps);
+    void lfo_exit(PartState * ps);
+    void lfin1(PartState * ps);
+    void lfo_main(PartState * ps);
 
     int rnd(int ax);
 
-    void fmlfo_sub(PartState * qq, int al, int bl, uint8_t * vol_tbl);
+    void fmlfo_sub(PartState * ps, int al, int bl, uint8_t * vol_tbl);
     void volset_slot(int dh, int dl, int al);
-    void porta_calc(PartState * qq);
-    int soft_env(PartState * qq);
-    int soft_env_main(PartState * qq);
-    int soft_env_sub(PartState * qq);
-    int ext_ssgenv_main(PartState * qq);
-    void esm_sub(PartState * qq, int ah);
-    void md_inc(PartState * qq);
+    void porta_calc(PartState * ps);
+    int soft_env(PartState * ps);
+    int soft_env_main(PartState * ps);
+    int soft_env_sub(PartState * ps);
+    int ext_ssgenv_main(PartState * ps);
+    void esm_sub(PartState * ps, int ah);
+    void md_inc(PartState * ps);
 
-    uint8_t * pcmrepeat_set(PartState * qq, uint8_t * si);
-    uint8_t * pcmrepeat_set8(PartState * qq, uint8_t * si);
-    uint8_t * ppzrepeat_set(PartState * qq, uint8_t * si);
-    uint8_t * pansetm_ex(PartState * qq, uint8_t * si);
-    uint8_t * panset8_ex(PartState * qq, uint8_t * si);
-    uint8_t * pcm_mml_part_mask(PartState * qq, uint8_t * si);
-    uint8_t * pcm_mml_part_mask8(PartState * qq, uint8_t * si);
-    uint8_t * ppz_mml_part_mask(PartState * qq, uint8_t * si);
+    uint8_t * pcmrepeat_set(PartState * ps, uint8_t * si);
+    uint8_t * pcmrepeat_set8(PartState * ps, uint8_t * si);
+    uint8_t * ppzrepeat_set(PartState * ps, uint8_t * si);
+    uint8_t * pansetm_ex(PartState * ps, uint8_t * si);
+    uint8_t * panset8_ex(PartState * ps, uint8_t * si);
+    uint8_t * pcm_mml_part_mask(PartState * ps, uint8_t * si);
+    uint8_t * pcm_mml_part_mask8(PartState * ps, uint8_t * si);
+    uint8_t * ppz_mml_part_mask(PartState * ps, uint8_t * si);
 
     void pcmstore(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf);
     void pcmread(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf);
 
-    uint8_t * hlfo_set(PartState * qq, uint8_t * si);
-    uint8_t * vol_one_up_fm(PartState * qq, uint8_t * si);
-    uint8_t * porta(PartState * qq, uint8_t * si);
-    uint8_t * slotmask_set(PartState * qq, uint8_t * si);
-    uint8_t * slotdetune_set(PartState * qq, uint8_t * si);
-    uint8_t * slotdetune_set2(PartState * qq, uint8_t * si);
-    void fm3_partinit(PartState * qq, uint8_t * ax);
-    uint8_t * fm3_extpartset(PartState * qq, uint8_t * si);
-    uint8_t * ppz_extpartset(PartState * qq, uint8_t * si);
-    uint8_t * volmask_set(PartState * qq, uint8_t * si);
-    uint8_t * fm_mml_part_mask(PartState * qq, uint8_t * si);
-    uint8_t * ssg_mml_part_mask(PartState * qq, uint8_t * si);
-    uint8_t * rhythm_mml_part_mask(PartState * qq, uint8_t * si);
-    uint8_t * _lfoswitch(PartState * qq, uint8_t * si);
-    uint8_t * _volmask_set(PartState * qq, uint8_t * si);
-    uint8_t * tl_set(PartState * qq, uint8_t * si);
-    uint8_t * fb_set(PartState * qq, uint8_t * si);
-    uint8_t * fm_efct_set(PartState * qq, uint8_t * si);
-    uint8_t * ssg_efct_set(PartState * qq, uint8_t * si);
+    uint8_t * hlfo_set(PartState * ps, uint8_t * si);
+    uint8_t * vol_one_up_fm(PartState * ps, uint8_t * si);
+    uint8_t * porta(PartState * ps, uint8_t * si);
+    uint8_t * slotmask_set(PartState * ps, uint8_t * si);
+    uint8_t * slotdetune_set(PartState * ps, uint8_t * si);
+    uint8_t * slotdetune_set2(PartState * ps, uint8_t * si);
+    void fm3_partinit(PartState * ps, uint8_t * ax);
+    uint8_t * fm3_extpartset(PartState * ps, uint8_t * si);
+    uint8_t * ppz_extpartset(PartState * ps, uint8_t * si);
+    uint8_t * volmask_set(PartState * ps, uint8_t * si);
+    uint8_t * fm_mml_part_mask(PartState * ps, uint8_t * si);
+    uint8_t * ssg_mml_part_mask(PartState * ps, uint8_t * si);
+    uint8_t * rhythm_mml_part_mask(PartState * ps, uint8_t * si);
+    uint8_t * _lfoswitch(PartState * ps, uint8_t * si);
+    uint8_t * _volmask_set(PartState * ps, uint8_t * si);
+    uint8_t * tl_set(PartState * ps, uint8_t * si);
+    uint8_t * fb_set(PartState * ps, uint8_t * si);
+    uint8_t * fm_efct_set(PartState * ps, uint8_t * si);
+    uint8_t * ssg_efct_set(PartState * ps, uint8_t * si);
 
     void Fade();
-    void neiro_reset(PartState * qq);
+    void neiro_reset(PartState * ps);
 
-    int LoadPPCInternal(WCHAR * filename);
+    int LoadPPCInternal(const WCHAR * filename);
     int LoadPPCInternal(uint8_t * pcmdata, int size);
 
-    WCHAR * FindPCMSample(WCHAR * dest, const WCHAR * filename);
+    WCHAR * FindFile(WCHAR * dest, const WCHAR * filename);
     void swap(int * a, int * b);
 
     inline int Limit(int v, int max, int min)
@@ -371,3 +374,4 @@ protected:
         return v > max ? max : (v < min ? min : v);
     }
 };
+#pragma warning(default: 4820) // x bytes padding added after last data member

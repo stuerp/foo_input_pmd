@@ -1,5 +1,5 @@
 
-/** $VER: Preferences.cpp (2023.07.15) P. Stuer **/
+/** $VER: Preferences.cpp (2023.07.21) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -23,9 +23,28 @@
 
 const GUID PreferencesPageGUID = {0xea2369b2,0xf82e,0x425a,{0xbd,0x39,0x2f,0x4d,0xcf,0xe1,0x9e,0x38}}; // {ea2369b2-f82e-425a-bd39-2f4dcfe19e38}
 
+const WCHAR * PlaybackModes[] =
+{
+    L"Loop never",
+    L"Loop",
+    L"Loop with fade out",
+    L"Loop forever"
+};
+/*
+const uint32_t SynthesisRates[] =
+{
+    SOUND_55K,
+    SOUND_55K_2,
+    SOUND_48K,
+    SOUND_44K,
+    SOUND_22K,
+    SOUND_11K,
+};
+*/
 /// <summary>
 /// Implements the preferences page for the component.
 /// </summary>
+#pragma warning(disable: 4820) // x bytes padding added after last data member
 class Preferences : public CDialogImpl<Preferences>, public preferences_page_instance
 {
 public:
@@ -63,6 +82,10 @@ public:
     virtual void apply() final
     {
         CfgSamplesPath = _SamplesPath;
+        CfgPlaybackMode = _PlaybackMode;
+        CfgLoopCount = _LoopCount;
+        CfgFadeOutDuration = _FadeOutDuration;
+        CfgSynthesisRate = _SynthesisRate;
 
         OnChanged();
     }
@@ -72,7 +95,7 @@ public:
     /// </summary>
     virtual void reset() final
     {
-        _SamplesPath = ".";
+        _SamplesPath = DefaultSamplesPath;
 
         UpdateDialog();
 
@@ -84,8 +107,14 @@ public:
     BEGIN_MSG_MAP_EX(Preferences)
         MSG_WM_INITDIALOG(OnInitDialog)
 
-        COMMAND_HANDLER_EX(IDC_SAMPLES_PATH, EN_KILLFOCUS, OnLostFocus)
+        COMMAND_HANDLER_EX(IDC_SAMPLES_PATH, EN_KILLFOCUS, OnEditUpdate)
         COMMAND_HANDLER_EX(IDC_SAMPLES_PATH_SELECT, BN_CLICKED, OnButtonClicked)
+
+        COMMAND_HANDLER_EX(IDC_PLAYBACK_MODE, CBN_SELCHANGE, OnSelectionChanged)
+        COMMAND_HANDLER_EX(IDC_LOOP_COUNT, EN_UPDATE, OnEditUpdate)
+        COMMAND_HANDLER_EX(IDC_FADE_OUT_DURATION, EN_UPDATE, OnEditUpdate)
+
+//      COMMAND_HANDLER_EX(IDC_SYNTHESIS_RATE, CBN_SELCHANGE, OnSelectionChanged)
     END_MSG_MAP()
 
 private:
@@ -97,55 +126,155 @@ private:
         _DarkModeHooks.AddDialogWithControls(*this);
 
         _SamplesPath = CfgSamplesPath;
+        _PlaybackMode = CfgPlaybackMode;
+        _LoopCount = CfgLoopCount;
+        _FadeOutDuration = CfgFadeOutDuration;
+        _SynthesisRate = CfgSynthesisRate;
 
+        ::uSetDlgItemText(m_hWnd, IDC_SAMPLES_PATH, _SamplesPath);
+
+        {
+            auto cb = (CComboBox) GetDlgItem(IDC_PLAYBACK_MODE);
+
+            for (int i = 0; i < _countof(PlaybackModes); ++i)
+                cb.AddString(PlaybackModes[i]);
+
+            cb.SetCurSel((int) _PlaybackMode);
+        }
+
+        ::uSetDlgItemText(m_hWnd, IDC_LOOP_COUNT, pfc::format_int(_LoopCount));
+        ::uSetDlgItemText(m_hWnd, IDC_FADE_OUT_DURATION, pfc::format_int(_FadeOutDuration));
+/*
+        {
+            auto cb = (CComboBox) GetDlgItem(IDC_SYNTHESIS_RATE);
+
+            int Index = 0;
+
+            for (int i = 0; i < _countof(SynthesisRates); ++i)
+            {
+                cb.AddString(pfc::wideFromUTF8(pfc::format_int(SynthesisRates[i])));
+
+                if (_SynthesisRate == SynthesisRates[i])
+                    Index = i;
+            }
+
+            cb.SetCurSel(Index);
+        }
+*/
         UpdateDialog();
 
         return FALSE;
     }
-
+/*
     /// <summary>
     /// Handles the notification when a control loses focus.
     /// </summary>
     void OnLostFocus(UINT code, int id, CWindow) noexcept
     {
-        if (code != EN_KILLFOCUS)
+        if (!((code == EN_KILLFOCUS) && (id == IDC_SAMPLES_PATH)))
             return;
 
         WCHAR Text[MAX_PATH];
 
         GetDlgItemText(id, Text, _countof(Text));
 
-        switch (id)
-        {
-            case IDC_SAMPLES_PATH:
-                _SamplesPath = pfc::utf8FromWide(Text);
-                break;
-
-            default:
-                return;
-        }
+        _SamplesPath = pfc::utf8FromWide(Text);
 
         OnChanged();
     }
-
+*/
     /// <summary>
     /// Handles a click on a button.
     /// </summary>
     void OnButtonClicked(UINT, int id, CWindow) noexcept
     {
-        if (id == IDC_SAMPLES_PATH_SELECT)
+        if (id != IDC_SAMPLES_PATH_SELECT)
+            return;
+
+        pfc::string8 DirectoryPath = _SamplesPath;
+
+        if (::uBrowseForFolder(m_hWnd, "Locate PDX samples...", DirectoryPath))
         {
-            pfc::string8 DirectoryPath = _SamplesPath;
+            _SamplesPath = DirectoryPath;
 
-            if (::uBrowseForFolder(m_hWnd, "Locate PDX samples...", DirectoryPath))
+            pfc::wstringLite w = pfc::wideFromUTF8(DirectoryPath);
+
+            SetDlgItemText(IDC_SAMPLES_PATH, w);
+
+            OnChanged();
+        }
+    }
+
+    /// <summary>
+    /// Handles a combobox change.
+    /// </summary>
+    void OnSelectionChanged(UINT, int id, CWindow) noexcept
+    {
+        switch (id)
+        {
+            case IDC_PLAYBACK_MODE:
             {
-                _SamplesPath = DirectoryPath;
+                auto cb = (CComboBox) GetDlgItem(IDC_PLAYBACK_MODE);
 
-                pfc::wstringLite w = pfc::wideFromUTF8(DirectoryPath);
+                _PlaybackMode = (uint32_t) cb.GetCurSel();
+                break;
+            }
+/*
+            case IDC_SYNTHESIS_RATE:
+            {
+                auto cb = (CComboBox) GetDlgItem(IDC_SYNTHESIS_RATE);
 
-                SetDlgItemText(IDC_SAMPLES_PATH, w);
+                _SynthesisRate = SynthesisRates[cb.GetCurSel()];
+                break;
+            }
+*/
+        }
 
+        UpdateDialog();
+
+        OnChanged();
+    }
+
+    /// <summary>
+    /// Handles a textbox update.
+    /// </summary>
+    void OnEditUpdate(UINT, int id, CWindow) noexcept
+    {
+        switch (id)
+        {
+            case IDC_SAMPLES_PATH:
+            {
+                _SamplesPath = ::uGetDlgItemText(m_hWnd, IDC_SAMPLES_PATH);
                 OnChanged();
+                break;
+            }
+
+            case IDC_LOOP_COUNT:
+            {
+                pfc::string8 Text = ::uGetDlgItemText(m_hWnd, IDC_LOOP_COUNT);
+
+                char * p; long Value = ::strtol(Text, &p, 10);
+
+                if ((*p == '\0') && (Value > 0) && (Value <= ~0U))
+                {
+                    _LoopCount = (uint32_t) Value;
+                    OnChanged();
+                }
+                break;
+            }
+
+            case IDC_FADE_OUT_DURATION:
+            {
+                pfc::string8 Text = ::uGetDlgItemText(m_hWnd, IDC_FADE_OUT_DURATION);
+
+                char * p; long Value = ::strtol(Text, &p, 10);
+
+                if ((*p == '\0') && (Value > 0) && (Value <= ~0U))
+                {
+                    _FadeOutDuration = (uint32_t) Value;
+                    OnChanged();
+                }
+                break;
             }
         }
     }
@@ -155,12 +284,22 @@ private:
     /// </summary>
     bool HasChanged() const noexcept
     {
-        bool HasChanged = false;
-
         if (_SamplesPath != CfgSamplesPath)
-            HasChanged = true;
+            return true;
 
-        return HasChanged;
+        if (_PlaybackMode != CfgPlaybackMode)
+            return true;
+
+        if (_LoopCount != CfgLoopCount)
+            return true;
+
+        if (_FadeOutDuration != CfgFadeOutDuration)
+            return true;
+
+//      if (_SynthesisRate != CfgSynthesisRate)
+//          return true;
+
+        return false;
     }
 
     /// <summary>
@@ -176,7 +315,13 @@ private:
     /// </summary>
     void UpdateDialog() const noexcept
     {
-        ::uSetDlgItemText(m_hWnd, IDC_SAMPLES_PATH, _SamplesPath);
+        bool Flag = (_PlaybackMode == PlaybackModes::Loop) || (_PlaybackMode == PlaybackModes::LoopWithFadeOut);
+
+        GetDlgItem(IDC_LOOP_COUNT).EnableWindow(Flag);
+
+        Flag = (_PlaybackMode == PlaybackModes::LoopWithFadeOut);
+
+        GetDlgItem(IDC_FADE_OUT_DURATION).EnableWindow(Flag);
     }
 
 private:
@@ -185,7 +330,12 @@ private:
     fb2k::CDarkModeHooks _DarkModeHooks;
 
     pfc::string8 _SamplesPath;
+    uint32_t _PlaybackMode;
+    uint32_t _LoopCount;
+    uint32_t _FadeOutDuration;
+    uint32_t _SynthesisRate;
 };
+#pragma warning(default: 4820) // x bytes padding added after last data member
 
 #pragma region("PreferencesPage")
 /// <summary>

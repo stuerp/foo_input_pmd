@@ -49,9 +49,6 @@ if ($Platform -eq 'x64')
         Copy-Item "$OutputPath/$TargetFileName" -Destination "$PackagePath";
     }
 
-    Write-Host "Copying `"$OutputPath/pmdwin.dll`" to `"$PackagePath`"...";
-    Copy-Item "$OutputPath/pmdwin.dll" -Destination "$PackagePath" -Force;
-
     # install the component in the foobar2000 x86 components directory.
     $foobar2000Path = '../bin/x86';
 
@@ -103,9 +100,6 @@ elseif ($Platform -eq 'Win32')
         Write-Host "Copying $TargetFileName to `"$PackagePath`"...";
         Copy-Item "$OutputPath/$TargetFileName" -Destination "$PackagePath";
     }
-
-    Write-Host "Copying `"$OutputPath/pmdwin.dll`" to `"$PackagePath`"...";
-    Copy-Item "$OutputPath/pmdwin.dll" -Destination "$PackagePath" -Force;
 
     # install the component in the foobar2000 x86 components directory.
     $foobar2000Path = '../bin/x86';

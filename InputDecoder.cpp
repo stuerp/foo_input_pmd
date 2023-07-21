@@ -1,5 +1,5 @@
  
-/** $VER: InputDecoder.cpp (2023.07.15) P. Stuer **/
+/** $VER: InputDecoder.cpp (2023.07.21) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -30,7 +30,7 @@ class InputDecoder : public input_stubs
 public:
     InputDecoder() noexcept :
         _File(), _FilePath(), _FileStats(),
-        _SampleRate(DefaultSampleRate),
+        _SynthesisRate(DefaultSynthesisRate),
         _Decoder(),
         _LoopNumber(),
         _IsDynamicInfoSet(false)
@@ -44,6 +44,7 @@ public:
 
     ~InputDecoder() noexcept
     {
+        delete _Decoder;
     }
 
 public:
@@ -85,7 +86,7 @@ public:
                 if (::_strnicmp(filePath, "file://", 7) == 0)
                     filePath += 7;
 
-                if (!_Decoder->Open(filePath, CfgSamplesPath, &Data[0], (size_t) _FileStats.m_size))
+                if (!_Decoder->Open(filePath, CfgSamplesPath, &Data[0], (size_t) _FileStats.m_size, CfgSynthesisRate))
                     throw exception_io_data("Invalid PMD file");
             }
         }
@@ -150,7 +151,7 @@ public:
         double Loop = _Decoder->GetLoopLength() / 1000.;
 
         if (Loop > 0.)
-            fileInfo.info_set("pmd_loop_length", pfc::format_time_ex(Loop, 0));
+            fileInfo.info_set("loop_length", pfc::format_time_ex(Loop, 0));
 
         // Meta data tags
         fileInfo.meta_add("title", _Decoder->GetTitle());
@@ -201,7 +202,9 @@ public:
         _File->reopen(abortHandler); // Equivalent to seek to zero, except it also works on nonseekable streams
 
         _Decoder->Initialize();
-        _Decoder->SetMaxLoopNumber(CfgMaxLoopNumber);
+
+        _Decoder->SetMaxLoopNumber(CfgLoopCount);
+        _Decoder->SetFadeOutDuration(CfgFadeOutDuration);
 
         _LoopNumber = 0;
 
@@ -257,8 +260,8 @@ public:
 
         if (!_IsDynamicInfoSet)
         {
-            fileInfo.info_set_int("samplerate", _SampleRate);
-            fileInfo.info_set_bitrate(((t_int64) _Decoder->GetBitsPerSample() * _Decoder->GetChannelCount() * _SampleRate + 500 /* rounding for bps to kbps*/) / 1000 /* bps to kbps */);
+            fileInfo.info_set_int("synthesis_rate", _SynthesisRate);
+            fileInfo.info_set_bitrate(((t_int64) _Decoder->GetBitsPerSample() * _Decoder->GetChannelCount() * _SynthesisRate + 500 /* rounding for bps to kbps*/) / 1000 /* bps to kbps */);
 
             _IsDynamicInfoSet = true;
 
@@ -269,7 +272,7 @@ public:
         {
             _LoopNumber = _Decoder->GetLoopNumber();
 
-            fileInfo.info_set_int("pmd_loop_number", _LoopNumber);
+            fileInfo.info_set_int("loop_number", _LoopNumber);
 
             IsDynamicInfoUpdated = true;
         }
@@ -296,7 +299,7 @@ private:
     pfc::string8 _FilePath;
     t_filestats _FileStats;
 
-    uint32_t _SampleRate;
+    uint32_t _SynthesisRate;
 
     PMDDecoder * _Decoder;
 
@@ -304,8 +307,6 @@ private:
     uint32_t _LoopNumber;
 
     bool _IsDynamicInfoSet;
-
-    static const uint32_t DefaultSampleRate = 44100;
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member
 

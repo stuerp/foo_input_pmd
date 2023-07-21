@@ -5,9 +5,16 @@
 
 #include "OPNA.h"
 
-#define SOUND_44K   44100
+#define PPZ8_VERSION    "1.07"
 
-#define _PPZ8_VER   "1.07"
+#define PPZ_SUCCESS          0
+#define PPZ_OPEN_FAILED      1
+#define PPZ_UNKNOWN_FORMAT   2
+#define PPZ_ALREADY_LOADED   3
+
+#define PPZ_OUT_OF_MEMORY   99
+
+#define SOUND_44K   44100
 
 #define RATE_DEF    SOUND_44K
 #define VNUM_DEF    12
@@ -15,14 +22,7 @@
 #define X_N0        0x80
 #define DELTA_N0    127
 
-#define _PPZ8_OK                       0        // 正常終了
-#define _ERR_OPEN_PPZ_FILE              1        // PVI/PZI を開けなかった
-#define ERR_PPZ_UNKNOWN_FORMAT               2        // PVI/PZI の形式が異なっている
-#define ERR_PPZ_ALREADY_LOADED      3        // PVI/PZI はすでに読み込まれている
-
-#define _ERR_OUT_OF_MEMORY             99        // メモリを確保できなかった
-
-typedef int Sample;
+typedef int32_t Sample;
 
 struct CHANNELWORK
 {
@@ -51,16 +51,16 @@ struct CHANNELWORK
 struct PZIHEADER
 {
     char ID[4];                     // 'PZI1'
-    char dummy1[0x0b - 4];
-    uint8_t pzinum;                 // Number of PZI entries available
-    char dummy2[0x20 - 0x0b - 1];
+    char Dummy1[7];
+    uint8_t Count;                  // Number of PCM entries available
+    char Dummy2[22];
     struct
     {
-        uint32_t startaddress;      // 先頭アドレス
-        uint32_t size;              // データ量
-        uint32_t loop_start;        // ループ開始ポインタ
-        uint32_t   loop_end;        // ループ終了ポインタ
-        uint16_t rate;              // 再生周波数
+        uint32_t Start;
+        uint32_t Size;
+        uint32_t LoopStart;
+        uint32_t LoopEnd;
+        uint16_t SampleRate;
     } pcmnum[128];
 };
 
@@ -78,6 +78,9 @@ struct PVIHEADER
 };
 #pragma pack(pop)
 
+/// <summary>
+/// Implements a Rhythm Sound Source module, a six-channel ADPCM system, enabling playback of six percussion "rhythm tones" from a built-in ROM.
+/// </summary>
 class PPZ8
 {
 public:
@@ -88,7 +91,7 @@ public:
     bool __cdecl Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop);
     // 01H PCM 発音
     bool __cdecl Stop(int ch);                            // 02H PCM 停止
-    int  __cdecl Load(TCHAR * filename, int bufnum);        // 03H PVI/PZIﾌｧｲﾙの読み込み
+    int  __cdecl Load(const WCHAR * filePath, int bufnum);
     bool __cdecl SetVolume(int ch, int vol);                // 07H ﾎﾞﾘｭｰﾑ設定
     bool __cdecl SetPitchFrequency(int ch, uint32_t ontei);        // 0BH 音程周波数の設定
     bool __cdecl SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);
