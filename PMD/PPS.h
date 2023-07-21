@@ -5,23 +5,23 @@
 
 #include "OPNA.h"
 
-#define  PPS_SUCCESS            0
-#define  PPS_OPEN_FAILED        1
-#define  PPS_ALREADY_LOADED     2
-#define  PPS_OUT_OF_MEMORY     99
+#define PPS_VERSION     "0.37"
 
-#define  SOUND_44K     44100
-#define  SOUND_22K     22050
-#define  SOUND_11K     11025
+#define PPS_SUCCESS            0
+#define PPS_OPEN_FAILED        1
+#define PPS_ALREADY_LOADED     2
+#define PPS_OUT_OF_MEMORY     99
 
-#define  PPSDRV_VER    "0.37"
+#define SOUND_44K     44100
+#define SOUND_22K     22050
+#define SOUND_11K     11025
 
-typedef int Sample;
+typedef int32_t Sample;
+
+#define MAX_PPS        14
 
 #pragma pack(push)
 #pragma pack(1)
-#define  MAX_PPS        14
-
 struct PPSHEADER
 {
     struct
@@ -32,9 +32,9 @@ struct PPSHEADER
         uint8_t volumeofs;
     } pcmnum[MAX_PPS];
 };
+#pragma pack(pop)
 
 const size_t PPSHEADERSIZE = (sizeof(uint16_t) * 2 + sizeof(uint8_t) * 2) * MAX_PPS;
-#pragma pack(pop)
 
 /// <summary>
 /// Implemnts a SSG Sound Source module, a complete internal implementation of the Yamaha YM2149/SSG,

@@ -294,7 +294,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
                 Result = _P86->Load(FilePath);
 
-                if (Result == _P86DRV_OK || Result == _WARNING_P86_ALREADY_LOAD)
+                if (Result == P86_SUCCESS || Result == P86_ALREADY_LOADED)
                     _OpenWork._UseP86 = true;
             }
             else
@@ -1327,17 +1327,17 @@ int PMD::LoadP86(const WCHAR * filename)
 
     int Result = _P86->Load(filename);
 
-    if (Result == _P86DRV_OK || Result == _WARNING_P86_ALREADY_LOAD)
+    if (Result == P86_SUCCESS || Result == P86_ALREADY_LOADED)
         _OpenWork._UseP86 = true;
 
     switch (Result)
     {
-        case _P86DRV_OK:                return ERR_SUCCESS;
-        case _ERR_OPEN_P86_FILE:        return ERR_OPEN_FAILED;
-        case _ERR_WRONG_P86_FILE:       return ERR_UNKNOWN_FORMAT;
-        case _WARNING_P86_ALREADY_LOAD: return ERR_ALREADY_LOADED;
-        case PPS_OUT_OF_MEMORY:        return ERR_OUT_OF_MEMORY;
-        default:                        return ERR_UNKNOWN;
+        case P86_SUCCESS:           return ERR_SUCCESS;
+        case P86_OPEN_FAILED:       return ERR_OPEN_FAILED;
+        case P86_UNKNOWN_FORMAT:    return ERR_UNKNOWN_FORMAT;
+        case P86_ALREADY_LOADED:    return ERR_ALREADY_LOADED;
+        case PPS_OUT_OF_MEMORY:     return ERR_OUT_OF_MEMORY;
+        default:                    return ERR_UNKNOWN;
     }
 }
 

@@ -150,7 +150,7 @@ int P86DRV::Load(const WCHAR * filePath)
     _FileName[0] = '\0';
 
     if (*filePath == '\0')
-        return _ERR_OPEN_P86_FILE;
+        return P86_OPEN_FAILED;
 
     if (!_File->Open(filePath))
     {
@@ -163,7 +163,7 @@ int P86DRV::Load(const WCHAR * filePath)
             ::memset(_FileName, 0, sizeof(_FileName));
         }
 
-        return _ERR_OPEN_P86_FILE;
+        return P86_OPEN_FAILED;
     }
 
     // Header Hexdump:  50 43 4D 38 36 20 44 41 54 41 0A
@@ -190,7 +190,7 @@ int P86DRV::Load(const WCHAR * filePath)
 
         _File->Close();
 
-        return _WARNING_P86_ALREADY_LOAD;    // 同じファイル
+        return P86_ALREADY_LOADED;    // 同じファイル
     }
 
     if (p86_addr != NULL)
@@ -215,7 +215,7 @@ int P86DRV::Load(const WCHAR * filePath)
 
     _File->Close();
 
-    return _P86DRV_OK;
+    return P86_SUCCESS;
 }
 
 //  PCM 番号設定

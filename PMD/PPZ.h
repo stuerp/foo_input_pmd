@@ -5,15 +5,7 @@
 
 #include "OPNA.h"
 
-#define SOUND_44K   44100
-
-#define _PPZ8_VER   "1.07"
-
-#define RATE_DEF    SOUND_44K
-#define VNUM_DEF    12
-#define PCM_CNL_MAX 8
-#define X_N0        0x80
-#define DELTA_N0    127
+#define PPZ8_VERSION    "1.07"
 
 #define _PPZ8_OK                       0        // 正常終了
 #define _ERR_OPEN_PPZ_FILE              1        // PVI/PZI を開けなかった
@@ -22,7 +14,15 @@
 
 #define PPS_OUT_OF_MEMORY             99        // メモリを確保できなかった
 
-typedef int Sample;
+#define SOUND_44K   44100
+
+#define RATE_DEF    SOUND_44K
+#define VNUM_DEF    12
+#define PCM_CNL_MAX 8
+#define X_N0        0x80
+#define DELTA_N0    127
+
+typedef int32_t Sample;
 
 struct CHANNELWORK
 {

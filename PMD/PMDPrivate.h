@@ -3,7 +3,7 @@
 
 #pragma once
 
-#define ERR_SUCCESS                  0
+#define ERR_SUCCESS                 0
 
 #define ERR_OPEN_FAILED             1
 #define ERR_UNKNOWN_FORMAT          2

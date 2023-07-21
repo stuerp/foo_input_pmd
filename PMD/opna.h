@@ -22,8 +22,8 @@ struct StereoSample
 #pragma pack(2)
 struct Stereo16bit
 {
-    short left;
-    short right;
+    int16_t left;
+    int16_t right;
 } ;
 #pragma pack(pop)
 
