@@ -84,7 +84,6 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _OPNA->SetRhythmMasterVolume(0);
 
     _PPZ8->SetVolume(0);
-
     _PPS->SetVolume(0);
     _P86->SetVolume(0);
 
@@ -155,9 +154,10 @@ void PMD::InitializeInternal()
     _OpenWork._PPZ8Rate = SOUND_44K;
     _OpenWork.rhyvol = 0x3c;
     _OpenWork.fade_stop_flag = 0;
-    _OpenWork.TimerBflag = 0;
-    _OpenWork.TimerAflag = 0;
-    _OpenWork.TimerB_speed = 0x100;
+    _OpenWork._IsTimerBBusy = false;
+
+    _OpenWork._IsTimerABusy = false;
+    _OpenWork._TimerBSpeed = 0x100;
     _OpenWork.port22h = 0;
 
     _OpenWork._UseP86 = false;
@@ -389,7 +389,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 /// </summary>
 bool PMD::GetLength(int * songLength, int * loopLength)
 {
-    mstart();
+    DriverStart();
 
     _Position = 0; // Time from start of playing (μs)
     *songLength = 0;
@@ -408,10 +408,10 @@ bool PMD::GetLength(int * songLength, int * loopLength)
     {
         {
             if (_OPNA->ReadStatus() & 0x01)
-                TimerA_main();
+                HandleTimerA();
 
             if (_OPNA->ReadStatus() & 0x02)
-                TimerB_main();
+                HandleTimerB();
 
             _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30); // Timer Reset (Both timer A and B)
 
@@ -431,7 +431,7 @@ bool PMD::GetLength(int * songLength, int * loopLength)
             *songLength = (int) (_Position / 1000);
             *loopLength = 0;
 
-            mstop();
+            DriverStop();
 
             _OPNA->SetFMWait(FMWait);
             _OPNA->SetSSGWait(SSGWait);
@@ -453,7 +453,7 @@ bool PMD::GetLength(int * songLength, int * loopLength)
 
     *loopLength = (int) (_Position / 1000) - *songLength;
 
-    mstop();
+    DriverStop();
 
     _OPNA->SetFMWait(FMWait);
     _OPNA->SetSSGWait(SSGWait);
@@ -468,7 +468,7 @@ bool PMD::GetLength(int * songLength, int * loopLength)
 /// </summary>
 bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
 {
-    mstart();
+    DriverStart();
 
     _Position = 0; // Time from start of playing (μs)
     *eventCount = 0;
@@ -487,10 +487,10 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
     {
         {
             if (_OPNA->ReadStatus() & 0x01)
-                TimerA_main();
+                HandleTimerA();
 
             if (_OPNA->ReadStatus() & 0x02)
-                TimerB_main();
+                HandleTimerB();
 
             _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30);  // Timer Reset (Both timer A and B)
 
@@ -510,7 +510,7 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
             *eventCount = GetEventNumber();
             *loopEventCount = 0;
 
-            mstop();
+            DriverStop();
 
             _OPNA->SetFMWait(FMWait);
             _OPNA->SetSSGWait(SSGWait);
@@ -532,7 +532,7 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
 
     *loopEventCount = GetEventNumber() - *eventCount;
 
-    mstop();
+    DriverStop();
 
     _OPNA->SetFMWait(FMWait);
     _OPNA->SetSSGWait(SSGWait);
@@ -561,7 +561,7 @@ void PMD::SetPosition(uint32_t position)
 
     if (_Position > NewPosition)
     {
-        mstart();
+        DriverStart();
 
         _PCMPtr = (uint8_t *) wavbuf2;    // Start position of remaining samples in buf
 
@@ -572,10 +572,10 @@ void PMD::SetPosition(uint32_t position)
     while (_Position < NewPosition)
     {
         if (_OPNA->ReadStatus() & 0x01)
-            TimerA_main();
+            HandleTimerA();
 
         if (_OPNA->ReadStatus() & 0x02)
-            TimerB_main();
+            HandleTimerB();
 
         _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30); // Timer Reset (Both timer A and B)
 
@@ -586,7 +586,7 @@ void PMD::SetPosition(uint32_t position)
     }
 
     if (_OpenWork._LoopCount == -1)
-        silence();
+        Silence();
 
     _OPNA->ClearBuffer();
 }
@@ -618,10 +618,10 @@ void PMD::Render(int16_t * sampleData, int sampleCount)
 
             {
                 if (_OPNA->ReadStatus() & 0x01)
-                    TimerA_main();
+                    HandleTimerA();
 
                 if (_OPNA->ReadStatus() & 0x02)
-                    TimerB_main();
+                    HandleTimerB();
 
                 _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30); // Timer Reset (Both timer A and B)
             }
@@ -807,7 +807,7 @@ void PMD::SetADPCMWait(int nsec)
 // Fade out (PMD compatible)
 void PMD::SetFadeOutSpeed(int speed)
 {
-    _OpenWork.fadeout_speed = speed;
+    _OpenWork._FadeOutSpeed = speed;
 }
 
 // Fade out (High quality sound)
@@ -829,7 +829,7 @@ void PMD::SetEventNumber(int pos)
 {
     if (_OpenWork.syousetu_lng * _OpenWork.syousetu + _OpenWork.opncount > pos)
     {
-        mstart();
+        DriverStart();
 
         _PCMPtr = (uint8_t *) wavbuf2; // Start position of remaining samples in buf
         _SamplesToDo = 0; // Number of samples remaining in buf
@@ -838,10 +838,10 @@ void PMD::SetEventNumber(int pos)
     while (_OpenWork.syousetu_lng * _OpenWork.syousetu + _OpenWork.opncount < pos)
     {
         if (_OPNA->ReadStatus() & 0x01)
-            TimerA_main();
+            HandleTimerA();
 
         if (_OPNA->ReadStatus() & 0x02)
-            TimerB_main();
+            HandleTimerB();
 
         _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30); // Timer Reset (Both timer A and B)
 
@@ -850,7 +850,7 @@ void PMD::SetEventNumber(int pos)
     }
 
     if (_OpenWork._LoopCount == -1)
-        silence();
+        Silence();
 
     _OPNA->ClearBuffer();
 }
@@ -946,7 +946,7 @@ int PMD::maskon(int ch)
     {
         fmseltmp = pmdwork.fmsel;
 
-        if ((_OpenWork.MusPart[ch]->partmask == 0) && (_OpenWork._IsPlaying != 0))
+        if ((_OpenWork.MusPart[ch]->partmask == 0) && _OpenWork._IsPlaying)
         {
             if (part_table[ch][2] == 0)
             {
@@ -1372,49 +1372,46 @@ PartState * PMD::GetOpenPartWork(int ch)
     return _OpenWork.MusPart[ch];
 }
 
-// Timer A processing (main)
-void PMD::TimerA_main()
+void PMD::HandleTimerA()
 {
-    _OpenWork.TimerAflag = 1;
-    _OpenWork.TimerAtime++;
+    _OpenWork._IsTimerABusy = true;
+    _OpenWork._TimerATime++;
 
-    if ((_OpenWork.TimerAtime & 7) == 0)
+    if ((_OpenWork._TimerATime & 7) == 0)
         Fade();
 
     if (effwork.effon && (pmdwork._UsePPS == false || effwork.psgefcnum == 0x80))
         effplay(); // SSG Sound Source effect processing
 
-    _OpenWork.TimerAflag = 0;
+    _OpenWork._IsTimerABusy = false;
 }
 
-// Timer B processing (main)
-void PMD::TimerB_main()
+void PMD::HandleTimerB()
 {
-    _OpenWork.TimerBflag = 1;
+    _OpenWork._IsTimerBBusy = true;
 
     if (pmdwork.music_flag)
     {
         if (pmdwork.music_flag & 1)
-            mstart();
+            DriverStart();
 
         if (pmdwork.music_flag & 2)
-            mstop();
+            DriverStop();
     }
 
     if (_OpenWork._IsPlaying)
     {
-        mmain();
+        DriverMain();
         settempo_b();
         syousetu_count();
 
-        pmdwork.lastTimerAtime = _OpenWork.TimerAtime;
+        pmdwork._OldTimerATime = _OpenWork._TimerATime;
     }
 
-    _OpenWork.TimerBflag = 0;
+    _OpenWork._IsTimerBBusy = false;
 }
 
-// MUSIC PLAYER MAIN [FROM TIMER-B]
-void PMD::mmain()
+void PMD::DriverMain()
 {
     int i;
 
@@ -1434,7 +1431,7 @@ void PMD::mmain()
     for (i = 0; i < 3; i++)
     {
         pmdwork.partb = i + 1;
-        fmmain(&FMPart[i + 3]);
+        FMModuleMain(&FMPart[i + 3]);
     }
 
     pmdwork.fmsel = 0;
@@ -1442,13 +1439,13 @@ void PMD::mmain()
     for (i = 0; i < 3; i++)
     {
         pmdwork.partb = i + 1;
-        fmmain(&FMPart[i]);
+        FMModuleMain(&FMPart[i]);
     }
 
     for (i = 0; i < 3; i++)
     {
         pmdwork.partb = 3;
-        fmmain(&ExtPart[i]);
+        FMModuleMain(&ExtPart[i]);
     }
 
     if (_OpenWork.x68_flg == 0)
@@ -1513,8 +1510,7 @@ void PMD::mmain()
         _OpenWork._LoopCount = -1;
 }
 
-// FM sound source performance main
-void PMD::fmmain(PartState * qq)
+void PMD::FMModuleMain(PartState * qq)
 {
     if (qq->address == NULL)
         return;
@@ -1716,7 +1712,7 @@ void PMD::fmmain(PartState * qq)
             }
         }
 
-        if (_OpenWork.fadeout_speed != 0)
+        if (_OpenWork._FadeOutSpeed != 0)
             volset(qq);
     }
 
@@ -2252,18 +2248,10 @@ void PMD::fnumset(PartState * qq, int al)
 //  ＦＭ音量設定メイン
 void PMD::volset(PartState * qq)
 {
-    int bh, bl, cl, dh;
-    uint8_t vol_tbl[4] = { 0, 0, 0, 0 };
+    if (qq->slotmask == 0)
+        return;
 
-    if (qq->slotmask == 0) return;
-    if (qq->volpush)
-    {
-        cl = qq->volpush - 1;
-    }
-    else
-    {
-        cl = qq->volume;
-    }
+    int cl = (qq->volpush) ? qq->volpush - 1 : qq->volume;
 
     if (qq != &EffPart)
     {  // 効果音の場合はvoldown/fadeout影響無し
@@ -2271,29 +2259,22 @@ void PMD::volset(PartState * qq)
 //  音量down計算
 //--------------------------------------------------------------------
         if (_OpenWork.fm_voldown)
-        {
             cl = ((256 - _OpenWork.fm_voldown) * cl) >> 8;
-        }
 
         //--------------------------------------------------------------------
         //  Fadeout計算
         //--------------------------------------------------------------------
-        if (_OpenWork.fadeout_volume >= 2)
-        {
-            cl = ((256 - (_OpenWork.fadeout_volume >> 1)) * cl) >> 8;
-        }
+        if (_OpenWork._FadeOutVolume >= 2)
+            cl = ((256 - (_OpenWork._FadeOutVolume >> 1)) * cl) >> 8;
     }
 
     //  音量をcarrierに設定 & 音量LFO処理
     //    input  cl to Volume[0-127]
     //      bl to SlotMask
-    bh = 0;          // Vol Slot Mask
-    bl = qq->slotmask;    // ch=SlotMask Push
+    int bh = 0;          // Vol Slot Mask
+    int bl = qq->slotmask;    // ch=SlotMask Push
 
-    vol_tbl[0] = 0x80;
-    vol_tbl[1] = 0x80;
-    vol_tbl[2] = 0x80;
-    vol_tbl[3] = 0x80;
+    uint8_t vol_tbl[4] = { 0x80, 0x80, 0x80, 0x80 };
 
     cl = 255 - cl;      // cl=carrierに設定する音量+80H(add)
     bl &= qq->carrier;    // bl=音量を設定するSLOT xxxx0000b
@@ -2323,7 +2304,7 @@ void PMD::volset(PartState * qq)
         }
     }
 
-    dh = 0x4c - 1 + pmdwork.partb;    // dh=FM Port Address
+    int dh = 0x4c - 1 + pmdwork.partb;    // dh=FM Port Address
 
     if (bh & 0x80) volset_slot(dh,      qq->slot4, vol_tbl[0]);
     if (bh & 0x40) volset_slot(dh -  8, qq->slot3, vol_tbl[1]);
@@ -2539,7 +2520,7 @@ void PMD::psgmain(PartState * qq)
     }
 
     temp = soft_env(qq);
-    if (temp || pmdwork.lfo_switch & 0x22 || (_OpenWork.fadeout_speed != 0))
+    if (temp || pmdwork.lfo_switch & 0x22 || (_OpenWork._FadeOutSpeed != 0))
     {
         // SSG 3ch で休符かつ SSG Drum 発音中は volume set しない
         if (!(qq == &SSGPart[2] && qq->onkai == 255 && _OpenWork.kshot_dat && !pmdwork._UsePPS))
@@ -2702,14 +2683,14 @@ uint8_t * PMD::rhythmon(PartState * qq, uint8_t * bx, int al, int * result)
         }
     }
 
-    if (_OpenWork.fadeout_volume)
+    if (_OpenWork._FadeOutVolume)
     {
         if (_OpenWork.kp_rhythm_flag)
         {
             int dl = _OpenWork.rhyvol;
 
-            if (_OpenWork.fadeout_volume)
-                dl = ((256 - _OpenWork.fadeout_volume) * dl) >> 8;
+            if (_OpenWork._FadeOutVolume)
+                dl = ((256 - _OpenWork._FadeOutVolume) * dl) >> 8;
 
             _OPNA->SetReg(0x11, (uint32_t) dl);
         }
@@ -2789,22 +2770,17 @@ void PMD::eff_main(PartState * qq, int al)
         bh = 0;
         bl = 15;
         ah = effwork.hosei_flag;
+
         if (ah & 1)
-        {
             bh = qq->detune % 256;    // BH = Detuneの下位 8bit
-        }
 
         if (ah & 2)
         {
             if (qq->volume < 15)
-            {
                 bl = qq->volume;    // BL = volume値 (0?15)
-            }
 
-            if (_OpenWork.fadeout_volume)
-            {
-                bl = (bl * (256 - _OpenWork.fadeout_volume)) >> 8;
-            }
+            if (_OpenWork._FadeOutVolume)
+                bl = (bl * (256 - _OpenWork._FadeOutVolume)) >> 8;
         }
 
         if (bl)
@@ -2822,9 +2798,7 @@ void PMD::eff_main(PartState * qq, int al)
         if (effwork.effon <= efftbl[al].priority)
         {
             if (pmdwork._UsePPS)
-            {
                 _PPS->Stop();
-            }
 
             SSGPart[2].partmask |= 2;    // Part Mask
             efffor(efftbl[al].table);    // １発目を発音
@@ -3106,7 +3080,7 @@ void PMD::adpcmmain(PartState * qq)
 
     int temp = soft_env(qq);
 
-    if ((temp != 0) || pmdwork.lfo_switch & 0x22 || (_OpenWork.fadeout_speed != 0))
+    if ((temp != 0) || pmdwork.lfo_switch & 0x22 || (_OpenWork._FadeOutSpeed != 0))
         volsetm(qq);
 
     pmdwork.loop_work &= qq->loopcheck;
@@ -3261,7 +3235,7 @@ void PMD::pcm86main(PartState * qq)
         }
 
         temp = soft_env(qq);
-        if (temp || pmdwork.lfo_switch & 0x22 || _OpenWork.fadeout_speed)
+        if (temp || pmdwork.lfo_switch & 0x22 || _OpenWork._FadeOutSpeed)
         {
             volset8(qq);
         }
@@ -3269,7 +3243,7 @@ void PMD::pcm86main(PartState * qq)
     else
     {
         temp = soft_env(qq);
-        if (temp || _OpenWork.fadeout_speed)
+        if (temp || _OpenWork._FadeOutSpeed)
         {
             volset8(qq);
         }
@@ -3446,7 +3420,7 @@ void PMD::ppz8main(PartState * qq)
     }
 
     temp = soft_env(qq);
-    if (temp || pmdwork.lfo_switch & 0x22 || _OpenWork.fadeout_speed)
+    if (temp || pmdwork.lfo_switch & 0x22 || _OpenWork._FadeOutSpeed)
     {
         volsetz(qq);
     }
@@ -3597,16 +3571,7 @@ void PMD::otodasiz(PartState * qq)
 //  PCM VOLUME SET
 void PMD::volsetm(PartState * qq)
 {
-    int    ah, al, dx;
-
-    if (qq->volpush)
-    {
-        al = qq->volpush;
-    }
-    else
-    {
-        al = qq->volume;
-    }
+    int al = qq->volpush ? qq->volpush : qq->volume;
 
     //------------------------------------------------------------------------
     //  音量down計算
@@ -3616,10 +3581,8 @@ void PMD::volsetm(PartState * qq)
     //------------------------------------------------------------------------
     //  Fadeout計算
     //------------------------------------------------------------------------
-    if (_OpenWork.fadeout_volume)
-    {
-        al = (((256 - _OpenWork.fadeout_volume) * (256 - _OpenWork.fadeout_volume) >> 8) * al) >> 8;
-    }
+    if (_OpenWork._FadeOutVolume)
+        al = (((256 - _OpenWork._FadeOutVolume) * (256 - _OpenWork._FadeOutVolume) >> 8) * al) >> 8;
 
     //------------------------------------------------------------------------
     //  ENVELOPE 計算
@@ -3645,28 +3608,24 @@ void PMD::volsetm(PartState * qq)
     {
         if (qq->eenv_volume < 0)
         {
-            ah = -qq->eenv_volume * 16;
+            int ah = -qq->eenv_volume * 16;
+
             if (al < ah)
             {
                 _OPNA->SetReg(0x10b, 0);
                 return;
             }
             else
-            {
                 al -= ah;
-            }
         }
         else
         {
-            ah = qq->eenv_volume * 16;
+            int ah = qq->eenv_volume * 16;
+
             if (al + ah > 255)
-            {
                 al = 255;
-            }
             else
-            {
                 al += ah;
-            }
         }
     }
 
@@ -3680,59 +3639,35 @@ void PMD::volsetm(PartState * qq)
         return;
     }
 
-    if (qq->lfoswi & 2)
-    {
-        dx = qq->lfodat;
-    }
-    else
-    {
-        dx = 0;
-    }
+    int dx = (qq->lfoswi & 2) ? qq->lfodat : 0;
 
     if (qq->lfoswi & 0x20)
-    {
         dx += qq->_lfodat;
-    }
 
     if (dx >= 0)
     {
         al += dx;
+
         if (al & 0xff00)
-        {
             _OPNA->SetReg(0x10b, 255);
-        }
         else
-        {
             _OPNA->SetReg(0x10b, (uint32_t) al);
-        }
     }
     else
     {
         al += dx;
+
         if (al < 0)
-        {
             _OPNA->SetReg(0x10b, 0);
-        }
         else
-        {
             _OPNA->SetReg(0x10b, (uint32_t) al);
-        }
     }
 }
 
 //  PCM VOLUME SET(PMD86)
 void PMD::volset8(PartState * qq)
 {
-    int    ah, al, dx;
-
-    if (qq->volpush)
-    {
-        al = qq->volpush;
-    }
-    else
-    {
-        al = qq->volume;
-    }
+    int al = qq->volpush ? qq->volpush : qq->volume;
 
     //------------------------------------------------------------------------
     //  音量down計算
@@ -3742,10 +3677,8 @@ void PMD::volset8(PartState * qq)
     //------------------------------------------------------------------------
     //  Fadeout計算
     //------------------------------------------------------------------------
-    if (_OpenWork.fadeout_volume != 0)
-    {
-        al = ((256 - _OpenWork.fadeout_volume) * al) >> 8;
-    }
+    if (_OpenWork._FadeOutVolume != 0)
+        al = ((256 - _OpenWork._FadeOutVolume) * al) >> 8;
 
     //------------------------------------------------------------------------
     //  ENVELOPE 計算
@@ -3771,28 +3704,24 @@ void PMD::volset8(PartState * qq)
     {
         if (qq->eenv_volume < 0)
         {
-            ah = -qq->eenv_volume * 16;
+            int ah = -qq->eenv_volume * 16;
+
             if (al < ah)
             {
                 _OPNA->SetReg(0x10b, 0);
                 return;
             }
             else
-            {
                 al -= ah;
-            }
         }
         else
         {
-            ah = qq->eenv_volume * 16;
+            int ah = qq->eenv_volume * 16;
+
             if (al + ah > 255)
-            {
                 al = 255;
-            }
             else
-            {
                 al += ah;
-            }
         }
     }
 
@@ -3800,38 +3729,26 @@ void PMD::volset8(PartState * qq)
     //  音量LFO計算
     //--------------------------------------------------------------------
 
-    if (qq->lfoswi & 2)
-    {
-        dx = qq->lfodat;
-    }
-    else
-    {
-        dx = 0;
-    }
+    int dx = (qq->lfoswi & 2) ? qq->lfodat : 0;
 
     if (qq->lfoswi & 0x20)
-    {
         dx += qq->_lfodat;
-    }
 
     if (dx >= 0)
     {
-        if ((al += dx) > 255) al = 255;
+        if ((al += dx) > 255)
+            al = 255;
     }
     else
     {
-        if ((al += dx) < 0) al = 0;
+        if ((al += dx) < 0)
+            al = 0;
     }
 
     if (_OpenWork.pcm86_vol)
-    {
-        //  SPBと同様の音量設定
-        al = (int) sqrt(al);
-    }
+        al = (int) ::sqrt(al); //  SPBと同様の音量設定
     else
-    {
         al >>= 4;
-    }
 
     _P86->SetVol(al);
 }
@@ -3839,16 +3756,7 @@ void PMD::volset8(PartState * qq)
 //  PPZ VOLUME SET
 void PMD::volsetz(PartState * qq)
 {
-    int    ah, al, dx;
-
-    if (qq->volpush)
-    {
-        al = qq->volpush;
-    }
-    else
-    {
-        al = qq->volume;
-    }
+    int al = qq->volpush ? qq->volpush : qq->volume;
 
     //------------------------------------------------------------------------
     //  音量down計算
@@ -3858,17 +3766,14 @@ void PMD::volsetz(PartState * qq)
     //------------------------------------------------------------------------
     //  Fadeout計算
     //------------------------------------------------------------------------
-    if (_OpenWork.fadeout_volume != 0)
-    {
-        al = ((256 - _OpenWork.fadeout_volume) * al) >> 8;
-    }
+    if (_OpenWork._FadeOutVolume != 0)
+        al = ((256 - _OpenWork._FadeOutVolume) * al) >> 8;
 
     //------------------------------------------------------------------------
     //  ENVELOPE 計算
     //------------------------------------------------------------------------
     if (al == 0)
     {
-        //*@
         _PPZ8->SetVolume(pmdwork.partb, 0);
         _PPZ8->Stop(pmdwork.partb);
         return;
@@ -3890,7 +3795,8 @@ void PMD::volsetz(PartState * qq)
     {
         if (qq->eenv_volume < 0)
         {
-            ah = -qq->eenv_volume * 16;
+            int ah = -qq->eenv_volume * 16;
+
             if (al < ah)
             {
                 //*@      ppz8->SetVol(pmdwork.partb, 0);
@@ -3898,115 +3804,79 @@ void PMD::volsetz(PartState * qq)
                 return;
             }
             else
-            {
                 al -= ah;
-            }
         }
         else
         {
-            ah = qq->eenv_volume * 16;
+            int ah = qq->eenv_volume * 16;
+
             if (al + ah > 255)
-            {
                 al = 255;
-            }
             else
-            {
                 al += ah;
-            }
         }
     }
 
-    //--------------------------------------------------------------------
-    //  音量LFO計算
-    //--------------------------------------------------------------------
-
+    // Calculate the LFO volume.
     if ((qq->lfoswi & 0x22))
     {
-        if (qq->lfoswi & 2)
-        {
-            dx = qq->lfodat;
-        }
-        else
-        {
-            dx = 0;
-        }
+        int dx = (qq->lfoswi & 2) ? qq->lfodat : 0;
 
         if (qq->lfoswi & 0x20)
-        {
             dx += qq->_lfodat;
-        }
 
         al += dx;
+
         if (dx >= 0)
         {
             if (al & 0xff00)
-            {
                 al = 255;
-            }
         }
         else
         {
             if (al < 0)
-            {
                 al = 0;
-            }
         }
     }
 
-    if (al)
-    {
+    if (al != 0)
         _PPZ8->SetVolume(pmdwork.partb, al >> 4);
-    }
     else
-    {
         _PPZ8->Stop(pmdwork.partb);
-    }
-    //*@
-    /*
-        ppz8->SetVol(pmdwork.partb, al >> 4);
-
-        if(al <= 0) {
-            ppz8->Stop(pmdwork.partb);
-        }
-    */
 }
 
 //  ADPCM FNUM SET
 void PMD::fnumsetm(PartState * qq, int al)
 {
-    int    ax, bx, ch, cl;
-
     if ((al & 0x0f) != 0x0f)
     {      // 音符の場合
         qq->onkai = al;
 
-        bx = al & 0x0f;          // bx=onkai
-        ch = cl = (al >> 4) & 0x0f;    // cl = octarb
+        int bx = al & 0x0f;          // bx=onkai
+        int ch = (al >> 4) & 0x0f;    // cl = octarb
+        int cl = ch;
 
         if (cl > 5)
-        {
             cl = 0;
-        }
         else
-        {
             cl = 5 - cl;        // cl=5-octarb
-        }
 
-        ax = pcm_tune_data[bx];
+        int ax = pcm_tune_data[bx];
+
         if (ch >= 6)
         {          // o7以上?
             ch = 0x50;
+
             if (ax < 0x8000)
             {
                 ax *= 2;        // o7以上で2倍できる場合は2倍
                 ch = 0x60;
             }
+
             qq->onkai = (qq->onkai & 0x0f) | ch;  // onkai値修正
         }
         else
-        {
             ax >>= cl;          // ax=ax/[2^OCTARB]
-        }
 
         qq->fnum = (uint32_t) ax;
     }
@@ -4655,7 +4525,7 @@ uint8_t * PMD::commands(PartState * qq, uint8_t * si)
         case 0xd3: si = fm_efct_set(qq, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
-            _OpenWork.fadeout_speed = *si++;
+            _OpenWork._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -4794,7 +4664,7 @@ uint8_t * PMD::commandsp(PartState * qq, uint8_t * si)
         case 0xd3: si = fm_efct_set(qq, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
-            _OpenWork.fadeout_speed = *si++;
+            _OpenWork._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -4954,7 +4824,7 @@ uint8_t * PMD::commandsr(PartState * qq, uint8_t * si)
         case 0xd3: si = fm_efct_set(qq, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
-            _OpenWork.fadeout_speed = *si++;
+            _OpenWork._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -5078,7 +4948,7 @@ uint8_t * PMD::commandsm(PartState * qq, uint8_t * si)
         case 0xd3: si = fm_efct_set(qq, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
-            _OpenWork.fadeout_speed = *si++;
+            _OpenWork._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -5239,7 +5109,7 @@ uint8_t * PMD::commands8(PartState * qq, uint8_t * si)
         case 0xd3: si = fm_efct_set(qq, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
-            _OpenWork.fadeout_speed = *si++;
+            _OpenWork._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -5370,7 +5240,7 @@ uint8_t * PMD::commandsz(PartState * qq, uint8_t * si)
         case 0xd3: si = fm_efct_set(qq, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
-            _OpenWork.fadeout_speed = *si++;
+            _OpenWork._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -6872,9 +6742,9 @@ uint8_t * PMD::rhykey(uint8_t * si)
     if (dl == 0)
         return si;
 
-    if (_OpenWork.fadeout_volume != 0)
+    if (_OpenWork._FadeOutVolume != 0)
     {
-        int al = ((256 - _OpenWork.fadeout_volume) * _OpenWork.rhyvol) >> 8;
+        int al = ((256 - _OpenWork._FadeOutVolume) * _OpenWork.rhyvol) >> 8;
 
         _OPNA->SetReg(0x11, (uint32_t) al);
     }
@@ -6987,8 +6857,8 @@ uint8_t * PMD::rmsvs(uint8_t * si)
 
     _OpenWork.rhyvol = dl;
 
-    if (_OpenWork.fadeout_volume != 0)
-        dl = ((256 - _OpenWork.fadeout_volume) * dl) >> 8;
+    if (_OpenWork._FadeOutVolume != 0)
+        dl = ((256 - _OpenWork._FadeOutVolume) * dl) >> 8;
 
     _OPNA->SetReg(0x11, (uint32_t) dl);
 
@@ -7009,8 +6879,8 @@ uint8_t * PMD::rmsvs_sft(uint8_t * si)
 
     _OpenWork.rhyvol = dl;
 
-    if (_OpenWork.fadeout_volume != 0)
-        dl = ((256 - _OpenWork.fadeout_volume) * dl) >> 8;
+    if (_OpenWork._FadeOutVolume != 0)
+        dl = ((256 - _OpenWork._FadeOutVolume) * dl) >> 8;
 
     _OPNA->SetReg(0x11, (uint32_t) dl);
 
@@ -7376,22 +7246,24 @@ int PMD::oshift(PartState * qq, int al)
 //  PSG TUNE SET
 void PMD::fnumsetp(PartState * qq, int al)
 {
-    int  ax, bx, cl;
-
     if ((al & 0x0f) == 0x0f)
     {    // ｷｭｳﾌ ﾅﾗ FNUM ﾆ 0 ｦ ｾｯﾄ
         qq->onkai = 255;
-        if (qq->lfoswi & 0x11) return;
+
+        if (qq->lfoswi & 0x11)
+            return;
+
         qq->fnum = 0;  // 音程LFO未使用
+
         return;
     }
 
     qq->onkai = al;
 
-    cl = (al >> 4) & 0x0f;  // cl=oct
-    bx = al & 0x0f;      // bx=onkai
+    int cl = (al >> 4) & 0x0f;  // cl=oct
+    int bx = al & 0x0f;      // bx=onkai
+    int ax = psg_tune_data[bx];
 
-    ax = psg_tune_data[bx];
     if (cl > 0)
     {
         int carry;
@@ -7407,8 +7279,6 @@ void PMD::fnumsetp(PartState * qq, int al)
 //    break  dx
 uint8_t * PMD::calc_q(PartState * qq, uint8_t * si)
 {
-    int    ax, dh, dl;
-
     if (*si == 0xc1)
     {    // &&
         si++;
@@ -7416,15 +7286,14 @@ uint8_t * PMD::calc_q(PartState * qq, uint8_t * si)
         return si;
     }
 
-    dl = qq->qdata;
+    int dl = qq->qdata;
+
     if (qq->qdatb)
-    {
         dl += (qq->leng * qq->qdatb) >> 8;
-    }
 
     if (qq->qdat3)
     {    //  Random-Q
-        ax = rnd((qq->qdat3 & 0x7f) + 1);
+        int ax = rnd((qq->qdat3 & 0x7f) + 1);
 
         if ((qq->qdat3 & 0x80) == 0)
         {
@@ -7439,25 +7308,21 @@ uint8_t * PMD::calc_q(PartState * qq, uint8_t * si)
 
     if (qq->qdat2)
     {
-        if ((dh = qq->leng - qq->qdat2) < 0)
+        int dh = qq->leng - qq->qdat2;
+
+        if (dh < 0)
         {
             qq->qdat = 0;
             return si;
         }
 
         if (dl < dh)
-        {
             qq->qdat = dl;
-        }
         else
-        {
             qq->qdat = dh;
-        }
     }
     else
-    {
         qq->qdat = dl;
-    }
 
     return si;
 }
@@ -7465,18 +7330,10 @@ uint8_t * PMD::calc_q(PartState * qq, uint8_t * si)
 //  ＰＳＧ　ＶＯＬＵＭＥ　ＳＥＴ
 void PMD::volsetp(PartState * qq)
 {
-    int    ax, dl;
+    if (qq->envf == 3 || (qq->envf == -1 && qq->eenv_count == 0))
+        return;
 
-    if (qq->envf == 3 || (qq->envf == -1 && qq->eenv_count == 0)) return;
-
-    if (qq->volpush)
-    {
-        dl = qq->volpush - 1;
-    }
-    else
-    {
-        dl = qq->volume;
-    }
+    int dl = (qq->volpush) ? qq->volpush - 1 : qq->volume;
 
     //------------------------------------------------------------------------
     //  音量down計算
@@ -7486,7 +7343,7 @@ void PMD::volsetp(PartState * qq)
     //------------------------------------------------------------------------
     //  Fadeout計算
     //------------------------------------------------------------------------
-    dl = ((256 - _OpenWork.fadeout_volume) * dl) >> 8;
+    dl = ((256 - _OpenWork._FadeOutVolume) * dl) >> 8;
 
     //------------------------------------------------------------------------
     //  ENVELOPE 計算
@@ -7504,17 +7361,21 @@ void PMD::volsetp(PartState * qq)
             _OPNA->SetReg((uint32_t) (pmdwork.partb + 8 - 1), 0);
             return;
         }
+
         dl = ((((dl * (qq->eenv_volume + 1))) >> 3) + 1) >> 1;
     }
     else
     {
         dl += qq->eenv_volume;
+
         if (dl <= 0)
         {
             _OPNA->SetReg((uint32_t) (pmdwork.partb + 8 - 1), 0);
             return;
         }
-        if (dl > 15) dl = 15;
+
+        if (dl > 15)
+            dl = 15;
     }
 
     //--------------------------------------------------------------------
@@ -7526,27 +7387,21 @@ void PMD::volsetp(PartState * qq)
         return;
     }
 
-    if (qq->lfoswi & 2)
-    {
-        ax = qq->lfodat;
-    }
-    else
-    {
-        ax = 0;
-    }
+    int ax = (qq->lfoswi & 2) ? qq->lfodat : 0;
 
     if (qq->lfoswi & 0x20)
-    {
         ax += qq->_lfodat;
-    }
 
-    dl = dl + ax;
+    dl += ax;
+
     if (dl < 0)
     {
         _OPNA->SetReg((uint32_t) (pmdwork.partb + 8 - 1), 0);
         return;
     }
-    if (dl > 15) dl = 15;
+
+    if (dl > 15)
+        dl = 15;
 
     //------------------------------------------------------------------------
     //  出力
@@ -7689,7 +7544,7 @@ int PMD::lfop(PartState * qq)
     if (qq->extendmode & 2)
     {  // TimerAと合わせるか？
         // そうじゃないなら無条件にlfo処理
-        ch = _OpenWork.TimerAtime - pmdwork.lastTimerAtime;
+        ch = _OpenWork._TimerATime - pmdwork._OldTimerATime;
         if (ch == 0) return 0;
         ax = qq->lfodat;
 
@@ -7927,47 +7782,37 @@ void PMD::porta_calc(PartState * qq)
 // PSG/PCM Software Envelope
 int PMD::soft_env(PartState * qq)
 {
-    int    i, cl;
-
     if (qq->extendmode & 4)
     {
-        if (_OpenWork.TimerAtime == pmdwork.lastTimerAtime) return 0;
+        if (_OpenWork._TimerATime == pmdwork._OldTimerATime) return 0;
 
-        cl = 0;
-        for (i = 0; i < _OpenWork.TimerAtime - pmdwork.lastTimerAtime; i++)
+        int cl = 0;
+
+        for (int i = 0; i < _OpenWork._TimerATime - pmdwork._OldTimerATime; i++)
         {
             if (soft_env_main(qq))
-            {
                 cl = 1;
-            }
         }
+
         return cl;
     }
     else
-    {
         return soft_env_main(qq);
-    }
 }
 
 int PMD::soft_env_main(PartState * qq)
 {
-    int    dl;
-
     if (qq->envf == -1)
-    {
         return ext_ssgenv_main(qq);
-    }
 
-    dl = qq->eenv_volume;
+    int dl = qq->eenv_volume;
+
     soft_env_sub(qq);
+
     if (dl == qq->eenv_volume)
-    {
         return 0;
-    }
-    else
-    {
-        return -1;
-    }
+
+    return -1;
 }
 
 int PMD::soft_env_sub(PartState * qq)
@@ -7976,12 +7821,11 @@ int PMD::soft_env_sub(PartState * qq)
     {
         // Attack
         if (--qq->eenv_ar != 0)
-        {
             return 0;
-        }
 
         qq->envf = 1;
         qq->eenv_volume = qq->eenv_dr;
+
         return 1;
     }
 
@@ -7990,14 +7834,17 @@ int PMD::soft_env_sub(PartState * qq)
         // Decay
         if (qq->eenv_sr == 0) return 0;  // ＤＲ＝０の時は減衰しない
         if (--qq->eenv_sr != 0) return 0;
+
         qq->eenv_sr = qq->eenv_src;
         qq->eenv_volume--;
 
-        if (qq->eenv_volume >= -15 || qq->eenv_volume < 15) return 0;
+        if (qq->eenv_volume >= -15 || qq->eenv_volume < 15)
+            return 0;
+
         qq->eenv_volume = -15;
+
         return 0;
     }
-
 
     // Release
     if (qq->eenv_rr == 0)
@@ -8006,26 +7853,33 @@ int PMD::soft_env_sub(PartState * qq)
         return 0;
     }
 
-    if (--qq->eenv_rr != 0) return 0;
+    if (--qq->eenv_rr != 0)
+        return 0;
+
     qq->eenv_rr = qq->eenv_rrc;
     qq->eenv_volume--;
 
-    if (qq->eenv_volume >= -15 && qq->eenv_volume < 15) return 0;
+    if (qq->eenv_volume >= -15 && qq->eenv_volume < 15)
+        return 0;
+
     qq->eenv_volume = -15;
+
     return 0;
 }
 
 //  拡張版
 int PMD::ext_ssgenv_main(PartState * qq)
 {
-    int    dl;
+    if (qq->eenv_count == 0)
+        return 0;
 
-    if (qq->eenv_count == 0) return 0;
+    int dl = qq->eenv_volume;
 
-    dl = qq->eenv_volume;
     esm_sub(qq, qq->eenv_count);
 
-    if (dl == qq->eenv_volume) return 0;
+    if (dl == qq->eenv_volume)
+        return 0;
+
     return -1;
 }
 
@@ -8045,14 +7899,21 @@ void PMD::esm_sub(PartState * qq, int ah)
 
             qq->eenv_volume = 15;
             qq->eenv_count++;
-            if (qq->eenv_sl != 15) return;    // SL=0の場合はすぐSRに
+
+            if (qq->eenv_sl != 15)
+                return;    // SL=0の場合はすぐSRに
+
             qq->eenv_count++;
+
             return;
         }
         else
         {
-            if (qq->eenv_ar == 0) return;
+            if (qq->eenv_ar == 0)
+                return;
+
             qq->eenv_arc++;
+
             return;
         }
     }
@@ -8071,18 +7932,18 @@ void PMD::esm_sub(PartState * qq, int ah)
             }
 
             if (qq->eenv_dr < 16)
-            {
                 qq->eenv_drc = (qq->eenv_dr - 16) * 2;
-            }
             else
-            {
                 qq->eenv_drc = qq->eenv_dr - 16;
-            }
+
             return;
         }
 
-        if (qq->eenv_dr == 0) return;
+        if (qq->eenv_dr == 0)
+            return;
+
         qq->eenv_drc++;
+
         return;
     }
 
@@ -8116,25 +7977,26 @@ void PMD::esm_sub(PartState * qq, int ah)
     if (qq->eenv_rrc > 0)
     {  // 0以下の場合はカウントCHECK
         if ((qq->eenv_volume -= qq->eenv_rrc) < 0)
-        {
             qq->eenv_volume = 0;
-        }
 
         qq->eenv_rrc = (qq->eenv_rr) * 2 - 16;
+
         return;
     }
 
-    if (qq->eenv_rr == 0) return;
+    if (qq->eenv_rr == 0)
+        return;
+
     qq->eenv_rrc++;
 }
 
 //  テンポ設定
 void PMD::settempo_b()
 {
-    if (_OpenWork.TimerB_speed != _OpenWork.tempo_d)
+    if (_OpenWork._TimerBSpeed != _OpenWork.tempo_d)
     {
-        _OpenWork.TimerB_speed = _OpenWork.tempo_d;
-        _OPNA->SetReg(0x26, (uint32_t) _OpenWork.TimerB_speed);
+        _OpenWork._TimerBSpeed = _OpenWork.tempo_d;
+        _OPNA->SetReg(0x26, (uint32_t) _OpenWork._TimerBSpeed);
     }
 }
 
@@ -8168,80 +8030,92 @@ void PMD::StartOPNInterrupt()
 
     _OpenWork.rhythmmask = 255;
     pmdwork.rhydmy = 255;
-    data_init();
+    InitializeDataArea();
     opn_init();
 
     _OPNA->SetReg(0x07, 0xbf);
-    mstop();
+    DriverStop();
     setint();
     _OPNA->SetReg(0x29, 0x83);
 }
 
-//  DATA AREA の イニシャライズ
-void PMD::data_init()
+void PMD::InitializeDataArea()
 {
-    int    i;
-    int    partmask, keyon_flag;
-
-    _OpenWork.fadeout_volume = 0;
-    _OpenWork.fadeout_speed = 0;
+    _OpenWork._FadeOutVolume = 0;
+    _OpenWork._FadeOutSpeed = 0;
     _OpenWork.fadeout_flag = 0;
     _OpenWork._FadeOutSpeedHQ = 0;
 
-    for (i = 0; i < 6; i++)
+    for (int i = 0; i < 6; i++)
     {
-        partmask = FMPart[i].partmask;
-        keyon_flag = FMPart[i].keyon_flag;
+        int partmask = FMPart[i].partmask;
+        int keyon_flag = FMPart[i].keyon_flag;
+
         ::memset(&FMPart[i], 0, sizeof(PartState));
+
         FMPart[i].partmask = partmask & 0x0f;
         FMPart[i].keyon_flag = keyon_flag;
         FMPart[i].onkai = 255;
         FMPart[i].onkai_def = 255;
     }
 
-    for (i = 0; i < 3; i++)
+    for (int i = 0; i < 3; i++)
     {
-        partmask = SSGPart[i].partmask;
-        keyon_flag = SSGPart[i].keyon_flag;
+        int partmask = SSGPart[i].partmask;
+        int keyon_flag = SSGPart[i].keyon_flag;
+
         ::memset(&SSGPart[i], 0, sizeof(PartState));
+
         SSGPart[i].partmask = partmask & 0x0f;
         SSGPart[i].keyon_flag = keyon_flag;
         SSGPart[i].onkai = 255;
         SSGPart[i].onkai_def = 255;
     }
 
-    partmask = ADPCMPart.partmask;
-    keyon_flag = ADPCMPart.keyon_flag;
-    ::memset(&ADPCMPart, 0, sizeof(PartState));
-    ADPCMPart.partmask = partmask & 0x0f;
-    ADPCMPart.keyon_flag = keyon_flag;
-    ADPCMPart.onkai = 255;
-    ADPCMPart.onkai_def = 255;
-
-    partmask = RhythmPart.partmask;
-    keyon_flag = RhythmPart.keyon_flag;
-    ::memset(&RhythmPart, 0, sizeof(PartState));
-    RhythmPart.partmask = partmask & 0x0f;
-    RhythmPart.keyon_flag = keyon_flag;
-    RhythmPart.onkai = 255;
-    RhythmPart.onkai_def = 255;
-
-    for (i = 0; i < 3; i++)
     {
-        partmask = ExtPart[i].partmask;
-        keyon_flag = ExtPart[i].keyon_flag;
+        int partmask = ADPCMPart.partmask;
+        int keyon_flag = ADPCMPart.keyon_flag;
+
+        ::memset(&ADPCMPart, 0, sizeof(PartState));
+
+        ADPCMPart.partmask = partmask & 0x0f;
+        ADPCMPart.keyon_flag = keyon_flag;
+        ADPCMPart.onkai = 255;
+        ADPCMPart.onkai_def = 255;
+    }
+
+    {
+        int partmask = RhythmPart.partmask;
+        int keyon_flag = RhythmPart.keyon_flag;
+
+        ::memset(&RhythmPart, 0, sizeof(PartState));
+
+        RhythmPart.partmask = partmask & 0x0f;
+        RhythmPart.keyon_flag = keyon_flag;
+        RhythmPart.onkai = 255;
+        RhythmPart.onkai_def = 255;
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        int partmask = ExtPart[i].partmask;
+        int keyon_flag = ExtPart[i].keyon_flag;
+
         ::memset(&ExtPart[i], 0, sizeof(PartState));
+
         ExtPart[i].partmask = partmask & 0x0f;
         ExtPart[i].keyon_flag = keyon_flag;
         ExtPart[i].onkai = 255;
         ExtPart[i].onkai_def = 255;
     }
 
-    for (i = 0; i < 8; i++)
+    for (int i = 0; i < 8; i++)
     {
-        partmask = PPZ8Part[i].partmask;
-        keyon_flag = PPZ8Part[i].keyon_flag;
+        int partmask = PPZ8Part[i].partmask;
+        int keyon_flag = PPZ8Part[i].keyon_flag;
+
         ::memset(&PPZ8Part[i], 0, sizeof(PartState));
+
         PPZ8Part[i].partmask = partmask & 0x0f;
         PPZ8Part[i].keyon_flag = keyon_flag;
         PPZ8Part[i].onkai = 255;
@@ -8253,8 +8127,8 @@ void PMD::data_init()
     _OpenWork._LoopCount = 0;
     _OpenWork.syousetu = 0;
     _OpenWork.opncount = 0;
-    _OpenWork.TimerAtime = 0;
-    pmdwork.lastTimerAtime = 0;
+    _OpenWork._TimerATime = 0;
+    pmdwork._OldTimerATime = 0;
 
     pmdwork.omote_key[0] = 0;
     pmdwork.omote_key[1] = 0;
@@ -8304,10 +8178,9 @@ void PMD::opn_init()
     _OPNA->SetReg(0x29, 0x83);
 
     _OpenWork.psnoi = 0;
-//@  if(effwork.effon == 0) {
+
     _OPNA->SetReg(0x06, 0x00);
     _OpenWork.psnoi_last = 0;
-//@  }
 
     // SSG-EG RESET (4.8s)
     for (uint32_t i = 0x90; i < 0x9F; i++)
@@ -8351,20 +8224,7 @@ void PMD::opn_init()
         _PPZ8->SetPan(i, 5);
 }
 
-void PMD::mstop()
-{
-    pmdwork.music_flag &= 0xfd;
-
-    _OpenWork._IsPlaying = 0;
-    _OpenWork.fadeout_speed = 0;
-    _OpenWork._LoopCount = -1;
-    _OpenWork.fadeout_volume = 0xFF;
-
-    silence();
-}
-
-//  ALL SILENCE
-void PMD::silence()
+void PMD::Silence()
 {
     _OPNA->SetReg(0x80, 0xff); // FM Release = 15
     _OPNA->SetReg(0x81, 0xff);
@@ -8430,14 +8290,14 @@ void PMD::silence()
 /// </summary>
 void PMD::Start()
 {
-    if (_OpenWork.TimerAflag || _OpenWork.TimerBflag)
+    if (_OpenWork._IsTimerABusy || _OpenWork._IsTimerBBusy)
     {
         pmdwork.music_flag |= 1; // Not executed during TA/TB processing
 
         return;
     }
 
-    mstart();
+    DriverStart();
 }
 
 /// <summary>
@@ -8445,22 +8305,21 @@ void PMD::Start()
 /// </summary>
 void PMD::Stop()
 {
-    if (_OpenWork.TimerAflag || _OpenWork.TimerBflag)
+    if (_OpenWork._IsTimerABusy || _OpenWork._IsTimerBBusy)
     {
         pmdwork.music_flag |= 2;
     }
     else
     {
         _OpenWork.fadeout_flag = 0;
-        mstop();
+        DriverStop();
     }
 
     ::memset(wavbuf2, 0, sizeof(wavbuf2));
     _Position = 0;
 }
 
-// Start playing
-void PMD::mstart()
+void PMD::DriverStart()
 {
     // Set TimerB = 0 and Timer Reset (to match the length of the song every time)
     _OpenWork.tempo_d = 0;
@@ -8471,7 +8330,7 @@ void PMD::mstart()
 
     //  演奏停止
     pmdwork.music_flag &= 0xfe;
-    mstop();
+    DriverStop();
 
     //  バッファ初期化
     _PCMPtr = (uint8_t *) wavbuf2;    // Start position of remaining samples in buf
@@ -8479,7 +8338,7 @@ void PMD::mstart()
     _Position = 0;                   // Time from start of playing (μs)
 
     //  演奏準備
-    data_init();
+    InitializeDataArea();
     play_init();
 
     //  OPN初期化
@@ -8487,7 +8346,20 @@ void PMD::mstart()
 
     //  音楽の演奏を開始
     setint();
-    _OpenWork._IsPlaying = 1;
+
+    _OpenWork._IsPlaying = true;
+}
+
+void PMD::DriverStop()
+{
+    pmdwork.music_flag &= 0xfd;
+
+    _OpenWork._IsPlaying = false;
+    _OpenWork._LoopCount = -1;
+    _OpenWork._FadeOutSpeed = 0;
+    _OpenWork._FadeOutVolume = 0xFF;
+
+    Silence();
 }
 
 // Set the start address and initial value of each part
@@ -8925,19 +8797,19 @@ uint8_t * PMD::ssg_efct_set(PartState * qq, uint8_t * si)
 // Fade In / Out
 void PMD::Fade()
 {
-    if (_OpenWork.fadeout_speed == 0)
+    if (_OpenWork._FadeOutSpeed == 0)
         return;
 
-    if (_OpenWork.fadeout_speed > 0)
+    if (_OpenWork._FadeOutSpeed > 0)
     {
-        if (_OpenWork.fadeout_speed + _OpenWork.fadeout_volume < 256)
+        if (_OpenWork._FadeOutSpeed + _OpenWork._FadeOutVolume < 256)
         {
-            _OpenWork.fadeout_volume += _OpenWork.fadeout_speed;
+            _OpenWork._FadeOutVolume += _OpenWork._FadeOutSpeed;
         }
         else
         {
-            _OpenWork.fadeout_volume = 255;
-            _OpenWork.fadeout_speed  =   0;
+            _OpenWork._FadeOutVolume = 255;
+            _OpenWork._FadeOutSpeed  =   0;
 
             if (_OpenWork.fade_stop_flag == 1)
                 pmdwork.music_flag |= 2;
@@ -8945,14 +8817,14 @@ void PMD::Fade()
     }
     else
     {   // Fade in
-        if (_OpenWork.fadeout_speed + _OpenWork.fadeout_volume > 255)
+        if (_OpenWork._FadeOutSpeed + _OpenWork._FadeOutVolume > 255)
         {
-            _OpenWork.fadeout_volume += _OpenWork.fadeout_speed;
+            _OpenWork._FadeOutVolume += _OpenWork._FadeOutSpeed;
         }
         else
         {
-            _OpenWork.fadeout_volume = 0;
-            _OpenWork.fadeout_speed = 0;
+            _OpenWork._FadeOutVolume = 0;
+            _OpenWork._FadeOutSpeed = 0;
 
             _OPNA->SetReg(0x11, (uint32_t) _OpenWork.rhyvol);
         }

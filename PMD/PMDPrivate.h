@@ -65,7 +65,7 @@ struct PMDWORK
     int pcmrepeat1; // PCMのリピートアドレス1
     int pcmrepeat2; // PCMのリピートアドレス2
     int pcmrelease; // PCMのRelease開始アドレス
-    int lastTimerAtime;  // 一個前の割り込み時のTimerATime値
+    int _OldTimerATime;  // 一個前の割り込み時の_TimerATime値
     int music_flag; // B0:次でMSTART 1:次でMSTOP のFlag
     int slotdetune_flag; // FM3 Slot Detuneを使っているか
     int slot3_flag; // FM3 Slot毎 要効果音モードフラグ
@@ -195,6 +195,8 @@ struct OPEN_WORK
     uint16_t * radtbl;  // R part offset table 先頭番地
     uint8_t * rhyadr;  // R part 演奏中番地
 
+    bool _IsPlaying; // True if the driver is playing
+
     int rhythmmask; // Rhythm音源のマスク x8c/10hのbitに対応
     int fm_voldown; // FM voldown 数値
     int ssg_voldown;  // PSG voldown 数値
@@ -203,14 +205,17 @@ struct OPEN_WORK
     int prg_flg; // 曲データに音色が含まれているかflag
     int x68_flg; // OPM flag
     int status;  // status1
+
     int _LoopCount;
+
     int tempo_d; // tempo (TIMER-B)
-    int fadeout_speed;  // Fadeout速度
-    int fadeout_volume;  // Fadeout音量
     int tempo_d_push;  // tempo (TIMER-B) / 保存用
+
+    int _FadeOutSpeed;  // Fadeout速度
+    int _FadeOutVolume;  // Fadeout音量
+
     int syousetu_lng;  // 小節の長さ
     int opncount; // 最短音符カウンタ
-    int TimerAtime; // TimerAカウンタ
     int effflag; // PSG効果音発声on/off flag(ユーザーが代入)
     int psnoi;  // PSG noise周波数
     int psnoi_last; // PSG noise周波数(最後に定義した数値)
@@ -220,7 +225,6 @@ struct OPEN_WORK
     int rdat[6]; // リズム音源 音量/パンデータ
     int rhyvol;  // リズムトータルレベル
     int kshot_dat; // ＳＳＧリズム shot flag
-    bool _IsPlaying; // True if a song is playing
     int fade_stop_flag;  // Fadeout後 MSTOPするかどうかのフラグ
     bool kp_rhythm_flag;  // K/RpartでRhythm音源を鳴らすかflag
     int pcm_gs_flag;  // ADPCM使用 許可フラグ (0で許可)
@@ -228,7 +232,6 @@ struct OPEN_WORK
     int slot_detune2;  // FM3 Slot Detune値 slot2
     int slot_detune3;  // FM3 Slot Detune値 slot3
     int slot_detune4;  // FM3 Slot Detune値 slot4
-    int TimerB_speed;  // TimerBの現在値(=ff_tempoならff中)
     int fadeout_flag;  // When calling Fade from inside 1
     int revpan;  // PCM86逆相flag
     int pcm86_vol; // PCM86の音量をSPBに合わせるか?
@@ -258,8 +261,12 @@ struct OPEN_WORK
     uint32_t ch3mode; // ch3 Mode
     int ppz_voldown;  // PPZ8 voldown 数値
     int _ppz_voldown;  // PPZ8 voldown 数値 (保存用)
-    int TimerAflag; // TimerA割り込み中？フラグ（＠不要？）
-    int TimerBflag; // TimerB割り込み中？フラグ（＠不要？）
+
+    bool _IsTimerABusy;
+    int _TimerATime;
+
+    bool _IsTimerBBusy;
+    int _TimerBSpeed;  // Current value of TimerB (= ff_tempo during ff)
 
     uint32_t _OPNARate; // PCM output frequency (11k, 22k, 44k, 55k)
     uint32_t _PPZ8Rate; // PPZ output frequency

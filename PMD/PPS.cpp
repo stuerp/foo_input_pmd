@@ -245,7 +245,7 @@ int PPSDRV::Load(WCHAR * filePath)
     //  PPS 補正(プチノイズ対策）／160 サンプルで減衰させる
     for (size_t i = 0; i < MAX_PPS; i++)
     {
-        end_pps   = ppsheader.pcmnum[i].address - PPSHEADERSIZE * 2 + ppsheader.pcmnum[i].leng * 2;
+        end_pps   = (uint32_t) (ppsheader.pcmnum[i].address - PPSHEADERSIZE * 2) + (uint32_t) (ppsheader.pcmnum[i].leng * 2);
         start_pps = end_pps - 160;
 
         if (start_pps < ppsheader.pcmnum[i].address - PPSHEADERSIZE * 2)

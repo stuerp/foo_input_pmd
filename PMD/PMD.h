@@ -166,24 +166,24 @@ private:
 protected:
     void InitializeInternal();
     void StartOPNInterrupt();
-    void data_init();
+    void InitializeDataArea();
     void opn_init();
 
-    void mstart();
-    void mstop();
+    void DriverStart();
+    void DriverStop();
 
-    void silence();
+    void Silence();
     void play_init();
     void setint();
     void calc_tb_tempo();
     void calc_tempo_tb();
     void settempo_b();
-    void TimerA_main();
-    void TimerB_main();
-    void mmain();
+    void HandleTimerA();
+    void HandleTimerB();
+    void DriverMain();
     void syousetu_count();
 
-    void fmmain(PartState * qq);
+    void FMModuleMain(PartState * qq);
     void psgmain(PartState * qq);
     void rhythmmain(PartState * qq);
     void adpcmmain(PartState * qq);

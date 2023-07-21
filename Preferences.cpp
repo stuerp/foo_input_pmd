@@ -44,6 +44,7 @@ const uint32_t SynthesisRates[] =
 /// <summary>
 /// Implements the preferences page for the component.
 /// </summary>
+#pragma warning(disable: 4820) // x bytes padding added after last data member
 class Preferences : public CDialogImpl<Preferences>, public preferences_page_instance
 {
 public:
@@ -334,6 +335,7 @@ private:
     uint32_t _FadeOutDuration;
     uint32_t _SynthesisRate;
 };
+#pragma warning(default: 4820) // x bytes padding added after last data member
 
 #pragma region("PreferencesPage")
 /// <summary>
