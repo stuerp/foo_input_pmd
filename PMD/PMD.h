@@ -192,7 +192,7 @@ protected:
     void PCM86Main(PartState * ps);
     void PPZ8Main(PartState * ps);
 
-    uint8_t * FMCommand(PartState * ps, uint8_t * si);
+    uint8_t * FMCommands(PartState * ps, uint8_t * si);
     uint8_t * PSGCommands(PartState * ps, uint8_t * si);
     uint8_t * RhythmCommands(PartState * ps, uint8_t * si);
     uint8_t * ADPCMCommands(PartState * ps, uint8_t * si);

@@ -1549,7 +1549,7 @@ void PMD::FMMain(PartState * qq)
         {
             if (*si > 0x80 && *si != 0xda)
             {
-                si = FMCommand(qq, si);
+                si = FMCommands(qq, si);
             }
             else
             if (*si == 0x80)
@@ -4453,75 +4453,73 @@ int PMD::ssgdrum_check(PartState * qq, int al)
     return 0;
 }
 
-// Various special command processing
-uint8_t * PMD::FMCommand(PartState * qq, uint8_t * si)
+uint8_t * PMD::FMCommands(PartState * ps, uint8_t * si)
 {
-    int    al;
+    int al = *si++;
 
-    al = *si++;
     switch (al)
     {
-        case 0xff: si = comat(qq, si); break;
-        case 0xfe: qq->qdata = *si++; qq->qdat3 = 0; break;
-        case 0xfd: qq->volume = *si++; break;
+        case 0xff: si = comat(ps, si); break;
+        case 0xfe: ps->qdata = *si++; ps->qdat3 = 0; break;
+        case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
 
         case 0xfb: pmdwork.tieflag |= 1; break;
-        case 0xfa: qq->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = comstloop(qq, si); break;
-        case 0xf8: si = comedloop(qq, si); break;
-        case 0xf7: si = comexloop(qq, si); break;
-        case 0xf6: qq->partloop = si; break;
-        case 0xf5: qq->shift = *(int8_t *) si++; break;
-        case 0xf4: if ((qq->volume += 4) > 127) qq->volume = 127; break;
-        case 0xf3: if (qq->volume < 4) qq->volume = 0; else qq->volume -= 4; break;
-        case 0xf2: si = lfoset(qq, si); break;
-        case 0xf1: si = lfoswitch(qq, si); ch3_setting(qq); break;
+        case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
+        case 0xf9: si = comstloop(ps, si); break;
+        case 0xf8: si = comedloop(ps, si); break;
+        case 0xf7: si = comexloop(ps, si); break;
+        case 0xf6: ps->partloop = si; break;
+        case 0xf5: ps->shift = *(int8_t *) si++; break;
+        case 0xf4: if ((ps->volume += 4) > 127) ps->volume = 127; break;
+        case 0xf3: if (ps->volume < 4) ps->volume = 0; else ps->volume -= 4; break;
+        case 0xf2: si = lfoset(ps, si); break;
+        case 0xf1: si = lfoswitch(ps, si); ch3_setting(ps); break;
         case 0xf0: si += 4; break;
 
         case 0xef: _OPNA->SetReg((uint32_t) (pmdwork.fmsel + *si), (uint32_t) (*(si + 1))); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
-        case 0xec: si = panset(qq, si); break;        // FOR SB2
+        case 0xec: si = panset(ps, si); break;        // FOR SB2
         case 0xeb: si = rhykey(si); break;
         case 0xea: si = rhyvs(si); break;
         case 0xe9: si = rpnset(si); break;
         case 0xe8: si = rmsvs(si); break;
             //
-        case 0xe7: qq->shift += *(int8_t *) si++; break;
+        case 0xe7: ps->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
         case 0xe5: si = rhyvs_sft(si); break;
             //
-        case 0xe4: qq->hldelay = *si++; break;
+        case 0xe4: ps->hldelay = *si++; break;
             //追加 for V2.3
-        case 0xe3: if ((qq->volume += *si++) > 127) qq->volume = 127; break;
+        case 0xe3: if ((ps->volume += *si++) > 127) ps->volume = 127; break;
         case 0xe2:
-            if (qq->volume < *si) qq->volume = 0; else qq->volume -= *si;
+            if (ps->volume < *si) ps->volume = 0; else ps->volume -= *si;
             si++;
             break;
             //
-        case 0xe1: si = hlfo_set(qq, si); break;
+        case 0xe1: si = hlfo_set(ps, si); break;
         case 0xe0: _OpenWork.port22h = *si; _OPNA->SetReg(0x22, *si++); break;
             //
         case 0xdf: _OpenWork.syousetu_lng = *si++; break;
             //
-        case 0xde: si = vol_one_up_fm(qq, si); break;
-        case 0xdd: si = vol_one_down(qq, si); break;
+        case 0xde: si = vol_one_up_fm(ps, si); break;
+        case 0xdd: si = vol_one_down(ps, si); break;
             //
         case 0xdc: _OpenWork.status = *si++; break;
         case 0xdb: _OpenWork.status += *si++; break;
             //
-        case 0xda: si = porta(qq, si); break;
+        case 0xda: si = porta(ps, si); break;
             //
         case 0xd9: si++; break;
         case 0xd8: si++; break;
         case 0xd7: si++; break;
             //
-        case 0xd6: qq->mdspd = qq->mdspd2 = *si++; qq->mdepth = *(int8_t *) si++; break;
-        case 0xd5: qq->detune += *(int16_t *) si; si += 2; break;
+        case 0xd6: ps->mdspd = ps->mdspd2 = *si++; ps->mdepth = *(int8_t *) si++; break;
+        case 0xd5: ps->detune += *(int16_t *) si; si += 2; break;
             //
-        case 0xd4: si = ssg_efct_set(qq, si); break;
-        case 0xd3: si = fm_efct_set(qq, si); break;
+        case 0xd4: si = ssg_efct_set(ps, si); break;
+        case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
             _OpenWork._FadeOutSpeed = *si++;
@@ -4530,60 +4528,60 @@ uint8_t * PMD::FMCommand(PartState * qq, uint8_t * si)
         case 0xd1: si++; break;
         case 0xd0: si++; break;
             //
-        case 0xcf: si = slotmask_set(qq, si); break;
+        case 0xcf: si = slotmask_set(ps, si); break;
         case 0xce: si += 6; break;
         case 0xcd: si += 5; break;
         case 0xcc: si++; break;
-        case 0xcb: qq->lfo_wave = *si++; break;
+        case 0xcb: ps->lfo_wave = *si++; break;
         case 0xca:
-            qq->extendmode = (qq->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
             break;
 
         case 0xc9: si++; break;
-        case 0xc8: si = slotdetune_set(qq, si); break;
-        case 0xc7: si = slotdetune_set2(qq, si); break;
-        case 0xc6: si = fm3_extpartset(qq, si); break;
-        case 0xc5: si = volmask_set(qq, si); break;
-        case 0xc4: qq->qdatb = *si++; break;
-        case 0xc3: si = panset_ex(qq, si); break;
-        case 0xc2: qq->delay = qq->delay2 = *si++; lfoinit_main(qq); break;
+        case 0xc8: si = slotdetune_set(ps, si); break;
+        case 0xc7: si = slotdetune_set2(ps, si); break;
+        case 0xc6: si = fm3_extpartset(ps, si); break;
+        case 0xc5: si = volmask_set(ps, si); break;
+        case 0xc4: ps->qdatb = *si++; break;
+        case 0xc3: si = panset_ex(ps, si); break;
+        case 0xc2: ps->delay = ps->delay2 = *si++; lfoinit_main(ps); break;
         case 0xc1: break;
-        case 0xc0: si = fm_mml_part_mask(qq, si); break;
-        case 0xbf: lfo_change(qq); si = lfoset(qq, si); lfo_change(qq); break;
-        case 0xbe: si = _lfoswitch(qq, si); ch3_setting(qq); break;
+        case 0xc0: si = fm_mml_part_mask(ps, si); break;
+        case 0xbf: lfo_change(ps); si = lfoset(ps, si); lfo_change(ps); break;
+        case 0xbe: si = _lfoswitch(ps, si); ch3_setting(ps); break;
         case 0xbd:
-            lfo_change(qq);
-            qq->mdspd = qq->mdspd2 = *si++;
-            qq->mdepth = *(int8_t *) si++;
-            lfo_change(qq);
+            lfo_change(ps);
+            ps->mdspd = ps->mdspd2 = *si++;
+            ps->mdepth = *(int8_t *) si++;
+            lfo_change(ps);
             break;
 
-        case 0xbc: lfo_change(qq); qq->lfo_wave = *si++; lfo_change(qq); break;
+        case 0xbc: lfo_change(ps); ps->lfo_wave = *si++; lfo_change(ps); break;
         case 0xbb:
-            lfo_change(qq);
-            qq->extendmode = (qq->extendmode & 0xfd) | ((*si++ & 1) << 1);
-            lfo_change(qq);
+            lfo_change(ps);
+            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            lfo_change(ps);
             break;
 
-        case 0xba: si = _volmask_set(qq, si); break;
+        case 0xba: si = _volmask_set(ps, si); break;
         case 0xb9:
-            lfo_change(qq);
-            qq->delay = qq->delay2 = *si++; lfoinit_main(qq);
-            lfo_change(qq);
+            lfo_change(ps);
+            ps->delay = ps->delay2 = *si++; lfoinit_main(ps);
+            lfo_change(ps);
             break;
 
-        case 0xb8: si = tl_set(qq, si); break;
-        case 0xb7: si = mdepth_count(qq, si); break;
-        case 0xb6: si = fb_set(qq, si); break;
+        case 0xb8: si = tl_set(ps, si); break;
+        case 0xb7: si = mdepth_count(ps, si); break;
+        case 0xb6: si = fb_set(ps, si); break;
         case 0xb5:
-            qq->sdelay_m = (~(*si++) << 4) & 0xf0;
-            qq->sdelay_c = qq->sdelay = *si++;
+            ps->sdelay_m = (~(*si++) << 4) & 0xf0;
+            ps->sdelay_c = ps->sdelay = *si++;
             break;
 
         case 0xb4: si += 16; break;
-        case 0xb3: qq->qdat2 = *si++; break;
-        case 0xb2: qq->shift_def = *(int8_t *) si++; break;
-        case 0xb1: qq->qdat3 = *si++; break;
+        case 0xb3: ps->qdat2 = *si++; break;
+        case 0xb2: ps->shift_def = *(int8_t *) si++; break;
+        case 0xb1: ps->qdat3 = *si++; break;
 
         default:
             si--;
@@ -4593,34 +4591,33 @@ uint8_t * PMD::FMCommand(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::PSGCommands(PartState * qq, uint8_t * si)
+uint8_t * PMD::PSGCommands(PartState * ps, uint8_t * si)
 {
-    int    al;
+    int al = *si++;
 
-    al = *si++;
     switch (al)
     {
         case 0xff: si++; break;
-        case 0xfe: qq->qdata = *si++; qq->qdat3 = 0; break;
-        case 0xfd: qq->volume = *si++; break;
+        case 0xfe: ps->qdata = *si++; ps->qdat3 = 0; break;
+        case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
 
         case 0xfb: pmdwork.tieflag |= 1; break;
-        case 0xfa: qq->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = comstloop(qq, si); break;
-        case 0xf8: si = comedloop(qq, si); break;
-        case 0xf7: si = comexloop(qq, si); break;
-        case 0xf6: qq->partloop = si; break;
-        case 0xf5: qq->shift = *(int8_t *) si++; break;
-        case 0xf4: if (qq->volume < 15) qq->volume++; break;
-        case 0xf3: if (qq->volume > 0) qq->volume--; break;
-        case 0xf2: si = lfoset(qq, si); break;
-        case 0xf1: si = lfoswitch(qq, si); break;
-        case 0xf0: si = psgenvset(qq, si); break;
+        case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
+        case 0xf9: si = comstloop(ps, si); break;
+        case 0xf8: si = comedloop(ps, si); break;
+        case 0xf7: si = comexloop(ps, si); break;
+        case 0xf6: ps->partloop = si; break;
+        case 0xf5: ps->shift = *(int8_t *) si++; break;
+        case 0xf4: if (ps->volume < 15) ps->volume++; break;
+        case 0xf3: if (ps->volume > 0) ps->volume--; break;
+        case 0xf2: si = lfoset(ps, si); break;
+        case 0xf1: si = lfoswitch(ps, si); break;
+        case 0xf0: si = psgenvset(ps, si); break;
 
         case 0xef: _OPNA->SetReg(*si, *(si + 1)); si += 2; break;
         case 0xee: _OpenWork.psnoi = *si++; break;
-        case 0xed: qq->psgpat = *si++; break;
+        case 0xed: ps->psgpat = *si++; break;
             //
         case 0xec: si++; break;
         case 0xeb: si = rhykey(si); break;
@@ -4628,15 +4625,15 @@ uint8_t * PMD::PSGCommands(PartState * qq, uint8_t * si)
         case 0xe9: si = rpnset(si); break;
         case 0xe8: si = rmsvs(si); break;
             //
-        case 0xe7: qq->shift += *(int8_t *) si++; break;
+        case 0xe7: ps->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
         case 0xe5: si = rhyvs_sft(si); break;
             //
         case 0xe4: si++; break;
             //追加 for V2.3
             // saturate
-        case 0xe3: qq->volume += *si++; if (qq->volume > 15) qq->volume = 15; break;
-        case 0xe2: qq->volume -= *si++; if (qq->volume < 0) qq->volume = 0; break;
+        case 0xe3: ps->volume += *si++; if (ps->volume > 15) ps->volume = 15; break;
+        case 0xe2: ps->volume -= *si++; if (ps->volume < 0) ps->volume = 0; break;
 
             //
         case 0xe1: si++; break;
@@ -4644,23 +4641,23 @@ uint8_t * PMD::PSGCommands(PartState * qq, uint8_t * si)
             //
         case 0xdf: _OpenWork.syousetu_lng = *si++; break;
             //
-        case 0xde: si = vol_one_up_psg(qq, si); break;
-        case 0xdd: si = vol_one_down(qq, si); break;
+        case 0xde: si = vol_one_up_psg(ps, si); break;
+        case 0xdd: si = vol_one_down(ps, si); break;
             //
         case 0xdc: _OpenWork.status = *si++; break;
         case 0xdb: _OpenWork.status += *si++; break;
             //
-        case 0xda: si = portap(qq, si); break;
+        case 0xda: si = portap(ps, si); break;
             //
         case 0xd9: si++; break;
         case 0xd8: si++; break;
         case 0xd7: si++; break;
             //
-        case 0xd6: qq->mdspd = qq->mdspd2 = *si++; qq->mdepth = *(int8_t *) si++; break;
-        case 0xd5: qq->detune += *(int16_t *) si; si += 2; break;
+        case 0xd6: ps->mdspd = ps->mdspd2 = *si++; ps->mdepth = *(int8_t *) si++; break;
+        case 0xd5: ps->detune += *(int16_t *) si; si += 2; break;
             //
-        case 0xd4: si = ssg_efct_set(qq, si); break;
-        case 0xd3: si = fm_efct_set(qq, si); break;
+        case 0xd4: si = ssg_efct_set(ps, si); break;
+        case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
             _OpenWork._FadeOutSpeed = *si++;
@@ -4671,81 +4668,81 @@ uint8_t * PMD::PSGCommands(PartState * qq, uint8_t * si)
             //
         case 0xcf: si++; break;
         case 0xce: si += 6; break;
-        case 0xcd: si = extend_psgenvset(qq, si); break;
+        case 0xcd: si = extend_psgenvset(ps, si); break;
         case 0xcc:
-            qq->extendmode = (qq->extendmode & 0xfe) | (*si++ & 1);
+            ps->extendmode = (ps->extendmode & 0xfe) | (*si++ & 1);
             break;
 
-        case 0xcb: qq->lfo_wave = *si++; break;
+        case 0xcb: ps->lfo_wave = *si++; break;
         case 0xca:
-            qq->extendmode = (qq->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
             break;
 
         case 0xc9:
-            qq->extendmode = (qq->extendmode & 0xfb) | ((*si++ & 1) << 2);
+            ps->extendmode = (ps->extendmode & 0xfb) | ((*si++ & 1) << 2);
             break;
 
         case 0xc8: si += 3; break;
         case 0xc7: si += 3; break;
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
-        case 0xc4: qq->qdatb = *si++; break;
+        case 0xc4: ps->qdatb = *si++; break;
         case 0xc3: si += 2; break;
-        case 0xc2: qq->delay = qq->delay2 = *si++; lfoinit_main(qq); break;
+        case 0xc2: ps->delay = ps->delay2 = *si++; lfoinit_main(ps); break;
         case 0xc1: break;
-        case 0xc0: si = ssg_mml_part_mask(qq, si); break;
-        case 0xbf: lfo_change(qq); si = lfoset(qq, si); lfo_change(qq); break;
+        case 0xc0: si = ssg_mml_part_mask(ps, si); break;
+        case 0xbf: lfo_change(ps); si = lfoset(ps, si); lfo_change(ps); break;
         case 0xbe:
-            qq->lfoswi = (qq->lfoswi & 0x8f) | ((*si++ & 7) << 4);
+            ps->lfoswi = (ps->lfoswi & 0x8f) | ((*si++ & 7) << 4);
 
-            lfo_change(qq);
-            lfoinit_main(qq);
-            lfo_change(qq);
+            lfo_change(ps);
+            lfoinit_main(ps);
+            lfo_change(ps);
             break;
 
         case 0xbd:
-            lfo_change(qq);
-            qq->mdspd = qq->mdspd2 = *si++;
-            qq->mdepth = *(int8_t *) si++;
-            lfo_change(qq);
+            lfo_change(ps);
+            ps->mdspd = ps->mdspd2 = *si++;
+            ps->mdepth = *(int8_t *) si++;
+            lfo_change(ps);
             break;
 
         case 0xbc:
-            lfo_change(qq);
+            lfo_change(ps);
 
-            qq->lfo_wave = *si++;
+            ps->lfo_wave = *si++;
 
-            lfo_change(qq);
+            lfo_change(ps);
             break;
 
         case 0xbb:
-            lfo_change(qq);
+            lfo_change(ps);
 
-            qq->extendmode = (qq->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
 
-            lfo_change(qq);
+            lfo_change(ps);
             break;
 
         case 0xba: si++; break;
         case 0xb9:
-            lfo_change(qq);
+            lfo_change(ps);
 
-            qq->delay = qq->delay2 = *si++;
-            lfoinit_main(qq);
+            ps->delay = ps->delay2 = *si++;
+            lfoinit_main(ps);
 
 // FIXME    break;
 
-            lfo_change(qq);
+            lfo_change(ps);
             break;
 
         case 0xb8: si += 2; break;
-        case 0xb7: si = mdepth_count(qq, si); break;
+        case 0xb7: si = mdepth_count(ps, si); break;
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
         case 0xb4: si += 16; break;
-        case 0xb3: qq->qdat2 = *si++; break;
-        case 0xb2: qq->shift_def = *(int8_t *) si++; break;
-        case 0xb1: qq->qdat3 = *si++; break;
+        case 0xb3: ps->qdat2 = *si++; break;
+        case 0xb2: ps->shift_def = *(int8_t *) si++; break;
+        case 0xb1: ps->qdat3 = *si++; break;
 
         default:
             si--;
@@ -4755,29 +4752,28 @@ uint8_t * PMD::PSGCommands(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::RhythmCommands(PartState * qq, uint8_t * si)
+uint8_t * PMD::RhythmCommands(PartState * ps, uint8_t * si)
 {
-    int    al;
+    int al = *si++;
 
-    al = *si++;
     switch (al)
     {
         case 0xff: si++; break;
         case 0xfe: si++; break;
-        case 0xfd: qq->volume = *si++; break;
+        case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
 
         case 0xfb: pmdwork.tieflag |= 1; break;
-        case 0xfa: qq->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = comstloop(qq, si); break;
-        case 0xf8: si = comedloop(qq, si); break;
-        case 0xf7: si = comexloop(qq, si); break;
-        case 0xf6: qq->partloop = si; break;
+        case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
+        case 0xf9: si = comstloop(ps, si); break;
+        case 0xf8: si = comedloop(ps, si); break;
+        case 0xf7: si = comexloop(ps, si); break;
+        case 0xf6: ps->partloop = si; break;
         case 0xf5: si++; break;
-        case 0xf4: if (qq->volume < 15) qq->volume++; break;
-        case 0xf3: if (qq->volume > 0) qq->volume--; break;
+        case 0xf4: if (ps->volume < 15) ps->volume++; break;
+        case 0xf3: if (ps->volume > 0) ps->volume--; break;
         case 0xf2: si += 4; break;
-        case 0xf1: si = pdrswitch(qq, si); break;
+        case 0xf1: si = pdrswitch(ps, si); break;
         case 0xf0: si += 4; break;
 
         case 0xef: _OPNA->SetReg(*si, *(si + 1)); si += 2; break;
@@ -4796,16 +4792,16 @@ uint8_t * PMD::RhythmCommands(PartState * qq, uint8_t * si)
             //
         case 0xe4: si++; break;
             //追加 for V2.3
-        case 0xe3: if ((qq->volume + *si) < 16) qq->volume += *si; si++; break;
-        case 0xe2: if ((qq->volume - *si) >= 0) qq->volume -= *si; si++; break;
+        case 0xe3: if ((ps->volume + *si) < 16) ps->volume += *si; si++; break;
+        case 0xe2: if ((ps->volume - *si) >= 0) ps->volume -= *si; si++; break;
             //
         case 0xe1: si++; break;
         case 0xe0: si++; break;
             //
         case 0xdf: _OpenWork.syousetu_lng = *si++; break;
             //
-        case 0xde: si = vol_one_up_psg(qq, si); break;
-        case 0xdd: si = vol_one_down(qq, si); break;
+        case 0xde: si = vol_one_up_psg(ps, si); break;
+        case 0xdd: si = vol_one_down(ps, si); break;
             //
         case 0xdc: _OpenWork.status = *si++; break;
         case 0xdb: _OpenWork.status += *si++; break;
@@ -4817,10 +4813,10 @@ uint8_t * PMD::RhythmCommands(PartState * qq, uint8_t * si)
         case 0xd7: si++; break;
             //
         case 0xd6: si += 2; break;
-        case 0xd5: qq->detune += *(int16_t *) si; si += 2; break;
+        case 0xd5: ps->detune += *(int16_t *) si; si += 2; break;
             //
-        case 0xd4: si = ssg_efct_set(qq, si); break;
-        case 0xd3: si = fm_efct_set(qq, si); break;
+        case 0xd4: si = ssg_efct_set(ps, si); break;
+        case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
             _OpenWork._FadeOutSpeed = *si++;
@@ -4844,7 +4840,7 @@ uint8_t * PMD::RhythmCommands(PartState * qq, uint8_t * si)
         case 0xc3: si += 2; break;
         case 0xc2: si++; break;
         case 0xc1: break;
-        case 0xc0: si = rhythm_mml_part_mask(qq, si); break;
+        case 0xc0: si = rhythm_mml_part_mask(ps, si); break;
         case 0xbf: si += 4; break;
         case 0xbe: si++; break;
         case 0xbd: si += 2; break;
@@ -4869,57 +4865,56 @@ uint8_t * PMD::RhythmCommands(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::ADPCMCommands(PartState * qq, uint8_t * si)
+uint8_t * PMD::ADPCMCommands(PartState * ps, uint8_t * si)
 {
-    int    al;
+    int al = *si++;
 
-    al = *si++;
     switch (al)
     {
-        case 0xff: si = comatm(qq, si); break;
-        case 0xfe: qq->qdata = *si++; break;
-        case 0xfd: qq->volume = *si++; break;
+        case 0xff: si = comatm(ps, si); break;
+        case 0xfe: ps->qdata = *si++; break;
+        case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
         case 0xfb: pmdwork.tieflag |= 1; break;
-        case 0xfa: qq->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = comstloop(qq, si); break;
-        case 0xf8: si = comedloop(qq, si); break;
-        case 0xf7: si = comexloop(qq, si); break;
-        case 0xf6: qq->partloop = si; break;
-        case 0xf5: qq->shift = *(int8_t *) si++; break;
+        case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
+        case 0xf9: si = comstloop(ps, si); break;
+        case 0xf8: si = comedloop(ps, si); break;
+        case 0xf7: si = comexloop(ps, si); break;
+        case 0xf6: ps->partloop = si; break;
+        case 0xf5: ps->shift = *(int8_t *) si++; break;
         case 0xf4:
-            if (qq->volume < (255 - 16)) qq->volume += 16;
-            else qq->volume = 255;
+            if (ps->volume < (255 - 16)) ps->volume += 16;
+            else ps->volume = 255;
             break;
 
-        case 0xf3: if (qq->volume < 16) qq->volume = 0; else qq->volume -= 16; break;
-        case 0xf2: si = lfoset(qq, si); break;
-        case 0xf1: si = lfoswitch(qq, si); break;
-        case 0xf0: si = psgenvset(qq, si); break;
+        case 0xf3: if (ps->volume < 16) ps->volume = 0; else ps->volume -= 16; break;
+        case 0xf2: si = lfoset(ps, si); break;
+        case 0xf1: si = lfoswitch(ps, si); break;
+        case 0xf0: si = psgenvset(ps, si); break;
 
         case 0xef: _OPNA->SetReg((uint32_t) (0x100 + *si), (uint32_t) (*(si + 1))); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
-        case 0xec: si = pansetm(qq, si); break;        // FOR SB2
+        case 0xec: si = pansetm(ps, si); break;        // FOR SB2
         case 0xeb: si = rhykey(si); break;
         case 0xea: si = rhyvs(si); break;
         case 0xe9: si = rpnset(si); break;
         case 0xe8: si = rmsvs(si); break;
             //
-        case 0xe7: qq->shift += *(int8_t *) si++; break;
+        case 0xe7: ps->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
         case 0xe5: si = rhyvs_sft(si); break;
             //
         case 0xe4: si++; break;
             //追加 for V2.3
         case 0xe3:
-            if (qq->volume < (255 - (*si))) qq->volume += (*si);
-            else qq->volume = 255;
+            if (ps->volume < (255 - (*si))) ps->volume += (*si);
+            else ps->volume = 255;
             si++;
             break;
 
         case 0xe2:
-            if (qq->volume < *si) qq->volume = 0; else qq->volume -= *si;
+            if (ps->volume < *si) ps->volume = 0; else ps->volume -= *si;
             si++;
             break;
             //
@@ -4928,23 +4923,23 @@ uint8_t * PMD::ADPCMCommands(PartState * qq, uint8_t * si)
             //
         case 0xdf: _OpenWork.syousetu_lng = *si++; break;
             //
-        case 0xde: si = vol_one_up_pcm(qq, si); break;
-        case 0xdd: si = vol_one_down(qq, si); break;
+        case 0xde: si = vol_one_up_pcm(ps, si); break;
+        case 0xdd: si = vol_one_down(ps, si); break;
             //
         case 0xdc: _OpenWork.status = *si++; break;
         case 0xdb: _OpenWork.status += *si++; break;
             //
-        case 0xda: si = portam(qq, si); break;
+        case 0xda: si = portam(ps, si); break;
             //
         case 0xd9: si++; break;
         case 0xd8: si++; break;
         case 0xd7: si++; break;
             //
-        case 0xd6: qq->mdspd = qq->mdspd2 = *si++; qq->mdepth = *(int8_t *) si++; break;
-        case 0xd5: qq->detune += *(int16_t *) si; si += 2; break;
+        case 0xd6: ps->mdspd = ps->mdspd2 = *si++; ps->mdepth = *(int8_t *) si++; break;
+        case 0xd5: ps->detune += *(int16_t *) si; si += 2; break;
             //
-        case 0xd4: si = ssg_efct_set(qq, si); break;
-        case 0xd3: si = fm_efct_set(qq, si); break;
+        case 0xd4: si = ssg_efct_set(ps, si); break;
+        case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
             _OpenWork._FadeOutSpeed = *si++;
@@ -4954,73 +4949,73 @@ uint8_t * PMD::ADPCMCommands(PartState * qq, uint8_t * si)
         case 0xd0: si++; break;
             //
         case 0xcf: si++; break;
-        case 0xce: si = pcmrepeat_set(qq, si); break;
-        case 0xcd: si = extend_psgenvset(qq, si); break;
+        case 0xce: si = pcmrepeat_set(ps, si); break;
+        case 0xcd: si = extend_psgenvset(ps, si); break;
         case 0xcc: si++; break;
-        case 0xcb: qq->lfo_wave = *si++; break;
+        case 0xcb: ps->lfo_wave = *si++; break;
         case 0xca:
-            qq->extendmode = (qq->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
             break;
 
         case 0xc9:
-            qq->extendmode = (qq->extendmode & 0xfb) | ((*si++ & 1) << 2);
+            ps->extendmode = (ps->extendmode & 0xfb) | ((*si++ & 1) << 2);
             break;
 
         case 0xc8: si += 3; break;
         case 0xc7: si += 3; break;
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
-        case 0xc4: qq->qdatb = *si++; break;
-        case 0xc3: si = pansetm_ex(qq, si); break;
-        case 0xc2: qq->delay = qq->delay2 = *si++; lfoinit_main(qq); break;
+        case 0xc4: ps->qdatb = *si++; break;
+        case 0xc3: si = pansetm_ex(ps, si); break;
+        case 0xc2: ps->delay = ps->delay2 = *si++; lfoinit_main(ps); break;
         case 0xc1: break;
-        case 0xc0: si = pcm_mml_part_mask(qq, si); break;
-        case 0xbf: lfo_change(qq); si = lfoset(qq, si); lfo_change(qq); break;
-        case 0xbe: si = _lfoswitch(qq, si); break;
+        case 0xc0: si = pcm_mml_part_mask(ps, si); break;
+        case 0xbf: lfo_change(ps); si = lfoset(ps, si); lfo_change(ps); break;
+        case 0xbe: si = _lfoswitch(ps, si); break;
         case 0xbd:
-            lfo_change(qq);
+            lfo_change(ps);
 
-            qq->mdspd = qq->mdspd2 = *si++;
-            qq->mdepth = *(int8_t *) si++;
+            ps->mdspd = ps->mdspd2 = *si++;
+            ps->mdepth = *(int8_t *) si++;
 
-            lfo_change(qq);
+            lfo_change(ps);
             break;
 
         case 0xbc:
-            lfo_change(qq);
+            lfo_change(ps);
 
-            qq->lfo_wave = *si++;
+            ps->lfo_wave = *si++;
 
-            lfo_change(qq);
+            lfo_change(ps);
             break;
 
         case 0xbb:
-            lfo_change(qq);
+            lfo_change(ps);
 
-            qq->extendmode = (qq->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
 
-            lfo_change(qq);
+            lfo_change(ps);
             break;
 
-        case 0xba: si = _volmask_set(qq, si); break;
+        case 0xba: si = _volmask_set(ps, si); break;
         case 0xb9:
-            lfo_change(qq);
+            lfo_change(ps);
 
-            qq->delay = qq->delay2 = *si++;
-            lfoinit_main(qq);
+            ps->delay = ps->delay2 = *si++;
+            lfoinit_main(ps);
 // FIXME    break;
 
-            lfo_change(qq);
+            lfo_change(ps);
             break;
 
         case 0xb8: si += 2; break;
-        case 0xb7: si = mdepth_count(qq, si); break;
+        case 0xb7: si = mdepth_count(ps, si); break;
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
-        case 0xb4: si = ppz_extpartset(qq, si); break;
-        case 0xb3: qq->qdat2 = *si++; break;
-        case 0xb2: qq->shift_def = *(int8_t *) si++; break;
-        case 0xb1: qq->qdat3 = *si++; break;
+        case 0xb4: si = ppz_extpartset(ps, si); break;
+        case 0xb3: ps->qdat2 = *si++; break;
+        case 0xb2: ps->shift_def = *(int8_t *) si++; break;
+        case 0xb1: ps->qdat3 = *si++; break;
 
         default:
             si--;
@@ -5030,57 +5025,56 @@ uint8_t * PMD::ADPCMCommands(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::PCM86Commands(PartState * qq, uint8_t * si)
+uint8_t * PMD::PCM86Commands(PartState * ps, uint8_t * si)
 {
-    int    al;
+    int al = *si++;
 
-    al = *si++;
     switch (al)
     {
-        case 0xff: si = comat8(qq, si); break;
-        case 0xfe: qq->qdata = *si++; break;
-        case 0xfd: qq->volume = *si++; break;
+        case 0xff: si = comat8(ps, si); break;
+        case 0xfe: ps->qdata = *si++; break;
+        case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
         case 0xfb: pmdwork.tieflag |= 1; break;
-        case 0xfa: qq->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = comstloop(qq, si); break;
-        case 0xf8: si = comedloop(qq, si); break;
-        case 0xf7: si = comexloop(qq, si); break;
-        case 0xf6: qq->partloop = si; break;
-        case 0xf5: qq->shift = *(int8_t *) si++; break;
+        case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
+        case 0xf9: si = comstloop(ps, si); break;
+        case 0xf8: si = comedloop(ps, si); break;
+        case 0xf7: si = comexloop(ps, si); break;
+        case 0xf6: ps->partloop = si; break;
+        case 0xf5: ps->shift = *(int8_t *) si++; break;
         case 0xf4:
-            if (qq->volume < (255 - 16)) qq->volume += 16;
-            else qq->volume = 255;
+            if (ps->volume < (255 - 16)) ps->volume += 16;
+            else ps->volume = 255;
             break;
 
-        case 0xf3: if (qq->volume < 16) qq->volume = 0; else qq->volume -= 16; break;
-        case 0xf2: si = lfoset(qq, si); break;
-        case 0xf1: si = lfoswitch(qq, si); break;
-        case 0xf0: si = psgenvset(qq, si); break;
+        case 0xf3: if (ps->volume < 16) ps->volume = 0; else ps->volume -= 16; break;
+        case 0xf2: si = lfoset(ps, si); break;
+        case 0xf1: si = lfoswitch(ps, si); break;
+        case 0xf0: si = psgenvset(ps, si); break;
 
         case 0xef: _OPNA->SetReg((uint32_t) (0x100 + *si), (uint32_t) (*(si + 1))); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
-        case 0xec: si = panset8(qq, si); break;        // FOR SB2
+        case 0xec: si = panset8(ps, si); break;        // FOR SB2
         case 0xeb: si = rhykey(si); break;
         case 0xea: si = rhyvs(si); break;
         case 0xe9: si = rpnset(si); break;
         case 0xe8: si = rmsvs(si); break;
             //
-        case 0xe7: qq->shift += *(int8_t *) si++; break;
+        case 0xe7: ps->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
         case 0xe5: si = rhyvs_sft(si); break;
             //
         case 0xe4: si++; break;
             //追加 for V2.3
         case 0xe3:
-            if (qq->volume < (255 - (*si))) qq->volume += (*si);
-            else qq->volume = 255;
+            if (ps->volume < (255 - (*si))) ps->volume += (*si);
+            else ps->volume = 255;
             si++;
             break;
 
         case 0xe2:
-            if (qq->volume < *si) qq->volume = 0; else qq->volume -= *si;
+            if (ps->volume < *si) ps->volume = 0; else ps->volume -= *si;
             si++;
             break;
             //
@@ -5089,8 +5083,8 @@ uint8_t * PMD::PCM86Commands(PartState * qq, uint8_t * si)
             //
         case 0xdf: _OpenWork.syousetu_lng = *si++; break;
             //
-        case 0xde: si = vol_one_up_pcm(qq, si); break;
-        case 0xdd: si = vol_one_down(qq, si); break;
+        case 0xde: si = vol_one_up_pcm(ps, si); break;
+        case 0xdd: si = vol_one_down(ps, si); break;
             //
         case 0xdc: _OpenWork.status = *si++; break;
         case 0xdb: _OpenWork.status += *si++; break;
@@ -5101,11 +5095,11 @@ uint8_t * PMD::PCM86Commands(PartState * qq, uint8_t * si)
         case 0xd8: si++; break;
         case 0xd7: si++; break;
             //
-        case 0xd6: qq->mdspd = qq->mdspd2 = *si++; qq->mdepth = *(int8_t *) si++; break;
-        case 0xd5: qq->detune += *(int16_t *) si; si += 2; break;
+        case 0xd6: ps->mdspd = ps->mdspd2 = *si++; ps->mdepth = *(int8_t *) si++; break;
+        case 0xd5: ps->detune += *(int16_t *) si; si += 2; break;
             //
-        case 0xd4: si = ssg_efct_set(qq, si); break;
-        case 0xd3: si = fm_efct_set(qq, si); break;
+        case 0xd4: si = ssg_efct_set(ps, si); break;
+        case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
             _OpenWork._FadeOutSpeed = *si++;
@@ -5115,27 +5109,27 @@ uint8_t * PMD::PCM86Commands(PartState * qq, uint8_t * si)
         case 0xd0: si++; break;
             //
         case 0xcf: si++; break;
-        case 0xce: si = pcmrepeat_set8(qq, si); break;
-        case 0xcd: si = extend_psgenvset(qq, si); break;
+        case 0xce: si = pcmrepeat_set8(ps, si); break;
+        case 0xcd: si = extend_psgenvset(ps, si); break;
         case 0xcc: si++; break;
-        case 0xcb: qq->lfo_wave = *si++; break;
+        case 0xcb: ps->lfo_wave = *si++; break;
         case 0xca:
-            qq->extendmode = (qq->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
             break;
 
         case 0xc9:
-            qq->extendmode = (qq->extendmode & 0xfb) | ((*si++ & 1) << 2);
+            ps->extendmode = (ps->extendmode & 0xfb) | ((*si++ & 1) << 2);
             break;
 
         case 0xc8: si += 3; break;
         case 0xc7: si += 3; break;
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
-        case 0xc4: qq->qdatb = *si++; break;
-        case 0xc3: si = panset8_ex(qq, si); break;
-        case 0xc2: qq->delay = qq->delay2 = *si++; lfoinit_main(qq); break;
+        case 0xc4: ps->qdatb = *si++; break;
+        case 0xc3: si = panset8_ex(ps, si); break;
+        case 0xc2: ps->delay = ps->delay2 = *si++; lfoinit_main(ps); break;
         case 0xc1: break;
-        case 0xc0: si = pcm_mml_part_mask8(qq, si); break;
+        case 0xc0: si = pcm_mml_part_mask8(ps, si); break;
         case 0xbf: si += 4; break;
         case 0xbe: si++; break;
         case 0xbd: si += 2; break;
@@ -5144,13 +5138,13 @@ uint8_t * PMD::PCM86Commands(PartState * qq, uint8_t * si)
         case 0xba: si++; break;
         case 0xb9: si++; break;
         case 0xb8: si += 2; break;
-        case 0xb7: si = mdepth_count(qq, si); break;
+        case 0xb7: si = mdepth_count(ps, si); break;
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
-        case 0xb4: si = ppz_extpartset(qq, si); break;
-        case 0xb3: qq->qdat2 = *si++; break;
-        case 0xb2: qq->shift_def = *(int8_t *) si++; break;
-        case 0xb1: qq->qdat3 = *si++; break;
+        case 0xb4: si = ppz_extpartset(ps, si); break;
+        case 0xb3: ps->qdat2 = *si++; break;
+        case 0xb2: ps->shift_def = *(int8_t *) si++; break;
+        case 0xb1: ps->qdat3 = *si++; break;
 
         default:
             si--;
@@ -5160,58 +5154,59 @@ uint8_t * PMD::PCM86Commands(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::PPZ8Commands(PartState * qq, uint8_t * si)
+uint8_t * PMD::PPZ8Commands(PartState * ps, uint8_t * si)
 {
-    int    al;
+    int al = *si++;
 
-    al = *si++;
     switch (al)
     {
-        case 0xff: si = comatz(qq, si); break;
-        case 0xfe: qq->qdata = *si++; break;
-        case 0xfd: qq->volume = *si++; break;
+        case 0xff: si = comatz(ps, si); break;
+        case 0xfe: ps->qdata = *si++; break;
+        case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
 
         case 0xfb: pmdwork.tieflag |= 1; break;
-        case 0xfa: qq->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = comstloop(qq, si); break;
-        case 0xf8: si = comedloop(qq, si); break;
-        case 0xf7: si = comexloop(qq, si); break;
-        case 0xf6: qq->partloop = si; break;
-        case 0xf5: qq->shift = *(int8_t *) si++; break;
+        case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
+        case 0xf9: si = comstloop(ps, si); break;
+        case 0xf8: si = comedloop(ps, si); break;
+        case 0xf7: si = comexloop(ps, si); break;
+        case 0xf6: ps->partloop = si; break;
+        case 0xf5: ps->shift = *(int8_t *) si++; break;
         case 0xf4:
-            if (qq->volume < (255 - 16)) qq->volume += 16;
-            else qq->volume = 255;
+            if (ps->volume < (255 - 16))
+                ps->volume += 16;
+            else
+                ps->volume = 255;
             break;
 
-        case 0xf3: if (qq->volume < 16) qq->volume = 0; else qq->volume -= 16; break;
-        case 0xf2: si = lfoset(qq, si); break;
-        case 0xf1: si = lfoswitch(qq, si); break;
-        case 0xf0: si = psgenvset(qq, si); break;
+        case 0xf3: if (ps->volume < 16) ps->volume = 0; else ps->volume -= 16; break;
+        case 0xf2: si = lfoset(ps, si); break;
+        case 0xf1: si = lfoswitch(ps, si); break;
+        case 0xf0: si = psgenvset(ps, si); break;
 
         case 0xef: _OPNA->SetReg((uint32_t) (pmdwork.fmsel + *si), (uint32_t) *(si + 1)); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
-        case 0xec: si = pansetz(qq, si); break;        // FOR SB2
+        case 0xec: si = pansetz(ps, si); break;        // FOR SB2
         case 0xeb: si = rhykey(si); break;
         case 0xea: si = rhyvs(si); break;
         case 0xe9: si = rpnset(si); break;
         case 0xe8: si = rmsvs(si); break;
             //
-        case 0xe7: qq->shift += *(int8_t *) si++; break;
+        case 0xe7: ps->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
         case 0xe5: si = rhyvs_sft(si); break;
             //
         case 0xe4: si++; break;
             //追加 for V2.3
         case 0xe3:
-            if (qq->volume < (255 - (*si))) qq->volume += (*si);
-            else qq->volume = 255;
+            if (ps->volume < (255 - (*si))) ps->volume += (*si);
+            else ps->volume = 255;
             si++;
             break;
 
         case 0xe2:
-            if (qq->volume < *si) qq->volume = 0; else qq->volume -= *si;
+            if (ps->volume < *si) ps->volume = 0; else ps->volume -= *si;
             si++;
             break;
             //
@@ -5220,23 +5215,23 @@ uint8_t * PMD::PPZ8Commands(PartState * qq, uint8_t * si)
             //
         case 0xdf: _OpenWork.syousetu_lng = *si++; break;
             //
-        case 0xde: si = vol_one_up_pcm(qq, si); break;
-        case 0xdd: si = vol_one_down(qq, si); break;
+        case 0xde: si = vol_one_up_pcm(ps, si); break;
+        case 0xdd: si = vol_one_down(ps, si); break;
             //
         case 0xdc: _OpenWork.status = *si++; break;
         case 0xdb: _OpenWork.status += *si++; break;
             //
-        case 0xda: si = portaz(qq, si); break;
+        case 0xda: si = portaz(ps, si); break;
             //
         case 0xd9: si++; break;
         case 0xd8: si++; break;
         case 0xd7: si++; break;
             //
-        case 0xd6: qq->mdspd = qq->mdspd2 = *si++; qq->mdepth = *(int8_t *) si++; break;
-        case 0xd5: qq->detune += *(int16_t *) si; si += 2; break;
+        case 0xd6: ps->mdspd = ps->mdspd2 = *si++; ps->mdepth = *(int8_t *) si++; break;
+        case 0xd5: ps->detune += *(int16_t *) si; si += 2; break;
             //
-        case 0xd4: si = ssg_efct_set(qq, si); break;
-        case 0xd3: si = fm_efct_set(qq, si); break;
+        case 0xd4: si = ssg_efct_set(ps, si); break;
+        case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
             _OpenWork.fadeout_flag = 1;
             _OpenWork._FadeOutSpeed = *si++;
@@ -5246,61 +5241,61 @@ uint8_t * PMD::PPZ8Commands(PartState * qq, uint8_t * si)
         case 0xd0: si++; break;
             //
         case 0xcf: si++; break;
-        case 0xce: si = ppzrepeat_set(qq, si); break;
-        case 0xcd: si = extend_psgenvset(qq, si); break;
+        case 0xce: si = ppzrepeat_set(ps, si); break;
+        case 0xcd: si = extend_psgenvset(ps, si); break;
         case 0xcc: si++; break;
-        case 0xcb: qq->lfo_wave = *si++; break;
+        case 0xcb: ps->lfo_wave = *si++; break;
         case 0xca:
-            qq->extendmode = (qq->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
             break;
 
         case 0xc9:
-            qq->extendmode = (qq->extendmode & 0xfb) | ((*si++ & 1) << 2);
+            ps->extendmode = (ps->extendmode & 0xfb) | ((*si++ & 1) << 2);
             break;
 
         case 0xc8: si += 3; break;
         case 0xc7: si += 3; break;
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
-        case 0xc4: qq->qdatb = *si++; break;
-        case 0xc3: si = pansetz_ex(qq, si); break;
-        case 0xc2: qq->delay = qq->delay2 = *si++; lfoinit_main(qq); break;
+        case 0xc4: ps->qdatb = *si++; break;
+        case 0xc3: si = pansetz_ex(ps, si); break;
+        case 0xc2: ps->delay = ps->delay2 = *si++; lfoinit_main(ps); break;
         case 0xc1: break;
-        case 0xc0: si = ppz_mml_part_mask(qq, si); break;
-        case 0xbf: lfo_change(qq); si = lfoset(qq, si); lfo_change(qq); break;
-        case 0xbe: si = _lfoswitch(qq, si); break;
+        case 0xc0: si = ppz_mml_part_mask(ps, si); break;
+        case 0xbf: lfo_change(ps); si = lfoset(ps, si); lfo_change(ps); break;
+        case 0xbe: si = _lfoswitch(ps, si); break;
         case 0xbd:
-            lfo_change(qq);
-            qq->mdspd = qq->mdspd2 = *si++;
-            qq->mdepth = *(int8_t *) si++;
-            lfo_change(qq);
+            lfo_change(ps);
+            ps->mdspd = ps->mdspd2 = *si++;
+            ps->mdepth = *(int8_t *) si++;
+            lfo_change(ps);
             break;
 
-        case 0xbc: lfo_change(qq); qq->lfo_wave = *si++; lfo_change(qq); break;
+        case 0xbc: lfo_change(ps); ps->lfo_wave = *si++; lfo_change(ps); break;
         case 0xbb:
-            lfo_change(qq);
-            qq->extendmode = (qq->extendmode & 0xfd) | ((*si++ & 1) << 1);
-            lfo_change(qq);
+            lfo_change(ps);
+            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            lfo_change(ps);
             break;
 
-        case 0xba: si = _volmask_set(qq, si); break;
+        case 0xba: si = _volmask_set(ps, si); break;
         case 0xb9:
-            lfo_change(qq);
+            lfo_change(ps);
 
-            qq->delay = qq->delay2 = *si++;
-            lfoinit_main(qq);
+            ps->delay = ps->delay2 = *si++;
+            lfoinit_main(ps);
 // FIXME     break;
-            lfo_change(qq);
+            lfo_change(ps);
             break;
 
         case 0xb8: si += 2; break;
-        case 0xb7: si = mdepth_count(qq, si); break;
+        case 0xb7: si = mdepth_count(ps, si); break;
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
         case 0xb4: si += 16; break;
-        case 0xb3: qq->qdat2 = *si++; break;
-        case 0xb2: qq->shift_def = *(int8_t *) si++; break;
-        case 0xb1: qq->qdat3 = *si++; break;
+        case 0xb3: ps->qdat2 = *si++; break;
+        case 0xb2: ps->shift_def = *(int8_t *) si++; break;
+        case 0xb1: ps->qdat3 = *si++; break;
 
         default:
             si--;
