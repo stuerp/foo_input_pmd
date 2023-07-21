@@ -3,7 +3,7 @@
 
 #pragma once
 
-#define ERR_SUCCES                  0
+#define ERR_SUCCESS                  0
 
 #define ERR_OPEN_FAILED             1
 #define ERR_UNKNOWN_FORMAT          2
@@ -196,12 +196,15 @@ struct OPEN_WORK
     uint8_t * rhyadr;  // R part 演奏中番地
 
     bool _IsPlaying; // True if the driver is playing
+    bool _UseRhythmSoundSource;  // Play Rhythm sound source with K/Rpart flag
 
     int rhythmmask; // Rhythm音源のマスク x8c/10hのbitに対応
+
     int fm_voldown; // FM voldown 数値
     int ssg_voldown;  // PSG voldown 数値
     int pcm_voldown;  // ADPCM voldown 数値
     int rhythm_voldown;  // RHYTHM voldown 数値
+
     int prg_flg; // 曲データに音色が含まれているかflag
     int x68_flg; // OPM flag
     int status;  // status1
@@ -226,12 +229,13 @@ struct OPEN_WORK
     int rhyvol;  // リズムトータルレベル
     int kshot_dat; // ＳＳＧリズム shot flag
     int fade_stop_flag;  // Fadeout後 MSTOPするかどうかのフラグ
-    bool kp_rhythm_flag;  // K/RpartでRhythm音源を鳴らすかflag
     int pcm_gs_flag;  // ADPCM使用 許可フラグ (0で許可)
+
     int slot_detune1;  // FM3 Slot Detune値 slot1
     int slot_detune2;  // FM3 Slot Detune値 slot2
     int slot_detune3;  // FM3 Slot Detune値 slot3
     int slot_detune4;  // FM3 Slot Detune値 slot4
+
     int fadeout_flag;  // When calling Fade from inside 1
     int revpan;  // PCM86逆相flag
     int pcm86_vol; // PCM86の音量をSPBに合わせるか?
@@ -239,6 +243,7 @@ struct OPEN_WORK
     int port22h; // OPN-PORT 22H に最後に出力した値(hlfo)
     int tempo_48; // 現在のテンポ(clock=48 tの値)
     int tempo_48_push;  // 現在のテンポ(同上/保存用)
+
     int _fm_voldown;  // FM voldown 数値 (保存用)
     int _ssg_voldown;  // PSG voldown 数値 (保存用)
     int _pcm_voldown;  // PCM voldown 数値 (保存用)

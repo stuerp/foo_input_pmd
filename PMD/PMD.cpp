@@ -223,7 +223,7 @@ void PMD::InitializeInternal()
     _OpenWork.rhythm_voldown = 0;       // RHYTHM_VOLDOWN
     _OpenWork._rhythm_voldown = 0;      // RHYTHM_VOLDOWN
 
-    _OpenWork.kp_rhythm_flag = false;   // Whether to play the Rhytmn Sound Source with SSGDRUM
+    _OpenWork._UseRhythmSoundSource = false;   // Whether to play the Rhytmn Sound Source with SSGDRUM
 
     _OpenWork.rshot_bd = 0;             // Rhythm Sound Source shot inc flag (BD)
     _OpenWork.rshot_sd = 0;             // Rhythm Sound Source shot inc flag (SD)
@@ -243,7 +243,7 @@ void PMD::InitializeInternal()
     _OpenWork._pcm86_vol = 0;           // PCM volume adjustment
     _OpenWork.fade_stop_flag = 1;       // MSTOP after FADEOUT FLAG
 
-    pmdwork._UsePPS = false;        // PPSDRV FLAG
+    pmdwork._UsePPS = false;
     pmdwork.music_flag = 0;
 
     // Set song data and timbre data storage addresses.
@@ -271,9 +271,9 @@ int PMD::Load(const uint8_t * data, size_t size)
     ::memset(_MData + size, 0, sizeof(_MData) - size);
 
     if (_OpenWork._SearchPath.size() == 0)
-        return ERR_SUCCES;
+        return ERR_SUCCESS;
 
-    int Result = ERR_SUCCES;
+    int Result = ERR_SUCCESS;
 
     char FileName[MAX_PATH] = { 0 };
     WCHAR FileNameW[MAX_PATH] = { 0 };
@@ -304,7 +304,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
                 Result = LoadPPCInternal(FilePath);
 
-                if (Result == ERR_SUCCES || Result == ERR_ALREADY_LOADED)
+                if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
                     _OpenWork._UseP86 = false;
             }
         }
@@ -381,7 +381,7 @@ int PMD::Load(const uint8_t * data, size_t size)
         }
     }
 
-    return ERR_SUCCES;
+    return ERR_SUCCESS;
 }
 
 /// <summary>
@@ -880,18 +880,20 @@ WCHAR * PMD::GetPPZFileName(WCHAR * filePath, int index)
     return filePath;
 }
 
-// Ring PPS?
-void PMD::EnablePPS(bool flag)
+/// <summary>
+/// Enables or disables the PPS.
+/// </summary>
+void PMD::UsePPS(bool value) noexcept
 {
-    pmdwork._UsePPS = flag;
+    pmdwork._UsePPS = value;
 }
 
 /// <summary>
 /// Enables playing the OPNA Rhythm with the SSG Sound Source.
 /// </summary>
-void PMD::EnablePlayRythmWithSSG(bool flag)
+void PMD::UseSSG(bool flag) noexcept
 {
-    _OpenWork.kp_rhythm_flag = flag;
+    _OpenWork._UseRhythmSoundSource = flag;
 }
 
 // Make PMD86 PCM compatible with PMDB2?
@@ -929,11 +931,11 @@ void PMD::setp86interpolation(bool flag)
     _P86->SetRate(_OpenWork._OPNARate, flag);
 }
 
-//  パートのマスク
+/// <summary>
+/// Enables the specified part.
+/// </summary>
 int PMD::maskon(int ch)
 {
-    int ah, fmseltmp;
-
     if (ch >= sizeof(_OpenWork.MusPart) / sizeof(PartState *))
         return ERR_WRONG_PARTNO;
 
@@ -944,7 +946,7 @@ int PMD::maskon(int ch)
     }
     else
     {
-        fmseltmp = pmdwork.fmsel;
+        int fmseltmp = pmdwork.fmsel;
 
         if ((_OpenWork.MusPart[ch]->partmask == 0) && _OpenWork._IsPlaying)
         {
@@ -952,21 +954,26 @@ int PMD::maskon(int ch)
             {
                 pmdwork.partb = part_table[ch][1];
                 pmdwork.fmsel = 0;
-                silence_fmpart(_OpenWork.MusPart[ch]);  // 音を完璧に消す
+
+                MuteFMPart(_OpenWork.MusPart[ch]);
             }
             else
             if (part_table[ch][2] == 1)
             {
                 pmdwork.partb = part_table[ch][1];
                 pmdwork.fmsel = 0x100;
-                silence_fmpart(_OpenWork.MusPart[ch]);  // 音を完璧に消す
+
+                MuteFMPart(_OpenWork.MusPart[ch]);
             }
             else
             if (part_table[ch][2] == 2)
             {
                 pmdwork.partb = part_table[ch][1];
-                ah = 1 << (pmdwork.partb - 1);
+
+                int ah = 1 << (pmdwork.partb - 1);
+
                 ah |= (ah << 3);
+
                 // PSG keyoff
                 _OPNA->SetReg(0x07, ah | _OPNA->GetReg(0x07));
             }
@@ -980,26 +987,22 @@ int PMD::maskon(int ch)
             if (part_table[ch][2] == 4)
             {
                 if (effwork.psgefcnum < 11)
-                {
                     effend();
-                }
             }
             else
             if (part_table[ch][2] == 5)
-            {
                 _PPZ8->Stop(part_table[ch][1]);
-            }
         }
 
         _OpenWork.MusPart[ch]->partmask |= 1;
         pmdwork.fmsel = fmseltmp;
     }
 
-    return ERR_SUCCES;
+    return ERR_SUCCESS;
 }
 
 /// <summary>
-/// Unmask the specified channel.
+/// Disables the specified part.
 /// </summary>
 int PMD::maskoff(int ch)
 {
@@ -1043,10 +1046,9 @@ int PMD::maskoff(int ch)
         }
 
         pmdwork.fmsel = fmseltmp;
-
     }
 
-    return ERR_SUCCES;
+    return ERR_SUCCESS;
 }
 
 //  FM Volume Down の設定
@@ -1295,7 +1297,7 @@ int PMD::LoadPPC(WCHAR * filePath)
 
     int Result = LoadPPCInternal(filePath);
 
-    if (Result == ERR_SUCCES || Result == ERR_ALREADY_LOADED)
+    if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
         _OpenWork._UseP86 = false;
 
     return Result;
@@ -1310,11 +1312,11 @@ int PMD::LoadPPS(WCHAR * filename)
 
     switch (Result)
     {
-        case _PPSDRV_OK:                return ERR_SUCCES;
-        case _ERR_OPEN_PPS_FILE:        return ERR_OPEN_FAILED;
-        case _WARNING_PPS_ALREADY_LOAD: return ERR_ALREADY_LOADED;
-        case _ERR_OUT_OF_MEMORY:        return ERR_OUT_OF_MEMORY;
-        default:                        return ERR_UNKNOWN;
+        case PPS_SUCCESS:        return ERR_SUCCESS;
+        case PPS_OPEN_FAILED:    return ERR_OPEN_FAILED;
+        case PPS_ALREADY_LOADED: return ERR_ALREADY_LOADED;
+        case PPS_OUT_OF_MEMORY:  return ERR_OUT_OF_MEMORY;
+        default:                 return ERR_UNKNOWN;
     }
 }
 
@@ -1330,11 +1332,11 @@ int PMD::LoadP86(WCHAR * filename)
 
     switch (Result)
     {
-        case _P86DRV_OK:                return ERR_SUCCES;
+        case _P86DRV_OK:                return ERR_SUCCESS;
         case _ERR_OPEN_P86_FILE:        return ERR_OPEN_FAILED;
         case _ERR_WRONG_P86_FILE:       return ERR_UNKNOWN_FORMAT;
         case _WARNING_P86_ALREADY_LOAD: return ERR_ALREADY_LOADED;
-        case _ERR_OUT_OF_MEMORY:        return ERR_OUT_OF_MEMORY;
+        case PPS_OUT_OF_MEMORY:        return ERR_OUT_OF_MEMORY;
         default:                        return ERR_UNKNOWN;
     }
 }
@@ -1348,11 +1350,11 @@ int PMD::LoadPPZ(WCHAR * filename, int bufnum)
 
     switch (Result)
     {
-        case _PPZ8_OK:                  return ERR_SUCCES;
+        case _PPZ8_OK:                  return ERR_SUCCESS;
         case _ERR_OPEN_PPZ_FILE:        return ERR_OPEN_FAILED;
         case ERR_PPZ_UNKNOWN_FORMAT:       return ERR_UNKNOWN_FORMAT;
         case ERR_PPZ_ALREADY_LOADED: return ERR_ALREADY_LOADED;
-        case _ERR_OUT_OF_MEMORY:        return ERR_OUT_OF_MEMORY;
+        case PPS_OUT_OF_MEMORY:        return ERR_OUT_OF_MEMORY;
         default:                        return ERR_UNKNOWN;
     }
 }
@@ -1380,7 +1382,7 @@ void PMD::HandleTimerA()
     if ((_OpenWork._TimerATime & 7) == 0)
         Fade();
 
-    if (effwork.effon && (pmdwork._UsePPS == false || effwork.psgefcnum == 0x80))
+    if (effwork.effon && (!pmdwork._UsePPS || effwork.psgefcnum == 0x80))
         effplay(); // SSG Sound Source effect processing
 
     _OpenWork._IsTimerABusy = false;
@@ -1467,7 +1469,8 @@ void PMD::DriverMain()
         }
     }
 
-    if (pmdwork.loop_work == 0) return;
+    if (pmdwork.loop_work == 0)
+        return;
 
     for (i = 0; i < 6; i++)
     {
@@ -2348,8 +2351,7 @@ void PMD::psgmain(PartState * qq)
     qq->leng--;
 
     // KEYOFF CHECK & Keyoff
-    if (qq == &SSGPart[2] && pmdwork._UsePPS &&
-        _OpenWork.kshot_dat && qq->leng <= qq->qdat)
+    if (qq == &SSGPart[2] && pmdwork._UsePPS && _OpenWork.kshot_dat && qq->leng <= qq->qdat)
     {
         // PPS 使用時 & SSG 3ch & SSG 効果音鳴らしている場合
         keyoffp(qq);
@@ -2507,19 +2509,16 @@ void PMD::psgmain(PartState * qq)
         if (pmdwork.lfo_switch & 0x19)
         {
             if (pmdwork.lfo_switch & 0x08)
-            {
                 porta_calc(qq);
-            }
 
             // SSG 3ch で休符かつ SSG Drum 発音中は操作しない
             if (!(qq == &SSGPart[2] && qq->onkai == 255 && _OpenWork.kshot_dat && !pmdwork._UsePPS))
-            {
                 otodasip(qq);
-            }
         }
     }
 
     temp = soft_env(qq);
+
     if (temp || pmdwork.lfo_switch & 0x22 || (_OpenWork._FadeOutSpeed != 0))
     {
         // SSG 3ch で休符かつ SSG Drum 発音中は volume set しない
@@ -2655,7 +2654,7 @@ uint8_t * PMD::rhythmon(PartState * qq, uint8_t * bx, int al, int * result)
 
     _OpenWork.rhyadr = bx;
 
-    if (_OpenWork.kp_rhythm_flag)
+    if (_OpenWork._UseRhythmSoundSource)
     {
         for (int cl = 0; cl < 11; cl++)
         {
@@ -2685,7 +2684,7 @@ uint8_t * PMD::rhythmon(PartState * qq, uint8_t * bx, int al, int * result)
 
     if (_OpenWork._FadeOutVolume)
     {
-        if (_OpenWork.kp_rhythm_flag)
+        if (_OpenWork._UseRhythmSoundSource)
         {
             int dl = _OpenWork.rhyvol;
 
@@ -2862,11 +2861,11 @@ void PMD::efffor(const int * si)
 void PMD::effend()
 {
     if (pmdwork._UsePPS)
-    {
         _PPS->Stop();
-    }
+
     _OPNA->SetReg(0x0a, 0x00);
     _OPNA->SetReg(0x07, ((_OPNA->GetReg(0x07)) & 0xdb) | 0x24);
+
     effwork.effon = 0;
     effwork.psgefcnum = -1;
 }
@@ -2902,7 +2901,7 @@ void PMD::effsweep()
 //  PDRのswitch
 uint8_t * PMD::pdrswitch(PartState *, uint8_t * si)
 {
-    if (pmdwork._UsePPS == false)
+    if (!pmdwork._UsePPS)
         return si + 1;
 
 //  ppsdrv->SetParam((*si & 1) << 1, *si & 1);    @暫定
@@ -5367,7 +5366,7 @@ void PMD::neiroset(PartState * qq, int dl)
     int    ah, al, dh;
 
     bx = toneadr_calc(qq, dl);
-    if (silence_fmpart(qq))
+    if (MuteFMPart(qq))
     {
         // neiromask=0の時 (TLのworkのみ設定)
         bx += 4;
@@ -5569,24 +5568,20 @@ void PMD::neiroset(PartState * qq, int dl)
     qq->slot4 = bx[3];
 }
 
-//  [PartB]のパートの音を完璧に消す (TL=127 and RR=15 and KEY-OFF)
-//    cy=1 ･･･ 全スロットneiromaskされている
-int PMD::silence_fmpart(PartState * qq)
+// Completely muting the [PartB] part (TL=127 and RR=15 and KEY-OFF). cy=1 ･･･ All slots are neiromasked
+int PMD::MuteFMPart(PartState * qq)
 {
-    int    dh;
-
     if (qq->neiromask == 0)
-    {
         return 1;
-    }
 
-    dh = pmdwork.partb + 0x40 - 1;
+    int dh = pmdwork.partb + 0x40 - 1;
 
     if (qq->neiromask & 0x80)
     {
         _OPNA->SetReg((uint32_t) ( pmdwork.fmsel         + dh), 127);
         _OPNA->SetReg((uint32_t) ((pmdwork.fmsel + 0x40) + dh), 127);
     }
+
     dh += 4;
 
     if (qq->neiromask & 0x40)
@@ -5594,6 +5589,7 @@ int PMD::silence_fmpart(PartState * qq)
         _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), 127);
         _OPNA->SetReg((uint32_t) ((pmdwork.fmsel + 0x40) + dh), 127);
     }
+
     dh += 4;
 
     if (qq->neiromask & 0x20)
@@ -5601,6 +5597,7 @@ int PMD::silence_fmpart(PartState * qq)
         _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), 127);
         _OPNA->SetReg((uint32_t) ((pmdwork.fmsel + 0x40) + dh), 127);
     }
+
     dh += 4;
 
     if (qq->neiromask & 0x10)
@@ -5610,6 +5607,7 @@ int PMD::silence_fmpart(PartState * qq)
     }
 
     kof1(qq);
+
     return 0;
 }
 
@@ -6106,7 +6104,7 @@ uint8_t * PMD::fm_mml_part_mask(PartState * qq, uint8_t * si)
         qq->partmask |= 0x40;
 
         if (qq->partmask == 0x40)
-            silence_fmpart(qq);  // 音消去
+            MuteFMPart(qq);  // 音消去
     }
     else
     {
@@ -8748,7 +8746,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
     pcmstore(pcmstart, pcmstop, (uint8_t *) pcmdata2);
 
-    return ERR_SUCCES;
+    return ERR_SUCCESS;
 }
 
 /// <summary>

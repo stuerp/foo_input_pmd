@@ -10,7 +10,7 @@
 #define  _ERR_OPEN_P86_FILE       81    // P86 を開けなかった
 #define  _ERR_WRONG_P86_FILE        82    // P86 の形式が異なっている
 #define  _WARNING_P86_ALREADY_LOAD   83    // P86 はすでに読み込まれている
-#define  _ERR_OUT_OF_MEMORY       99    // メモリを確保できなかった
+#define  PPS_OUT_OF_MEMORY       99    // メモリを確保できなかった
 
 #define  SOUND_44K          44100
 #define  SOUND_22K          22050

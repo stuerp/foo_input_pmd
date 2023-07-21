@@ -20,7 +20,7 @@
 #define ERR_PPZ_UNKNOWN_FORMAT               2        // PVI/PZI の形式が異なっている
 #define ERR_PPZ_ALREADY_LOADED      3        // PVI/PZI はすでに読み込まれている
 
-#define _ERR_OUT_OF_MEMORY             99        // メモリを確保できなかった
+#define PPS_OUT_OF_MEMORY             99        // メモリを確保できなかった
 
 typedef int Sample;
 

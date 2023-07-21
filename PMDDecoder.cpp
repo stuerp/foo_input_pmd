@@ -166,9 +166,11 @@ bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
 /// </summary>
 void PMDDecoder::Initialize() const noexcept
 {
-    if (_PMD->Load(_Data, _Size) != ERR_SUCCES)
+    if (_PMD->Load(_Data, _Size) != ERR_SUCCESS)
         return;
 
+//  _PMD->UsePPS(true);
+//  _PMD->UseSSG(true);
     _PMD->Start();
 }
 

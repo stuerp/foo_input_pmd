@@ -89,10 +89,12 @@ public:
     WCHAR * GetPCMFileName(WCHAR * dest);
     WCHAR * GetPPZFileName(WCHAR * dest, int bufnum);
 
-    void EnablePPS(bool value);
-    void EnablePlayRythmWithSSG(bool value);
+    void UsePPS(bool value) noexcept;
+    void UseSSG(bool value) noexcept;
+
     void EnablePMDB2CompatibilityMode(bool value);
     bool GetPMDB2CompatibilityMode();
+
     void setppsinterpolation(bool ip);
     void setp86interpolation(bool ip);
 
@@ -204,7 +206,7 @@ protected:
 
     char * GetNoteInternal(const uint8_t * data, size_t size, int al, char * text);
 
-    int silence_fmpart(PartState * qq);
+    int MuteFMPart(PartState * qq);
     void keyoff(PartState * qq);
     void kof1(PartState * qq);
     void keyoffp(PartState * qq);

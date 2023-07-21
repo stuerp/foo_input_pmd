@@ -293,7 +293,7 @@ int PPZ8::Load(TCHAR * filePath, int bufnum)
         {
             _File->Close();
 
-            return _ERR_OUT_OF_MEMORY;
+            return PPS_OUT_OF_MEMORY;
         }
 
         ::memset(Data, 0, (size_t) Size);
@@ -373,7 +373,7 @@ int PPZ8::Load(TCHAR * filePath, int bufnum)
         if (pdst == nullptr)
         {
             _File->Close();
-            return _ERR_OUT_OF_MEMORY;
+            return PPS_OUT_OF_MEMORY;
         }
 
         ::memset(pdst, 0, DstSize);
@@ -390,7 +390,7 @@ int PPZ8::Load(TCHAR * filePath, int bufnum)
             if (psrc == NULL)
             {
                 _File->Close();
-                return _ERR_OUT_OF_MEMORY;
+                return PPS_OUT_OF_MEMORY;
             }
 
             ::memset(psrc, 0, SrcSize);

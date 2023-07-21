@@ -252,7 +252,7 @@ void OPNA::SetReg(uint32_t addr, uint32_t value)
 {
     if ((addr >= 0x10) && (addr <= 0x1f) && !_HasADPCMROM)
     {
-        // Use WAV files to play percussion.
+        // UsePPS WAV files to play percussion.
         switch (addr)
         {
             case 0x10: // DM / KEYON
