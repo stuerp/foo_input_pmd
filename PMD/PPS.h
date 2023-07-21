@@ -56,7 +56,7 @@ public:
 
     void Mix(Sample * sampleData, int sampleCount);
 
-    int Load(WCHAR * filePath);
+    int Load(const WCHAR * filePath);
 
 private:
     void _Init(void);

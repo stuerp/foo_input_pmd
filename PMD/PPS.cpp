@@ -146,7 +146,7 @@ bool PPSDRV::Play(int num, int shift, int volshift)
 }
 
 //  PPS 読み込み
-int PPSDRV::Load(WCHAR * filePath)
+int PPSDRV::Load(const WCHAR * filePath)
 {
     Stop();
 

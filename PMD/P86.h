@@ -70,7 +70,7 @@ public:
     bool Stop(void);                // P86 停止
     bool Play(void);                // P86 再生
     bool Keyoff(void);                // P86 keyoff
-    int Load(WCHAR * filename);            // P86 読み込み
+    int Load(const WCHAR * filePath);
     bool SetRate(uint32_t r, bool ip);          // レート設定
     void SetVolume(int volume);            // 全体音量調節用
     bool SetVol(int _vol);              // 音量設定

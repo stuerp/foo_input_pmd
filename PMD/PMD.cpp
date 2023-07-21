@@ -167,36 +167,36 @@ void PMD::InitializeInternal()
     _OpenWork.ppsip = false;
 
     // Initialize variables.
-    _OpenWork.MusPart[ 0] = &FMPart[0];
-    _OpenWork.MusPart[ 1] = &FMPart[1];
-    _OpenWork.MusPart[ 2] = &FMPart[2];
-    _OpenWork.MusPart[ 3] = &FMPart[3];
-    _OpenWork.MusPart[ 4] = &FMPart[4];
-    _OpenWork.MusPart[ 5] = &FMPart[5];
+    _OpenWork.Part[ 0] = &FMPart[0];
+    _OpenWork.Part[ 1] = &FMPart[1];
+    _OpenWork.Part[ 2] = &FMPart[2];
+    _OpenWork.Part[ 3] = &FMPart[3];
+    _OpenWork.Part[ 4] = &FMPart[4];
+    _OpenWork.Part[ 5] = &FMPart[5];
 
-    _OpenWork.MusPart[ 6] = &SSGPart[0];
-    _OpenWork.MusPart[ 7] = &SSGPart[1];
-    _OpenWork.MusPart[ 8] = &SSGPart[2];
+    _OpenWork.Part[ 6] = &SSGPart[0];
+    _OpenWork.Part[ 7] = &SSGPart[1];
+    _OpenWork.Part[ 8] = &SSGPart[2];
 
-    _OpenWork.MusPart[ 9] = &ADPCMPart;
+    _OpenWork.Part[ 9] = &ADPCMPart;
 
-    _OpenWork.MusPart[10] = &RhythmPart;
+    _OpenWork.Part[10] = &RhythmPart;
 
-    _OpenWork.MusPart[11] = &ExtPart[0];
-    _OpenWork.MusPart[12] = &ExtPart[1];
-    _OpenWork.MusPart[13] = &ExtPart[2];
+    _OpenWork.Part[11] = &ExtPart[0];
+    _OpenWork.Part[12] = &ExtPart[1];
+    _OpenWork.Part[13] = &ExtPart[2];
 
-    _OpenWork.MusPart[14] = &DummyPart;
-    _OpenWork.MusPart[15] = &EffPart;
+    _OpenWork.Part[14] = &DummyPart;
+    _OpenWork.Part[15] = &EffPart;
 
-    _OpenWork.MusPart[16] = &PPZ8Part[0];
-    _OpenWork.MusPart[17] = &PPZ8Part[1];
-    _OpenWork.MusPart[18] = &PPZ8Part[2];
-    _OpenWork.MusPart[19] = &PPZ8Part[3];
-    _OpenWork.MusPart[20] = &PPZ8Part[4];
-    _OpenWork.MusPart[21] = &PPZ8Part[5];
-    _OpenWork.MusPart[22] = &PPZ8Part[6];
-    _OpenWork.MusPart[23] = &PPZ8Part[7];
+    _OpenWork.Part[16] = &PPZ8Part[0];
+    _OpenWork.Part[17] = &PPZ8Part[1];
+    _OpenWork.Part[18] = &PPZ8Part[2];
+    _OpenWork.Part[19] = &PPZ8Part[3];
+    _OpenWork.Part[20] = &PPZ8Part[4];
+    _OpenWork.Part[21] = &PPZ8Part[5];
+    _OpenWork.Part[22] = &PPZ8Part[6];
+    _OpenWork.Part[23] = &PPZ8Part[7];
 
     _MData[0] = 0;
 
@@ -936,7 +936,7 @@ void PMD::setp86interpolation(bool flag)
 /// </summary>
 int PMD::maskon(int ch)
 {
-    if (ch >= sizeof(_OpenWork.MusPart) / sizeof(PartState *))
+    if (ch >= sizeof(_OpenWork.Part) / sizeof(PartState *))
         return ERR_WRONG_PARTNO;
 
     if (part_table[ch][0] < 0)
@@ -948,14 +948,14 @@ int PMD::maskon(int ch)
     {
         int fmseltmp = pmdwork.fmsel;
 
-        if ((_OpenWork.MusPart[ch]->partmask == 0) && _OpenWork._IsPlaying)
+        if ((_OpenWork.Part[ch]->partmask == 0) && _OpenWork._IsPlaying)
         {
             if (part_table[ch][2] == 0)
             {
                 pmdwork.partb = part_table[ch][1];
                 pmdwork.fmsel = 0;
 
-                MuteFMPart(_OpenWork.MusPart[ch]);
+                MuteFMPart(_OpenWork.Part[ch]);
             }
             else
             if (part_table[ch][2] == 1)
@@ -963,7 +963,7 @@ int PMD::maskon(int ch)
                 pmdwork.partb = part_table[ch][1];
                 pmdwork.fmsel = 0x100;
 
-                MuteFMPart(_OpenWork.MusPart[ch]);
+                MuteFMPart(_OpenWork.Part[ch]);
             }
             else
             if (part_table[ch][2] == 2)
@@ -994,7 +994,7 @@ int PMD::maskon(int ch)
                 _PPZ8->Stop(part_table[ch][1]);
         }
 
-        _OpenWork.MusPart[ch]->partmask |= 1;
+        _OpenWork.Part[ch]->partmask |= 1;
         pmdwork.fmsel = fmseltmp;
     }
 
@@ -1006,7 +1006,7 @@ int PMD::maskon(int ch)
 /// </summary>
 int PMD::maskoff(int ch)
 {
-    if (ch >= sizeof(_OpenWork.MusPart) / sizeof(PartState *))
+    if (ch >= sizeof(_OpenWork.Part) / sizeof(PartState *))
         return ERR_WRONG_PARTNO;
 
     if (part_table[ch][0] < 0)
@@ -1015,12 +1015,12 @@ int PMD::maskoff(int ch)
     }
     else
     {
-        if (_OpenWork.MusPart[ch]->partmask == 0)
+        if (_OpenWork.Part[ch]->partmask == 0)
             return ERR_NOT_MASKED;
 
         // Still masked by sound effects
 
-        if ((_OpenWork.MusPart[ch]->partmask &= 0xfe) != 0)
+        if ((_OpenWork.Part[ch]->partmask &= 0xfe) != 0)
             return ERR_EFFECT_USED;
 
         // The song has stopped.
@@ -1029,19 +1029,19 @@ int PMD::maskoff(int ch)
 
         int fmseltmp = pmdwork.fmsel;
 
-        if (_OpenWork.MusPart[ch]->address != NULL)
+        if (_OpenWork.Part[ch]->address != NULL)
         {
             if (part_table[ch][2] == 0)
             {    // FM音源(表)
                 pmdwork.fmsel = 0;
                 pmdwork.partb = part_table[ch][1];
-                neiro_reset(_OpenWork.MusPart[ch]);
+                neiro_reset(_OpenWork.Part[ch]);
             }
             else if (part_table[ch][2] == 1)
             {  // FM音源(裏)
                 pmdwork.fmsel = 0x100;
                 pmdwork.partb = part_table[ch][1];
-                neiro_reset(_OpenWork.MusPart[ch]);
+                neiro_reset(_OpenWork.Part[ch]);
             }
         }
 
@@ -1291,7 +1291,7 @@ char * PMD::GetNoteInternal(const uint8_t * data, size_t size, int index, char *
 }
 
 // Load PPC
-int PMD::LoadPPC(WCHAR * filePath)
+int PMD::LoadPPC(const WCHAR * filePath)
 {
     Stop();
 
@@ -1304,7 +1304,7 @@ int PMD::LoadPPC(WCHAR * filePath)
 }
 
 // Load PPS
-int PMD::LoadPPS(WCHAR * filename)
+int PMD::LoadPPS(const WCHAR * filename)
 {
     Stop();
 
@@ -1321,7 +1321,7 @@ int PMD::LoadPPS(WCHAR * filename)
 }
 
 // Load P86
-int PMD::LoadP86(WCHAR * filename)
+int PMD::LoadP86(const WCHAR * filename)
 {
     Stop();
 
@@ -1342,7 +1342,7 @@ int PMD::LoadP86(WCHAR * filename)
 }
 
 // Load .PZI, .PVI
-int PMD::LoadPPZ(WCHAR * filename, int bufnum)
+int PMD::LoadPPZ(const WCHAR * filename, int bufnum)
 {
     Stop();
 
@@ -1368,10 +1368,10 @@ OPEN_WORK * PMD::GetOpenWork()
 // Get part work pointer
 PartState * PMD::GetOpenPartWork(int ch)
 {
-    if (ch >= sizeof(_OpenWork.MusPart) / sizeof(PartState *))
+    if (ch >= sizeof(_OpenWork.Part) / sizeof(PartState *))
         return NULL;
 
-    return _OpenWork.MusPart[ch];
+    return _OpenWork.Part[ch];
 }
 
 void PMD::HandleTimerA()
@@ -1424,7 +1424,7 @@ void PMD::DriverMain()
         for (i = 0; i < 3; i++)
         {
             pmdwork.partb = i + 1;
-            psgmain(&SSGPart[i]);
+            PSGMain(&SSGPart[i]);
         }
     }
 
@@ -1433,7 +1433,7 @@ void PMD::DriverMain()
     for (i = 0; i < 3; i++)
     {
         pmdwork.partb = i + 1;
-        FMModuleMain(&FMPart[i + 3]);
+        FMMain(&FMPart[i + 3]);
     }
 
     pmdwork.fmsel = 0;
@@ -1441,23 +1441,23 @@ void PMD::DriverMain()
     for (i = 0; i < 3; i++)
     {
         pmdwork.partb = i + 1;
-        FMModuleMain(&FMPart[i]);
+        FMMain(&FMPart[i]);
     }
 
     for (i = 0; i < 3; i++)
     {
         pmdwork.partb = 3;
-        FMModuleMain(&ExtPart[i]);
+        FMMain(&ExtPart[i]);
     }
 
     if (_OpenWork.x68_flg == 0)
     {
-        rhythmmain(&RhythmPart);
+        RhythmMain(&RhythmPart);
 
         if (_OpenWork._UseP86)
-            pcm86main(&ADPCMPart);
+            PCM86Main(&ADPCMPart);
         else
-            adpcmmain(&ADPCMPart);
+            ADPCMMain(&ADPCMPart);
     }
 
     if (_OpenWork.x68_flg != 0xff)
@@ -1465,7 +1465,7 @@ void PMD::DriverMain()
         for (i = 0; i < 8; i++)
         {
             pmdwork.partb = i;
-            ppz8main(&PPZ8Part[i]);
+            PPZ8Main(&PPZ8Part[i]);
         }
     }
 
@@ -1513,7 +1513,7 @@ void PMD::DriverMain()
         _OpenWork._LoopCount = -1;
 }
 
-void PMD::FMModuleMain(PartState * qq)
+void PMD::FMMain(PartState * qq)
 {
     if (qq->address == NULL)
         return;
@@ -1549,7 +1549,7 @@ void PMD::FMModuleMain(PartState * qq)
         {
             if (*si > 0x80 && *si != 0xda)
             {
-                si = commands(qq, si);
+                si = FMCommand(qq, si);
             }
             else
             if (*si == 0x80)
@@ -2340,7 +2340,7 @@ void PMD::fmlfo_sub(PartState *, int al, int bl, uint8_t * vol_tbl)
 }
 
 // SSG Sound Source Main
-void PMD::psgmain(PartState * qq)
+void PMD::PSGMain(PartState * qq)
 {
     uint8_t * si;
     int    temp;
@@ -2389,7 +2389,7 @@ void PMD::psgmain(PartState * qq)
             }
             else if (*si > 0x80 && *si != 0xda)
             {
-                si = commandsp(qq, si);
+                si = PSGCommands(qq, si);
             }
             else if (*si == 0x80)
             {
@@ -2545,7 +2545,7 @@ void PMD::keyoffp(PartState * qq)
 }
 
 // Rhythm part performance main
-void PMD::rhythmmain(PartState * qq)
+void PMD::RhythmMain(PartState * qq)
 {
     uint8_t * si, * bx;
     int    al, result = 0;
@@ -2602,7 +2602,7 @@ void PMD::rhythmmain(PartState * qq)
                 }
 
                 // al > 0x80
-                si = commandsr(qq, si - 1);
+                si = RhythmCommands(qq, si - 1);
             }
 
             qq->address = --si;
@@ -2632,7 +2632,7 @@ uint8_t * PMD::rhythmon(PartState * qq, uint8_t * bx, int al, int * result)
 {
     if (al & 0x40)
     {
-        bx = commandsr(qq, bx - 1);
+        bx = RhythmCommands(qq, bx - 1);
         *result = 0;
         return bx;
     }
@@ -2911,7 +2911,7 @@ uint8_t * PMD::pdrswitch(PartState *, uint8_t * si)
 }
 
 // PCM sound source performance main
-void PMD::adpcmmain(PartState * qq)
+void PMD::ADPCMMain(PartState * qq)
 {
     if (qq->address == NULL)
         return;
@@ -2946,7 +2946,7 @@ void PMD::adpcmmain(PartState * qq)
         {
             if (*si > 0x80 && *si != 0xda)
             {
-                si = commandsm(qq, si);
+                si = ADPCMCommands(qq, si);
             }
             else
             if (*si == 0x80)
@@ -3086,7 +3086,7 @@ void PMD::adpcmmain(PartState * qq)
 }
 
 // PCM sound source performance main (PMD86)
-void PMD::pcm86main(PartState * qq)
+void PMD::PCM86Main(PartState * qq)
 {
     uint8_t * si;
     int    temp;
@@ -3120,7 +3120,7 @@ void PMD::pcm86main(PartState * qq)
             //      if(*si > 0x80 && *si != 0xda) {
             if (*si > 0x80)
             {
-                si = commands8(qq, si);
+                si = PCM86Commands(qq, si);
             }
             else if (*si == 0x80)
             {
@@ -3252,7 +3252,7 @@ void PMD::pcm86main(PartState * qq)
 }
 
 // PCM sound source performance main (PPZ8)
-void PMD::ppz8main(PartState * qq)
+void PMD::PPZ8Main(PartState * qq)
 {
     uint8_t * si;
     int    temp;
@@ -3287,7 +3287,7 @@ void PMD::ppz8main(PartState * qq)
         {
             if (*si > 0x80 && *si != 0xda)
             {
-                si = commandsz(qq, si);
+                si = PPZ8Commands(qq, si);
             }
             else if (*si == 0x80)
             {
@@ -4454,7 +4454,7 @@ int PMD::ssgdrum_check(PartState * qq, int al)
 }
 
 // Various special command processing
-uint8_t * PMD::commands(PartState * qq, uint8_t * si)
+uint8_t * PMD::FMCommand(PartState * qq, uint8_t * si)
 {
     int    al;
 
@@ -4593,7 +4593,7 @@ uint8_t * PMD::commands(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::commandsp(PartState * qq, uint8_t * si)
+uint8_t * PMD::PSGCommands(PartState * qq, uint8_t * si)
 {
     int    al;
 
@@ -4755,7 +4755,7 @@ uint8_t * PMD::commandsp(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::commandsr(PartState * qq, uint8_t * si)
+uint8_t * PMD::RhythmCommands(PartState * qq, uint8_t * si)
 {
     int    al;
 
@@ -4869,7 +4869,7 @@ uint8_t * PMD::commandsr(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::commandsm(PartState * qq, uint8_t * si)
+uint8_t * PMD::ADPCMCommands(PartState * qq, uint8_t * si)
 {
     int    al;
 
@@ -5030,7 +5030,7 @@ uint8_t * PMD::commandsm(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::commands8(PartState * qq, uint8_t * si)
+uint8_t * PMD::PCM86Commands(PartState * qq, uint8_t * si)
 {
     int    al;
 
@@ -5160,7 +5160,7 @@ uint8_t * PMD::commands8(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::commandsz(PartState * qq, uint8_t * si)
+uint8_t * PMD::PPZ8Commands(PartState * qq, uint8_t * si)
 {
     int    al;
 
@@ -8591,7 +8591,7 @@ void PMD::pcmstore(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf)
 /// <summary>
 /// Loads the PPC file.
 /// </summary>
-int PMD::LoadPPCInternal(WCHAR * filePath)
+int PMD::LoadPPCInternal(const WCHAR * filePath)
 {
     if (*filePath == '\0')
         return ERR_OPEN_FAILED;

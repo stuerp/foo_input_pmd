@@ -143,36 +143,35 @@ void P86DRV::ReadHeader(File * file, P86HEADER & header)
 /// <summary>
 /// Loads a P86 file (Professional Music Driver P86 Samples Pack file)
 /// </summary>
-int P86DRV::Load(WCHAR * fileName)
+int P86DRV::Load(const WCHAR * filePath)
 {
     Stop();
 
     _FileName[0] = '\0';
 
-    if (*fileName == '\0')
+    if (*filePath == '\0')
         return _ERR_OPEN_P86_FILE;
 
-    if (!_File->Open(fileName))
+    if (!_File->Open(filePath))
     {
-        if (p86_addr != NULL)
+        if (p86_addr)
         {
-            ::free(p86_addr);    // 開放
+            ::free(p86_addr);
             p86_addr = NULL;
 
             ::memset(&p86header, 0, sizeof(p86header));
             ::memset(_FileName, 0, sizeof(_FileName));
         }
 
-        return _ERR_OPEN_P86_FILE;            //  ファイルが開けない
+        return _ERR_OPEN_P86_FILE;
     }
-
 
     // Header Hexdump:  50 43 4D 38 36 20 44 41 54 41 0A
     int i;
     P86HEADER  _p86header;
     P86HEADER2  p86header2;
 
-    size_t FileSize = (size_t) _File->GetFileSize(fileName);    // ファイルサイズ
+    size_t FileSize = (size_t) _File->GetFileSize(filePath);    // ファイルサイズ
 
     ReadHeader(_File, _p86header);
 
@@ -187,7 +186,7 @@ int P86DRV::Load(WCHAR * fileName)
 
     if (::memcmp(&p86header, &p86header2, sizeof(p86header)) == 0)
     {
-        ::wcscpy_s(_FileName, fileName);
+        ::wcscpy_s(_FileName, filePath);
 
         _File->Close();
 
@@ -212,7 +211,7 @@ int P86DRV::Load(WCHAR * fileName)
 
     _File->Read(p86_addr, (uint32_t) FileSize);
 
-    ::wcscpy_s(_FileName, fileName);
+    ::wcscpy_s(_FileName, filePath);
 
     _File->Close();
 

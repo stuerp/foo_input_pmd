@@ -214,7 +214,7 @@ void PPZ8::ReadHeader(File * file, PVIHEADER & pviheader)
 }
 
 // 03H Read PVI/PZI file
-int PPZ8::Load(TCHAR * filePath, int bufnum)
+int PPZ8::Load(const WCHAR * filePath, int bufnum)
 {
     if (filePath == nullptr || (filePath && (*filePath == '\0')))
         return _ERR_OPEN_PPZ_FILE;

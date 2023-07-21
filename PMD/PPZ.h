@@ -91,7 +91,7 @@ public:
     bool __cdecl Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop);
     // 01H PCM 発音
     bool __cdecl Stop(int ch);                            // 02H PCM 停止
-    int  __cdecl Load(TCHAR * filename, int bufnum);        // 03H PVI/PZIﾌｧｲﾙの読み込み
+    int  __cdecl Load(const WCHAR * filePath, int bufnum);
     bool __cdecl SetVolume(int ch, int vol);                // 07H ﾎﾞﾘｭｰﾑ設定
     bool __cdecl SetPitchFrequency(int ch, uint32_t ontei);        // 0BH 音程周波数の設定
     bool __cdecl SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);

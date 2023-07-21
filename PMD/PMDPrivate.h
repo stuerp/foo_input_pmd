@@ -95,6 +95,7 @@ struct PartState
 {
     uint8_t * address; // 2 ｴﾝｿｳﾁｭｳ ﾉ ｱﾄﾞﾚｽ
     uint8_t * partloop; // 2 ｴﾝｿｳ ｶﾞ ｵﾜｯﾀﾄｷ ﾉ ﾓﾄﾞﾘｻｷ
+
     int leng;  // 1 ﾉｺﾘ LENGTH
     int qdat;  // 1 gatetime (q/Q値を計算した値)
     uint32_t fnum;  // 2 ｴﾝｿｳﾁｭｳ ﾉ BLOCK/FNUM
@@ -114,6 +115,7 @@ struct PartState
     int step2;  // 1 [STEP_2]
     int time2;  // 1 [TIME_2]
     int lfoswi;  // 1 LFOSW. B0/tone B1/vol B2/同期 B3/porta
+
     //          B4/tone B5/vol B6/同期
     int volpush; // 1 Volume PUSHarea
     int mdepth;  // 1 M depth
@@ -146,6 +148,7 @@ struct PartState
     int neiromask; // 1 FM 音色定義用maskdata
     int lfo_wave; // 1 LFOの波形
     int partmask; // 1 PartMask b0:通常 b1:効果音 b2:NECPCM用
+
     //    b3:none b4:PPZ/ADE用 b5:s0時 b6:m b7:一時
     int keyoff_flag;  // 1 KeyoffしたかどうかのFlag
     int volmask; // 1 音量LFOのマスク
@@ -186,7 +189,7 @@ struct PartState
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 struct OPEN_WORK
 {
-    PartState * MusPart[NumOfAllPart]; // パートワークのポインタ
+    PartState * Part[NumOfAllPart]; // パートワークのポインタ
 
     uint8_t * mmlbuf;  // Musicdataのaddress+1
     uint8_t * tondat;  // Voicedataのaddress
