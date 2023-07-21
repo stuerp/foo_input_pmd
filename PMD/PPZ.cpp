@@ -217,7 +217,7 @@ void PPZ8::ReadHeader(File * file, PVIHEADER & pviheader)
 int PPZ8::Load(const WCHAR * filePath, int bufnum)
 {
     if (filePath == nullptr || (filePath && (*filePath == '\0')))
-        return _ERR_OPEN_PPZ_FILE;
+        return PPZ_OPEN_FAILED;
 
     static const int table1[16] =
     {
@@ -246,7 +246,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
             XMS_FRAME_SIZE[bufnum] = 0;
             memset(&PCME_WORK[bufnum], 0, sizeof(PZIHEADER));
         }
-        return _ERR_OPEN_PPZ_FILE;        //  ファイルが開けない
+        return PPZ_OPEN_FAILED;        //  ファイルが開けない
     }
 
     int Size = (int) _File->GetFileSize(filePath);  // ファイルサイズ
@@ -261,7 +261,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
         {
             _File->Close();
 
-            return ERR_PPZ_UNKNOWN_FORMAT;
+            return PPZ_UNKNOWN_FORMAT;
         }
 
         if (::memcmp(&PCME_WORK[bufnum], &PZIHeader, sizeof(PZIHEADER)) == 0)
@@ -270,7 +270,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
 
             _File->Close();
 
-            return ERR_PPZ_ALREADY_LOADED;
+            return PPZ_ALREADY_LOADED;
         }
 
         if (XMS_FRAME_ADR[bufnum])
@@ -293,7 +293,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
         {
             _File->Close();
 
-            return PPS_OUT_OF_MEMORY;
+            return PPZ_OUT_OF_MEMORY;
         }
 
         ::memset(Data, 0, (size_t) Size);
@@ -316,7 +316,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
         {
             _File->Close();
 
-            return ERR_PPZ_UNKNOWN_FORMAT;
+            return PPZ_UNKNOWN_FORMAT;
         }
 
         ::strncpy(PZIHeader.ID, "PZI1", 4);
@@ -348,7 +348,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
             ::wcscpy(PVI_FILE[bufnum], filePath);
             _File->Close();
 
-            return ERR_PPZ_ALREADY_LOADED;
+            return PPZ_ALREADY_LOADED;
         }
 
         if (XMS_FRAME_ADR[bufnum] != NULL)
@@ -373,7 +373,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
         if (pdst == nullptr)
         {
             _File->Close();
-            return PPS_OUT_OF_MEMORY;
+            return PPZ_OUT_OF_MEMORY;
         }
 
         ::memset(pdst, 0, DstSize);
@@ -390,7 +390,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
             if (psrc == NULL)
             {
                 _File->Close();
-                return PPS_OUT_OF_MEMORY;
+                return PPZ_OUT_OF_MEMORY;
             }
 
             ::memset(psrc, 0, SrcSize);
@@ -430,7 +430,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
 
     _File->Close();
 
-    return _PPZ8_OK;
+    return PPZ_SUCCESS;
 }
 
 // 07H Volume

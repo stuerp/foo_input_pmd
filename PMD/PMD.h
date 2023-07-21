@@ -120,8 +120,8 @@ public:
 
     bool GetNote(const uint8_t * data, size_t size, int al, char * text, size_t textSize);
 
-    int LoadPPC(const WCHAR * filenPath);
-    int LoadPPS(const WCHAR * filenPath);
+    int LoadPPC(const WCHAR * filePath);
+    int LoadPPS(const WCHAR * filePath);
     int LoadP86(const WCHAR * filePath);
     int LoadPPZ(const WCHAR * filePath, int bufnum);
 

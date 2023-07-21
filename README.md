@@ -103,7 +103,7 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
-v0.3.0, 2023-xx-xx, *""*
+v0.3.0, 2023-07-22, *"What's your preference?"*
 
 * Improved: Added all configuration parameters to the Preferences page.
 * Improved: Several performance improvements.

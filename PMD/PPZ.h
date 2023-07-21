@@ -7,12 +7,12 @@
 
 #define PPZ8_VERSION    "1.07"
 
-#define _PPZ8_OK                       0        // 正常終了
-#define _ERR_OPEN_PPZ_FILE              1        // PVI/PZI を開けなかった
-#define ERR_PPZ_UNKNOWN_FORMAT               2        // PVI/PZI の形式が異なっている
-#define ERR_PPZ_ALREADY_LOADED      3        // PVI/PZI はすでに読み込まれている
+#define PPZ_SUCCESS          0
+#define PPZ_OPEN_FAILED      1
+#define PPZ_UNKNOWN_FORMAT   2
+#define PPZ_ALREADY_LOADED   3
 
-#define PPS_OUT_OF_MEMORY             99        // メモリを確保できなかった
+#define PPZ_OUT_OF_MEMORY   99
 
 #define SOUND_44K   44100
 

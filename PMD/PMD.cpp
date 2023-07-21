@@ -1315,7 +1315,7 @@ int PMD::LoadPPS(const WCHAR * filename)
         case PPS_SUCCESS:        return ERR_SUCCESS;
         case PPS_OPEN_FAILED:    return ERR_OPEN_FAILED;
         case PPS_ALREADY_LOADED: return ERR_ALREADY_LOADED;
-        case PPS_OUT_OF_MEMORY:  return ERR_OUT_OF_MEMORY;
+        case PPZ_OUT_OF_MEMORY:  return ERR_OUT_OF_MEMORY;
         default:                 return ERR_UNKNOWN;
     }
 }
@@ -1336,7 +1336,7 @@ int PMD::LoadP86(const WCHAR * filename)
         case P86_OPEN_FAILED:       return ERR_OPEN_FAILED;
         case P86_UNKNOWN_FORMAT:    return ERR_UNKNOWN_FORMAT;
         case P86_ALREADY_LOADED:    return ERR_ALREADY_LOADED;
-        case PPS_OUT_OF_MEMORY:     return ERR_OUT_OF_MEMORY;
+        case PPZ_OUT_OF_MEMORY:     return ERR_OUT_OF_MEMORY;
         default:                    return ERR_UNKNOWN;
     }
 }
@@ -1350,12 +1350,12 @@ int PMD::LoadPPZ(const WCHAR * filename, int bufnum)
 
     switch (Result)
     {
-        case _PPZ8_OK:                  return ERR_SUCCESS;
-        case _ERR_OPEN_PPZ_FILE:        return ERR_OPEN_FAILED;
-        case ERR_PPZ_UNKNOWN_FORMAT:       return ERR_UNKNOWN_FORMAT;
-        case ERR_PPZ_ALREADY_LOADED: return ERR_ALREADY_LOADED;
-        case PPS_OUT_OF_MEMORY:        return ERR_OUT_OF_MEMORY;
-        default:                        return ERR_UNKNOWN;
+        case PPZ_SUCCESS:           return ERR_SUCCESS;
+        case PPZ_OPEN_FAILED:       return ERR_OPEN_FAILED;
+        case PPZ_UNKNOWN_FORMAT:    return ERR_UNKNOWN_FORMAT;
+        case PPZ_ALREADY_LOADED:    return ERR_ALREADY_LOADED;
+        case PPZ_OUT_OF_MEMORY:     return ERR_OUT_OF_MEMORY;
+        default:                    return ERR_UNKNOWN;
     }
 }
 

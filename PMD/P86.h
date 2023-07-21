@@ -9,11 +9,11 @@
 #define vers            0x11
 #define date            "Sep.11th 1996"
 
-#define P86_SUCCESS            0    // 正常終了
-#define P86_OPEN_FAILED       81    // P86 を開けなかった
-#define P86_UNKNOWN_FORMAT        82    // P86 の形式が異なっている
-#define P86_ALREADY_LOADED   83    // P86 はすでに読み込まれている
-#define PPS_OUT_OF_MEMORY       99    // メモリを確保できなかった
+#define P86_SUCCESS          0
+#define P86_OPEN_FAILED     81
+#define P86_UNKNOWN_FORMAT  82
+#define P86_ALREADY_LOADED  83
+#define PPZ_OUT_OF_MEMORY   99
 
 #define SOUND_44K   44100
 #define SOUND_22K   22050

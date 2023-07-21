@@ -206,7 +206,7 @@ int P86DRV::Load(const WCHAR * filePath)
     if ((p86_addr = (uint8_t *) malloc(FileSize)) == NULL)
     {
         _File->Close();
-        return PPS_OUT_OF_MEMORY;      // メモリが確保できない
+        return PPZ_OUT_OF_MEMORY;      // メモリが確保できない
     }
 
     _File->Read(p86_addr, (uint32_t) FileSize);

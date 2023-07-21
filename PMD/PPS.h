@@ -10,7 +10,7 @@
 #define PPS_SUCCESS            0
 #define PPS_OPEN_FAILED        1
 #define PPS_ALREADY_LOADED     2
-#define PPS_OUT_OF_MEMORY     99
+#define PPZ_OUT_OF_MEMORY     99
 
 #define SOUND_44K     44100
 #define SOUND_22K     22050

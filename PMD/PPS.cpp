@@ -195,7 +195,7 @@ int PPSDRV::Load(const WCHAR * filePath)
     if ((_Samples = (Sample *) malloc(size * sizeof(Sample) * 2 / sizeof(uint8_t))) == NULL)
     {
         _File->Close();
-        return PPS_OUT_OF_MEMORY;      // メモリが確保できない
+        return PPZ_OUT_OF_MEMORY;      // メモリが確保できない
     }
 
     {
@@ -204,7 +204,7 @@ int PPSDRV::Load(const WCHAR * filePath)
         if (Data ==nullptr)
         {
             _File->Close();
-            return PPS_OUT_OF_MEMORY;
+            return PPZ_OUT_OF_MEMORY;
         }
 
         if (_File->Read(Data, (uint32_t) size) == (int32_t) size)
