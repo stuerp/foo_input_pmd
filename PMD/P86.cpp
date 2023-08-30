@@ -13,15 +13,15 @@
 
 #include "P86.h"
 
-P86DRV::P86DRV(File * file) : _File(file), p86_addr()
+P86DRV::P86DRV(File * file) : _File(file), _Data()
 {
     _Init();
 }
 
 P86DRV::~P86DRV()
 {
-    if (p86_addr)
-        free(p86_addr);
+    if (_Data)
+        ::free(_Data);
 }
 
 //  初期化
@@ -40,17 +40,17 @@ void P86DRV::_Init(void)
     ::memset(_FilePath, 0, sizeof(_FilePath));
     ::memset(&_Header, 0, sizeof(_Header));
 
+    if (_Data)
+    {
+        ::free(_Data);
+        _Data = NULL;
+    }
+
     _UseInterpolation = false;
     _SampleRate = SOUND_44K;
     _OrigSampleRate = SampleRates[3]; // 16.54kHz
     _Pitch = 0;
     _Volume = 0;
-
-    if (p86_addr)
-    {
-        ::free(p86_addr);
-        p86_addr = NULL;
-    }
 
     start_ofs = NULL;
     start_ofs_x = 0;
@@ -74,29 +74,12 @@ void P86DRV::_Init(void)
 
     _PanFlag = 0;
     _PanData = 0;
-    _Enabled = false;
 
     _AVolume = 0;
 
     SetVolume(0);
-}
 
-// Playback frequency, primary complement setting
-void P86DRV::SetSampleRate(uint32_t synthesisRate, bool useInterpolation)
-{
-    _SampleRate = (int) synthesisRate;
-    _UseInterpolation = useInterpolation;
-
-    uint32_t Pitch = (uint32_t) ((uint64_t) _Pitch * _OrigSampleRate / _SampleRate);
-
-    addsize2 = (int) ((Pitch & 0xffff) >>  4);
-    addsize1 = (int) ( Pitch           >> 16);
-}
-
-//  音量調整用
-void P86DRV::SetVolume(int volume)
-{
-    CreateVolumeTable(volume);
+    _Enabled = false;
 }
 
 /// <summary>
@@ -113,10 +96,10 @@ int P86DRV::Load(const WCHAR * filePath)
 
     if (!_File->Open(filePath))
     {
-        if (p86_addr)
+        if (_Data)
         {
-            ::free(p86_addr);
-            p86_addr = NULL;
+            ::free(_Data);
+            _Data = NULL;
 
             ::memset(&_Header, 0, sizeof(_Header));
             ::memset(_FilePath, 0, sizeof(_FilePath));
@@ -152,23 +135,23 @@ int P86DRV::Load(const WCHAR * filePath)
         return P86_ALREADY_LOADED;    // 同じファイル
     }
 
-    if (p86_addr != NULL)
+    if (_Data)
     {
-        free(p86_addr);    // いったん開放
-        p86_addr = NULL;
+        ::free(_Data);
+        _Data = NULL;
     }
 
     ::memcpy(&_Header, &p86header2, sizeof(_Header));
 
     FileSize -= P86HEADERSIZE;
 
-    if ((p86_addr = (uint8_t *) malloc(FileSize)) == NULL)
+    if ((_Data = (uint8_t *) ::malloc(FileSize)) == NULL)
     {
         _File->Close();
-        return PPZ_OUT_OF_MEMORY;      // メモリが確保できない
+        return PPZ_OUT_OF_MEMORY;
     }
 
-    _File->Read(p86_addr, (uint32_t) FileSize);
+    _File->Read(_Data, (uint32_t) FileSize);
 
     ::wcscpy_s(_FilePath, filePath);
 
@@ -177,16 +160,40 @@ int P86DRV::Load(const WCHAR * filePath)
     return P86_SUCCESS;
 }
 
+// Playback frequency, primary complement setting
+void P86DRV::SetSampleRate(uint32_t synthesisRate, bool useInterpolation)
+{
+    _SampleRate = (int) synthesisRate;
+    _UseInterpolation = useInterpolation;
+
+    uint32_t Pitch = (uint32_t) ((uint64_t) _Pitch * _OrigSampleRate / _SampleRate);
+
+    addsize2 = (int) ((Pitch & 0xffff) >>  4);
+    addsize1 = (int) ( Pitch           >> 16);
+}
+
+void P86DRV::SetVolume(int volume)
+{
+    CreateVolumeTable(volume);
+}
+
+bool P86DRV::SetVol(int volume)
+{
+    _Volume = volume;
+
+    return true;
+}
+
 //  PCM 番号設定
 bool P86DRV::SetNeiro(int num)
 {
-    if (p86_addr == NULL)
+    if (_Data == NULL)
     {
         _start_ofs = NULL;
     }
     else
     {
-        _start_ofs = p86_addr + _Header.pcmnum[num].start;
+        _start_ofs = _Data + _Header.pcmnum[num].start;
     }
     _size = _Header.pcmnum[num].size;
     repeat_flag = false;
@@ -203,24 +210,6 @@ bool P86DRV::SetPan(int flag, int data)
     return true;
 }
 
-//  音量設定
-bool P86DRV::SetVol(int _vol)
-{
-    _Volume = _vol;
-    return true;
-}
-
-// Setting the pitch frequency
-//    _srcrate : 入力データの周波数
-//      0 : 4.13kHz
-//      1 : 5.52kHz
-//      2 : 8.27kHz
-//      3 : 11.03kHz
-//      4 : 16.54kHz
-//      5 : 22.05kHz
-//      6 : 33.08kHz
-//      7 : 44.1kHz
-//    _ontei : 設定音程
 bool P86DRV::SetPitch(int sampleRateIndex, uint32_t pitch)
 {
     if (sampleRateIndex < 0 || sampleRateIndex >= _countof(SampleRates))
@@ -347,8 +336,7 @@ bool P86DRV::SetLoop(int loop_start, int loop_end, int release_start, bool adpcm
     return true;
 }
 
-//  P86 再生
-bool P86DRV::Play(void)
+void P86DRV::Play()
 {
     start_ofs = _start_ofs;
     start_ofs_x = 0;
@@ -356,8 +344,6 @@ bool P86DRV::Play(void)
 
     _Enabled = true;
     release_flag2 = false;
-
-    return true;
 }
 
 //  P86 停止

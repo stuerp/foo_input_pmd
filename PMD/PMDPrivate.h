@@ -52,7 +52,7 @@
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 struct DriverState
 {
-    int _CurrentTrack;
+    int _CurrentChannel;
     int tieflag; // &のフラグ(1 : tie)
     int volpush_flag;  // 次の１音音量down用のflag(1 : voldown)
     int rhydmy;  // R part ダミー演奏データ

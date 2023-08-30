@@ -92,7 +92,7 @@ public:
     bool Stop(int ch);                            // 02H PCM 停止
     int  Load(const WCHAR * filePath, int bufnum);
     bool SetVolume(int ch, int vol);                // 07H ﾎﾞﾘｭｰﾑ設定
-    bool SetPitchFrequency(int ch, uint32_t ontei);        // 0BH 音程周波数の設定
+    bool SetPitch(int channelNumber, uint32_t pitch);        // 0BH 音程周波数の設定
     bool SetLoop(int ch, uint32_t loop_start, uint32_t loop_end); // 0EH ﾙｰﾌﾟﾎﾟｲﾝﾀの設定
     void AllStop(void);                            // 12H (PPZ8)全停止
     bool SetPan(int ch, int pan);                // 13H (PPZ8)PAN指定
@@ -107,36 +107,40 @@ public:
 
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
 
-    PZIHEADER PCME_WORK[2];                        // PCMの音色ヘッダー
+public:
+    PZIHEADER PCME_WORK[2];
     bool _HasPVI[2];
     TCHAR _FilePath[2][_MAX_PATH];
 
 private:
-    File * _File;                        // ファイルアクセス関連のクラスライブラリ
-
-    void    WORK_INIT(void);                    // ﾜｰｸ初期化
-    bool    ADPCM_EM_FLG;                        // CH8 でADPCM エミュレートするか？
-    bool    interpolation;                        // 補完するか？
-    int        AVolume;
-    PPZChannel _Channel[PCM_CNL_MAX];        // 各チャンネルのワーク
-    uint8_t * XMS_FRAME_ADR[2];                    // XMSで確保したメモリアドレス（リニア）
-    int        XMS_FRAME_SIZE[2];                    // PZI or PVI 内部データサイズ
-    int        PCM_VOLUME;                            // 86B Mixer全体ボリューム
-    // (DEF=12)
-    int        volume;                                // 全体ボリューム
-    // (opna unit 互換)
-    int        DIST_F;                                // 再生周波数
-
-    //    static Sample VolumeTable[16][256];            // 音量テーブル
-    Sample VolumeTable[16][256];                // 音量テーブル
+    void Reset();
 
     void InitializeInternal(void);                        // 初期化(内部処理)
     void MakeVolumeTable(int vol);            // 音量テーブルの作成
     void ReadHeader(File * file, PZIHEADER & pziheader);
     void ReadHeader(File * file, PVIHEADER & pviheader);
 
-    inline int Limit(int v, int max, int min)
+    inline int Limit(int v, int max, int min) const noexcept
     {
         return v > max ? max : (v < min ? min : v);
     }
+
+private:
+    File * _File;                        // ファイルアクセス関連のクラスライブラリ
+
+    bool _EmulateADPCM; // Should channel 8 emulate ADPCM?
+    bool _UseInterpolation;                        // 補完するか？
+
+    int        AVolume;
+    PPZChannel _Channel[PCM_CNL_MAX];        // 各チャンネルのワーク
+    uint8_t * XMS_FRAME_ADR[2];                    // XMSで確保したメモリアドレス（リニア）
+    int        XMS_FRAME_SIZE[2];                    // PZI or PVI 内部データサイズ
+    int        PCM_VOLUME;                            // 86B Mixer全体ボリューム
+    // (DEF=12)
+    int        _Volume;                                // 全体ボリューム
+    // (opna unit 互換)
+    int        DIST_F;                                // 再生周波数
+
+    //    static Sample VolumeTable[16][256];            // 音量テーブル
+    Sample _VolumeTable[16][256];                // 音量テーブル
 };

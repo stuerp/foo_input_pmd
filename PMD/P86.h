@@ -68,16 +68,19 @@ public:
 
     bool Init(uint32_t r, bool useInterpolation);            // 初期化
     bool Stop(void);                // P86 停止
-    bool Play(void);                // P86 再生
+    void Play();
+
     bool Keyoff(void);                // P86 keyoff
     int Load(const WCHAR * filePath);
+
     void SetSampleRate(uint32_t sampleRate, bool useInterpolation);
-    void SetVolume(int volume);            // 全体音量調節用
-    bool SetVol(int _vol);              // 音量設定
-    bool SetPitch(int rate, uint32_t ontei);      // 音程周波数の設定
+    void SetVolume(int volume);
+    bool SetVol(int volume);
+    bool SetPitch(int sampleRateIndex, uint32_t pitch);
     bool SetPan(int flag, int data);        // PAN 設定
     bool SetNeiro(int num);              // PCM 番号設定
     bool SetLoop(int loop_start, int loop_end, int release_start, bool adpcm); // ループ設定
+
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
 
 public:
@@ -107,14 +110,15 @@ private:
 
 private:
     File * _File;
+    uint8_t * _Data;
+
     bool _Enabled;
 
-    bool _UseInterpolation;              // 補完するか？
+    bool _UseInterpolation;
     int _SampleRate;
     uint32_t _Pitch;
     int _Volume;
 
-    uint8_t * p86_addr;                // P86 保存用メモリポインタ
 
     uint8_t * start_ofs;                // 発音中PCMデータ番地
 

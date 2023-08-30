@@ -76,10 +76,10 @@ void PPZ8::InitializeInternal(void)
 
     ::memset(_FilePath, 0, sizeof(_FilePath));
 
-    ADPCM_EM_FLG = false;
-    interpolation = false;
+    _EmulateADPCM = false;
+    _UseInterpolation = false;
 
-    WORK_INIT();
+    Reset();
 
     // 一旦開放する
     if (XMS_FRAME_ADR[0] != NULL)
@@ -99,7 +99,7 @@ void PPZ8::InitializeInternal(void)
     XMS_FRAME_SIZE[1] = 0;
 
     PCM_VOLUME = 0;
-    volume = 0;
+    _Volume = 0;
     SetAllVolume(VNUM_DEF);    // 全体ボリューム(DEF=12)
 
     DIST_F = RATE_DEF;       // 再生周波数
@@ -108,19 +108,15 @@ void PPZ8::InitializeInternal(void)
 //  01H PCM 発音
 bool PPZ8::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
 {
-    if (ch >= PCM_CNL_MAX) return false;
-    if (XMS_FRAME_ADR[bufnum] == NULL || XMS_FRAME_SIZE[bufnum] == 0) return false;
-
-    // PVIの定義数より大きいとスキップ
-    //if(num >= PCME_WORK[bufnum].pzinum) return false;
+    if ((ch >= _countof(_Channel)) || (XMS_FRAME_ADR[bufnum] == NULL) || (XMS_FRAME_SIZE[bufnum] == 0))
+        return false;
 
     _Channel[ch]._HasPVI = _HasPVI[bufnum];
     _Channel[ch].PCM_FLG = 1;    // 再生開始
     _Channel[ch].PCM_NOW_XOR = 0;  // 小数点部
     _Channel[ch].PCM_NUM = num;
 
-    // ADPCM エミュレート処理
-    if (ch == 7 && ADPCM_EM_FLG && (ch & 0x80) == 0)
+    if ((ch == 7) && _EmulateADPCM && (ch & 0x80) == 0)
     {
         _Channel[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][Limit(((int) start) * 64, XMS_FRAME_SIZE[bufnum] - 1, 0)];
         _Channel[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][Limit(((int) stop - 1) * 64, XMS_FRAME_SIZE[bufnum] - 1, 0)];
@@ -183,7 +179,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
 
     bool NOW_PCM_CATE = HasExtension(filePath, MAX_PATH, L".PZI"); // True if PCM format is PZI
 
-    WORK_INIT();
+    Reset();
 
     _FilePath[bufnum][0] = '\0';
 
@@ -389,7 +385,7 @@ bool PPZ8::SetVolume(int ch, int vol)
     if (ch >= PCM_CNL_MAX)
         return false;
 
-    if (ch != 7 || !ADPCM_EM_FLG)
+    if (ch != 7 || !_EmulateADPCM)
         _Channel[ch].PCM_VOL = vol;
     else
         _Channel[ch].PCM_VOL = ADPCM_EM_VOL[vol & 0xff];
@@ -398,22 +394,20 @@ bool PPZ8::SetVolume(int ch, int vol)
 }
 
 // 0BH Pitch Frequency
-bool PPZ8::SetPitchFrequency(int ch, uint32_t frequency)
+bool PPZ8::SetPitch(int channelNumber, uint32_t pitch)
 {
-    if (ch >= PCM_CNL_MAX)
+    if (channelNumber >= _countof(_Channel))
         return false;
 
-    if (ch == 7 && ADPCM_EM_FLG)
-    {            // ADPCM エミュレート中
-        frequency = (frequency & 0xffff) * 0x8000 / 0x49ba;
-    }
+    if (channelNumber == 7 && _EmulateADPCM) // Emulating ADPCM?
+        pitch = (pitch & 0xffff) * 0x8000 / 0x49ba;
 
-    _Channel[ch].PCM_ADDS_L = (int) (frequency & 0xffff);
-    _Channel[ch].PCM_ADDS_H = (int) (frequency >> 16);
+    _Channel[channelNumber].PCM_ADDS_L = (int) (pitch & 0xffff);
+    _Channel[channelNumber].PCM_ADDS_H = (int) (pitch >> 16);
 
-    _Channel[ch].PCM_ADD_H = (int) ((((int64_t) (_Channel[ch].PCM_ADDS_H) << 16) + _Channel[ch].PCM_ADDS_L) * 2 * _Channel[ch].PCM_SORC_F / DIST_F);
-    _Channel[ch].PCM_ADD_L = _Channel[ch].PCM_ADD_H & 0xffff;
-    _Channel[ch].PCM_ADD_H = _Channel[ch].PCM_ADD_H >> 16;
+    _Channel[channelNumber].PCM_ADD_H = (int) ((((int64_t) (_Channel[channelNumber].PCM_ADDS_H) << 16) + _Channel[channelNumber].PCM_ADDS_L) * 2 * _Channel[channelNumber].PCM_SORC_F / DIST_F);
+    _Channel[channelNumber].PCM_ADD_L = _Channel[channelNumber].PCM_ADD_H & 0xffff;
+    _Channel[channelNumber].PCM_ADD_H = _Channel[channelNumber].PCM_ADD_H >> 16;
 
     return true;
 }
@@ -459,7 +453,7 @@ bool PPZ8::SetPan(int ch, int pan)
 {
     if (ch >= PCM_CNL_MAX) return false;
 
-    if (ch != 7 || !ADPCM_EM_FLG)
+    if (ch != 7 || !_EmulateADPCM)
     {
         _Channel[ch].PCM_PAN = pan;
     }
@@ -474,7 +468,7 @@ bool PPZ8::SetPan(int ch, int pan)
 bool PPZ8::SetRate(uint32_t rate, bool ip)
 {
     DIST_F = (int) rate;
-    interpolation = ip;
+    _UseInterpolation = ip;
 
     return true;
 }
@@ -494,23 +488,21 @@ void PPZ8::SetAllVolume(int vol)
     if (vol < 16 && vol != PCM_VOLUME)
     {
         PCM_VOLUME = vol;
-        MakeVolumeTable(volume);
+        MakeVolumeTable(_Volume);
     }
 }
 
 //  音量調整用
-void PPZ8::SetVolume(int vol)
+void PPZ8::SetVolume(int volume)
 {
-    if (vol != volume)
-    {
-        MakeVolumeTable(vol);
-    }
+    if (volume != _Volume)
+        MakeVolumeTable(volume);
 }
 
 //  ADPCM エミュレート設定
 void PPZ8::ADPCM_EM_SET(bool flag)
 {
-    ADPCM_EM_FLG = flag;
+    _EmulateADPCM = flag;
 }
 
 /// <summary>
@@ -569,7 +561,7 @@ void PPZ8::MakeVolumeTable(int vol)
     int    i, j;
     double  temp;
 
-    volume = vol;
+    _Volume = vol;
     AVolume = (int) (0x1000 * pow(10.0, vol / 40.0));
 
     for (i = 0; i < 16; i++)
@@ -577,19 +569,17 @@ void PPZ8::MakeVolumeTable(int vol)
         temp = pow(2.0, ((double) (i) +PCM_VOLUME) / 2.0) * AVolume / 0x18000;
         for (j = 0; j < 256; j++)
         {
-            VolumeTable[i][j] = (Sample) ((j - 128) * temp);
+            _VolumeTable[i][j] = (Sample) ((j - 128) * temp);
         }
     }
 }
 
 //  ﾜｰｸ初期化
-void PPZ8::WORK_INIT(void)
+void PPZ8::Reset()
 {
-    int    i;
+    ::memset(_Channel, 0, sizeof(_Channel));
 
-    memset(_Channel, 0, sizeof(_Channel));
-
-    for (i = 0; i < PCM_CNL_MAX; i++)
+    for (size_t i = 0; i < _countof(_Channel); ++i)
     {
         _Channel[i].PCM_ADD_H = 1;
         _Channel[i].PCM_ADD_L = 0;
@@ -600,7 +590,7 @@ void PPZ8::WORK_INIT(void)
         _Channel[i].PCM_VOL = 8;      // ボリュームデフォルト
     }
 
-    // MOV  PCME_WORK0+PVI_NUM_MAX,0  ;@ PVIのMAXを０にする
+    // MOV  PCME_WORK0 + PVI_NUM_MAX, 0  ; @ PVIのMAXを０にする
 }
 
 //  合成、出力
@@ -647,7 +637,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
             continue;
         }
 
-        if (interpolation)
+        if (_UseInterpolation)
         {
             di = sampleData;
 
@@ -656,8 +646,8 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 1:  //  1 , 0
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        *di++ += (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        *di++ += (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
                         di++;    // 左のみ
 
                         _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
@@ -690,8 +680,8 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 2:  //  1 ,1/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx;
                         *di++ += bx / 4;
@@ -726,8 +716,8 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 3:  //  1 ,2/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx;
                         *di++ += bx / 2;
@@ -762,8 +752,8 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 4:  //  1 ,3/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx;
                         *di++ += bx * 3 / 4;
@@ -797,8 +787,8 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 5:  //  1 , 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx;
                         *di++ += bx;
@@ -832,8 +822,8 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 6:  // 3/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx * 3 / 4;
                         *di++ += bx;
@@ -867,8 +857,8 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 7:  // 2/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx / 2;
                         *di++ += bx;
@@ -902,8 +892,8 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 8:  // 1/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx / 4;
                         *di++ += bx;
@@ -938,8 +928,8 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                     while (di < &sampleData[sampleCount * 2])
                     {
                         di++;    // 右のみ
-                        *di++ += (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        *di++ += (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
                         _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
@@ -978,7 +968,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 1:  //  1 , 0
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        *di++ += VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
+                        *di++ += _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         di++;    // 左のみ
 
                         _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
@@ -1009,7 +999,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 2:  //  1 ,1/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
+                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx;
                         *di++ += bx / 4;
 
@@ -1041,7 +1031,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 3:  //  1 ,2/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
+                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx;
                         *di++ += bx / 2;
 
@@ -1073,7 +1063,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 4:  //  1 ,3/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
+                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx;
                         *di++ += bx * 3 / 4;
 
@@ -1105,7 +1095,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 5:  //  1 , 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
+                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx;
                         *di++ += bx;
 
@@ -1137,7 +1127,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 6:  // 3/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
+                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx * 3 / 4;
                         *di++ += bx;
 
@@ -1169,7 +1159,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 7:  // 2/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
+                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx / 2;
                         *di++ += bx;
 
@@ -1201,7 +1191,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 case 8:  // 1/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
+                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx / 4;
                         *di++ += bx;
 
@@ -1233,7 +1223,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
                     while (di < &sampleData[sampleCount * 2])
                     {
                         di++;      // 右のみ
-                        *di++ += VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
+                        *di++ += _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
 
                         _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
                         _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
