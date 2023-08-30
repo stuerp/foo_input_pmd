@@ -143,13 +143,13 @@ private:
     EffectState _EffectState;
 
     Track _FMTrack[MaxFMTracks];
-    Track SSGPart[MaxSSGTracks];
-    Track ADPCMPart;
+    Track _SSGTrack[MaxSSGTracks];
+    Track _ADPCMTrack;
     Track _RhythmTrack;
-    Track ExtPart[MaxExtTracks];
+    Track _ExtensionTrack[MaxExtTracks];
     Track _DummyTrack;
     Track _EffectTrack;
-    Track PPZ8Part[MaxPPZ8Tracks];
+    Track _PPZ8Track[MaxPPZ8Tracks];
 
     static const size_t MaxSamples = 30000;
 
@@ -225,7 +225,7 @@ protected:
     void keyoff8(Track * ps);
     void keyoffz(Track * ps);
 
-    int ssgdrum_check(Track * ps, int al);
+    bool ssgdrum_check(Track * ps, int al);
 
     uint8_t * special_0c0h(Track * ps, uint8_t * si, uint8_t al);
 
@@ -299,11 +299,11 @@ protected:
     void volset8(Track * ps);
     void volsetz(Track * ps);
 
-    void otodasi(Track * ps);
-    void otodasip(Track * ps);
-    void otodasim(Track * ps);
-    void otodasi8(Track * ps);
-    void otodasiz(Track * ps);
+    void Otodasi(Track * ps);
+    void OtodasiP(Track * ps);
+    void OtodasiM(Track * ps);
+    void Otodasi8(Track * ps);
+    void OtodasiZ(Track * ps);
 
     void keyon(Track * ps);
     void keyonp(Track * ps);

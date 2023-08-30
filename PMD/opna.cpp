@@ -416,7 +416,7 @@ void OPNA::RhythmMix(Sample * sampleData, size_t sampleCount) noexcept
     {
         Sample * SampleDataEnd = sampleData + (sampleCount * 2);
 
-        for (int i = 0; i < _countof(_Instrument); i++)
+        for (size_t i = 0; i < _countof(_Instrument); i++)
         {
             Instrument & Ins = _Instrument[i];
 

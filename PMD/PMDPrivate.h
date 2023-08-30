@@ -146,7 +146,7 @@ struct Track
     int slotmask; // 1 FM slotmask
     int neiromask; // 1 FM 音色定義用maskdata
     int lfo_wave; // 1 LFOの波形
-    int partmask; // 1 PartMask b0:通常 b1:効果音 b2:NECPCM用
+    int Mask; // 1 PartMask b0:通常 b1:効果音 b2:NECPCM用
 
     //    b3:none b4:PPZ/ADE用 b5:s0時 b6:m b7:一時
     int keyoff_flag;  // 1 KeyoffしたかどうかのFlag

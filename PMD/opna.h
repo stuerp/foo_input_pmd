@@ -13,16 +13,16 @@ typedef int64_t emulated_time; // We use an int64_t as emulated time, as a 16.48
   
 struct Stereo32bit
 {
-    int32_t left;
-    int32_t right;
+    int32_t Left;
+    int32_t Right;
 };
 
 #pragma pack(push)
 #pragma pack(2)
 struct Stereo16bit
 {
-    int16_t left;
-    int16_t right;
+    int16_t Left;
+    int16_t Right;
 } ;
 #pragma pack(pop)
 
@@ -140,7 +140,7 @@ protected:
     #pragma endregion
 };
 
-inline int Limit(int v, int max, int min)
+inline int Limit(int value, int max, int min)
 {
-    return ymfm::clamp(v, min, max);
+    return ymfm::clamp(value, min, max);
 }
