@@ -24,26 +24,26 @@
 
 typedef int32_t Sample;
 
-struct CHANNELWORK
+struct PPZChannel
 {
-    int        PCM_ADD_L;                // アドレス増加量 LOW
-    int        PCM_ADD_H;                // アドレス増加量 HIGH
-    int        PCM_ADDS_L;                // アドレス増加量 LOW（元の値）
-    int        PCM_ADDS_H;                // アドレス増加量 HIGH（元の値）
-    int        PCM_SORC_F;                // 元データの再生レート
-    int        PCM_FLG;                // 再生フラグ
-    int        PCM_VOL;                // ボリューム
-    int        PCM_PAN;                // PAN
-    int        PCM_NUM;                // PCM番号
-    int        PCM_LOOP_FLG;            // ループ使用フラグ
+    int PCM_ADD_L;                // アドレス増加量 LOW
+    int PCM_ADD_H;                // アドレス増加量 HIGH
+    int PCM_ADDS_L;                // アドレス増加量 LOW（元の値）
+    int PCM_ADDS_H;                // アドレス増加量 HIGH（元の値）
+    int PCM_SORC_F;                // 元データの再生レート
+    int PCM_FLG;                // 再生フラグ
+    int PCM_VOL;                // ボリューム
+    int PCM_PAN;                // PAN
+    int PCM_NUM;                // PCM番号
+    int PCM_LOOP_FLG;            // ループ使用フラグ
     uint8_t * PCM_NOW;                // 現在の値
-    int        PCM_NOW_XOR;            // 現在の値（小数部）
+    int PCM_NOW_XOR;            // 現在の値（小数部）
     uint8_t * PCM_END;                // 現在の終了アドレス
     uint8_t * PCM_END_S;                // 本当の終了アドレス
     uint8_t * PCM_LOOP;                // ループ開始アドレス
-    uint32_t    PCM_LOOP_START;            // リニアなループ開始アドレス
-    uint32_t    PCM_LOOP_END;            // リニアなループ終了アドレス
-    bool    pviflag;                // PVI なら true
+    uint32_t PCM_LOOP_START;            // リニアなループ開始アドレス
+    uint32_t PCM_LOOP_END;            // リニアなループ終了アドレス
+    bool _HasPVI;                // PVI なら true
 };
 
 #pragma pack(push)
@@ -87,32 +87,29 @@ public:
     PPZ8(File * fileio);
     virtual ~PPZ8();
 
-    bool __cdecl Init(uint32_t rate, bool ip);            // 00H 初期化
-    bool __cdecl Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop);
-    // 01H PCM 発音
-    bool __cdecl Stop(int ch);                            // 02H PCM 停止
-    int  __cdecl Load(const WCHAR * filePath, int bufnum);
-    bool __cdecl SetVolume(int ch, int vol);                // 07H ﾎﾞﾘｭｰﾑ設定
-    bool __cdecl SetPitchFrequency(int ch, uint32_t ontei);        // 0BH 音程周波数の設定
-    bool __cdecl SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);
-    // 0EH ﾙｰﾌﾟﾎﾟｲﾝﾀの設定
-    void __cdecl AllStop(void);                            // 12H (PPZ8)全停止
-    bool __cdecl SetPan(int ch, int pan);                // 13H (PPZ8)PAN指定
-    bool __cdecl SetRate(uint32_t rate, bool ip);        // 14H (PPZ8)ﾚｰﾄ設定
-    bool __cdecl SetSourceRate(int ch, int rate);        // 15H (PPZ8)元ﾃﾞｰﾀ周波数設定
-    void __cdecl SetAllVolume(int vol);                    // 16H (PPZ8)全体ﾎﾞﾘﾕｰﾑの設定（86B Mixer)
-    void __cdecl SetVolume(int vol);
-    //PCMTMP_SET        ;17H PCMﾃﾝﾎﾟﾗﾘ設定
-    void __cdecl ADPCM_EM_SET(bool flag);                // 18H (PPZ8)ADPCMエミュレート
-    //REMOVE_FSET        ;19H (PPZ8)常駐解除ﾌﾗｸﾞ設定
-    //FIFOBUFF_SET        ;1AH (PPZ8)FIFOﾊﾞｯﾌｧの変更
-    //RATE_SET        ;1BH (PPZ8)WSS詳細ﾚｰﾄ設定
+    bool Init(uint32_t rate, bool ip);            // 00H 初期化
+    bool Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop); // 01H PCM 発音
+    bool Stop(int ch);                            // 02H PCM 停止
+    int  Load(const WCHAR * filePath, int bufnum);
+    bool SetVolume(int ch, int vol);                // 07H ﾎﾞﾘｭｰﾑ設定
+    bool SetPitchFrequency(int ch, uint32_t ontei);        // 0BH 音程周波数の設定
+    bool SetLoop(int ch, uint32_t loop_start, uint32_t loop_end); // 0EH ﾙｰﾌﾟﾎﾟｲﾝﾀの設定
+    void AllStop(void);                            // 12H (PPZ8)全停止
+    bool SetPan(int ch, int pan);                // 13H (PPZ8)PAN指定
+    bool SetRate(uint32_t rate, bool ip);        // 14H (PPZ8)ﾚｰﾄ設定
+    bool SetSourceRate(int ch, int rate);        // 15H (PPZ8)元ﾃﾞｰﾀ周波数設定
+    void SetAllVolume(int vol);                    // 16H (PPZ8)全体ﾎﾞﾘﾕｰﾑの設定（86B Mixer)
+    void SetVolume(int vol); //PCMTMP_SET        ;17H PCMﾃﾝﾎﾟﾗﾘ設定
+    void ADPCM_EM_SET(bool flag);                // 18H (PPZ8)ADPCMエミュレート
+//  REMOVE_FSET; // 19H (PPZ8)常駐解除ﾌﾗｸﾞ設定
+//  FIFOBUFF_SET; // 1AH (PPZ8)FIFOﾊﾞｯﾌｧの変更
+//  RATE_SET; // 1BH (PPZ8)WSS詳細ﾚｰﾄ設定
 
-    void Mix(Sample * dest, int nsamples);
+    void Mix(Sample * sampleData, size_t sampleCount) noexcept;
 
     PZIHEADER PCME_WORK[2];                        // PCMの音色ヘッダー
-    bool    pviflag[2];                            // PVI なら true
-    TCHAR    PVI_FILE[2][_MAX_PATH];                // ファイル名
+    bool _HasPVI[2];
+    TCHAR _FilePath[2][_MAX_PATH];
 
 private:
     File * _File;                        // ファイルアクセス関連のクラスライブラリ
@@ -121,7 +118,7 @@ private:
     bool    ADPCM_EM_FLG;                        // CH8 でADPCM エミュレートするか？
     bool    interpolation;                        // 補完するか？
     int        AVolume;
-    CHANNELWORK    channelwork[PCM_CNL_MAX];        // 各チャンネルのワーク
+    PPZChannel _Channel[PCM_CNL_MAX];        // 各チャンネルのワーク
     uint8_t * XMS_FRAME_ADR[2];                    // XMSで確保したメモリアドレス（リニア）
     int        XMS_FRAME_SIZE[2];                    // PZI or PVI 内部データサイズ
     int        PCM_VOLUME;                            // 86B Mixer全体ボリューム
@@ -133,10 +130,10 @@ private:
     //    static Sample VolumeTable[16][256];            // 音量テーブル
     Sample VolumeTable[16][256];                // 音量テーブル
 
-    void    InitializeInternal(void);                        // 初期化(内部処理)
-    void    MakeVolumeTable(int vol);            // 音量テーブルの作成
-    void     ReadHeader(File * file, PZIHEADER & pziheader);
-    void     ReadHeader(File * file, PVIHEADER & pviheader);
+    void InitializeInternal(void);                        // 初期化(内部処理)
+    void MakeVolumeTable(int vol);            // 音量テーブルの作成
+    void ReadHeader(File * file, PZIHEADER & pziheader);
+    void ReadHeader(File * file, PVIHEADER & pviheader);
 
     inline int Limit(int v, int max, int min)
     {

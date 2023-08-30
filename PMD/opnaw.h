@@ -10,7 +10,7 @@
 #define  SOUND_55K_2        55466
 
 // wait で計算した分を代入する buffer size(samples)
-#define  WAIT_PCM_BUFFER_SIZE  65536
+#define  WAIT_PCM_BUFFER_SIZE  65536UL
 
 // 線形補間時に計算した分を代入する buffer size(samples)
 #define    IP_PCM_BUFFER_SIZE   2048
@@ -46,15 +46,15 @@ public:
     int GetADPCMWait() { return _ADPCMWait; }    // ADPCM wait in ns
 
     void  SetReg(uint32_t addr, uint32_t data);    // レジスタ設定
-    void  Mix(Sample * buffer, int nsamples);  // 合成
-    void  ClearBuffer();          // 内部バッファクリア
+    void  Mix(Sample * sampleData, size_t sampleCount) noexcept;
+    void  ClearBuffer();
 
 private:
     void Reset() noexcept;
     void CalcWaitPCM(int waitcount);
     double Sinc(double x);
     double Fmod2(double x, double y);
-    void MixInternal(Sample * buffer, int nsamples);
+    void MixInternal(Sample * sampleData, size_t sampleCount) noexcept;
 
     inline int Limit(int v, int max, int min)
     {
@@ -62,24 +62,25 @@ private:
     }
 
 private:
-    Sample  pre_buffer[WAIT_PCM_BUFFER_SIZE * 2];
+    Sample _PreBuffer[WAIT_PCM_BUFFER_SIZE * 2];
 
     // Synthetic sound saving during wait
-    int    _FMWait; // in ns
-    int    _SSGWait; // in ns
-    int    _ADPCMWait; // in ns
-    int    _RhythmWait; // in ns
+    int _FMWait; // in ns
+    int _SSGWait; // in ns
+    int _ADPCMWait; // in ns
+    int _RhythmWait; // in ns
 
-    int    _FMWaitCount;
-    int    _SSGWaitCount;
-    int    _ADPCMWaitCount;
-    int    _RhythmWaitCount;
+    int _FMWaitCount;
+    int _SSGWaitCount;
+    int _ADPCMWaitCount;
+    int _RhythmWaitCount;
 
-    int    read_pos;              // Write position
-    int    write_pos;              // Read position
-    int    count2;                // Count decimal part (*1000)
+    size_t _ReadIndex;
+    size_t _WriteIndex;
+    int    count2;                // Count decimal part (* 1000)
 
-    Sample ip_buffer[IP_PCM_BUFFER_SIZE * 2];  // Work area for linear interpolation
+    Sample _InterpolationBuffer[IP_PCM_BUFFER_SIZE * 2];
+    size_t _InterpolationIndex;
 
     uint32_t _OutputRate; // in Hz
     bool  interpolation2;            // First order interpolation flag
@@ -88,6 +89,5 @@ private:
     double  delta_double;            // Difference fraction
 
     bool  ffirst;                // Data first time flag
-    double  rest;                // Position of the previous remaining sample data when resampling the sampling theorem
-    int    write_pos_ip;            // Write position (ip)
+    double  rest; // Position of the previous remaining sample data when resampling the sampling theorem
 };

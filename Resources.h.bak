@@ -12,14 +12,13 @@
 #define STR_COMPONENT_VERSION       TOSTRING(NUM_FILE_MAJOR) "." TOSTRING(NUM_FILE_MINOR) "." TOSTRING(NUM_FILE_PATCH) "." TOSTRING(NUM_FILE_PRERELEASE)
 #define STR_COMPONENT_BASENAME      "foo_input_pmd"
 #define STR_COMPONENT_FILENAME      STR_COMPONENT_BASENAME ".dll"
-#define STR_COMPONENT_COMPANY_NAME  ""
 #define STR_COMPONENT_COPYRIGHT     "Copyright (c) 2023. All rights reserved."
 #define STR_COMPONENT_COMMENTS      "Written by P. Stuer"
 #define STR_COMPONENT_DESCRIPTION   "Adds playback of Professional Music Driver (PMD) files to foobar2000"
 
 /** Generic **/
 
-#define STR_COMPANY_NAME        TEXT(STR_COMPONENT_COMPANY_NAME)
+#define STR_COMPANY_NAME        TEXT("")
 #define STR_INTERNAL_NAME       TEXT(STR_COMPONENT_NAME)
 #define STR_COMMENTS            TEXT(STR_COMPONENT_COMMENTS)
 #define STR_COPYRIGHT           TEXT(STR_COMPONENT_COPYRIGHT)

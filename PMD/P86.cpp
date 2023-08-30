@@ -25,11 +25,11 @@ P86DRV::~P86DRV()
 }
 
 //  初期化
-bool P86DRV::Init(uint32_t r, bool ip)
+bool P86DRV::Init(uint32_t r, bool useInterpolation)
 {
     _Init();
 
-    SetRate(r, ip);
+    SetRate(r, useInterpolation);
 
     return true;
 }
@@ -37,7 +37,7 @@ bool P86DRV::Init(uint32_t r, bool ip)
 //  初期化(内部処理)
 void P86DRV::_Init(void)
 {
-    ::memset(_FileName, 0, sizeof(_FileName));
+    ::memset(_FilePath, 0, sizeof(_FilePath));
     ::memset(&p86header, 0, sizeof(p86header));
 
     interpolation = false;
@@ -71,7 +71,7 @@ void P86DRV::_Init(void)
     pcm86_pan_dat = 0;
     play86_flag = false;
 
-    AVolume = 0;
+    _AVolume = 0;
 
     SetVolume(0);
 }
@@ -94,50 +94,7 @@ bool P86DRV::SetRate(uint32_t r, bool ip)
 //  音量調整用
 void P86DRV::SetVolume(int volume)
 {
-    MakeVolumeTable(volume);
-}
-
-//  音量テーブル作成
-void P86DRV::MakeVolumeTable(int volume)
-{
-    int    i, j;
-    int    AVolume_temp;
-    double  temp;
-
-    AVolume_temp = (int) (0x1000 * pow(10.0, volume / 40.0));
-    if (AVolume != AVolume_temp)
-    {
-        AVolume = AVolume_temp;
-        for (i = 0; i < 16; i++)
-        {
-            //@      temp = pow(2.0, (i + 15) / 2.0) * AVolume / 0x18000;
-            temp = i * AVolume / 256;
-            for (j = 0; j < 256; j++)
-            {
-                VolumeTable[i][j] = (Sample) ((int8_t) j * temp);
-            }
-        }
-    }
-}
-
-//  ヘッダ読み込み
-void P86DRV::ReadHeader(File * file, P86HEADER & header)
-{
-    uint8_t buf[1552];
-
-    file->Read(buf, sizeof(buf));
-
-    ::memcpy(header.header, &buf[0x00], 12);
-
-    header.Version = buf[0x0c];
-
-    ::memcpy(header.All_Size, &buf[0x0d], 3);
-
-    for (int i = 0; i < MAX_P86; i++)
-    {
-        ::memcpy(&header.pcmnum[i].start[0], &buf[0x10 + i * 6], 3);
-        ::memcpy(&header.pcmnum[i].size[0], &buf[0x13 + i * 6], 3);
-    }
+    CreateVolumeTable(volume);
 }
 
 /// <summary>
@@ -147,7 +104,7 @@ int P86DRV::Load(const WCHAR * filePath)
 {
     Stop();
 
-    _FileName[0] = '\0';
+    _FilePath[0] = '\0';
 
     if (*filePath == '\0')
         return P86_OPEN_FAILED;
@@ -160,7 +117,7 @@ int P86DRV::Load(const WCHAR * filePath)
             p86_addr = NULL;
 
             ::memset(&p86header, 0, sizeof(p86header));
-            ::memset(_FileName, 0, sizeof(_FileName));
+            ::memset(_FilePath, 0, sizeof(_FilePath));
         }
 
         return P86_OPEN_FAILED;
@@ -186,7 +143,7 @@ int P86DRV::Load(const WCHAR * filePath)
 
     if (::memcmp(&p86header, &p86header2, sizeof(p86header)) == 0)
     {
-        ::wcscpy_s(_FileName, filePath);
+        ::wcscpy_s(_FilePath, filePath);
 
         _File->Close();
 
@@ -211,7 +168,7 @@ int P86DRV::Load(const WCHAR * filePath)
 
     _File->Read(p86_addr, (uint32_t) FileSize);
 
-    ::wcscpy_s(_FileName, filePath);
+    ::wcscpy_s(_FilePath, filePath);
 
     _File->Close();
 
@@ -423,43 +380,45 @@ bool P86DRV::Keyoff(void)
 }
 
 //  合成
-void P86DRV::Mix(Sample * dest, int nsamples)
+void P86DRV::Mix(Sample * sampleData, size_t sampleCount) noexcept
 {
-    if (play86_flag == false) return;
+    if (!play86_flag)
+        return;
+
     if (size <= 1)
-    {    // 一次補間対策
+    {
+        // Primary interpolation measures
         play86_flag = false;
+
         return;
     }
-
-    //  double_trans(dest, nsamples); return;    // @test
 
     if (interpolation)
     {
         switch (pcm86_pan_flag)
         {
-            case 0: double_trans_i(dest, nsamples); break;
-            case 1: left_trans_i(dest, nsamples); break;
-            case 2: right_trans_i(dest, nsamples); break;
-            case 3: double_trans_i(dest, nsamples); break;
-            case 4: double_trans_g_i(dest, nsamples); break;
-            case 5: left_trans_g_i(dest, nsamples); break;
-            case 6: right_trans_g_i(dest, nsamples); break;
-            case 7: double_trans_g_i(dest, nsamples); break;
+            case 0: double_trans_i(sampleData, sampleCount); break;
+            case 1: left_trans_i(sampleData, sampleCount); break;
+            case 2: right_trans_i(sampleData, sampleCount); break;
+            case 3: double_trans_i(sampleData, sampleCount); break;
+            case 4: double_trans_g_i(sampleData, sampleCount); break;
+            case 5: left_trans_g_i(sampleData, sampleCount); break;
+            case 6: right_trans_g_i(sampleData, sampleCount); break;
+            case 7: double_trans_g_i(sampleData, sampleCount); break;
         }
     }
     else
     {
         switch (pcm86_pan_flag)
         {
-            case 0: double_trans(dest, nsamples); break;
-            case 1: left_trans(dest, nsamples); break;
-            case 2: right_trans(dest, nsamples); break;
-            case 3: double_trans(dest, nsamples); break;
-            case 4: double_trans_g(dest, nsamples); break;
-            case 5: left_trans_g(dest, nsamples); break;
-            case 6: right_trans_g(dest, nsamples); break;
-            case 7: double_trans_g(dest, nsamples); break;
+            case 0: double_trans(sampleData, sampleCount); break;
+            case 1: left_trans(sampleData, sampleCount); break;
+            case 2: right_trans(sampleData, sampleCount); break;
+            case 3: double_trans(sampleData, sampleCount); break;
+            case 4: double_trans_g(sampleData, sampleCount); break;
+            case 5: left_trans_g(sampleData, sampleCount); break;
+            case 6: right_trans_g(sampleData, sampleCount); break;
+            case 7: double_trans_g(sampleData, sampleCount); break;
         }
     }
 }
@@ -472,7 +431,7 @@ void P86DRV::double_trans_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (_VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + _VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         *dest++ += data;
         *dest++ += data;
 
@@ -492,7 +451,7 @@ void P86DRV::double_trans_g_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (_VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + _VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         *dest++ += data;
         *dest++ -= data;
 
@@ -512,7 +471,7 @@ void P86DRV::left_trans_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (_VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + _VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         *dest++ += data;
         data = data * pcm86_pan_dat / (256 / 2);
         *dest++ += data;
@@ -533,7 +492,7 @@ void P86DRV::left_trans_g_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (_VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + _VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         *dest++ += data;
         data = data * pcm86_pan_dat / (256 / 2);
         *dest++ -= data;
@@ -554,7 +513,7 @@ void P86DRV::right_trans_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (_VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + _VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         data2 = data * pcm86_pan_dat / (256 / 2);
         *dest++ += data2;
         *dest++ += data;
@@ -575,7 +534,7 @@ void P86DRV::right_trans_g_i(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = (VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
+        data = (_VolumeTable[vol][*start_ofs] * (0x1000 - start_ofs_x) + _VolumeTable[vol][*(start_ofs + 1)] * start_ofs_x) >> 12;
         data2 = data * pcm86_pan_dat / (256 / 2);
         *dest++ += data2;
         *dest++ -= data;
@@ -596,7 +555,7 @@ void P86DRV::double_trans(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = VolumeTable[vol][*start_ofs];
+        data = _VolumeTable[vol][*start_ofs];
         *dest++ += data;
         *dest++ += data;
 
@@ -616,7 +575,7 @@ void P86DRV::double_trans_g(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = VolumeTable[vol][*start_ofs];
+        data = _VolumeTable[vol][*start_ofs];
         *dest++ += data;
         *dest++ -= data;
 
@@ -636,7 +595,7 @@ void P86DRV::left_trans(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = VolumeTable[vol][*start_ofs];
+        data = _VolumeTable[vol][*start_ofs];
         *dest++ += data;
 
         data = data * pcm86_pan_dat / (256 / 2);
@@ -658,7 +617,7 @@ void P86DRV::left_trans_g(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = VolumeTable[vol][*start_ofs];
+        data = _VolumeTable[vol][*start_ofs];
         *dest++ += data;
 
         data = data * pcm86_pan_dat / (256 / 2);
@@ -680,7 +639,7 @@ void P86DRV::right_trans(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = VolumeTable[vol][*start_ofs];
+        data = _VolumeTable[vol][*start_ofs];
         data2 = data * pcm86_pan_dat / (256 / 2);
         *dest++ += data2;
         *dest++ += data;
@@ -701,7 +660,7 @@ void P86DRV::right_trans_g(Sample * dest, int nsamples)
 
     for (i = 0; i < nsamples; i++)
     {
-        data = VolumeTable[vol][*start_ofs];
+        data = _VolumeTable[vol][*start_ofs];
         data2 = data * pcm86_pan_dat / (256 / 2);
         *dest++ += data2;
         *dest++ -= data;
@@ -742,3 +701,42 @@ bool P86DRV::add_address()
 
     return false;
 }
+
+void P86DRV::CreateVolumeTable(int volume)
+{
+    int NewAVolume = (int) (0x1000 * ::pow(10.0, volume / 40.0));
+
+    if (NewAVolume == _AVolume)
+        return;
+
+    _AVolume = NewAVolume;
+
+    for (int i = 0; i < 16; ++i)
+    {
+        double Volume = (double) _AVolume * i / 256; // ::pow(2.0, (i + 15) / 2.0) * AVolume / 0x18000;
+
+        for (int j = 0; j < 256; ++j)
+            _VolumeTable[i][j] = (Sample) (Volume * (int8_t) j);
+    }
+}
+
+//  ヘッダ読み込み
+void P86DRV::ReadHeader(File * file, P86HEADER & header)
+{
+    uint8_t buf[1552];
+
+    file->Read(buf, sizeof(buf));
+
+    ::memcpy(header.header, &buf[0x00], 12);
+
+    header.Version = buf[0x0c];
+
+    ::memcpy(header.All_Size, &buf[0x0d], 3);
+
+    for (int i = 0; i < MAX_P86; i++)
+    {
+        ::memcpy(&header.pcmnum[i].start[0], &buf[0x10 + i * 6], 3);
+        ::memcpy(&header.pcmnum[i].size[0], &buf[0x13 + i * 6], 3);
+    }
+}
+

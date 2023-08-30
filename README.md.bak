@@ -132,10 +132,10 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 
 ## Reference Material
 
-### foobar2000
+* foobar2000
   * [foobar2000 Development](https://wiki.hydrogenaud.io/index.php?title=Foobar2000:Development:Overview)
 
-### Windows User Interface
+* Windows User Interface
   * [Desktop App User Interface](https://learn.microsoft.com/en-us/windows/win32/windows-application-ui-development)
   * [Windows User Experience Interaction Guidelines](https://learn.microsoft.com/en-us/windows/win32/uxguide/guidelines)
   * [Windows Controls](https://learn.microsoft.com/en-us/windows/win32/controls/window-controls)
@@ -166,9 +166,9 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 
 ## Links
 
-* Home page: [https://github.com/stuerp/foo_input_pmd](https://github.com/stuerp/foo_input_pmd)
-* Repository: [https://github.com/stuerp/foo_input_pmd.git](https://github.com/stuerp/foo_input_pmd.git)
-* Issue tracker: [https://github.com/stuerp/foo_input_pmd/issues](https://github.com/stuerp/foo_input_pmd/issues)
+* Home page: https://github.com/stuerp/foo_input_pmd
+* Repository: https://github.com/stuerp/foo_input_pmd.git
+* Issue tracker: https://github.com/stuerp/foo_input_pmd/issues
 
 ## License
 

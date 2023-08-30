@@ -317,7 +317,7 @@ void PPSDRV::SetVolume(int vol)
     _EmitTable[0] = 0;
 }
 
-void PPSDRV::Mix(Sample * sampleData, int sampleCount)  // 合成
+void PPSDRV::Mix(Sample * sampleData, size_t sampleCount)  // 合成
 {
 /*
     static const int table[16*16] = {

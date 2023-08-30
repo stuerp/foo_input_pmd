@@ -26,8 +26,8 @@ typedef int Sample;
 #pragma pack(2)
 struct PCMEnds
 {
-    uint16_t pcmends;
-    uint16_t pcmadrs[256][2];
+    uint16_t Count;
+    uint16_t Address[256][2];
 };
 #pragma pack(pop)
 
@@ -52,12 +52,14 @@ public:
 
     bool Initialize(const WCHAR * path);
 
+    static bool IsPMD(const uint8_t * data, size_t size) noexcept;
+
     int Load(const uint8_t * data, size_t size);
 
     void Start();
     void Stop();
 
-    void Render(int16_t * sampleData, int sampleCount);
+    void Render(int16_t * sampleData, size_t sampleCount);
 
     uint32_t GetLoopNumber();
 
@@ -150,12 +152,15 @@ private:
     PMDWORK pmdwork;
     EffectState effwork;
 
-    Stereo16bit wavbuf2[nbufsample];
-    StereoSample wavbuf[nbufsample];
-    StereoSample wavbuf_conv[nbufsample];
+    static const size_t MaxSamples = 30000;
 
-    uint8_t * _PCMPtr;          // Start position of remaining samples in buf
-    int _SamplesToDo;           // Number of samples remaining in buf
+    Stereo16bit _SampleSrc[MaxSamples];
+    Stereo32bit _SampleDst[MaxSamples];
+    Stereo32bit _SampleTmp[MaxSamples];
+
+    Stereo16bit * _SamplePtr;
+    size_t _SamplesToDo;
+
     int64_t _Position;          // Time from start of playing (in μs)
     int64_t _FadeOutPosition;   // SetFadeOutDurationHQ start time
     int _Seed;                  // Random seed

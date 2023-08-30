@@ -37,7 +37,6 @@
 #define MAX_PCMDIR             64
 #define MAX_MEMO             1024
 
-#define nbufsample          30000
 #define OPNAClock   (3993600 * 2)
 
 #define NumOfFMPart             6

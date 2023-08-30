@@ -54,7 +54,7 @@ public:
     bool SetRate(uint32_t r, bool ip);
     void SetVolume(int volume);
 
-    void Mix(Sample * sampleData, int sampleCount);
+    void Mix(Sample * sampleData, size_t sampleCount);
 
     int Load(const WCHAR * filePath);
 

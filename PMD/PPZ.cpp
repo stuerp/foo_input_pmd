@@ -71,10 +71,10 @@ void PPZ8::InitializeInternal(void)
 {
     ::memset(PCME_WORK, 0, sizeof(PCME_WORK));
 
-    pviflag[0] = false;
-    pviflag[1] = false;
+    _HasPVI[0] = false;
+    _HasPVI[1] = false;
 
-    ::memset(PVI_FILE, 0, sizeof(PVI_FILE));
+    ::memset(_FilePath, 0, sizeof(_FilePath));
 
     ADPCM_EM_FLG = false;
     interpolation = false;
@@ -114,40 +114,40 @@ bool PPZ8::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
     // PVIの定義数より大きいとスキップ
     //if(num >= PCME_WORK[bufnum].pzinum) return false;
 
-    channelwork[ch].pviflag = pviflag[bufnum];
-    channelwork[ch].PCM_FLG = 1;    // 再生開始
-    channelwork[ch].PCM_NOW_XOR = 0;  // 小数点部
-    channelwork[ch].PCM_NUM = num;
+    _Channel[ch]._HasPVI = _HasPVI[bufnum];
+    _Channel[ch].PCM_FLG = 1;    // 再生開始
+    _Channel[ch].PCM_NOW_XOR = 0;  // 小数点部
+    _Channel[ch].PCM_NUM = num;
 
     // ADPCM エミュレート処理
     if (ch == 7 && ADPCM_EM_FLG && (ch & 0x80) == 0)
     {
-        channelwork[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][Limit(((int) start) * 64, XMS_FRAME_SIZE[bufnum] - 1, 0)];
-        channelwork[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][Limit(((int) stop - 1) * 64, XMS_FRAME_SIZE[bufnum] - 1, 0)];
-        channelwork[ch].PCM_END   = channelwork[ch].PCM_END_S;
+        _Channel[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][Limit(((int) start) * 64, XMS_FRAME_SIZE[bufnum] - 1, 0)];
+        _Channel[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][Limit(((int) stop - 1) * 64, XMS_FRAME_SIZE[bufnum] - 1, 0)];
+        _Channel[ch].PCM_END   = _Channel[ch].PCM_END_S;
     }
     else
     {
-        channelwork[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start];
-        channelwork[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size];
+        _Channel[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start];
+        _Channel[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size];
 
-        if (channelwork[ch].PCM_LOOP_FLG == 0)
+        if (_Channel[ch].PCM_LOOP_FLG == 0)
         {
             // ループなし
-            channelwork[ch].PCM_END = channelwork[ch].PCM_END_S;
+            _Channel[ch].PCM_END = _Channel[ch].PCM_END_S;
         }
         else
         {
             // ループあり
-            if (channelwork[ch].PCM_LOOP_START >= PCME_WORK[bufnum].pcmnum[num].Size)
-                channelwork[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size - 1];
+            if (_Channel[ch].PCM_LOOP_START >= PCME_WORK[bufnum].pcmnum[num].Size)
+                _Channel[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size - 1];
             else
-                channelwork[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + channelwork[ch].PCM_LOOP_START];
+                _Channel[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + _Channel[ch].PCM_LOOP_START];
 
-            if (channelwork[ch].PCM_LOOP_END >= PCME_WORK[bufnum].pcmnum[num].Size)
-                channelwork[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size];
+            if (_Channel[ch].PCM_LOOP_END >= PCME_WORK[bufnum].pcmnum[num].Size)
+                _Channel[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size];
             else
-                channelwork[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + channelwork[ch].PCM_LOOP_END];
+                _Channel[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + _Channel[ch].PCM_LOOP_END];
         }
     }
 
@@ -159,58 +159,8 @@ bool PPZ8::Stop(int ch)
 {
     if (ch >= PCM_CNL_MAX) return false;
 
-    channelwork[ch].PCM_FLG = 0;  // 再生停止
+    _Channel[ch].PCM_FLG = 0;  // 再生停止
     return true;
-}
-
-/// <summary>
-/// Reads the PZI header.
-/// </summary>
-void PPZ8::ReadHeader(File * file, PZIHEADER & ph)
-{
-    uint8_t Data[2336];
-
-    if (file->Read(Data, sizeof(Data)) != sizeof(Data))
-        return;
-
-    ::memcpy(ph.ID,     &Data[0x00], sizeof(ph.ID));
-    ::memcpy(ph.Dummy1, &Data[0x04], sizeof(ph.Dummy1));
-    ph.Count = Data[0x0B];
-    ::memcpy(ph.Dummy2, &Data[0x0C], sizeof(ph.Dummy2));
-
-    for (int i = 0; i < 128; i++)
-    {
-        ph.pcmnum[i].Start      = (uint32_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
-        ph.pcmnum[i].Size       = (uint32_t) ((Data[0x24 + i * 18]) | (Data[0x25 + i * 18] << 8) | (Data[0x26 + i * 18] << 16) | (Data[0x27 + i * 18] << 24));
-        ph.pcmnum[i].LoopStart  = (uint32_t) ((Data[0x28 + i * 18]) | (Data[0x29 + i * 18] << 8) | (Data[0x2a + i * 18] << 16) | (Data[0x2b + i * 18] << 24));
-        ph.pcmnum[i].LoopEnd    = (uint32_t) ((Data[0x2c + i * 18]) | (Data[0x2d + i * 18] << 8) | (Data[0x2e + i * 18] << 16) | (Data[0x2f + i * 18] << 24));
-        ph.pcmnum[i].SampleRate = (uint16_t) ((Data[0x30 + i * 18]) | (Data[0x31 + i * 18] << 8));
-    }
-}
-
-/// <summary>
-/// Reads the PVI header.
-/// </summary>
-void PPZ8::ReadHeader(File * file, PVIHEADER & pviheader)
-{
-    uint8_t Data[528];
-
-    file->Read(Data, sizeof(Data));
-
-    ::memcpy(pviheader.ID, &Data[0x00], 4);
-    ::memcpy(pviheader.dummy1, &Data[0x04], 0x0b - 4);
-
-    pviheader.pvinum = Data[0x0b];
-
-    ::memcpy(pviheader.dummy2, &Data[0x0c], 0x10 - 0x0b - 1);
-
-    for (int i = 0; i < 128; i++)
-    {
-        pviheader.pcmnum[i].startaddress = (uint16_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
-//FIXME: Why is startaddress overwritten here?
-        pviheader.pcmnum[i].startaddress = (uint16_t) ((Data[0x10 + i * 4]) | (Data[0x11 + i * 4] << 8));
-        pviheader.pcmnum[i].endaddress   = (uint16_t) ((Data[0x12 + i * 4]) | (Data[0x13 + i * 4] << 8));
-    }
 }
 
 // 03H Read PVI/PZI file
@@ -235,7 +185,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
 
     WORK_INIT();
 
-    PVI_FILE[bufnum][0] = '\0';
+    _FilePath[bufnum][0] = '\0';
 
     if (!_File->Open(filePath))
     {
@@ -266,7 +216,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
 
         if (::memcmp(&PCME_WORK[bufnum], &PZIHeader, sizeof(PZIHEADER)) == 0)
         {
-            ::wcscpy(PVI_FILE[bufnum], filePath);
+            ::wcscpy(_FilePath[bufnum], filePath);
 
             _File->Close();
 
@@ -303,8 +253,8 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
         XMS_FRAME_ADR[bufnum] = Data;
         XMS_FRAME_SIZE[bufnum] = Size;
 
-        ::wcscpy(PVI_FILE[bufnum], filePath);
-        pviflag[bufnum] = false;
+        ::wcscpy(_FilePath[bufnum], filePath);
+        _HasPVI[bufnum] = false;
     }
     else
     {
@@ -345,7 +295,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
 
         if (::memcmp(&PCME_WORK[bufnum].pcmnum, &PZIHeader.pcmnum, sizeof(PZIHEADER) - 0x20) == 0)
         {
-            ::wcscpy(PVI_FILE[bufnum], filePath);
+            ::wcscpy(_FilePath[bufnum], filePath);
             _File->Close();
 
             return PPZ_ALREADY_LOADED;
@@ -423,9 +373,9 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
             ::free(psrc2);
         }
 
-        ::wcscpy(PVI_FILE[bufnum], filePath);
+        ::wcscpy(_FilePath[bufnum], filePath);
 
-        pviflag[bufnum] = true;
+        _HasPVI[bufnum] = true;
     }
 
     _File->Close();
@@ -440,9 +390,9 @@ bool PPZ8::SetVolume(int ch, int vol)
         return false;
 
     if (ch != 7 || !ADPCM_EM_FLG)
-        channelwork[ch].PCM_VOL = vol;
+        _Channel[ch].PCM_VOL = vol;
     else
-        channelwork[ch].PCM_VOL = ADPCM_EM_VOL[vol & 0xff];
+        _Channel[ch].PCM_VOL = ADPCM_EM_VOL[vol & 0xff];
 
     return true;
 }
@@ -458,12 +408,12 @@ bool PPZ8::SetPitchFrequency(int ch, uint32_t frequency)
         frequency = (frequency & 0xffff) * 0x8000 / 0x49ba;
     }
 
-    channelwork[ch].PCM_ADDS_L = (int) (frequency & 0xffff);
-    channelwork[ch].PCM_ADDS_H = (int) (frequency >> 16);
+    _Channel[ch].PCM_ADDS_L = (int) (frequency & 0xffff);
+    _Channel[ch].PCM_ADDS_H = (int) (frequency >> 16);
 
-    channelwork[ch].PCM_ADD_H = (int) ((((int64_t) (channelwork[ch].PCM_ADDS_H) << 16) + channelwork[ch].PCM_ADDS_L) * 2 * channelwork[ch].PCM_SORC_F / DIST_F);
-    channelwork[ch].PCM_ADD_L = channelwork[ch].PCM_ADD_H & 0xffff;
-    channelwork[ch].PCM_ADD_H = channelwork[ch].PCM_ADD_H >> 16;
+    _Channel[ch].PCM_ADD_H = (int) ((((int64_t) (_Channel[ch].PCM_ADDS_H) << 16) + _Channel[ch].PCM_ADDS_L) * 2 * _Channel[ch].PCM_SORC_F / DIST_F);
+    _Channel[ch].PCM_ADD_L = _Channel[ch].PCM_ADD_H & 0xffff;
+    _Channel[ch].PCM_ADD_H = _Channel[ch].PCM_ADD_H >> 16;
 
     return true;
 }
@@ -477,17 +427,17 @@ bool PPZ8::SetLoop(int ch, uint32_t loop_start, uint32_t loop_end)
     {
         // ループ設定
         // PCM_LPS_02:
-        channelwork[ch].PCM_LOOP_FLG = 1;
-        channelwork[ch].PCM_LOOP_START = loop_start;
-        channelwork[ch].PCM_LOOP_END = loop_end;
+        _Channel[ch].PCM_LOOP_FLG = 1;
+        _Channel[ch].PCM_LOOP_START = loop_start;
+        _Channel[ch].PCM_LOOP_END = loop_end;
     }
     else
     {
         // ループ解除
         // PCM_LPS_01:
 
-        channelwork[ch].PCM_LOOP_FLG = 0;
-        channelwork[ch].PCM_END = channelwork[ch].PCM_END_S;
+        _Channel[ch].PCM_LOOP_FLG = 0;
+        _Channel[ch].PCM_END = _Channel[ch].PCM_END_S;
     }
     return true;
 }
@@ -511,11 +461,11 @@ bool PPZ8::SetPan(int ch, int pan)
 
     if (ch != 7 || !ADPCM_EM_FLG)
     {
-        channelwork[ch].PCM_PAN = pan;
+        _Channel[ch].PCM_PAN = pan;
     }
     else
     {
-        channelwork[ch].PCM_PAN = ADPCM_EM_PAN[pan & 3];
+        _Channel[ch].PCM_PAN = ADPCM_EM_PAN[pan & 3];
     }
     return true;
 }
@@ -534,7 +484,7 @@ bool PPZ8::SetSourceRate(int ch, int rate)
 {
     if (ch >= PCM_CNL_MAX) return false;
 
-    channelwork[ch].PCM_SORC_F = rate;
+    _Channel[ch].PCM_SORC_F = rate;
     return true;
 }
 
@@ -563,6 +513,56 @@ void PPZ8::ADPCM_EM_SET(bool flag)
     ADPCM_EM_FLG = flag;
 }
 
+/// <summary>
+/// Reads the PZI header.
+/// </summary>
+void PPZ8::ReadHeader(File * file, PZIHEADER & ph)
+{
+    uint8_t Data[2336];
+
+    if (file->Read(Data, sizeof(Data)) != sizeof(Data))
+        return;
+
+    ::memcpy(ph.ID,     &Data[0x00], sizeof(ph.ID));
+    ::memcpy(ph.Dummy1, &Data[0x04], sizeof(ph.Dummy1));
+    ph.Count = Data[0x0B];
+    ::memcpy(ph.Dummy2, &Data[0x0C], sizeof(ph.Dummy2));
+
+    for (int i = 0; i < 128; i++)
+    {
+        ph.pcmnum[i].Start      = (uint32_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
+        ph.pcmnum[i].Size       = (uint32_t) ((Data[0x24 + i * 18]) | (Data[0x25 + i * 18] << 8) | (Data[0x26 + i * 18] << 16) | (Data[0x27 + i * 18] << 24));
+        ph.pcmnum[i].LoopStart  = (uint32_t) ((Data[0x28 + i * 18]) | (Data[0x29 + i * 18] << 8) | (Data[0x2a + i * 18] << 16) | (Data[0x2b + i * 18] << 24));
+        ph.pcmnum[i].LoopEnd    = (uint32_t) ((Data[0x2c + i * 18]) | (Data[0x2d + i * 18] << 8) | (Data[0x2e + i * 18] << 16) | (Data[0x2f + i * 18] << 24));
+        ph.pcmnum[i].SampleRate = (uint16_t) ((Data[0x30 + i * 18]) | (Data[0x31 + i * 18] << 8));
+    }
+}
+
+/// <summary>
+/// Reads the PVI header.
+/// </summary>
+void PPZ8::ReadHeader(File * file, PVIHEADER & pviheader)
+{
+    uint8_t Data[528];
+
+    file->Read(Data, sizeof(Data));
+
+    ::memcpy(pviheader.ID, &Data[0x00], 4);
+    ::memcpy(pviheader.dummy1, &Data[0x04], (size_t) 0x0b - 4);
+
+    pviheader.pvinum = Data[0x0b];
+
+    ::memcpy(pviheader.dummy2, &Data[0x0c], (size_t) 0x10 - 0x0b - 1);
+
+    for (int i = 0; i < 128; i++)
+    {
+        pviheader.pcmnum[i].startaddress = (uint16_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
+//FIXME: Why is startaddress overwritten here?
+        pviheader.pcmnum[i].startaddress = (uint16_t) ((Data[0x10 + i * 4]) | (Data[0x11 + i * 4] << 8));
+        pviheader.pcmnum[i].endaddress   = (uint16_t) ((Data[0x12 + i * 4]) | (Data[0x13 + i * 4] << 8));
+    }
+}
+
 //  音量テーブル作成
 void PPZ8::MakeVolumeTable(int vol)
 {
@@ -587,24 +587,24 @@ void PPZ8::WORK_INIT(void)
 {
     int    i;
 
-    memset(channelwork, 0, sizeof(channelwork));
+    memset(_Channel, 0, sizeof(_Channel));
 
     for (i = 0; i < PCM_CNL_MAX; i++)
     {
-        channelwork[i].PCM_ADD_H = 1;
-        channelwork[i].PCM_ADD_L = 0;
-        channelwork[i].PCM_ADDS_H = 1;
-        channelwork[i].PCM_ADDS_L = 0;
-        channelwork[i].PCM_SORC_F = 16000;    // 元データの再生レート
-        channelwork[i].PCM_PAN = 5;      // PAN中心
-        channelwork[i].PCM_VOL = 8;      // ボリュームデフォルト
+        _Channel[i].PCM_ADD_H = 1;
+        _Channel[i].PCM_ADD_L = 0;
+        _Channel[i].PCM_ADDS_H = 1;
+        _Channel[i].PCM_ADDS_L = 0;
+        _Channel[i].PCM_SORC_F = 16000;    // 元データの再生レート
+        _Channel[i].PCM_PAN = 5;      // PAN中心
+        _Channel[i].PCM_VOL = 8;      // ボリュームデフォルト
     }
 
     // MOV  PCME_WORK0+PVI_NUM_MAX,0  ;@ PVIのMAXを０にする
 }
 
 //  合成、出力
-void PPZ8::Mix(Sample * sampleData, int sampleCount)
+void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
 {
     Sample * di;
     Sample  bx;
@@ -614,36 +614,36 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
         if (PCM_VOLUME == 0)
             break;
 
-        if (channelwork[i].PCM_FLG == 0)
+        if (_Channel[i].PCM_FLG == 0)
             continue;
 
-        if (channelwork[i].PCM_VOL == 0)
+        if (_Channel[i].PCM_VOL == 0)
         {
             // PCM_NOW ポインタの移動(ループ、end 等も考慮して)
-            channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L * sampleCount;
-            channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H * sampleCount + channelwork[i].PCM_NOW_XOR / 0x10000;
-            channelwork[i].PCM_NOW_XOR %= 0x10000;
+            _Channel[i].PCM_NOW_XOR += (int) (_Channel[i].PCM_ADD_L * sampleCount);
+            _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H * sampleCount + _Channel[i].PCM_NOW_XOR / 0x10000;
+            _Channel[i].PCM_NOW_XOR %= 0x10000;
 
-            while (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
+            while (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
             {
                 // @一次補間のときもちゃんと動くように実装        ^^
-                if (channelwork[i].PCM_LOOP_FLG)
+                if (_Channel[i].PCM_LOOP_FLG)
                 {
                     // ループする場合
-                    channelwork[i].PCM_NOW -= (channelwork[i].PCM_END - 1 - channelwork[i].PCM_LOOP);
+                    _Channel[i].PCM_NOW -= (_Channel[i].PCM_END - 1 - _Channel[i].PCM_LOOP);
                 }
                 else
                 {
-                    channelwork[i].PCM_FLG = 0;
+                    _Channel[i].PCM_FLG = 0;
                     break;
                 }
             }
             continue;
         }
 
-        if (channelwork[i].PCM_PAN == 0)
+        if (_Channel[i].PCM_PAN == 0)
         {
-            channelwork[i].PCM_FLG = 0;
+            _Channel[i].PCM_FLG = 0;
             continue;
         }
 
@@ -651,36 +651,36 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
         {
             di = sampleData;
 
-            switch (channelwork[i].PCM_PAN)
+            switch (_Channel[i].PCM_PAN)
             {
                 case 1:  //  1 , 0
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        *di++ += (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
-                            + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
+                        *di++ += (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
                         di++;    // 左のみ
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
 
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW
+                                    = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -690,33 +690,33 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 2:  //  1 ,1/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
-                            + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
+                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx;
                         *di++ += bx / 4;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
 
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW
-                                    = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW
+                                    = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -726,33 +726,33 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 3:  //  1 ,2/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
-                            + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
+                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx;
                         *di++ += bx / 2;
 
-                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
 
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -762,32 +762,32 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 4:  //  1 ,3/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
-                            + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
+                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx;
                         *di++ += bx * 3 / 4;
 
-                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -797,32 +797,32 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 5:  //  1 , 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
-                            + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
+                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -832,32 +832,32 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 6:  // 3/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
-                            + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
+                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx * 3 / 4;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -867,32 +867,32 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 7:  // 2/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
-                            + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
+                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx / 2;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -902,32 +902,32 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 8:  // 1/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
-                            + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
+                        bx = (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx / 4;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -938,30 +938,30 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                     while (di < &sampleData[sampleCount * 2])
                     {
                         di++;    // 右のみ
-                        *di++ += (VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW] * (0x10000 - channelwork[i].PCM_NOW_XOR)
-                            + VolumeTable[channelwork[i].PCM_VOL][*(channelwork[i].PCM_NOW + 1)] * channelwork[i].PCM_NOW_XOR) >> 16;
+                        *di++ += (VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
+                            + VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
-                        channelwork[i].PCM_NOW     += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END - 1)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
                         {
                             // @一次補間のときもちゃんと動くように実装   ^^
 
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -973,33 +973,33 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
         {
             di = sampleData;
 
-            switch (channelwork[i].PCM_PAN)
+            switch (_Channel[i].PCM_PAN)
             {
                 case 1:  //  1 , 0
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        *di++ += VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
+                        *di++ += VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         di++;    // 左のみ
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
                         {
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -1009,29 +1009,29 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 2:  //  1 ,1/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
+                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx;
                         *di++ += bx / 4;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
                         {
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -1041,29 +1041,29 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 3:  //  1 ,2/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
+                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx;
                         *di++ += bx / 2;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
                         {
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -1073,29 +1073,29 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 4:  //  1 ,3/4
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
+                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx;
                         *di++ += bx * 3 / 4;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
                         {
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -1105,29 +1105,29 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 5:  //  1 , 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
+                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
                         {
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -1137,29 +1137,29 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 6:  // 3/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
+                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx * 3 / 4;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
                         {
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -1169,29 +1169,29 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 7:  // 2/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
+                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx / 2;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
+                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
 
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
                         {
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -1201,28 +1201,28 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                 case 8:  // 1/4, 1
                     while (di < &sampleData[sampleCount * 2])
                     {
-                        bx = VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
+                        bx = VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
                         *di++ += bx / 4;
                         *di++ += bx;
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
                         {
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }
@@ -1233,26 +1233,26 @@ void PPZ8::Mix(Sample * sampleData, int sampleCount)
                     while (di < &sampleData[sampleCount * 2])
                     {
                         di++;      // 右のみ
-                        *di++ += VolumeTable[channelwork[i].PCM_VOL][*channelwork[i].PCM_NOW];
+                        *di++ += VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
 
-                        channelwork[i].PCM_NOW += channelwork[i].PCM_ADD_H;
-                        channelwork[i].PCM_NOW_XOR += channelwork[i].PCM_ADD_L;
-                        if (channelwork[i].PCM_NOW_XOR > 0xffff)
+                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
+                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
+                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
-                            channelwork[i].PCM_NOW_XOR -= 0x10000;
-                            channelwork[i].PCM_NOW++;
+                            _Channel[i].PCM_NOW_XOR -= 0x10000;
+                            _Channel[i].PCM_NOW++;
                         }
 
-                        if (channelwork[i].PCM_NOW >= channelwork[i].PCM_END)
+                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
                         {
-                            if (channelwork[i].PCM_LOOP_FLG)
+                            if (_Channel[i].PCM_LOOP_FLG)
                             {
                                 // ループする場合
-                                channelwork[i].PCM_NOW = channelwork[i].PCM_LOOP;
+                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
                             }
                             else
                             {
-                                channelwork[i].PCM_FLG = 0;
+                                _Channel[i].PCM_FLG = 0;
                                 break;
                             }
                         }

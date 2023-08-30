@@ -9,13 +9,12 @@
 #include <ymfm_opn.h>
 
 typedef int32_t Sample;
-typedef int32_t ISample;
 typedef int64_t emulated_time; // We use an int64_t as emulated time, as a 16.48 fixed point value
   
-struct StereoSample
+struct Stereo32bit
 {
-    Sample left;
-    Sample right;
+    int32_t left;
+    int32_t right;
 };
 
 #pragma pack(push)
@@ -58,13 +57,13 @@ public:
     bool Count(uint32_t us);
     uint32_t GetNextEvent();
     
-    void Mix(Sample * sampleData, int sampleCount);
+    void Mix(Sample * sampleData, size_t sampleCount) noexcept;
     
     static constexpr uint32_t DEFAULT_CLOCK = 3993600 * 2;
 
 protected:
-    void RhythmMix(Sample * sampleData, uint32_t sampleCount);
-    void StoreSample(Sample & dest, ISample data);
+    void RhythmMix(Sample * sampleData, size_t sampleCount) noexcept;
+    void StoreSample(Sample & sample, int32_t data);
 
     uint32_t GetSampleRate() const { return _Chip.sample_rate(_ClockSpeed); }
 

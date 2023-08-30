@@ -252,7 +252,7 @@ void OPNA::SetReg(uint32_t addr, uint32_t value)
 {
     if ((addr >= 0x10) && (addr <= 0x1f) && !_HasADPCMROM)
     {
-        // UsePPS WAV files to play percussion.
+        // Use PPS WAV files to play percussion.
         switch (addr)
         {
             case 0x10: // DM / KEYON
@@ -386,10 +386,10 @@ uint32_t OPNA::GetNextEvent()
 /// <summary>
 /// Synthesizes a buffer of rhythm samples.
 /// </summary>
-void OPNA::Mix(Sample * sampleData, int sampleCount)
+void OPNA::Mix(Sample * sampleData, size_t sampleCount) noexcept
 {
     Sample * SampleData = sampleData;
-    int SampleCount = sampleCount;
+    size_t SampleCount = sampleCount;
 
     while (SampleCount-- != 0)
     {
@@ -404,13 +404,13 @@ void OPNA::Mix(Sample * sampleData, int sampleCount)
     }
 
     if (!_HasADPCMROM)
-        RhythmMix(sampleData, (uint32_t) sampleCount);
+        RhythmMix(sampleData, sampleCount);
 }
 
 /// <summary>
 /// Synthesizes a buffer of rhythm samples using WAV.
 /// </summary>
-void OPNA::RhythmMix(Sample * sampleData, uint32_t sampleCount)
+void OPNA::RhythmMix(Sample * sampleData, size_t sampleCount) noexcept
 {
     if (_Instrument[0].Samples && (_MasterVolume < 128) && (_InstrumentMask & 0x3f))
     {
@@ -445,7 +445,7 @@ void OPNA::RhythmMix(Sample * sampleData, uint32_t sampleCount)
 /// <summary>
 /// Stores the sample.
 /// </summary>
-void OPNA::StoreSample(Sample & dest, ISample data)
+void OPNA::StoreSample(Sample & dest, int32_t data)
 {
     if constexpr(sizeof(Sample) == 2)
         dest = (Sample) Limit(dest + data, 0x7fff, -0x8000);

@@ -92,12 +92,12 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _OPNA->SetRhythmWait(DEFAULT_REG_WAIT);
     _OPNA->SetADPCMWait(DEFAULT_REG_WAIT);
 
-    pcmends.pcmends = 0x26;
+    pcmends.Count = 0x26;
 
     for (int i = 0; i < 256; i++)
     {
-        pcmends.pcmadrs[i][0] = 0;
-        pcmends.pcmadrs[i][1] = 0;
+        pcmends.Address[i][0] = 0;
+        pcmends.Address[i][1] = 0;
     }
 
     _OpenWork._PPCFileName[0] = '\0';
@@ -133,11 +133,11 @@ void PMD::InitializeInternal()
     ::memset(&effwork, 0, sizeof(EffectState));
     ::memset(&pcmends, 0, sizeof(pcmends));
 
-    ::memset(wavbuf2, 0, sizeof(wavbuf2));
-    ::memset(wavbuf, 0, sizeof(wavbuf2));
-    ::memset(wavbuf_conv, 0, sizeof(wavbuf_conv));
+    ::memset(_SampleSrc, 0, sizeof(_SampleSrc));
+    ::memset(_SampleDst, 0, sizeof(_SampleSrc));
+    ::memset(_SampleTmp, 0, sizeof(_SampleTmp));
 
-    _PCMPtr = (uint8_t *) wavbuf2;
+    _SamplePtr = _SampleSrc;
     
     _SamplesToDo = 0;
     _Position = 0;
@@ -256,13 +256,30 @@ void PMD::InitializeInternal()
     effwork.psgefcnum = 0xff;
 }
 
+bool PMD::IsPMD(const uint8_t * data, size_t size) noexcept
+{
+    if (size < 3)
+        return false;
+
+    if (size > sizeof(_MData))
+        return false;
+
+    if (data[0] > 0x0F && data[0] != 0xFF)
+        return false;
+
+    if (data[1] != 0x18 && data[1] != 0x1A)
+        return false;
+
+    if (data[2] != 0x00 && data[2] != 0xE6)
+        return false;
+
+    return true;
+}
+
+
 int PMD::Load(const uint8_t * data, size_t size)
 {
-    if (size > sizeof(_MData))
-        return ERR_UNKNOWN_FORMAT;
-
-    // 020120 Header parsing only for Towns
-    if ((data[0] > 0x0F && data[0] != 0xFF) || (data[1] != 0x18 && data[1] != 0x1A) || data[2] != 0x00)
+    if (!IsPMD(data, size))
         return ERR_UNKNOWN_FORMAT;
 
     Stop();
@@ -563,10 +580,10 @@ void PMD::SetPosition(uint32_t position)
     {
         DriverStart();
 
-        _PCMPtr = (uint8_t *) wavbuf2;    // Start position of remaining samples in buf
+        _SamplePtr = _SampleSrc;
 
-        _SamplesToDo = 0;           // Number of samples remaining in buf
-        _Position = 0;              // Time from start of playing (μsec)
+        _SamplesToDo = 0;
+        _Position = 0;
     }
 
     while (_Position < NewPosition)
@@ -592,28 +609,28 @@ void PMD::SetPosition(uint32_t position)
 }
 
 // Renders a chunk of PCM data.
-void PMD::Render(int16_t * sampleData, int sampleCount)
+void PMD::Render(int16_t * sampleData, size_t sampleCount)
 {
-    int  SamplesRendered = 0;
+    size_t SamplesDone = 0;
 
     do
     {
-        if (sampleCount - SamplesRendered <= _SamplesToDo)
+        if (_SamplesToDo >= sampleCount - SamplesDone)
         {
-            ::memcpy(sampleData, _PCMPtr, ((size_t) sampleCount - SamplesRendered) * sizeof(uint16_t) * 2);
-            _SamplesToDo -= (sampleCount - SamplesRendered);
+            ::memcpy(sampleData, _SamplePtr, (sampleCount - SamplesDone) * sizeof(Stereo16bit));
+            _SamplesToDo -= (sampleCount - SamplesDone);
 
-            _PCMPtr += ((size_t) sampleCount - SamplesRendered) * sizeof(uint16_t) * 2;
-            SamplesRendered = sampleCount;
+            _SamplePtr += (sampleCount - SamplesDone);
+            SamplesDone = sampleCount;
         }
         else
         {
             {
-                ::memcpy(sampleData, _PCMPtr, _SamplesToDo * sizeof(uint16_t) * 2);
+                ::memcpy(sampleData, _SamplePtr, _SamplesToDo * sizeof(Stereo16bit));
                 sampleData += (_SamplesToDo * 2);
 
-                _PCMPtr = (uint8_t *) wavbuf2;
-                SamplesRendered += _SamplesToDo;
+                _SamplePtr = _SampleSrc;
+                SamplesDone += _SamplesToDo;
             }
 
             {
@@ -629,30 +646,30 @@ void PMD::Render(int16_t * sampleData, int sampleCount)
             uint32_t us = _OPNA->GetNextEvent(); // in microseconds
 
             {
-                _SamplesToDo = (int) ((double) us * _OpenWork._OPNARate / 1000000.0);
+                _SamplesToDo = (size_t) ((double) us * _OpenWork._OPNARate / 1000000.0);
                 _OPNA->Count(us);
 
-                ::memset(wavbuf, 0x00, _SamplesToDo * sizeof(Sample) * 2);
+                ::memset(_SampleDst, 0, _SamplesToDo * sizeof(Stereo32bit));
 
                 if (_OpenWork._OPNARate == _OpenWork._PPZ8Rate)
-                    _PPZ8->Mix((Sample *) wavbuf, _SamplesToDo);
+                    _PPZ8->Mix((Sample *) _SampleDst, _SamplesToDo);
                 else
                 {
                     // PCM frequency transform of ppz8 (no interpolation)
-                    int ppzsample = (int) (_SamplesToDo * _OpenWork._PPZ8Rate / _OpenWork._OPNARate + 1);
+                    size_t SampleCount = (size_t) (_SamplesToDo * _OpenWork._PPZ8Rate / _OpenWork._OPNARate + 1);
                     int delta     = (int) (8192         * _OpenWork._PPZ8Rate / _OpenWork._OPNARate);
 
-                    ::memset(wavbuf_conv, 0, ppzsample * sizeof(Sample) * 2);
+                    ::memset(_SampleTmp, 0, SampleCount * sizeof(Sample) * 2);
 
-                    _PPZ8->Mix((Sample *) wavbuf_conv, ppzsample);
+                    _PPZ8->Mix((Sample *) _SampleTmp, SampleCount);
 
                     int carry = 0;
 
                     // Frequency transform (1 << 13 = 8192)
-                    for (int i = 0; i < _SamplesToDo; i++)
+                    for (size_t i = 0; i < _SamplesToDo; i++)
                     {
-                        wavbuf[i].left  = wavbuf_conv[(carry >> 13)].left;
-                        wavbuf[i].right = wavbuf_conv[(carry >> 13)].right;
+                        _SampleDst[i].left  = _SampleTmp[(carry >> 13)].left;
+                        _SampleDst[i].right = _SampleTmp[(carry >> 13)].right;
 
                         carry += delta;
                     }
@@ -660,13 +677,13 @@ void PMD::Render(int16_t * sampleData, int sampleCount)
             }
 
             {
-                _OPNA->Mix((Sample *) wavbuf, _SamplesToDo);
+                _OPNA->Mix((Sample *) _SampleDst, _SamplesToDo);
 
                 if (pmdwork._UsePPS)
-                    _PPS->Mix((Sample *) wavbuf, _SamplesToDo);
+                    _PPS->Mix((Sample *) _SampleDst, _SamplesToDo);
 
                 if (_OpenWork._UseP86)
-                    _P86->Mix((Sample *) wavbuf, _SamplesToDo);
+                    _P86->Mix((Sample *) _SampleDst, _SamplesToDo);
             }
 
             {
@@ -674,12 +691,12 @@ void PMD::Render(int16_t * sampleData, int sampleCount)
 
                 if (_OpenWork._FadeOutSpeedHQ > 0)
                 {
-                    int  ftemp = (_OpenWork._LoopCount != -1) ? (int) ((1 << 10) * ::pow(512, -(double) (_Position - _FadeOutPosition) / 1000 / _OpenWork._FadeOutSpeedHQ)) : 0;
+                    int Factor = (_OpenWork._LoopCount != -1) ? (int) ((1 << 10) * ::pow(512, -(double) (_Position - _FadeOutPosition) / 1000 / _OpenWork._FadeOutSpeedHQ)) : 0;
 
-                    for (int i = 0; i < _SamplesToDo; i++)
+                    for (size_t i = 0; i < _SamplesToDo; i++)
                     {
-                        wavbuf2[i].left  = (short) Limit(wavbuf[i].left  * ftemp >> 10, 32767, -32768);
-                        wavbuf2[i].right = (short) Limit(wavbuf[i].right * ftemp >> 10, 32767, -32768);
+                        _SampleSrc[i].left  = (int16_t) Limit(_SampleDst[i].left  * Factor >> 10, 32767, -32768);
+                        _SampleSrc[i].right = (int16_t) Limit(_SampleDst[i].right * Factor >> 10, 32767, -32768);
                     }
 
                     // Fadeout end
@@ -688,16 +705,16 @@ void PMD::Render(int16_t * sampleData, int sampleCount)
                 }
                 else
                 {
-                    for (int i = 0; i < _SamplesToDo; i++)
+                    for (size_t i = 0; i < _SamplesToDo; i++)
                     {
-                        wavbuf2[i].left  = (short) Limit(wavbuf[i].left,  32767, -32768);
-                        wavbuf2[i].right = (short) Limit(wavbuf[i].right, 32767, -32768);
+                        _SampleSrc[i].left  = (int16_t) Limit(_SampleDst[i].left,  32767, -32768);
+                        _SampleSrc[i].right = (int16_t) Limit(_SampleDst[i].right, 32767, -32768);
                     }
                 }
             }
         }
     }
-    while (SamplesRendered < sampleCount);
+    while (SamplesDone < sampleCount);
 }
 
 // Reload rhythm sound
@@ -831,8 +848,8 @@ void PMD::SetEventNumber(int pos)
     {
         DriverStart();
 
-        _PCMPtr = (uint8_t *) wavbuf2; // Start position of remaining samples in buf
-        _SamplesToDo = 0; // Number of samples remaining in buf
+        _SamplePtr = _SampleSrc;
+        _SamplesToDo = 0;
     }
 
     while (_OpenWork.syousetu_lng * _OpenWork.syousetu + _OpenWork.opncount < pos)
@@ -865,7 +882,7 @@ int PMD::GetEventNumber()
 WCHAR * PMD::GetPCMFileName(WCHAR * filePath)
 {
     if (_OpenWork._UseP86)
-        ::wcscpy(filePath, _P86->_FileName);
+        ::wcscpy(filePath, _P86->_FilePath);
     else
         ::wcscpy(filePath, _OpenWork._PPCFileName);
 
@@ -875,7 +892,7 @@ WCHAR * PMD::GetPCMFileName(WCHAR * filePath)
 // Gets PPZ filename.
 WCHAR * PMD::GetPPZFileName(WCHAR * filePath, int index)
 {
-    ::wcscpy(filePath, _PPZ8->PVI_FILE[index]);
+    ::wcscpy(filePath, _PPZ8->_FilePath[index]);
 
     return filePath;
 }
@@ -4394,8 +4411,8 @@ uint8_t * PMD::pansetz_ex(PartState * qq, uint8_t * si)
 uint8_t * PMD::comatm(PartState * qq, uint8_t * si)
 {
     qq->voicenum = *si++;
-    _OpenWork.pcmstart = pcmends.pcmadrs[qq->voicenum][0];
-    _OpenWork.pcmstop = pcmends.pcmadrs[qq->voicenum][1];
+    _OpenWork.pcmstart = pcmends.Address[qq->voicenum][0];
+    _OpenWork.pcmstop = pcmends.Address[qq->voicenum][1];
     pmdwork.pcmrepeat1 = 0;
     pmdwork.pcmrepeat2 = 0;
     pmdwork.pcmrelease = 0x8000;
@@ -8308,7 +8325,7 @@ void PMD::Stop()
         DriverStop();
     }
 
-    ::memset(wavbuf2, 0, sizeof(wavbuf2));
+    ::memset(_SampleSrc, 0, sizeof(_SampleSrc));
     _Position = 0;
 }
 
@@ -8321,23 +8338,18 @@ void PMD::DriverStart()
 
     _OPNA->SetReg(0x27, 0x00); // TIMER RESET (both timer A and B)
 
-    //  演奏停止
-    pmdwork.music_flag &= 0xfe;
+    pmdwork.music_flag &= 0xFE;
     DriverStop();
 
-    //  バッファ初期化
-    _PCMPtr = (uint8_t *) wavbuf2;    // Start position of remaining samples in buf
-    _SamplesToDo = 0;           // Number of samples remaining in buf
-    _Position = 0;                   // Time from start of playing (μs)
+    _SamplePtr = _SampleSrc;
+    _SamplesToDo = 0;
+    _Position = 0;
 
-    //  演奏準備
     InitializeDataArea();
     play_init();
 
-    //  OPN初期化
     opn_init();
 
-    //  音楽の演奏を開始
     setint();
 
     _OpenWork._IsPlaying = true;
@@ -8643,27 +8655,27 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
         {
             if (*((uint16_t *) &pcmdata[18 + i * 4]) == 0)
             {
-                pcmends.pcmadrs[i][0] = pcmdata[16 + i * 4];
-                pcmends.pcmadrs[i][1] = 0;
+                pcmends.Address[i][0] = pcmdata[16 + i * 4];
+                pcmends.Address[i][1] = 0;
             }
             else
             {
-                pcmends.pcmadrs[i][0] = (uint16_t) (*(uint16_t *) &pcmdata[16 + i * 4] + 0x26);
-                pcmends.pcmadrs[i][1] = (uint16_t) (*(uint16_t *) &pcmdata[18 + i * 4] + 0x26);
+                pcmends.Address[i][0] = (uint16_t) (*(uint16_t *) &pcmdata[16 + i * 4] + 0x26);
+                pcmends.Address[i][1] = (uint16_t) (*(uint16_t *) &pcmdata[18 + i * 4] + 0x26);
             }
 
-            if (bx < pcmends.pcmadrs[i][1])
-                bx = pcmends.pcmadrs[i][1] + 1;
+            if (bx < pcmends.Address[i][1])
+                bx = pcmends.Address[i][1] + 1;
         }
 
         // The remaining 128 are undefined
         for (i = 128; i < 256; i++)
         { 
-            pcmends.pcmadrs[i][0] = 0;
-            pcmends.pcmadrs[i][1] = 0;
+            pcmends.Address[i][0] = 0;
+            pcmends.Address[i][1] = 0;
         }
 
-        pcmends.pcmends = (uint16_t) bx;
+        pcmends.Count = (uint16_t) bx;
     }
     else
     if (::strncmp((char *) pcmdata, PPCHeader, sizeof(PPCHeader) - 1) == 0)
@@ -8679,12 +8691,12 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
             return ERR_UNKNOWN_FORMAT;
         }
 
-        pcmends.pcmends = *pcmdata2++;
+        pcmends.Count = *pcmdata2++;
 
         for (i = 0; i < 256; i++)
         {
-            pcmends.pcmadrs[i][0] = *pcmdata2++;
-            pcmends.pcmadrs[i][1] = *pcmdata2++;
+            pcmends.Address[i][0] = *pcmdata2++;
+            pcmends.Address[i][1] = *pcmdata2++;
         }
     }
     else
@@ -8708,7 +8720,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
     // Write PMD work to PCMRAM head
     ::memcpy(tempbuf2, PPCHeader, sizeof(PPCHeader) - 1);
-    ::memcpy(&tempbuf2[sizeof(PPCHeader) - 1], &pcmends.pcmends, sizeof(tempbuf2) - (sizeof(PPCHeader) - 1));
+    ::memcpy(&tempbuf2[sizeof(PPCHeader) - 1], &pcmends.Count, sizeof(tempbuf2) - (sizeof(PPCHeader) - 1));
 
     pcmstore(0, 0x25, tempbuf2);
 
@@ -8717,7 +8729,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
     {
         pcmdata2 = (uint16_t *) (pcmdata + 0x10 + sizeof(uint16_t) * 2 * 128);
 
-        if (size < (int) (pcmends.pcmends - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
+        if (size < (int) (pcmends.Count - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
         {
             _OpenWork._PPCFileName[0] = '\0';
 
@@ -8728,7 +8740,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
     {
         pcmdata2 = (uint16_t *) pcmdata + (30 + 4 * 256 + 2) / 2;
 
-        if (size < (pcmends.pcmends - ((30 + 4 * 256 + 2) / 2)) * 32)
+        if (size < (pcmends.Count - ((30 + 4 * 256 + 2) / 2)) * 32)
         {
             _OpenWork._PPCFileName[0] = '\0';
 
@@ -8737,7 +8749,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
     }
 
     uint16_t pcmstart = 0x26;
-    uint16_t pcmstop = pcmends.pcmends;
+    uint16_t pcmstop = pcmends.Count;
 
     pcmstore(pcmstart, pcmstop, (uint8_t *) pcmdata2);
 

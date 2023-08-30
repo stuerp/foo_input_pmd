@@ -66,7 +66,7 @@ public:
     P86DRV(File * file);
     virtual ~P86DRV();
 
-    bool Init(uint32_t r, bool ip);            // 初期化
+    bool Init(uint32_t r, bool useInterpolation);            // 初期化
     bool Stop(void);                // P86 停止
     bool Play(void);                // P86 再生
     bool Keyoff(void);                // P86 keyoff
@@ -77,15 +77,14 @@ public:
     bool SetOntei(int rate, uint32_t ontei);      // 音程周波数の設定
     bool SetPan(int flag, int data);        // PAN 設定
     bool SetNeiro(int num);              // PCM 番号設定
-    bool SetLoop(int loop_start, int loop_end, int release_start, bool adpcm);
-    // ループ設定
-    void Mix(Sample * dest, int nsamples);      // 合成
+    bool SetLoop(int loop_start, int loop_end, int release_start, bool adpcm); // ループ設定
+    void Mix(Sample * sampleData, size_t sampleCount) noexcept;
 
-    WCHAR  _FileName[_MAX_PATH];
+    WCHAR _FilePath[_MAX_PATH];
     P86HEADER2 p86header;              // P86 の音色ヘッダー
 
 private:
-    File * _File;              // ファイルアクセス関連のクラスライブラリ
+    File * _File;
 
     bool  interpolation;              // 補完するか？
     int    rate;                  // 再生周波数
@@ -112,24 +111,25 @@ private:
     int    pcm86_pan_dat;    // パンデータ２(音量を下げるサイドの音量値)
     bool  play86_flag;              // 発音中?flag
 
-    int    AVolume;
-    //  static  Sample VolumeTable[16][256];      // 音量テーブル
-    Sample VolumeTable[16][256];          // 音量テーブル
+    int _AVolume;
+    Sample _VolumeTable[16][256];
 
-    void  _Init(void);              // 初期化(内部処理)
-    void  MakeVolumeTable(int volume);
-    void   ReadHeader(File * file, P86HEADER & p86header);
-    void  double_trans(Sample * dest, int nsamples);
-    void  double_trans_g(Sample * dest, int nsamples);
-    void  left_trans(Sample * dest, int nsamples);
-    void  left_trans_g(Sample * dest, int nsamples);
-    void  right_trans(Sample * dest, int nsamples);
-    void  right_trans_g(Sample * dest, int nsamples);
-    void  double_trans_i(Sample * dest, int nsamples);
-    void  double_trans_g_i(Sample * dest, int nsamples);
-    void  left_trans_i(Sample * dest, int nsamples);
-    void  left_trans_g_i(Sample * dest, int nsamples);
-    void  right_trans_i(Sample * dest, int nsamples);
-    void  right_trans_g_i(Sample * dest, int nsamples);
-    bool  add_address(void);
+    void _Init();
+
+    void CreateVolumeTable(int volume);
+    void ReadHeader(File * file, P86HEADER & p86header);
+    void double_trans(Sample * dest, int nsamples);
+    void double_trans_g(Sample * dest, int nsamples);
+    void left_trans(Sample * dest, int nsamples);
+    void left_trans_g(Sample * dest, int nsamples);
+    void right_trans(Sample * dest, int nsamples);
+    void right_trans_g(Sample * dest, int nsamples);
+    void double_trans_i(Sample * dest, int nsamples);
+    void double_trans_g_i(Sample * dest, int nsamples);
+    void left_trans_i(Sample * dest, int nsamples);
+    void left_trans_g_i(Sample * dest, int nsamples);
+    void right_trans_i(Sample * dest, int nsamples);
+    void right_trans_g_i(Sample * dest, int nsamples);
+
+    bool add_address(void);
 };
