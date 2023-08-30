@@ -435,7 +435,7 @@ void P86DRV::double_trans_i(Sample * dest, int nsamples)
         *dest++ += data;
         *dest++ += data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -455,7 +455,7 @@ void P86DRV::double_trans_g_i(Sample * dest, int nsamples)
         *dest++ += data;
         *dest++ -= data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -476,7 +476,7 @@ void P86DRV::left_trans_i(Sample * dest, int nsamples)
         data = data * pcm86_pan_dat / (256 / 2);
         *dest++ += data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -497,7 +497,7 @@ void P86DRV::left_trans_g_i(Sample * dest, int nsamples)
         data = data * pcm86_pan_dat / (256 / 2);
         *dest++ -= data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -518,7 +518,7 @@ void P86DRV::right_trans_i(Sample * dest, int nsamples)
         *dest++ += data2;
         *dest++ += data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -539,7 +539,7 @@ void P86DRV::right_trans_g_i(Sample * dest, int nsamples)
         *dest++ += data2;
         *dest++ -= data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -559,7 +559,7 @@ void P86DRV::double_trans(Sample * dest, int nsamples)
         *dest++ += data;
         *dest++ += data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -579,7 +579,7 @@ void P86DRV::double_trans_g(Sample * dest, int nsamples)
         *dest++ += data;
         *dest++ -= data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -601,7 +601,7 @@ void P86DRV::left_trans(Sample * dest, int nsamples)
         data = data * pcm86_pan_dat / (256 / 2);
         *dest++ += data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -623,7 +623,7 @@ void P86DRV::left_trans_g(Sample * dest, int nsamples)
         data = data * pcm86_pan_dat / (256 / 2);
         *dest++ -= data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -644,7 +644,7 @@ void P86DRV::right_trans(Sample * dest, int nsamples)
         *dest++ += data2;
         *dest++ += data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -665,7 +665,7 @@ void P86DRV::right_trans_g(Sample * dest, int nsamples)
         *dest++ += data2;
         *dest++ -= data;
 
-        if (add_address())
+        if (AddAddress())
         {
             play86_flag = false;
             return;
@@ -676,7 +676,7 @@ void P86DRV::right_trans_g(Sample * dest, int nsamples)
 /// <summary>
 /// Adds an address.
 /// </summary>
-bool P86DRV::add_address()
+bool P86DRV::AddAddress()
 {
     start_ofs_x += addsize2;
 

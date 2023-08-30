@@ -131,5 +131,5 @@ private:
     void right_trans_i(Sample * dest, int nsamples);
     void right_trans_g_i(Sample * dest, int nsamples);
 
-    bool add_address(void);
+    bool AddAddress(void);
 };

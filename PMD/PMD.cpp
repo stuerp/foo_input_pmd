@@ -120,13 +120,13 @@ void PMD::InitializeInternal()
 {
     ::memset(&_OpenWork, 0, sizeof(_OpenWork));
 
-    ::memset(FMPart, 0, sizeof(FMPart));
+    ::memset(_FMTrack, 0, sizeof(_FMTrack));
     ::memset(SSGPart, 0, sizeof(SSGPart));
     ::memset(&ADPCMPart, 0, sizeof(ADPCMPart));
-    ::memset(&RhythmPart, 0, sizeof(RhythmPart));
+    ::memset(&_RhythmTrack, 0, sizeof(_RhythmTrack));
     ::memset(ExtPart, 0, sizeof(ExtPart));
-    ::memset(&DummyPart, 0, sizeof(DummyPart));
-    ::memset(&EffPart, 0, sizeof(EffPart));
+    ::memset(&_DummyTrack, 0, sizeof(_DummyTrack));
+    ::memset(&_EffectTrack, 0, sizeof(_EffectTrack));
     ::memset(PPZ8Part, 0, sizeof(PPZ8Part));
 
     ::memset(&pmdwork, 0, sizeof(PMDWORK));
@@ -167,46 +167,36 @@ void PMD::InitializeInternal()
     _OpenWork.ppsip = false;
 
     // Initialize variables.
-    _OpenWork.Part[ 0] = &FMPart[0];
-    _OpenWork.Part[ 1] = &FMPart[1];
-    _OpenWork.Part[ 2] = &FMPart[2];
-    _OpenWork.Part[ 3] = &FMPart[3];
-    _OpenWork.Part[ 4] = &FMPart[4];
-    _OpenWork.Part[ 5] = &FMPart[5];
+    _OpenWork._Track[ 0] = &_FMTrack[0];
+    _OpenWork._Track[ 1] = &_FMTrack[1];
+    _OpenWork._Track[ 2] = &_FMTrack[2];
+    _OpenWork._Track[ 3] = &_FMTrack[3];
+    _OpenWork._Track[ 4] = &_FMTrack[4];
+    _OpenWork._Track[ 5] = &_FMTrack[5];
 
-    _OpenWork.Part[ 6] = &SSGPart[0];
-    _OpenWork.Part[ 7] = &SSGPart[1];
-    _OpenWork.Part[ 8] = &SSGPart[2];
+    _OpenWork._Track[ 6] = &SSGPart[0];
+    _OpenWork._Track[ 7] = &SSGPart[1];
+    _OpenWork._Track[ 8] = &SSGPart[2];
 
-    _OpenWork.Part[ 9] = &ADPCMPart;
+    _OpenWork._Track[ 9] = &ADPCMPart;
 
-    _OpenWork.Part[10] = &RhythmPart;
+    _OpenWork._Track[10] = &_RhythmTrack;
 
-    _OpenWork.Part[11] = &ExtPart[0];
-    _OpenWork.Part[12] = &ExtPart[1];
-    _OpenWork.Part[13] = &ExtPart[2];
+    _OpenWork._Track[11] = &ExtPart[0];
+    _OpenWork._Track[12] = &ExtPart[1];
+    _OpenWork._Track[13] = &ExtPart[2];
 
-    _OpenWork.Part[14] = &DummyPart;
-    _OpenWork.Part[15] = &EffPart;
+    _OpenWork._Track[14] = &_DummyTrack; // Unused
+    _OpenWork._Track[15] = &_EffectTrack;
 
-    _OpenWork.Part[16] = &PPZ8Part[0];
-    _OpenWork.Part[17] = &PPZ8Part[1];
-    _OpenWork.Part[18] = &PPZ8Part[2];
-    _OpenWork.Part[19] = &PPZ8Part[3];
-    _OpenWork.Part[20] = &PPZ8Part[4];
-    _OpenWork.Part[21] = &PPZ8Part[5];
-    _OpenWork.Part[22] = &PPZ8Part[6];
-    _OpenWork.Part[23] = &PPZ8Part[7];
-
-    _MData[0] = 0;
-
-    for (int i = 0; i < 12; ++i)
-    {
-        _MData[i * 2 + 1] = 0x18;
-        _MData[i * 2 + 2] = 0x00;
-    }
-
-    _MData[25] = 0x80;
+    _OpenWork._Track[16] = &PPZ8Part[0];
+    _OpenWork._Track[17] = &PPZ8Part[1];
+    _OpenWork._Track[18] = &PPZ8Part[2];
+    _OpenWork._Track[19] = &PPZ8Part[3];
+    _OpenWork._Track[20] = &PPZ8Part[4];
+    _OpenWork._Track[21] = &PPZ8Part[5];
+    _OpenWork._Track[22] = &PPZ8Part[6];
+    _OpenWork._Track[23] = &PPZ8Part[7];
 
     _OpenWork.fm_voldown = fmvd_init;   // FM_VOLDOWN
     _OpenWork._fm_voldown = fmvd_init;  // FM_VOLDOWN
@@ -246,10 +236,19 @@ void PMD::InitializeInternal()
     pmdwork._UsePPS = false;
     pmdwork.music_flag = 0;
 
-    // Set song data and timbre data storage addresses.
-    _OpenWork.mmlbuf = &_MData[1];
-    _OpenWork.tondat = _VData;
-    _OpenWork.efcdat = _EData;
+    _MData[0] = 0;
+
+    for (size_t i = 0; i < 12; ++i)
+    {
+        _MData[i * 2 + 1] = 0x18;
+        _MData[i * 2 + 2] = 0x00;
+    }
+
+    _MData[25] = 0x80;
+
+    _OpenWork._MData = &_MData[1];
+    _OpenWork._VData = _VData;
+    _OpenWork._EData = _EData;
 
     // Initialize sound effects FMINT/EFCINT.
     effwork.effon = 0;
@@ -299,7 +298,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
     // P86/PPC reading
     {
-        GetNoteInternal(data, size, 0, FileName);
+        GetText(data, size, 0, FileName);
 
         if (*FileName != '\0')
         {
@@ -329,7 +328,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
     // PPS import
     {
-        GetNoteInternal(data, size, -1, FileName);
+        GetText(data, size, -1, FileName);
 
         if (*FileName != '\0')
         {
@@ -346,7 +345,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
     // 20010120 Ignore if TOWNS
     {
-        GetNoteInternal(data, size, -2, FileName);
+        GetText(data, size, -2, FileName);
 
         if (*FileName != '\0')
         {
@@ -953,10 +952,10 @@ void PMD::setp86interpolation(bool flag)
 /// </summary>
 int PMD::maskon(int ch)
 {
-    if (ch >= sizeof(_OpenWork.Part) / sizeof(PartState *))
+    if (ch >= sizeof(_OpenWork._Track) / sizeof(Track *))
         return ERR_WRONG_PARTNO;
 
-    if (part_table[ch][0] < 0)
+    if (TrackTable[ch][0] < 0)
     {
         _OpenWork.rhythmmask = 0;  // Rhythm音源をMask
         _OPNA->SetReg(0x10, 0xff);  // Rhythm音源を全部Dump
@@ -965,29 +964,29 @@ int PMD::maskon(int ch)
     {
         int fmseltmp = pmdwork.fmsel;
 
-        if ((_OpenWork.Part[ch]->partmask == 0) && _OpenWork._IsPlaying)
+        if ((_OpenWork._Track[ch]->partmask == 0) && _OpenWork._IsPlaying)
         {
-            if (part_table[ch][2] == 0)
+            if (TrackTable[ch][2] == 0)
             {
-                pmdwork.partb = part_table[ch][1];
+                pmdwork._CurrentTrack = TrackTable[ch][1];
                 pmdwork.fmsel = 0;
 
-                MuteFMPart(_OpenWork.Part[ch]);
+                MuteFMPart(_OpenWork._Track[ch]);
             }
             else
-            if (part_table[ch][2] == 1)
+            if (TrackTable[ch][2] == 1)
             {
-                pmdwork.partb = part_table[ch][1];
+                pmdwork._CurrentTrack = TrackTable[ch][1];
                 pmdwork.fmsel = 0x100;
 
-                MuteFMPart(_OpenWork.Part[ch]);
+                MuteFMPart(_OpenWork._Track[ch]);
             }
             else
-            if (part_table[ch][2] == 2)
+            if (TrackTable[ch][2] == 2)
             {
-                pmdwork.partb = part_table[ch][1];
+                pmdwork._CurrentTrack = TrackTable[ch][1];
 
-                int ah = 1 << (pmdwork.partb - 1);
+                int ah = 1 << (pmdwork._CurrentTrack - 1);
 
                 ah |= (ah << 3);
 
@@ -995,23 +994,23 @@ int PMD::maskon(int ch)
                 _OPNA->SetReg(0x07, ah | _OPNA->GetReg(0x07));
             }
             else
-            if (part_table[ch][2] == 3)
+            if (TrackTable[ch][2] == 3)
             {
                 _OPNA->SetReg(0x101, 0x02);    // PAN=0 / x8 bit mode
                 _OPNA->SetReg(0x100, 0x01);    // PCM RESET
             }
             else
-            if (part_table[ch][2] == 4)
+            if (TrackTable[ch][2] == 4)
             {
                 if (effwork.psgefcnum < 11)
                     effend();
             }
             else
-            if (part_table[ch][2] == 5)
-                _PPZ8->Stop(part_table[ch][1]);
+            if (TrackTable[ch][2] == 5)
+                _PPZ8->Stop(TrackTable[ch][1]);
         }
 
-        _OpenWork.Part[ch]->partmask |= 1;
+        _OpenWork._Track[ch]->partmask |= 1;
         pmdwork.fmsel = fmseltmp;
     }
 
@@ -1023,21 +1022,21 @@ int PMD::maskon(int ch)
 /// </summary>
 int PMD::maskoff(int ch)
 {
-    if (ch >= sizeof(_OpenWork.Part) / sizeof(PartState *))
+    if (ch >= sizeof(_OpenWork._Track) / sizeof(Track *))
         return ERR_WRONG_PARTNO;
 
-    if (part_table[ch][0] < 0)
+    if (TrackTable[ch][0] < 0)
     {
         _OpenWork.rhythmmask = 0xff;
     }
     else
     {
-        if (_OpenWork.Part[ch]->partmask == 0)
+        if (_OpenWork._Track[ch]->partmask == 0)
             return ERR_NOT_MASKED;
 
         // Still masked by sound effects
 
-        if ((_OpenWork.Part[ch]->partmask &= 0xfe) != 0)
+        if ((_OpenWork._Track[ch]->partmask &= 0xfe) != 0)
             return ERR_EFFECT_USED;
 
         // The song has stopped.
@@ -1046,19 +1045,20 @@ int PMD::maskoff(int ch)
 
         int fmseltmp = pmdwork.fmsel;
 
-        if (_OpenWork.Part[ch]->address != NULL)
+        if (_OpenWork._Track[ch]->address)
         {
-            if (part_table[ch][2] == 0)
+            if (TrackTable[ch][2] == 0)
             {    // FM音源(表)
                 pmdwork.fmsel = 0;
-                pmdwork.partb = part_table[ch][1];
-                neiro_reset(_OpenWork.Part[ch]);
+                pmdwork._CurrentTrack = TrackTable[ch][1];
+                neiro_reset(_OpenWork._Track[ch]);
             }
-            else if (part_table[ch][2] == 1)
+            else
+            if (TrackTable[ch][2] == 1)
             {  // FM音源(裏)
                 pmdwork.fmsel = 0x100;
-                pmdwork.partb = part_table[ch][1];
-                neiro_reset(_OpenWork.Part[ch]);
+                pmdwork._CurrentTrack = TrackTable[ch][1];
+                neiro_reset(_OpenWork._Track[ch]);
             }
         }
 
@@ -1171,7 +1171,7 @@ bool PMD::GetNote(const uint8_t * data, size_t size, int index, char * text, siz
 
     char a[1024 + 64];
 
-    GetNoteInternal(data, size, index, a);
+    GetText(data, size, index, a);
 
     char b[1024 + 64];
 
@@ -1183,14 +1183,16 @@ bool PMD::GetNote(const uint8_t * data, size_t size, int index, char * text, siz
 }
 
 // Gets a note
-char * PMD::GetNoteInternal(const uint8_t * data, size_t size, int index, char * text)
+void PMD::GetText(const uint8_t * data, size_t size, int index, char * text) const noexcept
 {
+    *text = '\0';
+
     const uint8_t * Data;
     size_t Size;
 
     if (data == nullptr || size == 0)
     {
-        Data = _OpenWork.mmlbuf;
+        Data = _OpenWork._MData;
         Size = sizeof(_MData) - 1;
     }
     else
@@ -1200,43 +1202,23 @@ char * PMD::GetNoteInternal(const uint8_t * data, size_t size, int index, char *
     }
 
     if (Size < 2)
-    {
-        *text = '\0'; // Incorrect song data
-
-        return NULL;
-    }
+        return;
 
     if (Data[0] != 0x1a || Data[1] != 0x00)
-    {
-        *text = '\0'; // Unable to get address of file=memo without sound
+        return;
 
-        return text;
-    }
-
-    if (Size < (size_t)0x18 + 1)
-    {
-        *text = '\0'; // Incorrect song data
-
-        return NULL;
-    }
+    if (Size < (size_t) 0x18 + 1)
+        return;
 
     if (Size < (size_t)*(uint16_t *) &Data[0x18] - 4 + 3)
-    {
-        *text = '\0'; // Incorrect song data
-
-        return NULL;
-    }
+        return;
 
     const uint8_t * Src = &Data[*(uint16_t *) &Data[0x18] - 4];
 
     if (*(Src + 2) != 0x40)
     {
         if (*(Src + 3) != 0xfe || *(Src + 2) < 0x41)
-        {
-            *text = '\0'; // Unable to get address of file=memo without sound
-
-            return text;
-        }
+            return;
     }
 
     if (*(Src + 2) >= 0x42)
@@ -1246,50 +1228,34 @@ char * PMD::GetNoteInternal(const uint8_t * data, size_t size, int index, char *
         index++;
 
     if (index < 0)
-    {
-        *text = '\0'; // No registration
-        return text;
-    }
+        return;
 
     Src = &Data[*(uint16_t *) Src];
 
     size_t i;
 
-    uint16_t dx = 0;
+    uint16_t Offset = 0;
 
     for (i = 0; i <= (size_t) index; i++)
     {
         if (Size < (size_t)(Src - Data + 1))
-        {
-            *text = '\0';  // Incorrect song data
+            return;
 
-            return NULL;
-        }
+        Offset = *(uint16_t *) Src;
 
-        dx = *(uint16_t *) Src;
+        if (Offset == 0)
+            return;
 
-        if (dx == 0)
-        {
-            *text = '\0';
-            return text;
-        }
+        if (Size < (size_t) Offset)
+            return;
 
-        if (Size < (size_t) dx)
-        {
-            *text = '\0'; // Incorrect song data
-            return NULL;
-        }
-
-        if (Data[dx] == '/')
-        {
-            *text = '\0';
-            return text;
-        }
+        if (Data[Offset] == '/')
+            return;
 
         Src += 2;
     }
 
-    for (i = dx; i < Size; i++)
+    for (i = Offset; i < Size; i++)
     {
         if (Data[i] == '\0')
             break;
@@ -1298,13 +1264,11 @@ char * PMD::GetNoteInternal(const uint8_t * data, size_t size, int index, char *
     // Without the terminating \0
     if (i >= Size)
     {
-        ::memcpy(text, &Data[dx], (size_t) Size - dx);
-        text[Size - dx - 1] = '\0';
+        ::memcpy(text, &Data[Offset], (size_t) Size - Offset);
+        text[Size - Offset - 1] = '\0';
     }
     else
-        ::strcpy(text, (char *) &Data[dx]);
-
-    return text;
+        ::strcpy(text, (char *) &Data[Offset]);
 }
 
 // Load PPC
@@ -1383,12 +1347,12 @@ OPEN_WORK * PMD::GetOpenWork()
 }
 
 // Get part work pointer
-PartState * PMD::GetOpenPartWork(int ch)
+Track * PMD::GetOpenPartWork(int ch)
 {
-    if (ch >= sizeof(_OpenWork.Part) / sizeof(PartState *))
+    if (ch >= sizeof(_OpenWork._Track) / sizeof(Track *))
         return NULL;
 
-    return _OpenWork.Part[ch];
+    return _OpenWork._Track[ch];
 }
 
 void PMD::HandleTimerA()
@@ -1440,7 +1404,7 @@ void PMD::DriverMain()
     {
         for (i = 0; i < 3; i++)
         {
-            pmdwork.partb = i + 1;
+            pmdwork._CurrentTrack = i + 1;
             PSGMain(&SSGPart[i]);
         }
     }
@@ -1449,27 +1413,27 @@ void PMD::DriverMain()
 
     for (i = 0; i < 3; i++)
     {
-        pmdwork.partb = i + 1;
-        FMMain(&FMPart[i + 3]);
+        pmdwork._CurrentTrack = i + 1;
+        FMMain(&_FMTrack[i + 3]);
     }
 
     pmdwork.fmsel = 0;
 
     for (i = 0; i < 3; i++)
     {
-        pmdwork.partb = i + 1;
-        FMMain(&FMPart[i]);
+        pmdwork._CurrentTrack = i + 1;
+        FMMain(&_FMTrack[i]);
     }
 
     for (i = 0; i < 3; i++)
     {
-        pmdwork.partb = 3;
+        pmdwork._CurrentTrack = 3;
         FMMain(&ExtPart[i]);
     }
 
     if (_OpenWork.x68_flg == 0)
     {
-        RhythmMain(&RhythmPart);
+        RhythmMain(&_RhythmTrack);
 
         if (_OpenWork._UseP86)
             PCM86Main(&ADPCMPart);
@@ -1481,7 +1445,7 @@ void PMD::DriverMain()
     {
         for (i = 0; i < 8; i++)
         {
-            pmdwork.partb = i;
+            pmdwork._CurrentTrack = i;
             PPZ8Main(&PPZ8Part[i]);
         }
     }
@@ -1491,8 +1455,8 @@ void PMD::DriverMain()
 
     for (i = 0; i < 6; i++)
     {
-        if (FMPart[i].loopcheck != 3)
-            FMPart[i].loopcheck = 0;
+        if (_FMTrack[i].loopcheck != 3)
+            _FMTrack[i].loopcheck = 0;
     }
 
     for (i = 0; i < 3; i++)
@@ -1507,11 +1471,11 @@ void PMD::DriverMain()
     if (ADPCMPart.loopcheck != 3)
         ADPCMPart.loopcheck = 0;
 
-    if (RhythmPart.loopcheck != 3)
-        RhythmPart.loopcheck = 0;
+    if (_RhythmTrack.loopcheck != 3)
+        _RhythmTrack.loopcheck = 0;
 
-    if (EffPart.loopcheck != 3)
-        EffPart.loopcheck = 0;
+    if (_EffectTrack.loopcheck != 3)
+        _EffectTrack.loopcheck = 0;
 
     for (i = 0; i < PCM_CNL_MAX; i++)
     {
@@ -1530,58 +1494,58 @@ void PMD::DriverMain()
         _OpenWork._LoopCount = -1;
 }
 
-void PMD::FMMain(PartState * qq)
+void PMD::FMMain(Track * track)
 {
-    if (qq->address == NULL)
+    if (track->address == nullptr)
         return;
 
-    uint8_t * si = qq->address;
+    uint8_t * si = track->address;
 
-    qq->leng--;
+    track->leng--;
 
-    if (qq->partmask)
+    if (track->partmask)
     {
-        qq->keyoff_flag = -1;
+        track->keyoff_flag = -1;
     }
     else
     {
         // KEYOFF CHECK & Keyoff
-        if ((qq->keyoff_flag & 3) == 0)
+        if ((track->keyoff_flag & 3) == 0)
         {   // Already keyoff?
-            if (qq->leng <= qq->qdat)
+            if (track->leng <= track->qdat)
             {
-                keyoff(qq);
-                qq->keyoff_flag = -1;
+                keyoff(track);
+                track->keyoff_flag = -1;
             }
         }
     }
 
     // LENGTH CHECK
-    if (qq->leng == 0)
+    if (track->leng == 0)
     {
-        if (qq->partmask == 0)
-            qq->lfoswi &= 0xf7;
+        if (track->partmask == 0)
+            track->lfoswi &= 0xf7;
 
         while (1)
         {
             if (*si > 0x80 && *si != 0xda)
             {
-                si = FMCommands(qq, si);
+                si = FMCommands(track, si);
             }
             else
             if (*si == 0x80)
             {
-                qq->address = si;
-                qq->loopcheck = 3;
-                qq->onkai = 255;
+                track->address = si;
+                track->loopcheck = 3;
+                track->onkai = 255;
 
-                if (qq->partloop == NULL)
+                if (track->partloop == NULL)
                 {
-                    if (qq->partmask)
+                    if (track->partmask)
                     {
                         pmdwork.tieflag = 0;
                         pmdwork.volpush_flag = 0;
-                        pmdwork.loop_work &= qq->loopcheck;
+                        pmdwork.loop_work &= track->loopcheck;
 
                         return;
                     }
@@ -1590,70 +1554,70 @@ void PMD::FMMain(PartState * qq)
                 }
 
                 // "L"があった時
-                si = qq->partloop;
-                qq->loopcheck = 1;
+                si = track->partloop;
+                track->loopcheck = 1;
             }
             else
             {
                 if (*si == 0xda)
                 {   // ポルタメント
-                    si = porta(qq, ++si);
-                    pmdwork.loop_work &= qq->loopcheck;
+                    si = porta(track, ++si);
+                    pmdwork.loop_work &= track->loopcheck;
                     return;
                 }
                 else
-                if (qq->partmask == 0)
+                if (track->partmask == 0)
                 {
                     // TONE SET
-                    fnumset(qq, oshift(qq, lfoinit(qq, *si++)));
+                    fnumset(track, oshift(track, lfoinit(track, *si++)));
 
-                    qq->leng = *si++;
-                    si = calc_q(qq, si);
+                    track->leng = *si++;
+                    si = calc_q(track, si);
 
-                    if (qq->volpush && qq->onkai != 255)
+                    if (track->volpush && track->onkai != 255)
                     {
                         if (--pmdwork.volpush_flag)
                         {
                             pmdwork.volpush_flag = 0;
-                            qq->volpush = 0;
+                            track->volpush = 0;
                         }
                     }
 
-                    volset(qq);
-                    otodasi(qq);
-                    keyon(qq);
+                    volset(track);
+                    otodasi(track);
+                    keyon(track);
 
-                    qq->keyon_flag++;
-                    qq->address = si;
+                    track->keyon_flag++;
+                    track->address = si;
 
                     pmdwork.tieflag = 0;
                     pmdwork.volpush_flag = 0;
 
                     if (*si == 0xfb)
                     {   // '&'が直後にあったらkeyoffしない
-                        qq->keyoff_flag = 2;
+                        track->keyoff_flag = 2;
                     }
                     else
                     {
-                        qq->keyoff_flag = 0;
+                        track->keyoff_flag = 0;
                     }
-                    pmdwork.loop_work &= qq->loopcheck;
+                    pmdwork.loop_work &= track->loopcheck;
                     return;
                 }
                 else
                 {
                     si++;
 
-                    qq->fnum = 0;       //休符に設定
-                    qq->onkai = 255;
-                    qq->onkai_def = 255;
-                    qq->leng = *si++;
-                    qq->keyon_flag++;
-                    qq->address = si;
+                    track->fnum = 0;       //休符に設定
+                    track->onkai = 255;
+                    track->onkai_def = 255;
+                    track->leng = *si++;
+                    track->keyon_flag++;
+                    track->address = si;
 
                     if (--pmdwork.volpush_flag)
                     {
-                        qq->volpush = 0;
+                        track->volpush = 0;
                     }
 
                     pmdwork.tieflag = 0;
@@ -1664,51 +1628,51 @@ void PMD::FMMain(PartState * qq)
         }
     }
 
-    if (qq->partmask == 0)
+    if (track->partmask == 0)
     {
         // Finish with LFO & Portament & Fadeout processing
-        if (qq->hldelay_c)
+        if (track->hldelay_c)
         {
-            if (--qq->hldelay_c == 0)
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + (pmdwork.partb - 1 + 0xb4)), (uint32_t) qq->fmpan);
+            if (--track->hldelay_c == 0)
+                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + (pmdwork._CurrentTrack - 1 + 0xb4)), (uint32_t) track->fmpan);
         }
 
-        if (qq->sdelay_c)
+        if (track->sdelay_c)
         {
-            if (--qq->sdelay_c == 0)
+            if (--track->sdelay_c == 0)
             {
-                if ((qq->keyoff_flag & 1) == 0)
+                if ((track->keyoff_flag & 1) == 0)
                 {   // Already keyoffed?
-                    keyon(qq);
+                    keyon(track);
                 }
             }
         }
 
-        if (qq->lfoswi)
+        if (track->lfoswi)
         {
-            pmdwork.lfo_switch = qq->lfoswi & 8;
+            pmdwork.lfo_switch = track->lfoswi & 8;
 
-            if (qq->lfoswi & 3)
+            if (track->lfoswi & 3)
             {
-                if (lfo(qq))
+                if (lfo(track))
                 {
-                    pmdwork.lfo_switch |= (qq->lfoswi & 3);
+                    pmdwork.lfo_switch |= (track->lfoswi & 3);
                 }
             }
 
-            if (qq->lfoswi & 0x30)
+            if (track->lfoswi & 0x30)
             {
-                lfo_change(qq);
+                lfo_change(track);
 
-                if (lfo(qq))
+                if (lfo(track))
                 {
-                    lfo_change(qq);
+                    lfo_change(track);
 
-                    pmdwork.lfo_switch |= (qq->lfoswi & 0x30);
+                    pmdwork.lfo_switch |= (track->lfoswi & 0x30);
                 }
                 else
                 {
-                    lfo_change(qq);
+                    lfo_change(track);
                 }
             }
 
@@ -1716,31 +1680,31 @@ void PMD::FMMain(PartState * qq)
             {
                 if (pmdwork.lfo_switch & 8)
                 {
-                    porta_calc(qq);
+                    porta_calc(track);
 
                 }
 
-                otodasi(qq);
+                otodasi(track);
             }
 
             if (pmdwork.lfo_switch & 0x22)
             {
-                volset(qq);
-                pmdwork.loop_work &= qq->loopcheck;
+                volset(track);
+                pmdwork.loop_work &= track->loopcheck;
 
                 return;
             }
         }
 
         if (_OpenWork._FadeOutSpeed != 0)
-            volset(qq);
+            volset(track);
     }
 
-    pmdwork.loop_work &= qq->loopcheck;
+    pmdwork.loop_work &= track->loopcheck;
 }
 
 //  KEY OFF
-void PMD::keyoff(PartState * qq)
+void PMD::keyoff(Track * qq)
 {
     if (qq->onkai == 255)
         return;
@@ -1748,22 +1712,22 @@ void PMD::keyoff(PartState * qq)
     kof1(qq);
 }
 
-void PMD::kof1(PartState * qq)
+void PMD::kof1(Track * qq)
 {
     if (pmdwork.fmsel == 0)
     {
-        pmdwork.omote_key[pmdwork.partb - 1] = (~qq->slotmask) & (pmdwork.omote_key[pmdwork.partb - 1]);
-        _OPNA->SetReg(0x28, (uint32_t) ((pmdwork.partb - 1) | pmdwork.omote_key[pmdwork.partb - 1]));
+        pmdwork.omote_key[pmdwork._CurrentTrack - 1] = (~qq->slotmask) & (pmdwork.omote_key[pmdwork._CurrentTrack - 1]);
+        _OPNA->SetReg(0x28, (uint32_t) ((pmdwork._CurrentTrack - 1) | pmdwork.omote_key[pmdwork._CurrentTrack - 1]));
     }
     else
     {
-        pmdwork.ura_key[pmdwork.partb - 1] = (~qq->slotmask) & (pmdwork.ura_key[pmdwork.partb - 1]);
-        _OPNA->SetReg(0x28, (uint32_t) (((pmdwork.partb - 1) | pmdwork.ura_key[pmdwork.partb - 1]) | 4));
+        pmdwork.ura_key[pmdwork._CurrentTrack - 1] = (~qq->slotmask) & (pmdwork.ura_key[pmdwork._CurrentTrack - 1]);
+        _OPNA->SetReg(0x28, (uint32_t) (((pmdwork._CurrentTrack - 1) | pmdwork.ura_key[pmdwork._CurrentTrack - 1]) | 4));
     }
 }
 
 // FM Key On
-void PMD::keyon(PartState * qq)
+void PMD::keyon(Track * qq)
 {
     int  al;
 
@@ -1772,28 +1736,28 @@ void PMD::keyon(PartState * qq)
 
     if (pmdwork.fmsel == 0)
     {
-        al = pmdwork.omote_key[pmdwork.partb - 1] | qq->slotmask;
+        al = pmdwork.omote_key[pmdwork._CurrentTrack - 1] | qq->slotmask;
 
         if (qq->sdelay_c)
             al &= qq->sdelay_m;
 
-        pmdwork.omote_key[pmdwork.partb - 1] = al;
-        _OPNA->SetReg(0x28, (uint32_t) ((pmdwork.partb - 1) | al));
+        pmdwork.omote_key[pmdwork._CurrentTrack - 1] = al;
+        _OPNA->SetReg(0x28, (uint32_t) ((pmdwork._CurrentTrack - 1) | al));
     }
     else
     {
-        al = pmdwork.ura_key[pmdwork.partb - 1] | qq->slotmask;
+        al = pmdwork.ura_key[pmdwork._CurrentTrack - 1] | qq->slotmask;
 
         if (qq->sdelay_c)
             al &= qq->sdelay_m;
 
-        pmdwork.ura_key[pmdwork.partb - 1] = al;
-        _OPNA->SetReg(0x28, (uint32_t) (((pmdwork.partb - 1) | al) | 4));
+        pmdwork.ura_key[pmdwork._CurrentTrack - 1] = al;
+        _OPNA->SetReg(0x28, (uint32_t) (((pmdwork._CurrentTrack - 1) | al) | 4));
     }
 }
 
 //  Set [ FNUM/BLOCK + DETUNE + LFO ]
-void PMD::otodasi(PartState * qq)
+void PMD::otodasi(Track * qq)
 {
     if ((qq->fnum == 0) || (qq->slotmask == 0))
         return;
@@ -1804,7 +1768,7 @@ void PMD::otodasi(PartState * qq)
     // Portament/LFO/Detune SET
     ax += qq->porta_num + qq->detune;
 
-    if ((pmdwork.partb == 3) && (pmdwork.fmsel == 0) && (_OpenWork.ch3mode != 0x3f))
+    if ((pmdwork._CurrentTrack == 3) && (pmdwork.fmsel == 0) && (_OpenWork.ch3mode != 0x3f))
         ch3_special(qq, ax, cx);
     else
     {
@@ -1820,8 +1784,8 @@ void PMD::otodasi(PartState * qq)
 
         ax |= cx;
 
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork.partb + 0xa4 - 1), (uint32_t) HIBYTE(ax));
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork.partb + 0xa4 - 5), (uint32_t) LOBYTE(ax));
+        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork._CurrentTrack + 0xa4 - 1), (uint32_t) HIBYTE(ax));
+        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork._CurrentTrack + 0xa4 - 5), (uint32_t) LOBYTE(ax));
     }
 }
 
@@ -1868,9 +1832,9 @@ void PMD::fm_block_calc(int * cx, int * ax)
 }
 
 // Determine the part and set mode if ch3
-int PMD::ch3_setting(PartState * qq)
+int PMD::ch3_setting(Track * qq)
 {
-    if (pmdwork.partb == 3 && pmdwork.fmsel == 0)
+    if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
     {
         ch3mode_set(qq);
 
@@ -1902,11 +1866,11 @@ void PMD::cm_clear(int * ah, int * al)
 }
 
 //  FM3のmodeを設定する
-void PMD::ch3mode_set(PartState * qq)
+void PMD::ch3mode_set(Track * qq)
 {
     int al;
 
-    if (qq == &FMPart[3 - 1])
+    if (qq == &_FMTrack[3 - 1])
     {
         al = 1;
     }
@@ -1972,11 +1936,11 @@ void PMD::ch3mode_set(PartState * qq)
     _OPNA->SetReg(0x27, (uint32_t) (ah & 0xcf)); // Don't reset.
 
     // When moving to sound effect mode, the pitch is rewritten with the previous FM3 part
-    if (ah == 0x3f || qq == &FMPart[2])
+    if (ah == 0x3f || qq == &_FMTrack[2])
         return;
 
-    if (FMPart[2].partmask == 0)
-        otodasi(&FMPart[2]);
+    if (_FMTrack[2].partmask == 0)
+        otodasi(&_FMTrack[2]);
 
     if (qq == &ExtPart[0])
         return;
@@ -1993,7 +1957,7 @@ void PMD::ch3mode_set(PartState * qq)
 
 //  ch3=効果音モード を使用する場合の音程設定
 //      input CX:block AX:fnum
-void PMD::ch3_special(PartState * qq, int ax, int cx)
+void PMD::ch3_special(Track * qq, int ax, int cx)
 {
     int    ax_, bh, ch, si;
     int    shiftmask = 0x80;
@@ -2104,20 +2068,20 @@ void PMD::ch3_special(PartState * qq, int ax, int cx)
 }
 
 //  'p' COMMAND [FM PANNING SET]
-uint8_t * PMD::panset(PartState * qq, uint8_t * si)
+uint8_t * PMD::panset(Track * qq, uint8_t * si)
 {
     panset_main(qq, *si++);
     return si;
 }
 
-void PMD::panset_main(PartState * qq, int al)
+void PMD::panset_main(Track * qq, int al)
 {
     qq->fmpan = (qq->fmpan & 0x3f) | ((al << 6) & 0xc0);
 
-    if (pmdwork.partb == 3 && pmdwork.fmsel == 0)
+    if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
     {
         //  FM3の場合は 4つのパート総て設定
-        FMPart[2].fmpan = qq->fmpan;
+        _FMTrack[2].fmpan = qq->fmpan;
         ExtPart[0].fmpan = qq->fmpan;
         ExtPart[1].fmpan = qq->fmpan;
         ExtPart[2].fmpan = qq->fmpan;
@@ -2126,12 +2090,12 @@ void PMD::panset_main(PartState * qq, int al)
     if (qq->partmask == 0)
     {    // パートマスクされているか？
 // dl = al;
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork.partb + 0xb4 - 1), calc_panout(qq));
+        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork._CurrentTrack + 0xb4 - 1), calc_panout(qq));
     }
 }
 
 //  0b4h?に設定するデータを取得 out.dl
-uint8_t PMD::calc_panout(PartState * qq)
+uint8_t PMD::calc_panout(Track * qq)
 {
     int  dl;
 
@@ -2144,7 +2108,7 @@ uint8_t PMD::calc_panout(PartState * qq)
 }
 
 //  Pan setting Extend
-uint8_t * PMD::panset_ex(PartState * qq, uint8_t * si)
+uint8_t * PMD::panset_ex(Track * qq, uint8_t * si)
 {
     int    al;
 
@@ -2170,7 +2134,7 @@ uint8_t * PMD::panset_ex(PartState * qq, uint8_t * si)
 }
 
 //  Pan setting Extend
-uint8_t * PMD::panset8_ex(PartState * qq, uint8_t * si)
+uint8_t * PMD::panset8_ex(Track * qq, uint8_t * si)
 {
     int    flag, data;
 
@@ -2204,7 +2168,7 @@ uint8_t * PMD::panset8_ex(PartState * qq, uint8_t * si)
 }
 
 //  ＦＭ音源用　Entry
-int PMD::lfoinit(PartState * qq, int al)
+int PMD::lfoinit(Track * qq, int al)
 {
     int    ah;
 
@@ -2238,7 +2202,7 @@ int PMD::lfoinit(PartState * qq, int al)
 
 //  ＦＭ　BLOCK,F-NUMBER SET
 //    INPUTS  -- AL [KEY#,0-7F]
-void PMD::fnumset(PartState * qq, int al)
+void PMD::fnumset(Track * qq, int al)
 {
     int    ax, bx;
 
@@ -2266,14 +2230,14 @@ void PMD::fnumset(PartState * qq, int al)
 }
 
 //  ＦＭ音量設定メイン
-void PMD::volset(PartState * qq)
+void PMD::volset(Track * qq)
 {
     if (qq->slotmask == 0)
         return;
 
     int cl = (qq->volpush) ? qq->volpush - 1 : qq->volume;
 
-    if (qq != &EffPart)
+    if (qq != &_EffectTrack)
     {  // 効果音の場合はvoldown/fadeout影響無し
 //--------------------------------------------------------------------
 //  音量down計算
@@ -2324,7 +2288,7 @@ void PMD::volset(PartState * qq)
         }
     }
 
-    int dh = 0x4c - 1 + pmdwork.partb;    // dh=FM Port Address
+    int dh = 0x4c - 1 + pmdwork._CurrentTrack;    // dh=FM Port Address
 
     if (bh & 0x80) volset_slot(dh,      qq->slot4, vol_tbl[0]);
     if (bh & 0x40) volset_slot(dh -  8, qq->slot3, vol_tbl[1]);
@@ -2348,7 +2312,7 @@ void PMD::volset_slot(int dh, int dl, int al)
 }
 
 //  音量LFO用サブ
-void PMD::fmlfo_sub(PartState *, int al, int bl, uint8_t * vol_tbl)
+void PMD::fmlfo_sub(Track *, int al, int bl, uint8_t * vol_tbl)
 {
     if (bl & 0x80) vol_tbl[0] = (uint8_t) Limit(vol_tbl[0] - al, 255, 0);
     if (bl & 0x40) vol_tbl[1] = (uint8_t) Limit(vol_tbl[1] - al, 255, 0);
@@ -2357,69 +2321,70 @@ void PMD::fmlfo_sub(PartState *, int al, int bl, uint8_t * vol_tbl)
 }
 
 // SSG Sound Source Main
-void PMD::PSGMain(PartState * qq)
+void PMD::PSGMain(Track * track)
 {
-    uint8_t * si;
+    if (track->address == nullptr)
+        return;
+
+    uint8_t * si = track->address;
     int    temp;
 
-    if (qq->address == NULL) return;
-    si = qq->address;
-
-    qq->leng--;
+    track->leng--;
 
     // KEYOFF CHECK & Keyoff
-    if (qq == &SSGPart[2] && pmdwork._UsePPS && _OpenWork.kshot_dat && qq->leng <= qq->qdat)
+    if (track == &SSGPart[2] && pmdwork._UsePPS && _OpenWork.kshot_dat && track->leng <= track->qdat)
     {
         // PPS 使用時 & SSG 3ch & SSG 効果音鳴らしている場合
-        keyoffp(qq);
-        _OPNA->SetReg((uint32_t) (pmdwork.partb + 8 - 1), 0U);    // 強制的に音を止める
-        qq->keyoff_flag = -1;
+        keyoffp(track);
+        _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), 0U);    // 強制的に音を止める
+        track->keyoff_flag = -1;
     }
 
-    if (qq->partmask)
+    if (track->partmask)
     {
-        qq->keyoff_flag = -1;
+        track->keyoff_flag = -1;
     }
     else
     {
-        if ((qq->keyoff_flag & 3) == 0)
+        if ((track->keyoff_flag & 3) == 0)
         {    // 既にkeyoffしたか？
-            if (qq->leng <= qq->qdat)
+            if (track->leng <= track->qdat)
             {
-                keyoffp(qq);
-                qq->keyoff_flag = -1;
+                keyoffp(track);
+                track->keyoff_flag = -1;
             }
         }
     }
 
     // LENGTH CHECK
-    if (qq->leng == 0)
+    if (track->leng == 0)
     {
-        qq->lfoswi &= 0xf7;
+        track->lfoswi &= 0xf7;
 
         // DATA READ
         while (1)
         {
-            if (*si == 0xda && ssgdrum_check(qq, *si) < 0)
+            if (*si == 0xda && ssgdrum_check(track, *si) < 0)
             {
                 si++;
             }
             else if (*si > 0x80 && *si != 0xda)
             {
-                si = PSGCommands(qq, si);
+                si = PSGCommands(track, si);
             }
             else if (*si == 0x80)
             {
-                qq->address = si;
-                qq->loopcheck = 3;
-                qq->onkai = 255;
-                if (qq->partloop == NULL)
+                track->address = si;
+                track->loopcheck = 3;
+                track->onkai = 255;
+
+                if (track->partloop == nullptr)
                 {
-                    if (qq->partmask)
+                    if (track->partmask)
                     {
                         pmdwork.tieflag = 0;
                         pmdwork.volpush_flag = 0;
-                        pmdwork.loop_work &= qq->loopcheck;
+                        pmdwork.loop_work &= track->loopcheck;
                         return;
                     }
                     else
@@ -2428,31 +2393,31 @@ void PMD::PSGMain(PartState * qq)
                     }
                 }
                 // "L"があった時
-                si = qq->partloop;
-                qq->loopcheck = 1;
+                si = track->partloop;
+                track->loopcheck = 1;
             }
             else
             {
                 if (*si == 0xda)
                 {            // ポルタメント
-                    si = portap(qq, ++si);
-                    pmdwork.loop_work &= qq->loopcheck;
+                    si = portap(track, ++si);
+                    pmdwork.loop_work &= track->loopcheck;
                     return;
                 }
-                else if (qq->partmask)
+                else if (track->partmask)
                 {
-                    if (ssgdrum_check(qq, *si) == 0)
+                    if (ssgdrum_check(track, *si) == 0)
                     {
                         si++;
-                        qq->fnum = 0;    //休符に設定
-                        qq->onkai = 255;
-                        qq->leng = *si++;
-                        qq->keyon_flag++;
-                        qq->address = si;
+                        track->fnum = 0;    //休符に設定
+                        track->onkai = 255;
+                        track->leng = *si++;
+                        track->keyon_flag++;
+                        track->address = si;
 
                         if (--pmdwork.volpush_flag)
                         {
-                            qq->volpush = 0;
+                            track->volpush = 0;
                         }
 
                         pmdwork.tieflag = 0;
@@ -2462,93 +2427,93 @@ void PMD::PSGMain(PartState * qq)
                 }
 
                 //  TONE SET
-                fnumsetp(qq, oshiftp(qq, lfoinitp(qq, *si++)));
+                fnumsetp(track, oshiftp(track, lfoinitp(track, *si++)));
 
-                qq->leng = *si++;
-                si = calc_q(qq, si);
+                track->leng = *si++;
+                si = calc_q(track, si);
 
-                if (qq->volpush && qq->onkai != 255)
+                if (track->volpush && track->onkai != 255)
                 {
                     if (--pmdwork.volpush_flag)
                     {
                         pmdwork.volpush_flag = 0;
-                        qq->volpush = 0;
+                        track->volpush = 0;
                     }
                 }
 
-                volsetp(qq);
-                otodasip(qq);
-                keyonp(qq);
+                volsetp(track);
+                otodasip(track);
+                keyonp(track);
 
-                qq->keyon_flag++;
-                qq->address = si;
+                track->keyon_flag++;
+                track->address = si;
 
                 pmdwork.tieflag = 0;
                 pmdwork.volpush_flag = 0;
-                qq->keyoff_flag = 0;
+                track->keyoff_flag = 0;
 
                 if (*si == 0xfb)
                 {    // '&'が直後にあったらkeyoffしない
-                    qq->keyoff_flag = 2;
+                    track->keyoff_flag = 2;
                 }
-                pmdwork.loop_work &= qq->loopcheck;
+                pmdwork.loop_work &= track->loopcheck;
                 return;
             }
         }
     }
 
-    pmdwork.lfo_switch = (qq->lfoswi & 8);
+    pmdwork.lfo_switch = (track->lfoswi & 8);
 
-    if (qq->lfoswi)
+    if (track->lfoswi)
     {
-        if (qq->lfoswi & 3)
+        if (track->lfoswi & 3)
         {
-            if (lfop(qq))
+            if (lfop(track))
             {
-                pmdwork.lfo_switch |= (qq->lfoswi & 3);
+                pmdwork.lfo_switch |= (track->lfoswi & 3);
             }
         }
 
-        if (qq->lfoswi & 0x30)
+        if (track->lfoswi & 0x30)
         {
-            lfo_change(qq);
-            if (lfop(qq))
+            lfo_change(track);
+            if (lfop(track))
             {
-                lfo_change(qq);
-                pmdwork.lfo_switch |= (qq->lfoswi & 0x30);
+                lfo_change(track);
+                pmdwork.lfo_switch |= (track->lfoswi & 0x30);
             }
             else
             {
-                lfo_change(qq);
+                lfo_change(track);
             }
         }
 
         if (pmdwork.lfo_switch & 0x19)
         {
             if (pmdwork.lfo_switch & 0x08)
-                porta_calc(qq);
+                porta_calc(track);
 
             // SSG 3ch で休符かつ SSG Drum 発音中は操作しない
-            if (!(qq == &SSGPart[2] && qq->onkai == 255 && _OpenWork.kshot_dat && !pmdwork._UsePPS))
-                otodasip(qq);
+            if (!(track == &SSGPart[2] && track->onkai == 255 && _OpenWork.kshot_dat && !pmdwork._UsePPS))
+                otodasip(track);
         }
     }
 
-    temp = soft_env(qq);
+    temp = soft_env(track);
 
     if (temp || pmdwork.lfo_switch & 0x22 || (_OpenWork._FadeOutSpeed != 0))
     {
         // SSG 3ch で休符かつ SSG Drum 発音中は volume set しない
-        if (!(qq == &SSGPart[2] && qq->onkai == 255 && _OpenWork.kshot_dat && !pmdwork._UsePPS))
+        if (!(track == &SSGPart[2] && track->onkai == 255 && _OpenWork.kshot_dat && !pmdwork._UsePPS))
         {
-            volsetp(qq);
+            volsetp(track);
         }
     }
 
-    pmdwork.loop_work &= qq->loopcheck;
+    pmdwork.loop_work &= track->loopcheck;
 }
 
-void PMD::keyoffp(PartState * qq)
+void PMD::keyoffp(Track * qq)
 {
     if (qq->onkai == 255) return;    // ｷｭｳﾌ ﾉ ﾄｷ
     if (qq->envf != -1)
@@ -2562,16 +2527,18 @@ void PMD::keyoffp(PartState * qq)
 }
 
 // Rhythm part performance main
-void PMD::RhythmMain(PartState * qq)
+void PMD::RhythmMain(Track * track)
 {
-    uint8_t * si, * bx;
+    if (track->address == nullptr)
+        return;
+
+    uint8_t * si = track->address;
+
+    uint8_t * bx;
     int    al, result = 0;
 
-    if (qq->address == NULL) return;
 
-    si = qq->address;
-
-    if (--qq->leng == 0)
+    if (--track->leng == 0)
     {
         bx = _OpenWork.rhyadr;
 
@@ -2584,7 +2551,7 @@ void PMD::RhythmMain(PartState * qq)
             {
                 if (al & 0x80)
                 {
-                    bx = rhythmon(qq, bx, al, &result);
+                    bx = rhythmon(track, bx, al, &result);
                     if (result == 0) continue;
                 }
                 else
@@ -2594,11 +2561,11 @@ void PMD::RhythmMain(PartState * qq)
 
                 al = *bx++;
                 _OpenWork.rhyadr = bx;
-                qq->leng = al;
-                qq->keyon_flag++;
+                track->leng = al;
+                track->keyon_flag++;
                 pmdwork.tieflag = 0;
                 pmdwork.volpush_flag = 0;
-                pmdwork.loop_work &= qq->loopcheck;
+                pmdwork.loop_work &= track->loopcheck;
                 return;
             }
         }
@@ -2610,42 +2577,42 @@ void PMD::RhythmMain(PartState * qq)
             {
                 if (al < 0x80)
                 {
-                    qq->address = si;
+                    track->address = si;
 
                     //          bx = (uint16_t *)&open_work.radtbl[al];
                     //          bx = open_work.rhyadr = &open_work.mmlbuf[*bx];
-                    bx = _OpenWork.rhyadr = &_OpenWork.mmlbuf[_OpenWork.radtbl[al]];
+                    bx = _OpenWork.rhyadr = &_OpenWork._MData[_OpenWork._RythmAddressTable[al]];
                     goto rhyms00;
                 }
 
                 // al > 0x80
-                si = RhythmCommands(qq, si - 1);
+                si = RhythmCommands(track, si - 1);
             }
 
-            qq->address = --si;
-            qq->loopcheck = 3;
-            bx = qq->partloop;
+            track->address = --si;
+            track->loopcheck = 3;
+            bx = track->partloop;
             if (bx == NULL)
             {
                 _OpenWork.rhyadr = (uint8_t *) &pmdwork.rhydmy;
                 pmdwork.tieflag = 0;
                 pmdwork.volpush_flag = 0;
-                pmdwork.loop_work &= qq->loopcheck;
+                pmdwork.loop_work &= track->loopcheck;
                 return;
             }
             else
             {    // "L"があった時
                 si = bx;
-                qq->loopcheck = 1;
+                track->loopcheck = 1;
             }
         }
     }
 
-    pmdwork.loop_work &= qq->loopcheck;
+    pmdwork.loop_work &= track->loopcheck;
 }
 
 // PSG Rhythm ON
-uint8_t * PMD::rhythmon(PartState * qq, uint8_t * bx, int al, int * result)
+uint8_t * PMD::rhythmon(Track * qq, uint8_t * bx, int al, int * result)
 {
     if (al & 0x40)
     {
@@ -2744,7 +2711,7 @@ uint8_t * PMD::rhythmon(PartState * qq, uint8_t * bx, int al, int * result)
 //
 //  AL に 効果音Ｎｏ．を入れて　ＣＡＬＬする
 //  ppsdrvがあるならそっちを鳴らす
-void PMD::effgo(PartState * qq, int al)
+void PMD::effgo(Track * qq, int al)
 {
     if (pmdwork._UsePPS)
     {    // PPS を鳴らす
@@ -2763,13 +2730,13 @@ void PMD::effgo(PartState * qq, int al)
     eff_main(qq, al);
 }
 
-void PMD::eff_on2(PartState * qq, int al)
+void PMD::eff_on2(Track * qq, int al)
 {
     effwork.hosei_flag = 1;        //  音程のみ補正あり (n command)
     eff_main(qq, al);
 }
 
-void PMD::eff_main(PartState * qq, int al)
+void PMD::eff_main(Track * qq, int al)
 {
     int    ah, bh, bl;
 
@@ -2916,7 +2883,7 @@ void PMD::effsweep()
 }
 
 //  PDRのswitch
-uint8_t * PMD::pdrswitch(PartState *, uint8_t * si)
+uint8_t * PMD::pdrswitch(Track *, uint8_t * si)
 {
     if (!pmdwork._UsePPS)
         return si + 1;
@@ -2927,58 +2894,60 @@ uint8_t * PMD::pdrswitch(PartState *, uint8_t * si)
     return si;
 }
 
-// PCM sound source performance main
-void PMD::ADPCMMain(PartState * qq)
+/// <summary>
+/// Main ADPCM sound source processing
+/// </summary>
+void PMD::ADPCMMain(Track * track)
 {
-    if (qq->address == NULL)
+    if (track->address == nullptr)
         return;
 
-    uint8_t * si = qq->address;
+    uint8_t * si = track->address;
 
-    qq->leng--;
+    track->leng--;
 
-    if (qq->partmask)
+    if (track->partmask)
     {
-        qq->keyoff_flag = -1;
+        track->keyoff_flag = -1;
     }
     else
     {
         // KEYOFF CHECK
-        if ((qq->keyoff_flag & 3) == 0)
+        if ((track->keyoff_flag & 3) == 0)
         {    // 既にkeyoffしたか？
-            if (qq->leng <= qq->qdat)
+            if (track->leng <= track->qdat)
             {
-                keyoffm(qq);
-                qq->keyoff_flag = -1;
+                keyoffm(track);
+                track->keyoff_flag = -1;
             }
         }
     }
 
     // LENGTH CHECK
-    if (qq->leng == 0)
+    if (track->leng == 0)
     {
-        qq->lfoswi &= 0xf7;
+        track->lfoswi &= 0xf7;
 
         while (1)
         {
             if (*si > 0x80 && *si != 0xda)
             {
-                si = ADPCMCommands(qq, si);
+                si = ADPCMCommands(track, si);
             }
             else
             if (*si == 0x80)
             {
-                qq->address = si;
-                qq->loopcheck = 3;
-                qq->onkai = 255;
+                track->address = si;
+                track->loopcheck = 3;
+                track->onkai = 255;
 
-                if (qq->partloop == NULL)
+                if (track->partloop == NULL)
                 {
-                    if (qq->partmask)
+                    if (track->partmask)
                     {
                         pmdwork.tieflag = 0;
                         pmdwork.volpush_flag = 0;
-                        pmdwork.loop_work &= qq->loopcheck;
+                        pmdwork.loop_work &= track->loopcheck;
 
                         return;
                     }
@@ -2987,32 +2956,32 @@ void PMD::ADPCMMain(PartState * qq)
                 }
 
                 // "L"があった時
-                si = qq->partloop;
-                qq->loopcheck = 1;
+                si = track->partloop;
+                track->loopcheck = 1;
             }
             else
             {
                 if (*si == 0xda)
                 {        // ポルタメント
-                    si = portam(qq, ++si);
+                    si = portam(track, ++si);
 
-                    pmdwork.loop_work &= qq->loopcheck;
+                    pmdwork.loop_work &= track->loopcheck;
 
                     return;
                 }
                 else
-                if (qq->partmask)
+                if (track->partmask)
                 {
                     si++;
-                    qq->fnum = 0;    //休符に設定
-                    qq->onkai = 255;
+                    track->fnum = 0;    //休符に設定
+                    track->onkai = 255;
                     //          qq->onkai_def = 255;
-                    qq->leng = *si++;
-                    qq->keyon_flag++;
-                    qq->address = si;
+                    track->leng = *si++;
+                    track->keyon_flag++;
+                    track->address = si;
 
                     if (--pmdwork.volpush_flag)
-                        qq->volpush = 0;
+                        track->volpush = 0;
 
                     pmdwork.tieflag = 0;
                     pmdwork.volpush_flag = 0;
@@ -3020,137 +2989,141 @@ void PMD::ADPCMMain(PartState * qq)
                 }
 
                 //  TONE SET
-                fnumsetm(qq, oshift(qq, lfoinitp(qq, *si++)));
+                fnumsetm(track, oshift(track, lfoinitp(track, *si++)));
 
-                qq->leng = *si++;
-                si = calc_q(qq, si);
+                track->leng = *si++;
+                si = calc_q(track, si);
 
-                if (qq->volpush && qq->onkai != 255)
+                if (track->volpush && track->onkai != 255)
                 {
                     if (--pmdwork.volpush_flag)
                     {
                         pmdwork.volpush_flag = 0;
-                        qq->volpush = 0;
+                        track->volpush = 0;
                     }
                 }
 
-                volsetm(qq);
-                otodasim(qq);
+                volsetm(track);
+                otodasim(track);
 
-                if (qq->keyoff_flag & 1)
-                    keyonm(qq);
+                if (track->keyoff_flag & 1)
+                    keyonm(track);
 
-                qq->keyon_flag++;
-                qq->address = si;
+                track->keyon_flag++;
+                track->address = si;
 
                 pmdwork.tieflag = 0;
                 pmdwork.volpush_flag = 0;
 
                 if (*si == 0xfb)
                 {   // Do not keyoff if '&' immediately follows
-                    qq->keyoff_flag = 2;
+                    track->keyoff_flag = 2;
                 }
                 else
                 {
-                    qq->keyoff_flag = 0;
+                    track->keyoff_flag = 0;
                 }
 
-                pmdwork.loop_work &= qq->loopcheck;
+                pmdwork.loop_work &= track->loopcheck;
 
                 return;
             }
         }
     }
 
-    pmdwork.lfo_switch = (qq->lfoswi & 8);
+    pmdwork.lfo_switch = (track->lfoswi & 8);
 
-    if (qq->lfoswi)
+    if (track->lfoswi)
     {
-        if (qq->lfoswi & 3)
+        if (track->lfoswi & 3)
         {
-            if (lfo(qq))
-                pmdwork.lfo_switch |= (qq->lfoswi & 3);
+            if (lfo(track))
+                pmdwork.lfo_switch |= (track->lfoswi & 3);
         }
 
-        if (qq->lfoswi & 0x30)
+        if (track->lfoswi & 0x30)
         {
-            lfo_change(qq);
+            lfo_change(track);
 
-            if (lfop(qq))
+            if (lfop(track))
             {
-                lfo_change(qq);
-                pmdwork.lfo_switch |= (qq->lfoswi & 0x30);
+                lfo_change(track);
+                pmdwork.lfo_switch |= (track->lfoswi & 0x30);
             }
             else
-                lfo_change(qq);
+                lfo_change(track);
         }
 
         if (pmdwork.lfo_switch & 0x19)
         {
             if (pmdwork.lfo_switch & 0x08)
-                porta_calc(qq);
+                porta_calc(track);
 
-            otodasim(qq);
+            otodasim(track);
         }
     }
 
-    int temp = soft_env(qq);
+    int temp = soft_env(track);
 
     if ((temp != 0) || pmdwork.lfo_switch & 0x22 || (_OpenWork._FadeOutSpeed != 0))
-        volsetm(qq);
+        volsetm(track);
 
-    pmdwork.loop_work &= qq->loopcheck;
+    pmdwork.loop_work &= track->loopcheck;
 }
 
-// PCM sound source performance main (PMD86)
-void PMD::PCM86Main(PartState * qq)
+/// <summary>
+/// Main PCM86 processing
+/// </summary>
+void PMD::PCM86Main(Track * track)
 {
-    uint8_t * si;
+    if (track->address == nullptr)
+        return;
+
+    uint8_t * si = track->address;
+
     int    temp;
 
-    if (qq->address == NULL) return;
-    si = qq->address;
-
-    qq->leng--;
-    if (qq->partmask)
+    track->leng--;
+    if (track->partmask)
     {
-        qq->keyoff_flag = -1;
+        track->keyoff_flag = -1;
     }
     else
     {
         // KEYOFF CHECK
-        if ((qq->keyoff_flag & 3) == 0)
+        if ((track->keyoff_flag & 3) == 0)
         {    // 既にkeyoffしたか？
-            if (qq->leng <= qq->qdat)
+            if (track->leng <= track->qdat)
             {
-                keyoff8(qq);
-                qq->keyoff_flag = -1;
+                keyoff8(track);
+                track->keyoff_flag = -1;
             }
         }
     }
 
     // LENGTH CHECK
-    if (qq->leng == 0)
+    if (track->leng == 0)
     {
         while (1)
         {
             //      if(*si > 0x80 && *si != 0xda) {
             if (*si > 0x80)
             {
-                si = PCM86Commands(qq, si);
+                si = PCM86Commands(track, si);
             }
             else if (*si == 0x80)
             {
-                qq->address = si;
-                qq->loopcheck = 3;
-                qq->onkai = 255;
-                if (qq->partloop == NULL)
+                track->address = si;
+                track->loopcheck = 3;
+                track->onkai = 255;
+
+                if (track->partloop == nullptr)
                 {
-                    if (qq->partmask)
+                    if (track->partmask)
                     {
                         pmdwork.tieflag = 0;
                         pmdwork.volpush_flag = 0;
-                        pmdwork.loop_work &= qq->loopcheck;
+                        pmdwork.loop_work &= track->loopcheck;
                         return;
                     }
                     else
@@ -3159,24 +3132,24 @@ void PMD::PCM86Main(PartState * qq)
                     }
                 }
                 // "L"があった時
-                si = qq->partloop;
-                qq->loopcheck = 1;
+                si = track->partloop;
+                track->loopcheck = 1;
             }
             else
             {
-                if (qq->partmask)
+                if (track->partmask)
                 {
                     si++;
-                    qq->fnum = 0;    //休符に設定
-                    qq->onkai = 255;
+                    track->fnum = 0;    //休符に設定
+                    track->onkai = 255;
                     //          qq->onkai_def = 255;
-                    qq->leng = *si++;
-                    qq->keyon_flag++;
-                    qq->address = si;
+                    track->leng = *si++;
+                    track->keyon_flag++;
+                    track->address = si;
 
                     if (--pmdwork.volpush_flag)
                     {
-                        qq->volpush = 0;
+                        track->volpush = 0;
                     }
 
                     pmdwork.tieflag = 0;
@@ -3185,139 +3158,144 @@ void PMD::PCM86Main(PartState * qq)
                 }
 
                 //  TONE SET
-                fnumset8(qq, oshift(qq, lfoinitp(qq, *si++)));
+                fnumset8(track, oshift(track, lfoinitp(track, *si++)));
 
-                qq->leng = *si++;
-                si = calc_q(qq, si);
+                track->leng = *si++;
+                si = calc_q(track, si);
 
-                if (qq->volpush && qq->onkai != 255)
+                if (track->volpush && track->onkai != 255)
                 {
                     if (--pmdwork.volpush_flag)
                     {
                         pmdwork.volpush_flag = 0;
-                        qq->volpush = 0;
+                        track->volpush = 0;
                     }
                 }
 
-                volset8(qq);
-                otodasi8(qq);
-                if (qq->keyoff_flag & 1)
+                volset8(track);
+                otodasi8(track);
+                if (track->keyoff_flag & 1)
                 {
-                    keyon8(qq);
+                    keyon8(track);
                 }
 
-                qq->keyon_flag++;
-                qq->address = si;
+                track->keyon_flag++;
+                track->address = si;
 
                 pmdwork.tieflag = 0;
                 pmdwork.volpush_flag = 0;
 
                 if (*si == 0xfb)
                 {    // '&'が直後にあったらkeyoffしない
-                    qq->keyoff_flag = 2;
+                    track->keyoff_flag = 2;
                 }
                 else
                 {
-                    qq->keyoff_flag = 0;
+                    track->keyoff_flag = 0;
                 }
-                pmdwork.loop_work &= qq->loopcheck;
+                pmdwork.loop_work &= track->loopcheck;
                 return;
 
             }
         }
     }
 
-    if (qq->lfoswi & 0x22)
+    if (track->lfoswi & 0x22)
     {
         pmdwork.lfo_switch = 0;
-        if (qq->lfoswi & 2)
+        if (track->lfoswi & 2)
         {
-            lfo(qq);
-            pmdwork.lfo_switch |= (qq->lfoswi & 2);
+            lfo(track);
+            pmdwork.lfo_switch |= (track->lfoswi & 2);
         }
 
-        if (qq->lfoswi & 0x20)
+        if (track->lfoswi & 0x20)
         {
-            lfo_change(qq);
-            if (lfo(qq))
+            lfo_change(track);
+            if (lfo(track))
             {
-                lfo_change(qq);
-                pmdwork.lfo_switch |= (qq->lfoswi & 0x20);
+                lfo_change(track);
+                pmdwork.lfo_switch |= (track->lfoswi & 0x20);
             }
             else
             {
-                lfo_change(qq);
+                lfo_change(track);
             }
         }
 
-        temp = soft_env(qq);
+        temp = soft_env(track);
         if (temp || pmdwork.lfo_switch & 0x22 || _OpenWork._FadeOutSpeed)
         {
-            volset8(qq);
+            volset8(track);
         }
     }
     else
     {
-        temp = soft_env(qq);
+        temp = soft_env(track);
         if (temp || _OpenWork._FadeOutSpeed)
         {
-            volset8(qq);
+            volset8(track);
         }
     }
 
-    pmdwork.loop_work &= qq->loopcheck;
+    pmdwork.loop_work &= track->loopcheck;
 }
 
-// PCM sound source performance main (PPZ8)
-void PMD::PPZ8Main(PartState * qq)
+/// <summary>
+/// Main PPZ8 processing
+/// </summary>
+void PMD::PPZ8Main(Track * track)
 {
-    uint8_t * si;
+    if (track->address == nullptr)
+        return;
+
+    uint8_t * si = track->address;
+
     int    temp;
 
-    if (qq->address == NULL) return;
-    si = qq->address;
+    track->leng--;
 
-    qq->leng--;
-    if (qq->partmask)
+    if (track->partmask)
     {
-        qq->keyoff_flag = -1;
+        track->keyoff_flag = -1;
     }
     else
     {
         // KEYOFF CHECK
-        if ((qq->keyoff_flag & 3) == 0)
+        if ((track->keyoff_flag & 3) == 0)
         {    // 既にkeyoffしたか？
-            if (qq->leng <= qq->qdat)
+            if (track->leng <= track->qdat)
             {
-                keyoffz(qq);
-                qq->keyoff_flag = -1;
+                keyoffz(track);
+                track->keyoff_flag = -1;
             }
         }
     }
 
     // LENGTH CHECK
-    if (qq->leng == 0)
+    if (track->leng == 0)
     {
-        qq->lfoswi &= 0xf7;
+        track->lfoswi &= 0xf7;
 
         while (1)
         {
             if (*si > 0x80 && *si != 0xda)
             {
-                si = PPZ8Commands(qq, si);
+                si = PPZ8Commands(track, si);
             }
             else if (*si == 0x80)
             {
-                qq->address = si;
-                qq->loopcheck = 3;
-                qq->onkai = 255;
-                if (qq->partloop == NULL)
+                track->address = si;
+                track->loopcheck = 3;
+                track->onkai = 255;
+
+                if (track->partloop == nullptr)
                 {
-                    if (qq->partmask)
+                    if (track->partmask)
                     {
                         pmdwork.tieflag = 0;
                         pmdwork.volpush_flag = 0;
-                        pmdwork.loop_work &= qq->loopcheck;
+                        pmdwork.loop_work &= track->loopcheck;
                         return;
                     }
                     else
@@ -3326,30 +3304,30 @@ void PMD::PPZ8Main(PartState * qq)
                     }
                 }
                 // "L"があった時
-                si = qq->partloop;
-                qq->loopcheck = 1;
+                si = track->partloop;
+                track->loopcheck = 1;
             }
             else
             {
                 if (*si == 0xda)
                 {        // ポルタメント
-                    si = portaz(qq, ++si);
-                    pmdwork.loop_work &= qq->loopcheck;
+                    si = portaz(track, ++si);
+                    pmdwork.loop_work &= track->loopcheck;
                     return;
                 }
-                else if (qq->partmask)
+                else if (track->partmask)
                 {
                     si++;
-                    qq->fnum = 0;    //休符に設定
-                    qq->onkai = 255;
+                    track->fnum = 0;    //休符に設定
+                    track->onkai = 255;
                     //          qq->onkai_def = 255;
-                    qq->leng = *si++;
-                    qq->keyon_flag++;
-                    qq->address = si;
+                    track->leng = *si++;
+                    track->keyon_flag++;
+                    track->address = si;
 
                     if (--pmdwork.volpush_flag)
                     {
-                        qq->volpush = 0;
+                        track->volpush = 0;
                     }
 
                     pmdwork.tieflag = 0;
@@ -3358,70 +3336,70 @@ void PMD::PPZ8Main(PartState * qq)
                 }
 
                 //  TONE SET
-                fnumsetz(qq, oshift(qq, lfoinitp(qq, *si++)));
+                fnumsetz(track, oshift(track, lfoinitp(track, *si++)));
 
-                qq->leng = *si++;
-                si = calc_q(qq, si);
+                track->leng = *si++;
+                si = calc_q(track, si);
 
-                if (qq->volpush && qq->onkai != 255)
+                if (track->volpush && track->onkai != 255)
                 {
                     if (--pmdwork.volpush_flag)
                     {
                         pmdwork.volpush_flag = 0;
-                        qq->volpush = 0;
+                        track->volpush = 0;
                     }
                 }
 
-                volsetz(qq);
-                otodasiz(qq);
-                if (qq->keyoff_flag & 1)
+                volsetz(track);
+                otodasiz(track);
+                if (track->keyoff_flag & 1)
                 {
-                    keyonz(qq);
+                    keyonz(track);
                 }
 
-                qq->keyon_flag++;
-                qq->address = si;
+                track->keyon_flag++;
+                track->address = si;
 
                 pmdwork.tieflag = 0;
                 pmdwork.volpush_flag = 0;
 
                 if (*si == 0xfb)
                 {    // '&'が直後にあったらkeyoffしない
-                    qq->keyoff_flag = 2;
+                    track->keyoff_flag = 2;
                 }
                 else
                 {
-                    qq->keyoff_flag = 0;
+                    track->keyoff_flag = 0;
                 }
-                pmdwork.loop_work &= qq->loopcheck;
+                pmdwork.loop_work &= track->loopcheck;
                 return;
 
             }
         }
     }
 
-    pmdwork.lfo_switch = (qq->lfoswi & 8);
-    if (qq->lfoswi)
+    pmdwork.lfo_switch = (track->lfoswi & 8);
+    if (track->lfoswi)
     {
-        if (qq->lfoswi & 3)
+        if (track->lfoswi & 3)
         {
-            if (lfo(qq))
+            if (lfo(track))
             {
-                pmdwork.lfo_switch |= (qq->lfoswi & 3);
+                pmdwork.lfo_switch |= (track->lfoswi & 3);
             }
         }
 
-        if (qq->lfoswi & 0x30)
+        if (track->lfoswi & 0x30)
         {
-            lfo_change(qq);
-            if (lfop(qq))
+            lfo_change(track);
+            if (lfop(track))
             {
-                lfo_change(qq);
-                pmdwork.lfo_switch |= (qq->lfoswi & 0x30);
+                lfo_change(track);
+                pmdwork.lfo_switch |= (track->lfoswi & 0x30);
             }
             else
             {
-                lfo_change(qq);
+                lfo_change(track);
             }
         }
 
@@ -3429,23 +3407,23 @@ void PMD::PPZ8Main(PartState * qq)
         {
             if (pmdwork.lfo_switch & 0x08)
             {
-                porta_calc(qq);
+                porta_calc(track);
             }
-            otodasiz(qq);
+            otodasiz(track);
         }
     }
 
-    temp = soft_env(qq);
+    temp = soft_env(track);
     if (temp || pmdwork.lfo_switch & 0x22 || _OpenWork._FadeOutSpeed)
     {
-        volsetz(qq);
+        volsetz(track);
     }
 
-    pmdwork.loop_work &= qq->loopcheck;
+    pmdwork.loop_work &= track->loopcheck;
 }
 
 //  PCM KEYON
-void PMD::keyonm(PartState * qq)
+void PMD::keyonm(Track * qq)
 {
     if (qq->onkai == 255)
         return;
@@ -3476,29 +3454,29 @@ void PMD::keyonm(PartState * qq)
 }
 
 //  PCM KEYON(PMD86)
-void PMD::keyon8(PartState * qq)
+void PMD::keyon8(Track * qq)
 {
     if (qq->onkai == 255) return;
     _P86->Play();
 }
 
 //  PPZ KEYON
-void PMD::keyonz(PartState * qq)
+void PMD::keyonz(Track * qq)
 {
     if (qq->onkai == 255) return;
 
     if ((qq->voicenum & 0x80) == 0)
     {
-        _PPZ8->Play(pmdwork.partb, 0, qq->voicenum, 0, 0);
+        _PPZ8->Play(pmdwork._CurrentTrack, 0, qq->voicenum, 0, 0);
     }
     else
     {
-        _PPZ8->Play(pmdwork.partb, 1, qq->voicenum & 0x7f, 0, 0);
+        _PPZ8->Play(pmdwork._CurrentTrack, 1, qq->voicenum & 0x7f, 0, 0);
     }
 }
 
 //  PCM OTODASI
-void PMD::otodasim(PartState * qq)
+void PMD::otodasim(Track * qq)
 {
     if (qq->fnum == 0)
         return;
@@ -3535,7 +3513,7 @@ void PMD::otodasim(PartState * qq)
 }
 
 //  PCM OTODASI(PMD86)
-void PMD::otodasi8(PartState * qq)
+void PMD::otodasi8(Track * qq)
 {
     if (qq->fnum == 0)
         return;
@@ -3550,7 +3528,7 @@ void PMD::otodasi8(PartState * qq)
 }
 
 //  PPZ OTODASI
-void PMD::otodasiz(PartState * qq)
+void PMD::otodasiz(Track * qq)
 {
     uint32_t  cx;
     int64_t  cx2;
@@ -3581,11 +3559,11 @@ void PMD::otodasiz(PartState * qq)
     else cx = (uint32_t) cx2;
 
     // TONE SET
-    _PPZ8->SetPitchFrequency(pmdwork.partb, cx);
+    _PPZ8->SetPitchFrequency(pmdwork._CurrentTrack, cx);
 }
 
 //  PCM VOLUME SET
-void PMD::volsetm(PartState * qq)
+void PMD::volsetm(Track * qq)
 {
     int al = qq->volpush ? qq->volpush : qq->volume;
 
@@ -3681,7 +3659,7 @@ void PMD::volsetm(PartState * qq)
 }
 
 //  PCM VOLUME SET(PMD86)
-void PMD::volset8(PartState * qq)
+void PMD::volset8(Track * qq)
 {
     int al = qq->volpush ? qq->volpush : qq->volume;
 
@@ -3770,7 +3748,7 @@ void PMD::volset8(PartState * qq)
 }
 
 //  PPZ VOLUME SET
-void PMD::volsetz(PartState * qq)
+void PMD::volsetz(Track * qq)
 {
     int al = qq->volpush ? qq->volpush : qq->volume;
 
@@ -3790,8 +3768,8 @@ void PMD::volsetz(PartState * qq)
     //------------------------------------------------------------------------
     if (al == 0)
     {
-        _PPZ8->SetVolume(pmdwork.partb, 0);
-        _PPZ8->Stop(pmdwork.partb);
+        _PPZ8->SetVolume(pmdwork._CurrentTrack, 0);
+        _PPZ8->Stop(pmdwork._CurrentTrack);
         return;
     }
 
@@ -3800,8 +3778,8 @@ void PMD::volsetz(PartState * qq)
         //  拡張版 音量=al*(eenv_vol+1)/16
         if (qq->eenv_volume == 0)
         {
-            //*@    ppz8->SetVol(pmdwork.partb, 0);
-            _PPZ8->Stop(pmdwork.partb);
+            //*@    ppz8->SetVol(pmdwork._CurrentPart, 0);
+            _PPZ8->Stop(pmdwork._CurrentTrack);
             return;
         }
 
@@ -3815,8 +3793,8 @@ void PMD::volsetz(PartState * qq)
 
             if (al < ah)
             {
-                //*@      ppz8->SetVol(pmdwork.partb, 0);
-                _PPZ8->Stop(pmdwork.partb);
+                //*@      ppz8->SetVol(pmdwork._CurrentPart, 0);
+                _PPZ8->Stop(pmdwork._CurrentTrack);
                 return;
             }
             else
@@ -3856,13 +3834,13 @@ void PMD::volsetz(PartState * qq)
     }
 
     if (al != 0)
-        _PPZ8->SetVolume(pmdwork.partb, al >> 4);
+        _PPZ8->SetVolume(pmdwork._CurrentTrack, al >> 4);
     else
-        _PPZ8->Stop(pmdwork.partb);
+        _PPZ8->Stop(pmdwork._CurrentTrack);
 }
 
 //  ADPCM FNUM SET
-void PMD::fnumsetm(PartState * qq, int al)
+void PMD::fnumsetm(Track * qq, int al)
 {
     if ((al & 0x0f) != 0x0f)
     {      // 音符の場合
@@ -3906,7 +3884,7 @@ void PMD::fnumsetm(PartState * qq, int al)
 }
 
 //  PCM FNUM SET(PMD86)
-void PMD::fnumset8(PartState * qq, int al)
+void PMD::fnumset8(Track * qq, int al)
 {
     int    ah, bl;
 
@@ -3941,7 +3919,7 @@ void PMD::fnumset8(PartState * qq, int al)
 }
 
 //  PPZ FNUM SET
-void PMD::fnumsetz(PartState * qq, int al)
+void PMD::fnumsetz(Track * qq, int al)
 {
     if ((al & 0x0f) != 0x0f)
     {      // 音符の場合
@@ -3972,7 +3950,7 @@ void PMD::fnumsetz(PartState * qq, int al)
 }
 
 //  ポルタメント(PCM)
-uint8_t * PMD::portam(PartState * qq, uint8_t * si)
+uint8_t * PMD::portam(Track * qq, uint8_t * si)
 {
     int    ax, al_, bx_;
 
@@ -4048,7 +4026,7 @@ uint8_t * PMD::portam(PartState * qq, uint8_t * si)
 }
 
 //  ポルタメント(PPZ)
-uint8_t * PMD::portaz(PartState * qq, uint8_t * si)
+uint8_t * PMD::portaz(Track * qq, uint8_t * si)
 {
     int    ax, al_, bx_;
 
@@ -4122,7 +4100,7 @@ uint8_t * PMD::portaz(PartState * qq, uint8_t * si)
     return si;
 }
 
-void PMD::keyoffm(PartState * qq)
+void PMD::keyoffm(Track * qq)
 {
     if (qq->envf != -1)
     {
@@ -4153,7 +4131,7 @@ void PMD::keyoffm(PartState * qq)
     return;
 }
 
-void PMD::keyoff8(PartState * qq)
+void PMD::keyoff8(Track * qq)
 {
     _P86->Keyoff();
 
@@ -4174,7 +4152,7 @@ void PMD::keyoff8(PartState * qq)
 }
 
 //  ppz KEYOFF
-void PMD::keyoffz(PartState * qq)
+void PMD::keyoffz(Track * qq)
 {
     if (qq->envf != -1)
     {
@@ -4190,7 +4168,7 @@ void PMD::keyoffz(PartState * qq)
 }
 
 //  Pan setting Extend
-uint8_t * PMD::pansetm_ex(PartState * qq, uint8_t * si)
+uint8_t * PMD::pansetm_ex(Track * qq, uint8_t * si)
 {
     if (*si == 0)
     {
@@ -4209,7 +4187,7 @@ uint8_t * PMD::pansetm_ex(PartState * qq, uint8_t * si)
 }
 
 //  リピート設定
-uint8_t * PMD::pcmrepeat_set(PartState *, uint8_t * si)
+uint8_t * PMD::pcmrepeat_set(Track *, uint8_t * si)
 {
     int    ax;
 
@@ -4256,7 +4234,7 @@ uint8_t * PMD::pcmrepeat_set(PartState *, uint8_t * si)
 }
 
 //  リピート設定(PMD86)
-uint8_t * PMD::pcmrepeat_set8(PartState *, uint8_t * si)
+uint8_t * PMD::pcmrepeat_set8(Track *, uint8_t * si)
 {
     int16_t loop_start, loop_end, release_start;
 
@@ -4279,7 +4257,7 @@ uint8_t * PMD::pcmrepeat_set8(PartState *, uint8_t * si)
 }
 
 //  リピート設定
-uint8_t * PMD::ppzrepeat_set(PartState * qq, uint8_t * data)
+uint8_t * PMD::ppzrepeat_set(Track * qq, uint8_t * data)
 {
     int LoopStart, LoopEnd;
 
@@ -4312,12 +4290,12 @@ uint8_t * PMD::ppzrepeat_set(PartState * qq, uint8_t * data)
             LoopEnd = (int) (_PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].Size - LoopEnd);
     }
 
-    _PPZ8->SetLoop(pmdwork.partb, (uint32_t) LoopStart, (uint32_t) LoopEnd);
+    _PPZ8->SetLoop(pmdwork._CurrentTrack, (uint32_t) LoopStart, (uint32_t) LoopEnd);
 
     return data + 2;
 }
 
-uint8_t * PMD::vol_one_up_pcm(PartState * qq, uint8_t * si)
+uint8_t * PMD::vol_one_up_pcm(Track * qq, uint8_t * si)
 {
     int    al;
 
@@ -4330,7 +4308,7 @@ uint8_t * PMD::vol_one_up_pcm(PartState * qq, uint8_t * si)
 }
 
 //  COMMAND 'p' [Panning Set]
-uint8_t * PMD::pansetm(PartState * qq, uint8_t * si)
+uint8_t * PMD::pansetm(Track * qq, uint8_t * si)
 {
     qq->fmpan = (*si << 6) & 0xc0;
     return si + 1;
@@ -4341,7 +4319,7 @@ uint8_t * PMD::pansetm(PartState * qq, uint8_t * si)
 //  p1    右
 //  p2    左
 //  p3    中
-uint8_t * PMD::panset8(PartState *, uint8_t * si)
+uint8_t * PMD::panset8(Track *, uint8_t * si)
 {
     int    flag, data;
 
@@ -4378,16 +4356,16 @@ uint8_t * PMD::panset8(PartState *, uint8_t * si)
 //    1=9  右
 //    2=1  左
 //    3=5  中央
-uint8_t * PMD::pansetz(PartState * qq, uint8_t * si)
+uint8_t * PMD::pansetz(Track * qq, uint8_t * si)
 {
     qq->fmpan = ppzpandata[*si++];
-    _PPZ8->SetPan(pmdwork.partb, qq->fmpan);
+    _PPZ8->SetPan(pmdwork._CurrentTrack, qq->fmpan);
     return si;
 }
 
 //  Pan setting Extend
 //    px -4?+4
-uint8_t * PMD::pansetz_ex(PartState * qq, uint8_t * si)
+uint8_t * PMD::pansetz_ex(Track * qq, uint8_t * si)
 {
     int    al;
 
@@ -4404,11 +4382,11 @@ uint8_t * PMD::pansetz_ex(PartState * qq, uint8_t * si)
     }
 
     qq->fmpan = al + 5;
-    _PPZ8->SetPan(pmdwork.partb, qq->fmpan);
+    _PPZ8->SetPan(pmdwork._CurrentTrack, qq->fmpan);
     return si;
 }
 
-uint8_t * PMD::comatm(PartState * qq, uint8_t * si)
+uint8_t * PMD::comatm(Track * qq, uint8_t * si)
 {
     qq->voicenum = *si++;
     _OpenWork.pcmstart = pcmends.Address[qq->voicenum][0];
@@ -4419,26 +4397,26 @@ uint8_t * PMD::comatm(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::comat8(PartState * qq, uint8_t * si)
+uint8_t * PMD::comat8(Track * qq, uint8_t * si)
 {
     qq->voicenum = *si++;
     _P86->SetNeiro(qq->voicenum);
     return si;
 }
 
-uint8_t * PMD::comatz(PartState * qq, uint8_t * si)
+uint8_t * PMD::comatz(Track * qq, uint8_t * si)
 {
     qq->voicenum = *si++;
 
     if ((qq->voicenum & 0x80) == 0)
     {
-        _PPZ8->SetLoop(pmdwork.partb, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].LoopStart, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].LoopEnd);
-        _PPZ8->SetSourceRate(pmdwork.partb, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].SampleRate);
+        _PPZ8->SetLoop(pmdwork._CurrentTrack, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].LoopStart, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].LoopEnd);
+        _PPZ8->SetSourceRate(pmdwork._CurrentTrack, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].SampleRate);
     }
     else
     {
-        _PPZ8->SetLoop(pmdwork.partb, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].LoopStart, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].LoopEnd);
-        _PPZ8->SetSourceRate(pmdwork.partb, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].SampleRate);
+        _PPZ8->SetLoop(pmdwork._CurrentTrack, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].LoopStart, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].LoopEnd);
+        _PPZ8->SetSourceRate(pmdwork._CurrentTrack, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].SampleRate);
     }
     return si;
 }
@@ -4446,7 +4424,7 @@ uint8_t * PMD::comatz(PartState * qq, uint8_t * si)
 //  SSGドラムを消してSSGを復活させるかどうかcheck
 //    input  AL <- Command
 //    output  cy=1 : 復活させる
-int PMD::ssgdrum_check(PartState * qq, int al)
+int PMD::ssgdrum_check(Track * qq, int al)
 {
     // SSGマスク中はドラムを止めない
     // SSGドラムは鳴ってない
@@ -4470,7 +4448,7 @@ int PMD::ssgdrum_check(PartState * qq, int al)
     return 0;
 }
 
-uint8_t * PMD::FMCommands(PartState * ps, uint8_t * si)
+uint8_t * PMD::FMCommands(Track * ps, uint8_t * si)
 {
     int al = *si++;
 
@@ -4608,7 +4586,7 @@ uint8_t * PMD::FMCommands(PartState * ps, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::PSGCommands(PartState * ps, uint8_t * si)
+uint8_t * PMD::PSGCommands(Track * ps, uint8_t * si)
 {
     int al = *si++;
 
@@ -4769,7 +4747,7 @@ uint8_t * PMD::PSGCommands(PartState * ps, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::RhythmCommands(PartState * ps, uint8_t * si)
+uint8_t * PMD::RhythmCommands(Track * ps, uint8_t * si)
 {
     int al = *si++;
 
@@ -4882,7 +4860,7 @@ uint8_t * PMD::RhythmCommands(PartState * ps, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::ADPCMCommands(PartState * ps, uint8_t * si)
+uint8_t * PMD::ADPCMCommands(Track * ps, uint8_t * si)
 {
     int al = *si++;
 
@@ -5042,7 +5020,7 @@ uint8_t * PMD::ADPCMCommands(PartState * ps, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::PCM86Commands(PartState * ps, uint8_t * si)
+uint8_t * PMD::PCM86Commands(Track * ps, uint8_t * si)
 {
     int al = *si++;
 
@@ -5171,7 +5149,7 @@ uint8_t * PMD::PCM86Commands(PartState * ps, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::PPZ8Commands(PartState * ps, uint8_t * si)
+uint8_t * PMD::PPZ8Commands(Track * ps, uint8_t * si)
 {
     int al = *si++;
 
@@ -5323,7 +5301,7 @@ uint8_t * PMD::PPZ8Commands(PartState * ps, uint8_t * si)
 }
 
 //  COMMAND '@' [PROGRAM CHANGE]
-uint8_t * PMD::comat(PartState * qq, uint8_t * si)
+uint8_t * PMD::comat(Track * qq, uint8_t * si)
 {
     uint8_t * bx;
     int    al, dl;
@@ -5349,7 +5327,7 @@ uint8_t * PMD::comat(PartState * qq, uint8_t * si)
         qq->slot4 = bx[3];
 
         //  FM3chで、マスクされていた場合、fm3_alg_fbを設定
-        if (pmdwork.partb == 3 && qq->neiromask)
+        if (pmdwork._CurrentTrack == 3 && qq->neiromask)
         {
             if (pmdwork.fmsel == 0)
             {
@@ -5372,7 +5350,7 @@ uint8_t * PMD::comat(PartState * qq, uint8_t * si)
 //    INPUTS  -- [PARTB]
 //      -- dl [TONE_NUMBER]
 //      -- di [PART_DATA_ADDRESS]
-void PMD::neiroset(PartState * qq, int dl)
+void PMD::neiroset(Track * qq, int dl)
 {
     uint8_t * bx;
     int    ah, al, dh;
@@ -5398,7 +5376,7 @@ void PMD::neiroset(PartState * qq, int dl)
     //  AL/FBを設定
     //-------------------------------------------------------------------------
 
-    dh = 0xb0 - 1 + pmdwork.partb;
+    dh = 0xb0 - 1 + pmdwork._CurrentTrack;
 
     if (pmdwork.af_check)
     {    // ALG/FBは設定しないmodeか？
@@ -5409,7 +5387,7 @@ void PMD::neiroset(PartState * qq, int dl)
         dl = bx[24];
     }
 
-    if (pmdwork.partb == 3 && pmdwork.fmsel == 0)
+    if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
     {
         if (pmdwork.af_check != 0)
         {  // ALG/FBは設定しないmodeか？
@@ -5452,7 +5430,7 @@ void PMD::neiroset(PartState * qq, int dl)
     //  各音色パラメータを設定 (TLはモジュレータのみ)
     //-------------------------------------------------------------------------
 
-    dh = 0x30 - 1 + pmdwork.partb;
+    dh = 0x30 - 1 + pmdwork._CurrentTrack;
     dl = *bx++;        // DT/ML
     if (al & 0x80) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
     dh += 4;
@@ -5581,12 +5559,12 @@ void PMD::neiroset(PartState * qq, int dl)
 }
 
 // Completely muting the [PartB] part (TL=127 and RR=15 and KEY-OFF). cy=1 ･･･ All slots are neiromasked
-int PMD::MuteFMPart(PartState * qq)
+int PMD::MuteFMPart(Track * qq)
 {
     if (qq->neiromask == 0)
         return 1;
 
-    int dh = pmdwork.partb + 0x40 - 1;
+    int dh = pmdwork._CurrentTrack + 0x40 - 1;
 
     if (qq->neiromask & 0x80)
     {
@@ -5626,12 +5604,12 @@ int PMD::MuteFMPart(PartState * qq)
 //  TONE DATA START ADDRESS を計算
 //    input  dl  tone_number
 //    output  bx  address
-uint8_t * PMD::toneadr_calc(PartState * qq, int dl)
+uint8_t * PMD::toneadr_calc(Track * qq, int dl)
 {
     uint8_t * bx;
 
-    if (_OpenWork.prg_flg == 0 && qq != &EffPart)
-        return _OpenWork.tondat + ((size_t) dl << 5);
+    if (_OpenWork.prg_flg == 0 && qq != &_EffectTrack)
+        return _OpenWork._VData + ((size_t) dl << 5);
 
     bx = _OpenWork.prgdat_adr;
 
@@ -5647,15 +5625,15 @@ uint8_t * PMD::toneadr_calc(PartState * qq, int dl)
 }
 
 // FM tone generator hard LFO setting (V2.4 expansion)
-uint8_t * PMD::hlfo_set(PartState * qq, uint8_t * si)
+uint8_t * PMD::hlfo_set(Track * qq, uint8_t * si)
 {
     qq->fmpan = (qq->fmpan & 0xc0) | *si++;
 
-    if (pmdwork.partb == 3 && pmdwork.fmsel == 0)
+    if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
     {
         // Part_e is impossible because it is only for 2608
         // For FM3, set all four parts
-        FMPart[2].fmpan = qq->fmpan;
+        _FMTrack[2].fmpan = qq->fmpan;
         ExtPart[0].fmpan = qq->fmpan;
         ExtPart[1].fmpan = qq->fmpan;
         ExtPart[2].fmpan = qq->fmpan;
@@ -5663,13 +5641,13 @@ uint8_t * PMD::hlfo_set(PartState * qq, uint8_t * si)
 
     if (qq->partmask == 0)
     {    // パートマスクされているか？
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork.partb + 0xb4 - 1), calc_panout(qq));
+        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork._CurrentTrack + 0xb4 - 1), calc_panout(qq));
     }
     return si;
 }
 
 // Change only one volume (V2.7 expansion)
-uint8_t * PMD::vol_one_up_fm(PartState * qq, uint8_t * si)
+uint8_t * PMD::vol_one_up_fm(Track * qq, uint8_t * si)
 {
     int    al;
 
@@ -5682,41 +5660,41 @@ uint8_t * PMD::vol_one_up_fm(PartState * qq, uint8_t * si)
 }
 
 // Portamento (FM)
-uint8_t * PMD::porta(PartState * qq, uint8_t * si)
+uint8_t * PMD::porta(Track * track, uint8_t * si)
 {
     int ax;
 
-    if (qq->partmask)
+    if (track->partmask)
     {
-        qq->fnum = 0;    //休符に設定
-        qq->onkai = 255;
-        qq->leng = *(si + 2);
-        qq->keyon_flag++;
-        qq->address = si + 3;
+        track->fnum = 0;    //休符に設定
+        track->onkai = 255;
+        track->leng = *(si + 2);
+        track->keyon_flag++;
+        track->address = si + 3;
 
         if (--pmdwork.volpush_flag)
         {
-            qq->volpush = 0;
+            track->volpush = 0;
         }
 
         pmdwork.tieflag = 0;
         pmdwork.volpush_flag = 0;
-        pmdwork.loop_work &= qq->loopcheck;
+        pmdwork.loop_work &= track->loopcheck;
 
         return si + 3;    // 読み飛ばす  (Mask時)
     }
 
-    fnumset(qq, oshift(qq, lfoinit(qq, *si++)));
+    fnumset(track, oshift(track, lfoinit(track, *si++)));
 
-    int cx = (int) qq->fnum;
-    int cl = qq->onkai;
+    int cx = (int) track->fnum;
+    int cl = track->onkai;
 
-    fnumset(qq, oshift(qq, *si++));
+    fnumset(track, oshift(track, *si++));
 
-    int bx = (int) qq->fnum;      // bx=ポルタメント先のfnum値
+    int bx = (int) track->fnum;      // bx=ポルタメント先のfnum値
 
-    qq->onkai = cl;
-    qq->fnum = (uint32_t) cx;      // cx=ポルタメント元のfnum値
+    track->onkai = cl;
+    track->fnum = (uint32_t) cx;      // cx=ポルタメント元のfnum値
 
     int bh = (int) ((bx / 256) & 0x38) - ((cx / 256) & 0x38);  // 先のoctarb - 元のoctarb
 
@@ -5733,46 +5711,46 @@ uint8_t * PMD::porta(PartState * qq, uint8_t * si)
     bx = (bx & 0x7ff) - (cx & 0x7ff);
     ax += bx;        // ax=26ah*octarb差 + 音程差
 
-    qq->leng = *si++;
-    si = calc_q(qq, si);
+    track->leng = *si++;
+    si = calc_q(track, si);
 
-    qq->porta_num2 = ax / qq->leng;  // 商
-    qq->porta_num3 = ax % qq->leng;  // 余り
-    qq->lfoswi |= 8;        // Porta ON
+    track->porta_num2 = ax / track->leng;  // 商
+    track->porta_num3 = ax % track->leng;  // 余り
+    track->lfoswi |= 8;        // Porta ON
 
-    if (qq->volpush && qq->onkai != 255)
+    if (track->volpush && track->onkai != 255)
     {
         if (--pmdwork.volpush_flag)
         {
             pmdwork.volpush_flag = 0;
-            qq->volpush = 0;
+            track->volpush = 0;
         }
     }
 
-    volset(qq);
-    otodasi(qq);
-    keyon(qq);
+    volset(track);
+    otodasi(track);
+    keyon(track);
 
-    qq->keyon_flag++;
-    qq->address = si;
+    track->keyon_flag++;
+    track->address = si;
 
     pmdwork.tieflag = 0;
     pmdwork.volpush_flag = 0;
 
     if (*si == 0xfb)
     {    // '&'が直後にあったらkeyoffしない
-        qq->keyoff_flag = 2;
+        track->keyoff_flag = 2;
     }
     else
     {
-        qq->keyoff_flag = 0;
+        track->keyoff_flag = 0;
     }
-    pmdwork.loop_work &= qq->loopcheck;
+    pmdwork.loop_work &= track->loopcheck;
     return si;
 }
 
 //  FM slotmask set
-uint8_t * PMD::slotmask_set(PartState * qq, uint8_t * si)
+uint8_t * PMD::slotmask_set(Track * qq, uint8_t * si)
 {
     uint8_t * bx;
     int    ah, al, bl;
@@ -5785,7 +5763,7 @@ uint8_t * PMD::slotmask_set(PartState * qq, uint8_t * si)
     }
     else
     {
-        if (pmdwork.partb == 3 && pmdwork.fmsel == 0)
+        if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
         {
             bl = pmdwork.fm3_alg_fb;
         }
@@ -5810,10 +5788,10 @@ uint8_t * PMD::slotmask_set(PartState * qq, uint8_t * si)
 
         if (ch3_setting(qq))
         {   // Change process of ch3mode only for FM3ch. If it is ch3, keyon processing in the previous FM3 part
-            if (qq != &FMPart[2])
+            if (qq != &_FMTrack[2])
             {
-                if (FMPart[2].partmask == 0 && (FMPart[2].keyoff_flag & 1) == 0)
-                    keyon(&FMPart[2]);
+                if (_FMTrack[2].partmask == 0 && (_FMTrack[2].keyoff_flag & 1) == 0)
+                    keyon(&_FMTrack[2]);
 
                 if (qq != &ExtPart[0])
                 {
@@ -5843,11 +5821,11 @@ uint8_t * PMD::slotmask_set(PartState * qq, uint8_t * si)
 }
 
 //  Slot Detune Set
-uint8_t * PMD::slotdetune_set(PartState * qq, uint8_t * si)
+uint8_t * PMD::slotdetune_set(Track * qq, uint8_t * si)
 {
     int    ax, bl;
 
-    if (pmdwork.partb != 3 || pmdwork.fmsel)
+    if (pmdwork._CurrentTrack != 3 || pmdwork.fmsel)
     {
         return si + 3;
     }
@@ -5891,11 +5869,11 @@ uint8_t * PMD::slotdetune_set(PartState * qq, uint8_t * si)
 }
 
 //  Slot Detune Set(相対)
-uint8_t * PMD::slotdetune_set2(PartState * qq, uint8_t * si)
+uint8_t * PMD::slotdetune_set2(Track * qq, uint8_t * si)
 {
     int    ax, bl;
 
-    if (pmdwork.partb != 3 || pmdwork.fmsel)
+    if (pmdwork._CurrentTrack != 3 || pmdwork.fmsel)
     {
         return si + 3;
     }
@@ -5938,7 +5916,7 @@ uint8_t * PMD::slotdetune_set2(PartState * qq, uint8_t * si)
     return si;
 }
 
-void PMD::fm3_partinit(PartState * qq, uint8_t * ax)
+void PMD::fm3_partinit(Track * qq, uint8_t * ax)
 {
     qq->address = ax;
     qq->leng = 1;          // ｱﾄ 1ｶｳﾝﾄ ﾃﾞ ｴﾝｿｳ ｶｲｼ
@@ -5950,42 +5928,40 @@ void PMD::fm3_partinit(PartState * qq, uint8_t * ax)
     qq->onkai = 255;        // rest
     qq->onkai_def = 255;      // rest
     qq->volume = 108;        // FM  VOLUME DEFAULT= 108
-    qq->fmpan = FMPart[2].fmpan;  // FM PAN = CH3と同じ
+    qq->fmpan = _FMTrack[2].fmpan;  // FM PAN = CH3と同じ
     qq->partmask |= 0x20;      // s0用 partmask
 }
 
 //  FM3ch 拡張パートセット
-uint8_t * PMD::fm3_extpartset(PartState *, uint8_t * si)
+uint8_t * PMD::fm3_extpartset(Track *, uint8_t * si)
 {
     int16_t ax;
 
     ax = *(int16_t *) si;
     si += 2;
-    if (ax) fm3_partinit(&ExtPart[0], &_OpenWork.mmlbuf[ax]);
+    if (ax) fm3_partinit(&ExtPart[0], &_OpenWork._MData[ax]);
 
     ax = *(int16_t *) si;
     si += 2;
-    if (ax) fm3_partinit(&ExtPart[1], &_OpenWork.mmlbuf[ax]);
+    if (ax) fm3_partinit(&ExtPart[1], &_OpenWork._MData[ax]);
 
     ax = *(int16_t *) si;
     si += 2;
-    if (ax) fm3_partinit(&ExtPart[2], &_OpenWork.mmlbuf[ax]);
+    if (ax) fm3_partinit(&ExtPart[2], &_OpenWork._MData[ax]);
     return si;
 }
 
 //  ppz 拡張パートセット
-uint8_t * PMD::ppz_extpartset(PartState *, uint8_t * si)
+uint8_t * PMD::ppz_extpartset(Track *, uint8_t * si)
 {
-    int16_t  ax;
-    int    i;
-
-    for (i = 0; i < 8; i++)
+    for (size_t i = 0; i < _countof(PPZ8Part); ++i)
     {
-        ax = *(int16_t *) si;
+        int16_t ax = *(int16_t *) si;
         si += 2;
+
         if (ax)
         {
-            PPZ8Part[i].address = &_OpenWork.mmlbuf[ax];
+            PPZ8Part[i].address = &_OpenWork._MData[ax];
             PPZ8Part[i].leng = 1;          // ｱﾄ 1ｶｳﾝﾄ ﾃﾞ ｴﾝｿｳ ｶｲｼ
             PPZ8Part[i].keyoff_flag = -1;      // 現在keyoff中
             PPZ8Part[i].mdc = -1;          // MDepth Counter (無限)
@@ -6002,7 +5978,7 @@ uint8_t * PMD::ppz_extpartset(PartState *, uint8_t * si)
 }
 
 //  音量マスクslotの設定
-uint8_t * PMD::volmask_set(PartState * qq, uint8_t * si)
+uint8_t * PMD::volmask_set(Track * qq, uint8_t * si)
 {
     int    al;
 
@@ -6021,7 +5997,7 @@ uint8_t * PMD::volmask_set(PartState * qq, uint8_t * si)
 }
 
 //  0c0hの追加special命令
-uint8_t * PMD::special_0c0h(PartState * qq, uint8_t * si, uint8_t al)
+uint8_t * PMD::special_0c0h(Track * qq, uint8_t * si, uint8_t al)
 {
     switch (al)
     {
@@ -6043,7 +6019,7 @@ uint8_t * PMD::special_0c0h(PartState * qq, uint8_t * si, uint8_t al)
     return si;
 }
 
-uint8_t * PMD::_vd_fm(PartState *, uint8_t * si)
+uint8_t * PMD::_vd_fm(Track *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
@@ -6055,7 +6031,7 @@ uint8_t * PMD::_vd_fm(PartState *, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::_vd_ssg(PartState *, uint8_t * si)
+uint8_t * PMD::_vd_ssg(Track *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
@@ -6067,7 +6043,7 @@ uint8_t * PMD::_vd_ssg(PartState *, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::_vd_pcm(PartState *, uint8_t * si)
+uint8_t * PMD::_vd_pcm(Track *, uint8_t * si)
 {
     int  al = *(int8_t *) si++;
 
@@ -6079,7 +6055,7 @@ uint8_t * PMD::_vd_pcm(PartState *, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::_vd_rhythm(PartState *, uint8_t * si)
+uint8_t * PMD::_vd_rhythm(Track *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
@@ -6091,7 +6067,7 @@ uint8_t * PMD::_vd_rhythm(PartState *, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::_vd_ppz(PartState *, uint8_t * si)
+uint8_t * PMD::_vd_ppz(Track *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
@@ -6104,7 +6080,7 @@ uint8_t * PMD::_vd_ppz(PartState *, uint8_t * si)
 }
 
 // Mask on/off for playing parts
-uint8_t * PMD::fm_mml_part_mask(PartState * qq, uint8_t * si)
+uint8_t * PMD::fm_mml_part_mask(Track * qq, uint8_t * si)
 {
     uint8_t al = *si++;
 
@@ -6127,7 +6103,7 @@ uint8_t * PMD::fm_mml_part_mask(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::ssg_mml_part_mask(PartState * qq, uint8_t * si)
+uint8_t * PMD::ssg_mml_part_mask(Track * qq, uint8_t * si)
 {
     uint8_t b = *si++;
 
@@ -6140,7 +6116,7 @@ uint8_t * PMD::ssg_mml_part_mask(PartState * qq, uint8_t * si)
 
         if (qq->partmask == 0x40)
         {
-            int ah = ((1 << (pmdwork.partb - 1)) | (4 << pmdwork.partb));
+            int ah = ((1 << (pmdwork._CurrentTrack - 1)) | (4 << pmdwork._CurrentTrack));
             uint32_t al = _OPNA->GetReg(0x07);
 
             _OPNA->SetReg(0x07, ah | al);    // PSG keyoff
@@ -6152,7 +6128,7 @@ uint8_t * PMD::ssg_mml_part_mask(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::rhythm_mml_part_mask(PartState * qq, uint8_t * si)
+uint8_t * PMD::rhythm_mml_part_mask(Track * qq, uint8_t * si)
 {
     uint8_t al = *si++;
 
@@ -6167,7 +6143,7 @@ uint8_t * PMD::rhythm_mml_part_mask(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::pcm_mml_part_mask(PartState * qq, uint8_t * si)
+uint8_t * PMD::pcm_mml_part_mask(Track * qq, uint8_t * si)
 {
     uint8_t al = *si++;
 
@@ -6190,7 +6166,7 @@ uint8_t * PMD::pcm_mml_part_mask(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::pcm_mml_part_mask8(PartState * qq, uint8_t * si)
+uint8_t * PMD::pcm_mml_part_mask8(Track * qq, uint8_t * si)
 {
     uint8_t al = *si++;
 
@@ -6210,7 +6186,7 @@ uint8_t * PMD::pcm_mml_part_mask8(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::ppz_mml_part_mask(PartState * qq, uint8_t * si)
+uint8_t * PMD::ppz_mml_part_mask(Track * qq, uint8_t * si)
 {
     uint8_t al = *si++;
 
@@ -6222,7 +6198,7 @@ uint8_t * PMD::ppz_mml_part_mask(PartState * qq, uint8_t * si)
         qq->partmask |= 0x40;
 
         if (qq->partmask == 0x40)
-            _PPZ8->Stop(pmdwork.partb);
+            _PPZ8->Stop(pmdwork._CurrentTrack);
     }
     else
         qq->partmask &= 0xbf;
@@ -6231,7 +6207,7 @@ uint8_t * PMD::ppz_mml_part_mask(PartState * qq, uint8_t * si)
 }
 
 // Reset the tone of the FM sound source
-void PMD::neiro_reset(PartState * qq)
+void PMD::neiro_reset(Track * qq)
 {
     if (qq->neiromask == 0)
         return;
@@ -6257,7 +6233,7 @@ void PMD::neiro_reset(PartState * qq)
     // al<- TLを再設定していいslot 4321xxxx
     if (al)
     {
-        dh = 0x4c - 1 + pmdwork.partb;  // dh=TL FM Port Address
+        dh = 0x4c - 1 + pmdwork._CurrentTrack;  // dh=TL FM Port Address
 
         if (al & 0x80) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) s4);
 
@@ -6274,12 +6250,12 @@ void PMD::neiro_reset(PartState * qq)
         if (al & 0x10) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) s1);
     }
 
-    dh = pmdwork.partb + 0xb4 - 1;
+    dh = pmdwork._CurrentTrack + 0xb4 - 1;
 
     _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), calc_panout(qq));
 }
 
-uint8_t * PMD::_lfoswitch(PartState * qq, uint8_t * si)
+uint8_t * PMD::_lfoswitch(Track * qq, uint8_t * si)
 {
     qq->lfoswi = (qq->lfoswi & 0x8f) | ((*si++ & 7) << 4);
 
@@ -6290,7 +6266,7 @@ uint8_t * PMD::_lfoswitch(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::_volmask_set(PartState * qq, uint8_t * si)
+uint8_t * PMD::_volmask_set(Track * qq, uint8_t * si)
 {
     int al = *si++ & 0x0f;
 
@@ -6310,9 +6286,9 @@ uint8_t * PMD::_volmask_set(PartState * qq, uint8_t * si)
 }
 
 //  TL変化
-uint8_t * PMD::tl_set(PartState * qq, uint8_t * si)
+uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
 {
-    int dh = 0x40 - 1 + pmdwork.partb;    // dh=TL FM Port Address
+    int dh = 0x40 - 1 + pmdwork._CurrentTrack;    // dh=TL FM Port Address
     int al = *(int8_t *) si++;
     int ah = al & 0x0f;
     int ch = (qq->slotmask >> 4) | ((qq->slotmask << 4) & 0xf0);
@@ -6431,11 +6407,11 @@ uint8_t * PMD::tl_set(PartState * qq, uint8_t * si)
 }
 
 //  FB変化
-uint8_t * PMD::fb_set(PartState * qq, uint8_t * si)
+uint8_t * PMD::fb_set(Track * qq, uint8_t * si)
 {
     int dl;
 
-    int dh = pmdwork.partb + 0xb0 - 1;  // dh=ALG/FB port address
+    int dh = pmdwork._CurrentTrack + 0xb0 - 1;  // dh=ALG/FB port address
     int al = *(int8_t *) si++;
 
     if (al >= 0)
@@ -6444,7 +6420,7 @@ uint8_t * PMD::fb_set(PartState * qq, uint8_t * si)
         al = ((al << 3) & 0xff) | (al >> 5);
 
         // in  al 00xxx000 設定するFB
-        if (pmdwork.partb == 3 && pmdwork.fmsel == 0)
+        if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
         {
             if ((qq->slotmask & 0x10) == 0) return si;
             dl = (pmdwork.fm3_alg_fb & 7) | al;
@@ -6465,7 +6441,7 @@ uint8_t * PMD::fb_set(PartState * qq, uint8_t * si)
         if ((al & 0x40) == 0)
             al &= 7;
 
-        if (pmdwork.partb == 3 && pmdwork.fmsel == 0)
+        if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
         {
             dl = pmdwork.fm3_alg_fb;
         }
@@ -6482,7 +6458,7 @@ uint8_t * PMD::fb_set(PartState * qq, uint8_t * si)
             if (al >= 8)
             {
                 al = 0x38;
-                if (pmdwork.partb == 3 && pmdwork.fmsel == 0)
+                if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
                 {
                     if ((qq->slotmask & 0x10) == 0) return si;
 
@@ -6503,7 +6479,7 @@ uint8_t * PMD::fb_set(PartState * qq, uint8_t * si)
                 al = ((al << 3) & 0xff) | (al >> 5);
 
                 // in  al 00xxx000 設定するFB
-                if (pmdwork.partb == 3 && pmdwork.fmsel == 0)
+                if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
                 {
                     if ((qq->slotmask & 0x10) == 0) return si;
                     dl = (pmdwork.fm3_alg_fb & 7) | al;
@@ -6521,7 +6497,7 @@ uint8_t * PMD::fb_set(PartState * qq, uint8_t * si)
         else
         {
             al = 0;
-            if (pmdwork.partb == 3 && pmdwork.fmsel == 0)
+            if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
             {
                 if ((qq->slotmask & 0x10) == 0) return si;
 
@@ -6614,17 +6590,17 @@ uint8_t * PMD::comt(uint8_t * si)
 }
 
 //  COMMAND '[' [ﾙｰﾌﾟ ｽﾀｰﾄ]
-uint8_t * PMD::comstloop(PartState * qq, uint8_t * si)
+uint8_t * PMD::comstloop(Track * qq, uint8_t * si)
 {
     uint8_t * ax;
 
-    if (qq == &EffPart)
+    if (qq == &_EffectTrack)
     {
-        ax = _OpenWork.efcdat;
+        ax = _OpenWork._EData;
     }
     else
     {
-        ax = _OpenWork.mmlbuf;
+        ax = _OpenWork._MData;
     }
 
     ax[*(uint16_t *) si + 1] = 0;
@@ -6635,7 +6611,7 @@ uint8_t * PMD::comstloop(PartState * qq, uint8_t * si)
 }
 
 //  COMMAND  ']' [ﾙｰﾌﾟ ｴﾝﾄﾞ]
-uint8_t * PMD::comedloop(PartState * qq, uint8_t * si)
+uint8_t * PMD::comedloop(Track * qq, uint8_t * si)
 {
     int    ah, al, ax;
     ah = *si++;
@@ -6658,31 +6634,31 @@ uint8_t * PMD::comedloop(PartState * qq, uint8_t * si)
 
     ax = *(uint16_t *) si + 2;
 
-    if (qq == &EffPart)
+    if (qq == &_EffectTrack)
     {
-        si = _OpenWork.efcdat + ax;
+        si = _OpenWork._EData + ax;
     }
     else
     {
-        si = _OpenWork.mmlbuf + ax;
+        si = _OpenWork._MData + ax;
     }
     return si;
 }
 
 //  COMMAND  ':' [ﾙｰﾌﾟ ﾀﾞｯｼｭﾂ]
-uint8_t * PMD::comexloop(PartState * qq, uint8_t * si)
+uint8_t * PMD::comexloop(Track * qq, uint8_t * si)
 {
     uint8_t * bx;
     int    dl;
 
 
-    if (qq == &EffPart)
+    if (qq == &_EffectTrack)
     {
-        bx = _OpenWork.efcdat;
+        bx = _OpenWork._EData;
     }
     else
     {
-        bx = _OpenWork.mmlbuf;
+        bx = _OpenWork._MData;
     }
 
 
@@ -6696,7 +6672,7 @@ uint8_t * PMD::comexloop(PartState * qq, uint8_t * si)
 }
 
 //  LFO ﾊﾟﾗﾒｰﾀ ｾｯﾄ
-uint8_t * PMD::lfoset(PartState * qq, uint8_t * si)
+uint8_t * PMD::lfoset(Track * qq, uint8_t * si)
 {
     qq->delay = *si;
     qq->delay2 = *si++;
@@ -6711,7 +6687,7 @@ uint8_t * PMD::lfoset(PartState * qq, uint8_t * si)
 }
 
 //  LFO SWITCH
-uint8_t * PMD::lfoswitch(PartState * qq, uint8_t * si)
+uint8_t * PMD::lfoswitch(Track * qq, uint8_t * si)
 {
     int al;
 
@@ -6728,7 +6704,7 @@ uint8_t * PMD::lfoswitch(PartState * qq, uint8_t * si)
 }
 
 //  PSG ENVELOPE SET
-uint8_t * PMD::psgenvset(PartState * qq, uint8_t * si)
+uint8_t * PMD::psgenvset(Track * qq, uint8_t * si)
 {
     qq->eenv_ar = *si; qq->eenv_arc = *si++;
     qq->eenv_dr = *(int8_t *) si++;
@@ -6898,7 +6874,7 @@ uint8_t * PMD::rmsvs_sft(uint8_t * si)
 }
 
 // Change only one volume (V2.7 expansion)
-uint8_t * PMD::vol_one_up_psg(PartState * qq, uint8_t * si)
+uint8_t * PMD::vol_one_up_psg(Track * qq, uint8_t * si)
 {
     int    al;
 
@@ -6909,7 +6885,7 @@ uint8_t * PMD::vol_one_up_psg(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::vol_one_down(PartState * qq, uint8_t * si)
+uint8_t * PMD::vol_one_down(Track * qq, uint8_t * si)
 {
     int    al;
 
@@ -6929,7 +6905,7 @@ uint8_t * PMD::vol_one_down(PartState * qq, uint8_t * si)
 }
 
 //  ポルタメント(PSG)
-uint8_t * PMD::portap(PartState * qq, uint8_t * si)
+uint8_t * PMD::portap(Track * qq, uint8_t * si)
 {
     int    ax, al_, bx_;
 
@@ -7011,7 +6987,7 @@ uint8_t * PMD::psgnoise_move(uint8_t * si)
 }
 
 //  PSG Envelope set (Extend)
-uint8_t * PMD::extend_psgenvset(PartState * qq, uint8_t * si)
+uint8_t * PMD::extend_psgenvset(Track * qq, uint8_t * si)
 {
     qq->eenv_ar = *si++ & 0x1f;
     qq->eenv_dr = *si++ & 0x1f;
@@ -7029,7 +7005,7 @@ uint8_t * PMD::extend_psgenvset(PartState * qq, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::mdepth_count(PartState * qq, uint8_t * si)
+uint8_t * PMD::mdepth_count(Track * qq, uint8_t * si)
 {
     int    al;
 
@@ -7052,7 +7028,7 @@ uint8_t * PMD::mdepth_count(PartState * qq, uint8_t * si)
 // Initialization of LFO and PSG/PCM software envelopes
 
 //  ＰＳＧ／ＰＣＭ音源用　Entry
-int PMD::lfoinitp(PartState * qq, int al)
+int PMD::lfoinitp(Track * qq, int al)
 {
     int    ah;
 
@@ -7137,7 +7113,7 @@ int PMD::lfoinitp(PartState * qq, int al)
     return al;
 }
 
-void PMD::lfo_exit(PartState * qq)
+void PMD::lfo_exit(Track * qq)
 {
     if ((qq->lfoswi & 3) != 0)
     {    // 前が & の場合 -> 1回 LFO処理
@@ -7153,12 +7129,12 @@ void PMD::lfo_exit(PartState * qq)
 }
 
 //  ＬＦＯ初期化
-void PMD::lfin1(PartState * qq)
+void PMD::lfin1(Track * qq)
 {
     qq->hldelay_c = qq->hldelay;
 
     if (qq->hldelay)
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork.partb + 0xb4 - 1), (uint32_t) (qq->fmpan & 0xc0));
+        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork._CurrentTrack + 0xb4 - 1), (uint32_t) (qq->fmpan & 0xc0));
 
     qq->sdelay_c = qq->sdelay;
 
@@ -7186,7 +7162,7 @@ void PMD::lfin1(PartState * qq)
     }
 }
 
-void PMD::lfoinit_main(PartState * qq)
+void PMD::lfoinit_main(Track * qq)
 {
     qq->lfodat = 0;
     qq->delay = qq->delay2;
@@ -7206,12 +7182,12 @@ void PMD::lfoinit_main(PartState * qq)
 }
 
 //  SHIFT[di] 分移調する
-int PMD::oshiftp(PartState * qq, int al)
+int PMD::oshiftp(Track * qq, int al)
 {
     return oshift(qq, al);
 }
 
-int PMD::oshift(PartState * qq, int al)
+int PMD::oshift(Track * qq, int al)
 {
     int  bl, bh, dl;
 
@@ -7254,7 +7230,7 @@ int PMD::oshift(PartState * qq, int al)
 }
 
 //  PSG TUNE SET
-void PMD::fnumsetp(PartState * qq, int al)
+void PMD::fnumsetp(Track * qq, int al)
 {
     if ((al & 0x0f) == 0x0f)
     {    // ｷｭｳﾌ ﾅﾗ FNUM ﾆ 0 ｦ ｾｯﾄ
@@ -7287,7 +7263,7 @@ void PMD::fnumsetp(PartState * qq, int al)
 
 //  Q値の計算
 //    break  dx
-uint8_t * PMD::calc_q(PartState * qq, uint8_t * si)
+uint8_t * PMD::calc_q(Track * qq, uint8_t * si)
 {
     if (*si == 0xc1)
     {    // &&
@@ -7338,7 +7314,7 @@ uint8_t * PMD::calc_q(PartState * qq, uint8_t * si)
 }
 
 //  ＰＳＧ　ＶＯＬＵＭＥ　ＳＥＴ
-void PMD::volsetp(PartState * qq)
+void PMD::volsetp(Track * qq)
 {
     if (qq->envf == 3 || (qq->envf == -1 && qq->eenv_count == 0))
         return;
@@ -7360,7 +7336,7 @@ void PMD::volsetp(PartState * qq)
     //------------------------------------------------------------------------
     if (dl <= 0)
     {
-        _OPNA->SetReg((uint32_t) (pmdwork.partb + 8 - 1), 0);
+        _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), 0);
         return;
     }
 
@@ -7368,7 +7344,7 @@ void PMD::volsetp(PartState * qq)
     {
         if (qq->eenv_volume == 0)
         {
-            _OPNA->SetReg((uint32_t) (pmdwork.partb + 8 - 1), 0);
+            _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), 0);
             return;
         }
 
@@ -7380,7 +7356,7 @@ void PMD::volsetp(PartState * qq)
 
         if (dl <= 0)
         {
-            _OPNA->SetReg((uint32_t) (pmdwork.partb + 8 - 1), 0);
+            _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), 0);
             return;
         }
 
@@ -7393,7 +7369,7 @@ void PMD::volsetp(PartState * qq)
     //--------------------------------------------------------------------
     if ((qq->lfoswi & 0x22) == 0)
     {
-        _OPNA->SetReg((uint32_t) (pmdwork.partb + 8 - 1), (uint32_t) dl);
+        _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), (uint32_t) dl);
         return;
     }
 
@@ -7406,7 +7382,7 @@ void PMD::volsetp(PartState * qq)
 
     if (dl < 0)
     {
-        _OPNA->SetReg((uint32_t) (pmdwork.partb + 8 - 1), 0);
+        _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), 0);
         return;
     }
 
@@ -7416,11 +7392,11 @@ void PMD::volsetp(PartState * qq)
     //------------------------------------------------------------------------
     //  出力
     //------------------------------------------------------------------------
-    _OPNA->SetReg((uint32_t) (pmdwork.partb + 8 - 1), (uint32_t) dl);
+    _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), (uint32_t) dl);
 }
 
 //  ＰＳＧ　音程設定
-void PMD::otodasip(PartState * qq)
+void PMD::otodasip(Track * qq)
 {
     if (qq->fnum == 0)
         return;
@@ -7506,17 +7482,17 @@ void PMD::otodasip(PartState * qq)
         }
     }
 
-    _OPNA->SetReg((uint32_t) ((pmdwork.partb - 1) * 2),     (uint32_t) LOBYTE(ax));
-    _OPNA->SetReg((uint32_t) ((pmdwork.partb - 1) * 2 + 1), (uint32_t) HIBYTE(ax));
+    _OPNA->SetReg((uint32_t) ((pmdwork._CurrentTrack - 1) * 2),     (uint32_t) LOBYTE(ax));
+    _OPNA->SetReg((uint32_t) ((pmdwork._CurrentTrack - 1) * 2 + 1), (uint32_t) HIBYTE(ax));
 }
 
 //  ＰＳＧ　ＫＥＹＯＮ
-void PMD::keyonp(PartState * qq)
+void PMD::keyonp(Track * qq)
 {
     if (qq->onkai == 255)
         return;    // ｷｭｳﾌ ﾉ ﾄｷ
 
-    int ah = (1 << (pmdwork.partb - 1)) | (1 << (pmdwork.partb + 2));
+    int ah = (1 << (pmdwork._CurrentTrack - 1)) | (1 << (pmdwork._CurrentTrack + 2));
     int al = ((int32_t) _OPNA->GetReg(0x07) | ah);
 
     ah = ~(ah & qq->psgpat);
@@ -7536,12 +7512,12 @@ void PMD::keyonp(PartState * qq)
 //  ＬＦＯ処理
 //    Don't Break cl
 //    output    cy=1  変化があった
-int PMD::lfo(PartState * qq)
+int PMD::lfo(Track * qq)
 {
     return lfop(qq);
 }
 
-int PMD::lfop(PartState * qq)
+int PMD::lfop(Track * qq)
 {
     int    ax, ch;
 
@@ -7577,7 +7553,7 @@ int PMD::lfop(PartState * qq)
     return 1;
 }
 
-void PMD::lfo_main(PartState * qq)
+void PMD::lfo_main(Track * qq)
 {
     int    al, ax;
 
@@ -7683,7 +7659,7 @@ int PMD::rnd(int ax)
 }
 
 // Change STEP value by value of MD command
-void PMD::md_inc(PartState * qq)
+void PMD::md_inc(Track * qq)
 {
     int    al;
 
@@ -7750,7 +7726,7 @@ void PMD::swap(int * a, int * b)
 }
 
 //  LFO1<->LFO2 change
-void PMD::lfo_change(PartState * qq)
+void PMD::lfo_change(Track * qq)
 {
     swap(&qq->lfodat, &qq->_lfodat);
     qq->lfoswi = ((qq->lfoswi & 0x0f) << 4) + (qq->lfoswi >> 4);
@@ -7773,7 +7749,7 @@ void PMD::lfo_change(PartState * qq)
 }
 
 //  ポルタメント計算なのね
-void PMD::porta_calc(PartState * qq)
+void PMD::porta_calc(Track * qq)
 {
     qq->porta_num += qq->porta_num2;
     if (qq->porta_num3 == 0) return;
@@ -7790,7 +7766,7 @@ void PMD::porta_calc(PartState * qq)
 }
 
 // PSG/PCM Software Envelope
-int PMD::soft_env(PartState * qq)
+int PMD::soft_env(Track * qq)
 {
     if (qq->extendmode & 4)
     {
@@ -7810,7 +7786,7 @@ int PMD::soft_env(PartState * qq)
         return soft_env_main(qq);
 }
 
-int PMD::soft_env_main(PartState * qq)
+int PMD::soft_env_main(Track * qq)
 {
     if (qq->envf == -1)
         return ext_ssgenv_main(qq);
@@ -7825,7 +7801,7 @@ int PMD::soft_env_main(PartState * qq)
     return -1;
 }
 
-int PMD::soft_env_sub(PartState * qq)
+int PMD::soft_env_sub(Track * qq)
 {
     if (qq->envf == 0)
     {
@@ -7878,7 +7854,7 @@ int PMD::soft_env_sub(PartState * qq)
 }
 
 //  拡張版
-int PMD::ext_ssgenv_main(PartState * qq)
+int PMD::ext_ssgenv_main(Track * qq)
 {
     if (qq->eenv_count == 0)
         return 0;
@@ -7893,7 +7869,7 @@ int PMD::ext_ssgenv_main(PartState * qq)
     return -1;
 }
 
-void PMD::esm_sub(PartState * qq, int ah)
+void PMD::esm_sub(Track * qq, int ah)
 {
     if (--ah == 0)
     {
@@ -8029,13 +8005,13 @@ void PMD::syousetu_count()
 /// </summary>
 void PMD::StartOPNInterrupt()
 {
-    ::memset(FMPart, 0, sizeof(FMPart));
+    ::memset(_FMTrack, 0, sizeof(_FMTrack));
     ::memset(SSGPart, 0, sizeof(SSGPart));
     ::memset(&ADPCMPart, 0, sizeof(ADPCMPart));
-    ::memset(&RhythmPart, 0, sizeof(RhythmPart));
-    ::memset(&DummyPart, 0, sizeof(DummyPart));
+    ::memset(&_RhythmTrack, 0, sizeof(_RhythmTrack));
+    ::memset(&_DummyTrack, 0, sizeof(_DummyTrack));
     ::memset(ExtPart, 0, sizeof(ExtPart));
-    ::memset(&EffPart, 0, sizeof(EffPart));
+    ::memset(&_EffectTrack, 0, sizeof(_EffectTrack));
     ::memset(PPZ8Part, 0, sizeof(PPZ8Part));
 
     _OpenWork.rhythmmask = 255;
@@ -8058,15 +8034,15 @@ void PMD::InitializeDataArea()
 
     for (int i = 0; i < 6; i++)
     {
-        int partmask = FMPart[i].partmask;
-        int keyon_flag = FMPart[i].keyon_flag;
+        int partmask = _FMTrack[i].partmask;
+        int keyon_flag = _FMTrack[i].keyon_flag;
 
-        ::memset(&FMPart[i], 0, sizeof(PartState));
+        ::memset(&_FMTrack[i], 0, sizeof(Track));
 
-        FMPart[i].partmask = partmask & 0x0f;
-        FMPart[i].keyon_flag = keyon_flag;
-        FMPart[i].onkai = 255;
-        FMPart[i].onkai_def = 255;
+        _FMTrack[i].partmask = partmask & 0x0f;
+        _FMTrack[i].keyon_flag = keyon_flag;
+        _FMTrack[i].onkai = 255;
+        _FMTrack[i].onkai_def = 255;
     }
 
     for (int i = 0; i < 3; i++)
@@ -8074,7 +8050,7 @@ void PMD::InitializeDataArea()
         int partmask = SSGPart[i].partmask;
         int keyon_flag = SSGPart[i].keyon_flag;
 
-        ::memset(&SSGPart[i], 0, sizeof(PartState));
+        ::memset(&SSGPart[i], 0, sizeof(Track));
 
         SSGPart[i].partmask = partmask & 0x0f;
         SSGPart[i].keyon_flag = keyon_flag;
@@ -8086,7 +8062,7 @@ void PMD::InitializeDataArea()
         int partmask = ADPCMPart.partmask;
         int keyon_flag = ADPCMPart.keyon_flag;
 
-        ::memset(&ADPCMPart, 0, sizeof(PartState));
+        ::memset(&ADPCMPart, 0, sizeof(Track));
 
         ADPCMPart.partmask = partmask & 0x0f;
         ADPCMPart.keyon_flag = keyon_flag;
@@ -8095,15 +8071,15 @@ void PMD::InitializeDataArea()
     }
 
     {
-        int partmask = RhythmPart.partmask;
-        int keyon_flag = RhythmPart.keyon_flag;
+        int partmask = _RhythmTrack.partmask;
+        int keyon_flag = _RhythmTrack.keyon_flag;
 
-        ::memset(&RhythmPart, 0, sizeof(PartState));
+        ::memset(&_RhythmTrack, 0, sizeof(Track));
 
-        RhythmPart.partmask = partmask & 0x0f;
-        RhythmPart.keyon_flag = keyon_flag;
-        RhythmPart.onkai = 255;
-        RhythmPart.onkai_def = 255;
+        _RhythmTrack.partmask = partmask & 0x0f;
+        _RhythmTrack.keyon_flag = keyon_flag;
+        _RhythmTrack.onkai = 255;
+        _RhythmTrack.onkai_def = 255;
     }
 
     for (int i = 0; i < 3; i++)
@@ -8111,7 +8087,7 @@ void PMD::InitializeDataArea()
         int partmask = ExtPart[i].partmask;
         int keyon_flag = ExtPart[i].keyon_flag;
 
-        ::memset(&ExtPart[i], 0, sizeof(PartState));
+        ::memset(&ExtPart[i], 0, sizeof(Track));
 
         ExtPart[i].partmask = partmask & 0x0f;
         ExtPart[i].keyon_flag = keyon_flag;
@@ -8124,7 +8100,7 @@ void PMD::InitializeDataArea()
         int partmask = PPZ8Part[i].partmask;
         int keyon_flag = PPZ8Part[i].keyon_flag;
 
-        ::memset(&PPZ8Part[i], 0, sizeof(PartState));
+        ::memset(&PPZ8Part[i], 0, sizeof(Track));
 
         PPZ8Part[i].partmask = partmask & 0x0f;
         PPZ8Part[i].keyon_flag = keyon_flag;
@@ -8346,7 +8322,7 @@ void PMD::DriverStart()
     _Position = 0;
 
     InitializeDataArea();
-    play_init();
+    InitializeTracks();
 
     opn_init();
 
@@ -8367,15 +8343,17 @@ void PMD::DriverStop()
     Silence();
 }
 
-// Set the start address and initial value of each part
-void PMD::play_init()
+/// <summary>
+/// Sets the start address and initial value of each track.
+/// </summary>
+void PMD::InitializeTracks()
 {
-    _OpenWork.x68_flg = *(_OpenWork.mmlbuf - 1);
+    _OpenWork.x68_flg = *(_OpenWork._MData - 1);
 
-    //２．６追加分
-    if (*_OpenWork.mmlbuf != 2 * (max_part2 + 1))
+    // 2.6 additional minutes
+    if (*_OpenWork._MData != 2 * (max_part2 + 1))
     {
-        _OpenWork.prgdat_adr = _OpenWork.mmlbuf + *(uint16_t *) (&_OpenWork.mmlbuf[2 * (max_part2 + 1)]);
+        _OpenWork.prgdat_adr = _OpenWork._MData + *(uint16_t *) (&_OpenWork._MData[2 * (max_part2 + 1)]);
         _OpenWork.prg_flg = 1;
     }
     else
@@ -8383,38 +8361,37 @@ void PMD::play_init()
         _OpenWork.prg_flg = 0;
     }
 
-    uint16_t * p = (uint16_t *) _OpenWork.mmlbuf;
+    uint16_t * p = (uint16_t *) _OpenWork._MData;
 
-    //  Part 0,1,2,3,4,5(FM1?6)の時
-    for (int i = 0; i < 6; i++)
+    for (size_t i = 0; i < _countof(_FMTrack); ++i)
     {
-        if (_OpenWork.mmlbuf[*p] == 0x80) // Do not play if the beginning is 80h
-            FMPart[i].address = NULL;
+        if (_OpenWork._MData[*p] == 0x80) // Do not play.
+            _FMTrack[i].address = nullptr;
         else
-            FMPart[i].address = &_OpenWork.mmlbuf[*p];
+            _FMTrack[i].address = &_OpenWork._MData[*p];
 
-        FMPart[i].leng = 1;
-        FMPart[i].keyoff_flag = -1;    // 現在keyoff中
-        FMPart[i].mdc = -1;        // MDepth Counter (無限)
-        FMPart[i].mdc2 = -1;      // 同上
-        FMPart[i]._mdc = -1;      // 同上
-        FMPart[i]._mdc2 = -1;      // 同上
-        FMPart[i].onkai = 255;      // rest
-        FMPart[i].onkai_def = 255;    // rest
-        FMPart[i].volume = 108;      // FM  VOLUME DEFAULT= 108
-        FMPart[i].fmpan = 0xc0;      // FM PAN = Middle
-        FMPart[i].slotmask = 0xf0;    // FM SLOT MASK
-        FMPart[i].neiromask = 0xff;    // FM Neiro MASK
+        _FMTrack[i].leng = 1;
+        _FMTrack[i].keyoff_flag = -1;    // 現在keyoff中
+        _FMTrack[i].mdc = -1;        // MDepth Counter (無限)
+        _FMTrack[i].mdc2 = -1;      // 同上
+        _FMTrack[i]._mdc = -1;      // 同上
+        _FMTrack[i]._mdc2 = -1;      // 同上
+        _FMTrack[i].onkai = 255;      // rest
+        _FMTrack[i].onkai_def = 255;    // rest
+        _FMTrack[i].volume = 108;      // FM  VOLUME DEFAULT= 108
+        _FMTrack[i].fmpan = 0xc0;      // FM PAN = Middle
+        _FMTrack[i].slotmask = 0xf0;    // FM SLOT MASK
+        _FMTrack[i].neiromask = 0xff;    // FM Neiro MASK
+
         p++;
     }
 
-    //  Part 6,7,8(PSG1?3)の時
-    for (int i = 0; i < 3; i++)
+    for (size_t i = 0; i < _countof(SSGPart); i++)
     {
-        if (_OpenWork.mmlbuf[*p] == 0x80) // Do not play if the beginning is 80h
-            SSGPart[i].address = NULL;
+        if (_OpenWork._MData[*p] == 0x80) // Do not play.
+            SSGPart[i].address = nullptr;
         else
-            SSGPart[i].address = &_OpenWork.mmlbuf[*p];
+            SSGPart[i].address = &_OpenWork._MData[*p];
 
         SSGPart[i].leng = 1;
         SSGPart[i].keyoff_flag = -1;  // 現在keyoff中
@@ -8427,15 +8404,14 @@ void PMD::play_init()
         SSGPart[i].volume = 8;      // PSG VOLUME DEFAULT= 8
         SSGPart[i].psgpat = 7;      // PSG = TONE
         SSGPart[i].envf = 3;      // PSG ENV = NONE/normal
-        p++;
 
+        p++;
     }
 
-    //  Part 9(OPNA/ADPCM)の時
-    if (_OpenWork.mmlbuf[*p] == 0x80) // Do not play if the beginning is 80h
+    if (_OpenWork._MData[*p] == 0x80) // Do not play
         ADPCMPart.address = NULL;
     else
-        ADPCMPart.address = &_OpenWork.mmlbuf[*p];
+        ADPCMPart.address = &_OpenWork._MData[*p];
 
     ADPCMPart.leng = 1;
     ADPCMPart.keyoff_flag = -1;    // 現在keyoff中
@@ -8449,25 +8425,24 @@ void PMD::play_init()
     ADPCMPart.fmpan = 0xc0;      // PCM PAN = Middle
     p++;
 
-    //  Part 10(Rhythm)の時
-    if (_OpenWork.mmlbuf[*p] == 0x80) // Do not play if the beginning is 80h
-        RhythmPart.address = NULL;
+    if (_OpenWork._MData[*p] == 0x80) // Do not play
+        _RhythmTrack.address = nullptr;
     else
-        RhythmPart.address = &_OpenWork.mmlbuf[*p];
+        _RhythmTrack.address = &_OpenWork._MData[*p];
 
-    RhythmPart.leng = 1;
-    RhythmPart.keyoff_flag = -1;  // 現在keyoff中
-    RhythmPart.mdc = -1;      // MDepth Counter (無限)
-    RhythmPart.mdc2 = -1;      // 同上
-    RhythmPart._mdc = -1;      // 同上
-    RhythmPart._mdc2 = -1;      // 同上
-    RhythmPart.onkai = 255;      // rest
-    RhythmPart.onkai_def = 255;    // rest
-    RhythmPart.volume = 15;      // PPSDRV volume
+    _RhythmTrack.leng = 1;
+    _RhythmTrack.keyoff_flag = -1;  // 現在keyoff中
+    _RhythmTrack.mdc = -1;      // MDepth Counter (無限)
+    _RhythmTrack.mdc2 = -1;      // 同上
+    _RhythmTrack._mdc = -1;      // 同上
+    _RhythmTrack._mdc2 = -1;      // 同上
+    _RhythmTrack.onkai = 255;      // rest
+    _RhythmTrack.onkai_def = 255;    // rest
+    _RhythmTrack.volume = 15;      // PPSDRV volume
     p++;
 
-    // Set rhythm address table.
-    _OpenWork.radtbl = (uint16_t *) &_OpenWork.mmlbuf[*p];
+    _OpenWork._RythmAddressTable = (uint16_t *) &_OpenWork._MData[*p];
+
     _OpenWork.rhyadr = (uint8_t *) &pmdwork.rhydmy;
 }
 
@@ -8779,12 +8754,12 @@ WCHAR * PMD::FindFile(WCHAR * filePath, const WCHAR * filename)
 }
 
 //  fm effect
-uint8_t * PMD::fm_efct_set(PartState *, uint8_t * si)
+uint8_t * PMD::fm_efct_set(Track *, uint8_t * si)
 {
     return si + 1;
 }
 
-uint8_t * PMD::ssg_efct_set(PartState * qq, uint8_t * si)
+uint8_t * PMD::ssg_efct_set(Track * qq, uint8_t * si)
 {
     int al = *si++;
 

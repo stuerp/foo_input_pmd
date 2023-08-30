@@ -39,20 +39,20 @@
 
 #define OPNAClock   (3993600 * 2)
 
-#define NumOfFMPart             6
-#define NumOfSSGPart            3
-#define NumOfADPCMPart          1
-#define NumOfOPNARhythmPart     1
-#define NumOfExtPart            3
-#define NumOfRhythmPart         1
-#define NumOfEffPart            1
-#define NumOfPPZ8Part           8
-#define NumOfAllPart            (NumOfFMPart+NumOfSSGPart+NumOfADPCMPart+NumOfOPNARhythmPart+NumOfExtPart+NumOfRhythmPart+NumOfEffPart+NumOfPPZ8Part)
+#define MaxFMTracks             6
+#define MaxSSGTracks            3
+#define MaxADPCMTracks          1
+#define MaxOPNARhythmTracks     1
+#define MaxExtTracks            3
+#define MaxRhythmTracks         1
+#define MaxEffectTracks         1
+#define MaxPPZ8Tracks           8
+#define MaxTracks               (MaxFMTracks + MaxSSGTracks + MaxADPCMTracks + MaxOPNARhythmTracks + MaxExtTracks + MaxRhythmTracks + MaxEffectTracks + MaxPPZ8Tracks)
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 struct PMDWORK
 {
-    int partb;  // 処理中パート番号
+    int _CurrentTrack;
     int tieflag; // &のフラグ(1 : tie)
     int volpush_flag;  // 次の１音音量down用のflag(1 : voldown)
     int rhydmy;  // R part ダミー演奏データ
@@ -90,7 +90,7 @@ struct EffectState
 };
 
 // Data area during performance
-struct PartState
+struct Track
 {
     uint8_t * address; // 2 ｴﾝｿｳﾁｭｳ ﾉ ｱﾄﾞﾚｽ
     uint8_t * partloop; // 2 ｴﾝｿｳ ｶﾞ ｵﾜｯﾀﾄｷ ﾉ ﾓﾄﾞﾘｻｷ
@@ -188,13 +188,14 @@ struct PartState
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 struct OPEN_WORK
 {
-    PartState * Part[NumOfAllPart]; // パートワークのポインタ
+    Track * _Track[MaxTracks];
 
-    uint8_t * mmlbuf;  // Musicdataのaddress+1
-    uint8_t * tondat;  // Voicedataのaddress
-    uint8_t * efcdat;  // FM Effecdataのaddress
+    uint8_t * _MData;  // Address of MML data + 1
+    uint8_t * _VData;  // Voicedataのaddress
+    uint8_t * _EData;  // FM Effecdataのaddress
     uint8_t * prgdat_adr; // 曲データ中音色データ先頭番地
-    uint16_t * radtbl;  // R part offset table 先頭番地
+
+    uint16_t * _RythmAddressTable;  // R part offset table 先頭番地
     uint8_t * rhyadr;  // R part 演奏中番地
 
     bool _IsPlaying; // True if the driver is playing

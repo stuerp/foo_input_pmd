@@ -128,7 +128,7 @@ public:
     int LoadPPZ(const WCHAR * filePath, int bufnum);
 
     OPEN_WORK * GetOpenWork();
-    PartState * GetOpenPartWork(int ch);
+    Track * GetOpenPartWork(int ch);
 
 private:
     File * _File;
@@ -140,14 +140,14 @@ private:
 
     OPEN_WORK _OpenWork;
 
-    PartState FMPart[NumOfFMPart];
-    PartState SSGPart[NumOfSSGPart];
-    PartState ADPCMPart;
-    PartState RhythmPart;
-    PartState ExtPart[NumOfExtPart];
-    PartState DummyPart;
-    PartState EffPart;
-    PartState PPZ8Part[NumOfPPZ8Part];
+    Track _FMTrack[MaxFMTracks];
+    Track SSGPart[MaxSSGTracks];
+    Track ADPCMPart;
+    Track _RhythmTrack;
+    Track ExtPart[MaxExtTracks];
+    Track _DummyTrack;
+    Track _EffectTrack;
+    Track PPZ8Part[MaxPPZ8Tracks];
 
     PMDWORK pmdwork;
     EffectState effwork;
@@ -180,7 +180,7 @@ protected:
     void DriverStop();
 
     void Silence();
-    void play_init();
+    void InitializeTracks();
     void setint();
     void calc_tb_tempo();
     void calc_tempo_tb();
@@ -190,67 +190,67 @@ protected:
     void DriverMain();
     void syousetu_count();
 
-    void FMMain(PartState * ps);
-    void PSGMain(PartState * ps);
-    void RhythmMain(PartState * ps);
-    void ADPCMMain(PartState * ps);
-    void PCM86Main(PartState * ps);
-    void PPZ8Main(PartState * ps);
+    void FMMain(Track * ps);
+    void PSGMain(Track * ps);
+    void RhythmMain(Track * ps);
+    void ADPCMMain(Track * ps);
+    void PCM86Main(Track * ps);
+    void PPZ8Main(Track * ps);
 
-    uint8_t * FMCommands(PartState * ps, uint8_t * si);
-    uint8_t * PSGCommands(PartState * ps, uint8_t * si);
-    uint8_t * RhythmCommands(PartState * ps, uint8_t * si);
-    uint8_t * ADPCMCommands(PartState * ps, uint8_t * si);
-    uint8_t * PCM86Commands(PartState * ps, uint8_t * si);
-    uint8_t * PPZ8Commands(PartState * ps, uint8_t * si);
+    uint8_t * FMCommands(Track * ps, uint8_t * si);
+    uint8_t * PSGCommands(Track * ps, uint8_t * si);
+    uint8_t * RhythmCommands(Track * ps, uint8_t * si);
+    uint8_t * ADPCMCommands(Track * ps, uint8_t * si);
+    uint8_t * PCM86Commands(Track * ps, uint8_t * si);
+    uint8_t * PPZ8Commands(Track * ps, uint8_t * si);
 
-    uint8_t * rhythmon(PartState * ps, uint8_t * bx, int al, int * result);
+    uint8_t * rhythmon(Track * ps, uint8_t * bx, int al, int * result);
 
-    void effgo(PartState * ps, int al);
-    void eff_on2(PartState * ps, int al);
-    void eff_main(PartState * ps, int al);
+    void effgo(Track * ps, int al);
+    void eff_on2(Track * ps, int al);
+    void eff_main(Track * ps, int al);
     void effplay();
     void efffor(const int * si);
     void effend();
     void effsweep();
 
-    uint8_t * pdrswitch(PartState * ps, uint8_t * si);
+    uint8_t * pdrswitch(Track * ps, uint8_t * si);
 
-    char * GetNoteInternal(const uint8_t * data, size_t size, int al, char * text);
+    void GetText(const uint8_t * data, size_t size, int al, char * text) const noexcept;
 
-    int MuteFMPart(PartState * ps);
-    void keyoff(PartState * ps);
-    void kof1(PartState * ps);
-    void keyoffp(PartState * ps);
-    void keyoffm(PartState * ps);
-    void keyoff8(PartState * ps);
-    void keyoffz(PartState * ps);
+    int MuteFMPart(Track * ps);
+    void keyoff(Track * ps);
+    void kof1(Track * ps);
+    void keyoffp(Track * ps);
+    void keyoffm(Track * ps);
+    void keyoff8(Track * ps);
+    void keyoffz(Track * ps);
 
-    int ssgdrum_check(PartState * ps, int al);
+    int ssgdrum_check(Track * ps, int al);
 
-    uint8_t * special_0c0h(PartState * ps, uint8_t * si, uint8_t al);
+    uint8_t * special_0c0h(Track * ps, uint8_t * si, uint8_t al);
 
-    uint8_t * _vd_fm(PartState * ps, uint8_t * si);
-    uint8_t * _vd_ssg(PartState * ps, uint8_t * si);
-    uint8_t * _vd_pcm(PartState * ps, uint8_t * si);
-    uint8_t * _vd_rhythm(PartState * ps, uint8_t * si);
-    uint8_t * _vd_ppz(PartState * ps, uint8_t * si);
+    uint8_t * _vd_fm(Track * ps, uint8_t * si);
+    uint8_t * _vd_ssg(Track * ps, uint8_t * si);
+    uint8_t * _vd_pcm(Track * ps, uint8_t * si);
+    uint8_t * _vd_rhythm(Track * ps, uint8_t * si);
+    uint8_t * _vd_ppz(Track * ps, uint8_t * si);
 
     uint8_t * comt(uint8_t * si);
-    uint8_t * comat(PartState * ps, uint8_t * si);
-    uint8_t * comatm(PartState * ps, uint8_t * si);
-    uint8_t * comat8(PartState * ps, uint8_t * si);
-    uint8_t * comatz(PartState * ps, uint8_t * si);
-    uint8_t * comstloop(PartState * ps, uint8_t * si);
-    uint8_t * comedloop(PartState * ps, uint8_t * si);
-    uint8_t * comexloop(PartState * ps, uint8_t * si);
-    uint8_t * extend_psgenvset(PartState * ps, uint8_t * si);
+    uint8_t * comat(Track * ps, uint8_t * si);
+    uint8_t * comatm(Track * ps, uint8_t * si);
+    uint8_t * comat8(Track * ps, uint8_t * si);
+    uint8_t * comatz(Track * ps, uint8_t * si);
+    uint8_t * comstloop(Track * ps, uint8_t * si);
+    uint8_t * comedloop(Track * ps, uint8_t * si);
+    uint8_t * comexloop(Track * ps, uint8_t * si);
+    uint8_t * extend_psgenvset(Track * ps, uint8_t * si);
 
-    int lfoinit(PartState * ps, int al);
-    int lfoinitp(PartState * ps, int al);
+    int lfoinit(Track * ps, int al);
+    int lfoinitp(Track * ps, int al);
 
-    uint8_t * lfoset(PartState * ps, uint8_t * si);
-    uint8_t * psgenvset(PartState * ps, uint8_t * si);
+    uint8_t * lfoset(Track * ps, uint8_t * si);
+    uint8_t * psgenvset(Track * ps, uint8_t * si);
     uint8_t * rhykey(uint8_t * si);
     uint8_t * rhyvs(uint8_t * si);
     uint8_t * rpnset(uint8_t * si);
@@ -258,115 +258,115 @@ protected:
     uint8_t * rmsvs_sft(uint8_t * si);
     uint8_t * rhyvs_sft(uint8_t * si);
 
-    uint8_t * vol_one_up_psg(PartState * ps, uint8_t * si);
-    uint8_t * vol_one_up_pcm(PartState * ps, uint8_t * si);
-    uint8_t * vol_one_down(PartState * ps, uint8_t * si);
-    uint8_t * portap(PartState * ps, uint8_t * si);
-    uint8_t * portam(PartState * ps, uint8_t * si);
-    uint8_t * portaz(PartState * ps, uint8_t * si);
+    uint8_t * vol_one_up_psg(Track * ps, uint8_t * si);
+    uint8_t * vol_one_up_pcm(Track * ps, uint8_t * si);
+    uint8_t * vol_one_down(Track * ps, uint8_t * si);
+    uint8_t * portap(Track * ps, uint8_t * si);
+    uint8_t * portam(Track * ps, uint8_t * si);
+    uint8_t * portaz(Track * ps, uint8_t * si);
     uint8_t * psgnoise_move(uint8_t * si);
-    uint8_t * mdepth_count(PartState * ps, uint8_t * si);
-    uint8_t * toneadr_calc(PartState * ps, int dl);
+    uint8_t * mdepth_count(Track * ps, uint8_t * si);
+    uint8_t * toneadr_calc(Track * ps, int dl);
 
-    void neiroset(PartState * ps, int dl);
+    void neiroset(Track * ps, int dl);
 
-    int oshift(PartState * ps, int al);
-    int oshiftp(PartState * ps, int al);
-    void fnumset(PartState * ps, int al);
-    void fnumsetp(PartState * ps, int al);
-    void fnumsetm(PartState * ps, int al);
-    void fnumset8(PartState * ps, int al);
-    void fnumsetz(PartState * ps, int al);
+    int oshift(Track * ps, int al);
+    int oshiftp(Track * ps, int al);
+    void fnumset(Track * ps, int al);
+    void fnumsetp(Track * ps, int al);
+    void fnumsetm(Track * ps, int al);
+    void fnumset8(Track * ps, int al);
+    void fnumsetz(Track * ps, int al);
 
-    uint8_t * panset(PartState * ps, uint8_t * si);
-    uint8_t * panset_ex(PartState * ps, uint8_t * si);
-    uint8_t * pansetm(PartState * ps, uint8_t * si);
-    uint8_t * panset8(PartState * ps, uint8_t * si);
-    uint8_t * pansetz(PartState * ps, uint8_t * si);
-    uint8_t * pansetz_ex(PartState * ps, uint8_t * si);
-    void panset_main(PartState * ps, int al);
+    uint8_t * panset(Track * ps, uint8_t * si);
+    uint8_t * panset_ex(Track * ps, uint8_t * si);
+    uint8_t * pansetm(Track * ps, uint8_t * si);
+    uint8_t * panset8(Track * ps, uint8_t * si);
+    uint8_t * pansetz(Track * ps, uint8_t * si);
+    uint8_t * pansetz_ex(Track * ps, uint8_t * si);
+    void panset_main(Track * ps, int al);
 
-    uint8_t calc_panout(PartState * ps);
-    uint8_t * calc_q(PartState * ps, uint8_t * si);
+    uint8_t calc_panout(Track * ps);
+    uint8_t * calc_q(Track * ps, uint8_t * si);
     void fm_block_calc(int * cx, int * ax);
-    int ch3_setting(PartState * ps);
+    int ch3_setting(Track * ps);
     void cm_clear(int * ah, int * al);
-    void ch3mode_set(PartState * ps);
-    void ch3_special(PartState * ps, int ax, int cx);
+    void ch3mode_set(Track * ps);
+    void ch3_special(Track * ps, int ax, int cx);
 
-    void volset(PartState * ps);
-    void volsetp(PartState * ps);
-    void volsetm(PartState * ps);
-    void volset8(PartState * ps);
-    void volsetz(PartState * ps);
+    void volset(Track * ps);
+    void volsetp(Track * ps);
+    void volsetm(Track * ps);
+    void volset8(Track * ps);
+    void volsetz(Track * ps);
 
-    void otodasi(PartState * ps);
-    void otodasip(PartState * ps);
-    void otodasim(PartState * ps);
-    void otodasi8(PartState * ps);
-    void otodasiz(PartState * ps);
+    void otodasi(Track * ps);
+    void otodasip(Track * ps);
+    void otodasim(Track * ps);
+    void otodasi8(Track * ps);
+    void otodasiz(Track * ps);
 
-    void keyon(PartState * ps);
-    void keyonp(PartState * ps);
-    void keyonm(PartState * ps);
-    void keyon8(PartState * ps);
-    void keyonz(PartState * ps);
+    void keyon(Track * ps);
+    void keyonp(Track * ps);
+    void keyonm(Track * ps);
+    void keyon8(Track * ps);
+    void keyonz(Track * ps);
 
-    int lfo(PartState * ps);
-    int lfop(PartState * ps);
-    uint8_t * lfoswitch(PartState * ps, uint8_t * si);
-    void lfoinit_main(PartState * ps);
-    void lfo_change(PartState * ps);
-    void lfo_exit(PartState * ps);
-    void lfin1(PartState * ps);
-    void lfo_main(PartState * ps);
+    int lfo(Track * ps);
+    int lfop(Track * ps);
+    uint8_t * lfoswitch(Track * ps, uint8_t * si);
+    void lfoinit_main(Track * ps);
+    void lfo_change(Track * ps);
+    void lfo_exit(Track * ps);
+    void lfin1(Track * ps);
+    void lfo_main(Track * ps);
 
     int rnd(int ax);
 
-    void fmlfo_sub(PartState * ps, int al, int bl, uint8_t * vol_tbl);
+    void fmlfo_sub(Track * ps, int al, int bl, uint8_t * vol_tbl);
     void volset_slot(int dh, int dl, int al);
-    void porta_calc(PartState * ps);
-    int soft_env(PartState * ps);
-    int soft_env_main(PartState * ps);
-    int soft_env_sub(PartState * ps);
-    int ext_ssgenv_main(PartState * ps);
-    void esm_sub(PartState * ps, int ah);
-    void md_inc(PartState * ps);
+    void porta_calc(Track * ps);
+    int soft_env(Track * ps);
+    int soft_env_main(Track * ps);
+    int soft_env_sub(Track * ps);
+    int ext_ssgenv_main(Track * ps);
+    void esm_sub(Track * ps, int ah);
+    void md_inc(Track * ps);
 
-    uint8_t * pcmrepeat_set(PartState * ps, uint8_t * si);
-    uint8_t * pcmrepeat_set8(PartState * ps, uint8_t * si);
-    uint8_t * ppzrepeat_set(PartState * ps, uint8_t * si);
-    uint8_t * pansetm_ex(PartState * ps, uint8_t * si);
-    uint8_t * panset8_ex(PartState * ps, uint8_t * si);
-    uint8_t * pcm_mml_part_mask(PartState * ps, uint8_t * si);
-    uint8_t * pcm_mml_part_mask8(PartState * ps, uint8_t * si);
-    uint8_t * ppz_mml_part_mask(PartState * ps, uint8_t * si);
+    uint8_t * pcmrepeat_set(Track * ps, uint8_t * si);
+    uint8_t * pcmrepeat_set8(Track * ps, uint8_t * si);
+    uint8_t * ppzrepeat_set(Track * ps, uint8_t * si);
+    uint8_t * pansetm_ex(Track * ps, uint8_t * si);
+    uint8_t * panset8_ex(Track * ps, uint8_t * si);
+    uint8_t * pcm_mml_part_mask(Track * ps, uint8_t * si);
+    uint8_t * pcm_mml_part_mask8(Track * ps, uint8_t * si);
+    uint8_t * ppz_mml_part_mask(Track * ps, uint8_t * si);
 
     void pcmstore(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf);
     void pcmread(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf);
 
-    uint8_t * hlfo_set(PartState * ps, uint8_t * si);
-    uint8_t * vol_one_up_fm(PartState * ps, uint8_t * si);
-    uint8_t * porta(PartState * ps, uint8_t * si);
-    uint8_t * slotmask_set(PartState * ps, uint8_t * si);
-    uint8_t * slotdetune_set(PartState * ps, uint8_t * si);
-    uint8_t * slotdetune_set2(PartState * ps, uint8_t * si);
-    void fm3_partinit(PartState * ps, uint8_t * ax);
-    uint8_t * fm3_extpartset(PartState * ps, uint8_t * si);
-    uint8_t * ppz_extpartset(PartState * ps, uint8_t * si);
-    uint8_t * volmask_set(PartState * ps, uint8_t * si);
-    uint8_t * fm_mml_part_mask(PartState * ps, uint8_t * si);
-    uint8_t * ssg_mml_part_mask(PartState * ps, uint8_t * si);
-    uint8_t * rhythm_mml_part_mask(PartState * ps, uint8_t * si);
-    uint8_t * _lfoswitch(PartState * ps, uint8_t * si);
-    uint8_t * _volmask_set(PartState * ps, uint8_t * si);
-    uint8_t * tl_set(PartState * ps, uint8_t * si);
-    uint8_t * fb_set(PartState * ps, uint8_t * si);
-    uint8_t * fm_efct_set(PartState * ps, uint8_t * si);
-    uint8_t * ssg_efct_set(PartState * ps, uint8_t * si);
+    uint8_t * hlfo_set(Track * ps, uint8_t * si);
+    uint8_t * vol_one_up_fm(Track * ps, uint8_t * si);
+    uint8_t * porta(Track * ps, uint8_t * si);
+    uint8_t * slotmask_set(Track * ps, uint8_t * si);
+    uint8_t * slotdetune_set(Track * ps, uint8_t * si);
+    uint8_t * slotdetune_set2(Track * ps, uint8_t * si);
+    void fm3_partinit(Track * ps, uint8_t * ax);
+    uint8_t * fm3_extpartset(Track * ps, uint8_t * si);
+    uint8_t * ppz_extpartset(Track * ps, uint8_t * si);
+    uint8_t * volmask_set(Track * ps, uint8_t * si);
+    uint8_t * fm_mml_part_mask(Track * ps, uint8_t * si);
+    uint8_t * ssg_mml_part_mask(Track * ps, uint8_t * si);
+    uint8_t * rhythm_mml_part_mask(Track * ps, uint8_t * si);
+    uint8_t * _lfoswitch(Track * ps, uint8_t * si);
+    uint8_t * _volmask_set(Track * ps, uint8_t * si);
+    uint8_t * tl_set(Track * ps, uint8_t * si);
+    uint8_t * fb_set(Track * ps, uint8_t * si);
+    uint8_t * fm_efct_set(Track * ps, uint8_t * si);
+    uint8_t * ssg_efct_set(Track * ps, uint8_t * si);
 
     void Fade();
-    void neiro_reset(PartState * ps);
+    void neiro_reset(Track * ps);
 
     int LoadPPCInternal(const WCHAR * filename);
     int LoadPPCInternal(uint8_t * pcmdata, int size);

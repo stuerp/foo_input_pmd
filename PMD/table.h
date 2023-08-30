@@ -13,7 +13,7 @@ struct EFFTBL
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member
 
-extern const int part_table[][3];
+extern const int TrackTable[][3];
 extern const int fnum_data[];
 extern const int psg_tune_data[];
 extern const int pcm_tune_data[];
