@@ -157,8 +157,8 @@ void PMDDecoder::Initialize() const noexcept
     if (_PMD->Load(_Data, _Size) != ERR_SUCCESS)
         return;
 
-    _PMD->UsePPS(true);
- // _PMD->UseSSG(true);
+    _PMD->UsePPS(CfgUsePPS);
+    _PMD->UseSSG(CfgUseSSG);
     _PMD->Start();
 }
 
@@ -227,7 +227,7 @@ uint32_t PMDDecoder::GetLoopNumber() const noexcept
 /// <returns></returns>
 bool PMDDecoder::IsBusy() const noexcept
 {
-    OPEN_WORK * State = _PMD->GetOpenWork();
+    State * State = _PMD->GetState();
 
     return State->_IsPlaying;
 }

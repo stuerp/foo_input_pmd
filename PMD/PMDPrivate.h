@@ -50,7 +50,7 @@
 #define MaxTracks               (MaxFMTracks + MaxSSGTracks + MaxADPCMTracks + MaxOPNARhythmTracks + MaxExtTracks + MaxRhythmTracks + MaxEffectTracks + MaxPPZ8Tracks)
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
-struct PMDWORK
+struct DriverState
 {
     int _CurrentTrack;
     int tieflag; // &のフラグ(1 : tie)
@@ -186,7 +186,7 @@ struct Track
 };
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
-struct OPEN_WORK
+struct State
 {
     Track * _Track[MaxTracks];
 
@@ -198,8 +198,12 @@ struct OPEN_WORK
     uint16_t * _RythmAddressTable;  // R part offset table 先頭番地
     uint8_t * rhyadr;  // R part 演奏中番地
 
-    bool _IsPlaying; // True if the driver is playing
-    bool _UseRhythmSoundSource;  // Play Rhythm sound source with K/Rpart flag
+    bool _UseSSG;  // Play Rhythm sound source with K/Rpart flag
+
+    bool _UseFM55kHzSynthesis;
+    bool _UseInterpolationPPZ8;
+    bool _UseInterpolationPPS;
+    bool _UseInterpolationP86;
 
     int rhythmmask; // Rhythm音源のマスク x8c/10hのbitに対応
 
@@ -279,11 +283,8 @@ struct OPEN_WORK
     uint32_t _OPNARate; // PCM output frequency (11k, 22k, 44k, 55k)
     uint32_t _PPZ8Rate; // PPZ output frequency
 
-    bool fmcalc55k;   // Do 55kHz FM synthesis?
-    bool ppz8ip;    // Complement with PPZ8?
-    bool ppsip;    // Complement with PPS?
-    bool p86ip;    // Complement with PPS?
-    bool _UseP86;   // Are we using P86?
+    bool _IsPlaying; // True if the driver is playing
+    bool _IsUsingP86;
 
     int _FadeOutSpeedHQ; // Fadeout (High Sound Quality) speed (fadeout at > 0)
 

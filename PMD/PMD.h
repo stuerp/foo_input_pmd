@@ -74,8 +74,8 @@ public:
     
     void SetSynthesisRate(uint32_t value);
     void SetPPZSynthesisRate(uint32_t value);
-    void EnableFM55kHzSynthesis(bool flag);
-    void EnablePPZInterpolation(bool flag);
+    void SetFM55kHzSynthesisMode(bool flag);
+    void SetPPZInterpolation(bool flag);
 
     void SetFMWait(int nsec);
     void SetSSGWait(int nsec);
@@ -97,8 +97,8 @@ public:
     void EnablePMDB2CompatibilityMode(bool value);
     bool GetPMDB2CompatibilityMode();
 
-    void setppsinterpolation(bool ip);
-    void setp86interpolation(bool ip);
+    void SetPPSInterpolation(bool ip);
+    void SetP86Interpolation(bool ip);
 
     int maskon(int ch);
     int maskoff(int ch);
@@ -127,8 +127,8 @@ public:
     int LoadP86(const WCHAR * filePath);
     int LoadPPZ(const WCHAR * filePath, int bufnum);
 
-    OPEN_WORK * GetOpenWork();
-    Track * GetOpenPartWork(int ch);
+    State * GetState() { return &_State; }
+    Track * GetTrack(int ch);
 
 private:
     File * _File;
@@ -138,7 +138,9 @@ private:
     PPSDRV * _PPS;
     P86DRV * _P86;
 
-    OPEN_WORK _OpenWork;
+    State _State;
+    DriverState _DriverState;
+    EffectState _EffectState;
 
     Track _FMTrack[MaxFMTracks];
     Track SSGPart[MaxSSGTracks];
@@ -148,9 +150,6 @@ private:
     Track _DummyTrack;
     Track _EffectTrack;
     Track PPZ8Part[MaxPPZ8Tracks];
-
-    PMDWORK pmdwork;
-    EffectState effwork;
 
     static const size_t MaxSamples = 30000;
 

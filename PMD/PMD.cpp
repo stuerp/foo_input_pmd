@@ -56,9 +56,9 @@ bool PMD::Initialize(const WCHAR * directoryPath)
 
     InitializeInternal();
 
-    _PPZ8->Init(_OpenWork._OPNARate, false);
-    _PPS->Init(_OpenWork._OPNARate, false);
-    _P86->Init(_OpenWork._OPNARate, false);
+    _PPZ8->Init(_State._OPNARate, false);
+    _PPS->Init(_State._OPNARate, false);
+    _P86->Init(_State._OPNARate, false);
 
     if (_OPNA->Init(OPNAClock, SOUND_44K, false, DirectoryPath) == false)
         return false;
@@ -100,7 +100,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
         pcmends.Address[i][1] = 0;
     }
 
-    _OpenWork._PPCFileName[0] = '\0';
+    _State._PPCFileName[0] = '\0';
 
     // Initial setting of 088/188/288/388 (same INT number only)
     _OPNA->SetReg(0x29, 0x00);
@@ -118,7 +118,9 @@ bool PMD::Initialize(const WCHAR * directoryPath)
 // Initialization (internal processing)
 void PMD::InitializeInternal()
 {
-    ::memset(&_OpenWork, 0, sizeof(_OpenWork));
+    ::memset(&_State, 0, sizeof(_State));
+    ::memset(&_DriverState, 0, sizeof(_DriverState));
+    ::memset(&_EffectState, 0, sizeof(_EffectState));
 
     ::memset(_FMTrack, 0, sizeof(_FMTrack));
     ::memset(SSGPart, 0, sizeof(SSGPart));
@@ -129,8 +131,6 @@ void PMD::InitializeInternal()
     ::memset(&_EffectTrack, 0, sizeof(_EffectTrack));
     ::memset(PPZ8Part, 0, sizeof(PPZ8Part));
 
-    ::memset(&pmdwork, 0, sizeof(PMDWORK));
-    ::memset(&effwork, 0, sizeof(EffectState));
     ::memset(&pcmends, 0, sizeof(pcmends));
 
     ::memset(_SampleSrc, 0, sizeof(_SampleSrc));
@@ -150,91 +150,91 @@ void PMD::InitializeInternal()
     ::memset(&pcmends, 0, sizeof(pcmends));
 
     // Initialize OPEN_WORK.
-    _OpenWork._OPNARate = SOUND_44K;
-    _OpenWork._PPZ8Rate = SOUND_44K;
-    _OpenWork.rhyvol = 0x3c;
-    _OpenWork.fade_stop_flag = 0;
-    _OpenWork._IsTimerBBusy = false;
+    _State._OPNARate = SOUND_44K;
+    _State._PPZ8Rate = SOUND_44K;
+    _State.rhyvol = 0x3c;
+    _State.fade_stop_flag = 0;
+    _State._IsTimerBBusy = false;
 
-    _OpenWork._IsTimerABusy = false;
-    _OpenWork._TimerBSpeed = 0x100;
-    _OpenWork.port22h = 0;
+    _State._IsTimerABusy = false;
+    _State._TimerBSpeed = 0x100;
+    _State.port22h = 0;
 
-    _OpenWork._UseP86 = false;
+    _State._IsUsingP86 = false;
 
-    _OpenWork.ppz8ip = false;
-    _OpenWork.p86ip = false;
-    _OpenWork.ppsip = false;
+    _State._UseInterpolationPPZ8 = false;
+    _State._UseInterpolationP86 = false;
+    _State._UseInterpolationPPS = false;
 
     // Initialize variables.
-    _OpenWork._Track[ 0] = &_FMTrack[0];
-    _OpenWork._Track[ 1] = &_FMTrack[1];
-    _OpenWork._Track[ 2] = &_FMTrack[2];
-    _OpenWork._Track[ 3] = &_FMTrack[3];
-    _OpenWork._Track[ 4] = &_FMTrack[4];
-    _OpenWork._Track[ 5] = &_FMTrack[5];
+    _State._Track[ 0] = &_FMTrack[0];
+    _State._Track[ 1] = &_FMTrack[1];
+    _State._Track[ 2] = &_FMTrack[2];
+    _State._Track[ 3] = &_FMTrack[3];
+    _State._Track[ 4] = &_FMTrack[4];
+    _State._Track[ 5] = &_FMTrack[5];
 
-    _OpenWork._Track[ 6] = &SSGPart[0];
-    _OpenWork._Track[ 7] = &SSGPart[1];
-    _OpenWork._Track[ 8] = &SSGPart[2];
+    _State._Track[ 6] = &SSGPart[0];
+    _State._Track[ 7] = &SSGPart[1];
+    _State._Track[ 8] = &SSGPart[2];
 
-    _OpenWork._Track[ 9] = &ADPCMPart;
+    _State._Track[ 9] = &ADPCMPart;
 
-    _OpenWork._Track[10] = &_RhythmTrack;
+    _State._Track[10] = &_RhythmTrack;
 
-    _OpenWork._Track[11] = &ExtPart[0];
-    _OpenWork._Track[12] = &ExtPart[1];
-    _OpenWork._Track[13] = &ExtPart[2];
+    _State._Track[11] = &ExtPart[0];
+    _State._Track[12] = &ExtPart[1];
+    _State._Track[13] = &ExtPart[2];
 
-    _OpenWork._Track[14] = &_DummyTrack; // Unused
-    _OpenWork._Track[15] = &_EffectTrack;
+    _State._Track[14] = &_DummyTrack; // Unused
+    _State._Track[15] = &_EffectTrack;
 
-    _OpenWork._Track[16] = &PPZ8Part[0];
-    _OpenWork._Track[17] = &PPZ8Part[1];
-    _OpenWork._Track[18] = &PPZ8Part[2];
-    _OpenWork._Track[19] = &PPZ8Part[3];
-    _OpenWork._Track[20] = &PPZ8Part[4];
-    _OpenWork._Track[21] = &PPZ8Part[5];
-    _OpenWork._Track[22] = &PPZ8Part[6];
-    _OpenWork._Track[23] = &PPZ8Part[7];
+    _State._Track[16] = &PPZ8Part[0];
+    _State._Track[17] = &PPZ8Part[1];
+    _State._Track[18] = &PPZ8Part[2];
+    _State._Track[19] = &PPZ8Part[3];
+    _State._Track[20] = &PPZ8Part[4];
+    _State._Track[21] = &PPZ8Part[5];
+    _State._Track[22] = &PPZ8Part[6];
+    _State._Track[23] = &PPZ8Part[7];
 
-    _OpenWork.fm_voldown = fmvd_init;   // FM_VOLDOWN
-    _OpenWork._fm_voldown = fmvd_init;  // FM_VOLDOWN
+    _State.fm_voldown = fmvd_init;   // FM_VOLDOWN
+    _State._fm_voldown = fmvd_init;  // FM_VOLDOWN
 
-    _OpenWork.ssg_voldown = 0;          // SSG_VOLDOWN
-    _OpenWork._ssg_voldown = 0;         // SSG_VOLDOWN
+    _State.ssg_voldown = 0;          // SSG_VOLDOWN
+    _State._ssg_voldown = 0;         // SSG_VOLDOWN
 
-    _OpenWork.pcm_voldown = 0;          // PCM_VOLDOWN
-    _OpenWork._pcm_voldown = 0;         // PCM_VOLDOWN
+    _State.pcm_voldown = 0;          // PCM_VOLDOWN
+    _State._pcm_voldown = 0;         // PCM_VOLDOWN
 
-    _OpenWork.ppz_voldown = 0;          // PPZ_VOLDOWN
-    _OpenWork._ppz_voldown = 0;         // PPZ_VOLDOWN
+    _State.ppz_voldown = 0;          // PPZ_VOLDOWN
+    _State._ppz_voldown = 0;         // PPZ_VOLDOWN
 
-    _OpenWork.rhythm_voldown = 0;       // RHYTHM_VOLDOWN
-    _OpenWork._rhythm_voldown = 0;      // RHYTHM_VOLDOWN
+    _State.rhythm_voldown = 0;       // RHYTHM_VOLDOWN
+    _State._rhythm_voldown = 0;      // RHYTHM_VOLDOWN
 
-    _OpenWork._UseRhythmSoundSource = false;   // Whether to play the Rhytmn Sound Source with SSGDRUM
+    _State._UseSSG = false;         // Use SSG (Rhytm Sound Source)
 
-    _OpenWork.rshot_bd = 0;             // Rhythm Sound Source shot inc flag (BD)
-    _OpenWork.rshot_sd = 0;             // Rhythm Sound Source shot inc flag (SD)
-    _OpenWork.rshot_sym = 0;            // Rhythm Sound Source shot inc flag (CYM)
-    _OpenWork.rshot_hh = 0;             // Rhythm Sound Source shot inc flag (HH)
-    _OpenWork.rshot_tom = 0;            // Rhythm Sound Source shot inc flag (TOM)
-    _OpenWork.rshot_rim = 0;            // Rhythm Sound Source shot inc flag (RIM)
+    _State.rshot_bd = 0;             // Rhythm Sound Source shot inc flag (BD)
+    _State.rshot_sd = 0;             // Rhythm Sound Source shot inc flag (SD)
+    _State.rshot_sym = 0;            // Rhythm Sound Source shot inc flag (CYM)
+    _State.rshot_hh = 0;             // Rhythm Sound Source shot inc flag (HH)
+    _State.rshot_tom = 0;            // Rhythm Sound Source shot inc flag (TOM)
+    _State.rshot_rim = 0;            // Rhythm Sound Source shot inc flag (RIM)
 
-    _OpenWork.rdump_bd = 0;             // Rhythm Sound dump inc flag (BD)
-    _OpenWork.rdump_sd = 0;             // Rhythm Sound dump inc flag (SD)
-    _OpenWork.rdump_sym = 0;            // Rhythm Sound dump inc flag (CYM)
-    _OpenWork.rdump_hh = 0;             // Rhythm Sound dump inc flag (HH)
-    _OpenWork.rdump_tom = 0;            // Rhythm Sound dump inc flag (TOM)
-    _OpenWork.rdump_rim = 0;            // Rhythm Sound dump inc flag (RIM)
+    _State.rdump_bd = 0;             // Rhythm Sound dump inc flag (BD)
+    _State.rdump_sd = 0;             // Rhythm Sound dump inc flag (SD)
+    _State.rdump_sym = 0;            // Rhythm Sound dump inc flag (CYM)
+    _State.rdump_hh = 0;             // Rhythm Sound dump inc flag (HH)
+    _State.rdump_tom = 0;            // Rhythm Sound dump inc flag (TOM)
+    _State.rdump_rim = 0;            // Rhythm Sound dump inc flag (RIM)
 
-    _OpenWork.pcm86_vol = 0;            // PCM volume adjustment
-    _OpenWork._pcm86_vol = 0;           // PCM volume adjustment
-    _OpenWork.fade_stop_flag = 1;       // MSTOP after FADEOUT FLAG
+    _State.pcm86_vol = 0;            // PCM volume adjustment
+    _State._pcm86_vol = 0;           // PCM volume adjustment
+    _State.fade_stop_flag = 1;       // MSTOP after FADEOUT FLAG
 
-    pmdwork._UsePPS = false;
-    pmdwork.music_flag = 0;
+    _DriverState._UsePPS = false;
+    _DriverState.music_flag = 0;
 
     _MData[0] = 0;
 
@@ -246,13 +246,13 @@ void PMD::InitializeInternal()
 
     _MData[25] = 0x80;
 
-    _OpenWork._MData = &_MData[1];
-    _OpenWork._VData = _VData;
-    _OpenWork._EData = _EData;
+    _State._MData = &_MData[1];
+    _State._VData = _VData;
+    _State._EData = _EData;
 
     // Initialize sound effects FMINT/EFCINT.
-    effwork.effon = 0;
-    effwork.psgefcnum = 0xff;
+    _EffectState.effon = 0;
+    _EffectState.psgefcnum = 0xff;
 }
 
 bool PMD::IsPMD(const uint8_t * data, size_t size) noexcept
@@ -286,7 +286,7 @@ int PMD::Load(const uint8_t * data, size_t size)
     ::memcpy(_MData, data, size);
     ::memset(_MData + size, 0, sizeof(_MData) - size);
 
-    if (_OpenWork._SearchPath.size() == 0)
+    if (_State._SearchPath.size() == 0)
         return ERR_SUCCESS;
 
     int Result = ERR_SUCCESS;
@@ -311,7 +311,7 @@ int PMD::Load(const uint8_t * data, size_t size)
                 Result = _P86->Load(FilePath);
 
                 if (Result == P86_SUCCESS || Result == P86_ALREADY_LOADED)
-                    _OpenWork._UseP86 = true;
+                    _State._IsUsingP86 = true;
             }
             else
             if (HasExtension(FileNameW, _countof(FileNameW), L".PPC"))
@@ -321,7 +321,7 @@ int PMD::Load(const uint8_t * data, size_t size)
                 Result = LoadPPCInternal(FilePath);
 
                 if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
-                    _OpenWork._UseP86 = false;
+                    _State._IsUsingP86 = false;
             }
         }
     }
@@ -429,7 +429,7 @@ bool PMD::GetLength(int * songLength, int * loopLength)
             if (_OPNA->ReadStatus() & 0x02)
                 HandleTimerB();
 
-            _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+            _OPNA->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
 
             uint32_t us = _OPNA->GetNextEvent();
 
@@ -437,12 +437,12 @@ bool PMD::GetLength(int * songLength, int * loopLength)
             _Position += us;
         }
 
-        if ((_OpenWork._LoopCount == 1) && (*songLength == 0)) // When looping
+        if ((_State._LoopCount == 1) && (*songLength == 0)) // When looping
         {
             *songLength = (int) (_Position / 1000);
         }
         else
-        if (_OpenWork._LoopCount == -1) // End without loop
+        if (_State._LoopCount == -1) // End without loop
         {
             *songLength = (int) (_Position / 1000);
             *loopLength = 0;
@@ -465,7 +465,7 @@ bool PMD::GetLength(int * songLength, int * loopLength)
             return true;
         }
     }
-    while (_OpenWork._LoopCount < 2);
+    while (_State._LoopCount < 2);
 
     *loopLength = (int) (_Position / 1000) - *songLength;
 
@@ -508,7 +508,7 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
             if (_OPNA->ReadStatus() & 0x02)
                 HandleTimerB();
 
-            _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30);  // Timer Reset (Both timer A and B)
+            _OPNA->SetReg(0x27, _State.ch3mode | 0x30);  // Timer Reset (Both timer A and B)
 
             uint32_t us = _OPNA->GetNextEvent();
 
@@ -516,12 +516,12 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
             _Position += us;
         }
 
-        if ((_OpenWork._LoopCount == 1) && (*eventCount == 0)) // When looping
+        if ((_State._LoopCount == 1) && (*eventCount == 0)) // When looping
         {
             *eventCount = GetEventNumber();
         }
         else
-        if (_OpenWork._LoopCount == -1) // End without loop
+        if (_State._LoopCount == -1) // End without loop
         {
             *eventCount = GetEventNumber();
             *loopEventCount = 0;
@@ -544,7 +544,7 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
             return true;
         }
     }
-    while (_OpenWork._LoopCount < 2);
+    while (_State._LoopCount < 2);
 
     *loopEventCount = GetEventNumber() - *eventCount;
 
@@ -561,7 +561,7 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
 // Gets the current loop number.
 uint32_t PMD::GetLoopNumber()
 {
-    return (uint32_t) _OpenWork._LoopCount;
+    return (uint32_t) _State._LoopCount;
 }
 
 // Gets the playback position (in ms)
@@ -593,7 +593,7 @@ void PMD::SetPosition(uint32_t position)
         if (_OPNA->ReadStatus() & 0x02)
             HandleTimerB();
 
-        _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+        _OPNA->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
 
         uint32_t us = _OPNA->GetNextEvent();
 
@@ -601,7 +601,7 @@ void PMD::SetPosition(uint32_t position)
         _Position += us;
     }
 
-    if (_OpenWork._LoopCount == -1)
+    if (_State._LoopCount == -1)
         Silence();
 
     _OPNA->ClearBuffer();
@@ -639,24 +639,24 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
                 if (_OPNA->ReadStatus() & 0x02)
                     HandleTimerB();
 
-                _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+                _OPNA->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
             }
 
             uint32_t us = _OPNA->GetNextEvent(); // in microseconds
 
             {
-                _SamplesToDo = (size_t) ((double) us * _OpenWork._OPNARate / 1000000.0);
+                _SamplesToDo = (size_t) ((double) us * _State._OPNARate / 1000000.0);
                 _OPNA->Count(us);
 
                 ::memset(_SampleDst, 0, _SamplesToDo * sizeof(Stereo32bit));
 
-                if (_OpenWork._OPNARate == _OpenWork._PPZ8Rate)
+                if (_State._OPNARate == _State._PPZ8Rate)
                     _PPZ8->Mix((Sample *) _SampleDst, _SamplesToDo);
                 else
                 {
                     // PCM frequency transform of ppz8 (no interpolation)
-                    size_t SampleCount = (size_t) (_SamplesToDo * _OpenWork._PPZ8Rate / _OpenWork._OPNARate + 1);
-                    int delta     = (int) (8192         * _OpenWork._PPZ8Rate / _OpenWork._OPNARate);
+                    size_t SampleCount = (size_t) (_SamplesToDo * _State._PPZ8Rate / _State._OPNARate + 1);
+                    int delta     = (int) (8192         * _State._PPZ8Rate / _State._OPNARate);
 
                     ::memset(_SampleTmp, 0, SampleCount * sizeof(Sample) * 2);
 
@@ -678,19 +678,19 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
             {
                 _OPNA->Mix((Sample *) _SampleDst, _SamplesToDo);
 
-                if (pmdwork._UsePPS)
+                if (_DriverState._UsePPS)
                     _PPS->Mix((Sample *) _SampleDst, _SamplesToDo);
 
-                if (_OpenWork._UseP86)
+                if (_State._IsUsingP86)
                     _P86->Mix((Sample *) _SampleDst, _SamplesToDo);
             }
 
             {
                 _Position += us;
 
-                if (_OpenWork._FadeOutSpeedHQ > 0)
+                if (_State._FadeOutSpeedHQ > 0)
                 {
-                    int Factor = (_OpenWork._LoopCount != -1) ? (int) ((1 << 10) * ::pow(512, -(double) (_Position - _FadeOutPosition) / 1000 / _OpenWork._FadeOutSpeedHQ)) : 0;
+                    int Factor = (_State._LoopCount != -1) ? (int) ((1 << 10) * ::pow(512, -(double) (_Position - _FadeOutPosition) / 1000 / _State._FadeOutSpeedHQ)) : 0;
 
                     for (size_t i = 0; i < _SamplesToDo; i++)
                     {
@@ -699,8 +699,8 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
                     }
 
                     // Fadeout end
-                    if ((_Position - _FadeOutPosition > (int64_t)_OpenWork._FadeOutSpeedHQ * 1000) && (_OpenWork.fade_stop_flag == 1))
-                        pmdwork.music_flag |= 2;
+                    if ((_Position - _FadeOutPosition > (int64_t)_State._FadeOutSpeedHQ * 1000) && (_State.fade_stop_flag == 1))
+                        _DriverState.music_flag |= 2;
                 }
                 else
                 {
@@ -739,7 +739,7 @@ bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
         ::wcscpy(Path, *iter);
         AddBackslash(Path, _countof(Path));
 
-        _OpenWork._SearchPath.push_back(Path);
+        _State._SearchPath.push_back(Path);
     }
 
     return true;
@@ -752,22 +752,32 @@ void PMD::SetSynthesisRate(uint32_t frequency)
 {
     if (frequency == SOUND_55K || frequency == SOUND_55K_2)
     {
-        _OpenWork._OPNARate =
-        _OpenWork._PPZ8Rate = SOUND_44K;
-        _OpenWork.fmcalc55k = true;
+        _State._OPNARate =
+        _State._PPZ8Rate = SOUND_44K;
+        _State._UseFM55kHzSynthesis = true;
     }
     else
     {
-        _OpenWork._OPNARate =
-        _OpenWork._PPZ8Rate = frequency;
-        _OpenWork.fmcalc55k = false;
+        _State._OPNARate =
+        _State._PPZ8Rate = frequency;
+        _State._UseFM55kHzSynthesis = false;
     }
 
-    _OPNA->SetRate(OPNAClock, _OpenWork._OPNARate, _OpenWork.fmcalc55k);
+    _OPNA->SetRate(OPNAClock, _State._OPNARate, _State._UseFM55kHzSynthesis);
 
-    _PPZ8->SetRate(_OpenWork._PPZ8Rate, _OpenWork.ppz8ip);
-    _PPS->SetRate(_OpenWork._OPNARate, _OpenWork.ppsip);
-    _P86->SetRate(_OpenWork._OPNARate, _OpenWork.p86ip);
+    _PPZ8->SetRate(_State._PPZ8Rate, _State._UseInterpolationPPZ8);
+    _PPS->SetRate(_State._OPNARate, _State._UseInterpolationPPS);
+    _P86->SetRate(_State._OPNARate, _State._UseInterpolationP86);
+}
+
+/// <summary>
+/// Enables or disables 55kHz synthesis in FM primary interpolation.
+/// </summary>
+void PMD::SetFM55kHzSynthesisMode(bool flag)
+{
+    _State._UseFM55kHzSynthesis = flag;
+
+    _OPNA->SetRate(OPNAClock, _State._OPNARate, _State._UseFM55kHzSynthesis);
 }
 
 /// <summary>
@@ -775,25 +785,39 @@ void PMD::SetSynthesisRate(uint32_t frequency)
 /// </summary>
 void PMD::SetPPZSynthesisRate(uint32_t frequency)
 {
-    _OpenWork._PPZ8Rate = frequency;
+    _State._PPZ8Rate = frequency;
 
-    _PPZ8->SetRate(frequency, _OpenWork.ppz8ip);
+    _PPZ8->SetRate(frequency, _State._UseInterpolationPPZ8);
 }
 
-//Enable 55kHz synthesis in FM primary interpolation.
-void PMD::EnableFM55kHzSynthesis(bool flag)
+/// <summary>
+/// Enables or disables PPZ interpolation.
+/// </summary>
+void PMD::SetPPZInterpolation(bool flag)
 {
-    _OpenWork.fmcalc55k = flag;
+    _State._UseInterpolationPPZ8 = flag;
 
-    _OPNA->SetRate(OPNAClock, _OpenWork._OPNARate, _OpenWork.fmcalc55k);
+    _PPZ8->SetRate(_State._PPZ8Rate, flag);
 }
 
-// Enable PPZ8 primary completion.
-void PMD::EnablePPZInterpolation(bool flag)
+/// <summary>
+/// Enables or disables PPS interpolation.
+/// </summary>
+void PMD::SetPPSInterpolation(bool flag)
 {
-    _OpenWork.ppz8ip = flag;
+    _State._UseInterpolationPPS = flag;
 
-    _PPZ8->SetRate(_OpenWork._PPZ8Rate, flag);
+    _PPS->SetRate(_State._OPNARate, flag);
+}
+
+/// <summary>
+/// Enables or disables P86 interpolation.
+/// </summary>
+void PMD::SetP86Interpolation(bool flag)
+{
+    _State._UseInterpolationP86 = flag;
+
+    _P86->SetRate(_State._OPNARate, flag);
 }
 
 // Sets FM Wait after register output.
@@ -823,7 +847,7 @@ void PMD::SetADPCMWait(int nsec)
 // Fade out (PMD compatible)
 void PMD::SetFadeOutSpeed(int speed)
 {
-    _OpenWork._FadeOutSpeed = speed;
+    _State._FadeOutSpeed = speed;
 }
 
 // Fade out (High quality sound)
@@ -831,19 +855,19 @@ void PMD::SetFadeOutDurationHQ(int speed)
 {
     if (speed > 0)
     {
-        if (_OpenWork._FadeOutSpeedHQ == 0)
+        if (_State._FadeOutSpeedHQ == 0)
             _FadeOutPosition = _Position;
 
-        _OpenWork._FadeOutSpeedHQ = speed;
+        _State._FadeOutSpeedHQ = speed;
     }
     else
-        _OpenWork._FadeOutSpeedHQ = 0; // Fadeout forced stop
+        _State._FadeOutSpeedHQ = 0; // Fadeout forced stop
 }
 
 // Sets the playback position (in ticks).
 void PMD::SetEventNumber(int pos)
 {
-    if (_OpenWork.syousetu_lng * _OpenWork.syousetu + _OpenWork.opncount > pos)
+    if (_State.syousetu_lng * _State.syousetu + _State.opncount > pos)
     {
         DriverStart();
 
@@ -851,7 +875,7 @@ void PMD::SetEventNumber(int pos)
         _SamplesToDo = 0;
     }
 
-    while (_OpenWork.syousetu_lng * _OpenWork.syousetu + _OpenWork.opncount < pos)
+    while (_State.syousetu_lng * _State.syousetu + _State.opncount < pos)
     {
         if (_OPNA->ReadStatus() & 0x01)
             HandleTimerA();
@@ -859,13 +883,13 @@ void PMD::SetEventNumber(int pos)
         if (_OPNA->ReadStatus() & 0x02)
             HandleTimerB();
 
-        _OPNA->SetReg(0x27, _OpenWork.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+        _OPNA->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
 
         uint32_t us = _OPNA->GetNextEvent();
         _OPNA->Count(us);
     }
 
-    if (_OpenWork._LoopCount == -1)
+    if (_State._LoopCount == -1)
         Silence();
 
     _OPNA->ClearBuffer();
@@ -874,16 +898,16 @@ void PMD::SetEventNumber(int pos)
 // Gets the playback position (in ticks)
 int PMD::GetEventNumber()
 {
-    return _OpenWork.syousetu_lng * _OpenWork.syousetu + _OpenWork.opncount;
+    return _State.syousetu_lng * _State.syousetu + _State.opncount;
 }
 
 // Gets PPC / P86 filename.
 WCHAR * PMD::GetPCMFileName(WCHAR * filePath)
 {
-    if (_OpenWork._UseP86)
+    if (_State._IsUsingP86)
         ::wcscpy(filePath, _P86->_FilePath);
     else
-        ::wcscpy(filePath, _OpenWork._PPCFileName);
+        ::wcscpy(filePath, _State._PPCFileName);
 
     return filePath;
 }
@@ -901,7 +925,7 @@ WCHAR * PMD::GetPPZFileName(WCHAR * filePath, int index)
 /// </summary>
 void PMD::UsePPS(bool value) noexcept
 {
-    pmdwork._UsePPS = value;
+    _DriverState._UsePPS = value;
 }
 
 /// <summary>
@@ -909,7 +933,7 @@ void PMD::UsePPS(bool value) noexcept
 /// </summary>
 void PMD::UseSSG(bool flag) noexcept
 {
-    _OpenWork._UseRhythmSoundSource = flag;
+    _State._UseSSG = flag;
 }
 
 // Make PMD86 PCM compatible with PMDB2?
@@ -917,34 +941,20 @@ void PMD::EnablePMDB2CompatibilityMode(bool value)
 {
     if (value)
     {
-        _OpenWork.pcm86_vol =
-        _OpenWork._pcm86_vol = 1;
+        _State.pcm86_vol =
+        _State._pcm86_vol = 1;
     }
     else
     {
-        _OpenWork.pcm86_vol =
-        _OpenWork._pcm86_vol = 0;
+        _State.pcm86_vol =
+        _State._pcm86_vol = 0;
     }
 }
 
 // Get whether PMD86's PCM is PMDB2 compatible
 bool PMD::GetPMDB2CompatibilityMode()
 {
-    return _OpenWork.pcm86_vol ? true : false;
-}
-
-//  PPS で一次補完するかどうかの設定
-void PMD::setppsinterpolation(bool flag)
-{
-    _OpenWork.ppsip = flag;
-    _PPS->SetRate(_OpenWork._OPNARate, flag);
-}
-
-//  P86 で一次補完するかどうかの設定
-void PMD::setp86interpolation(bool flag)
-{
-    _OpenWork.p86ip = flag;
-    _P86->SetRate(_OpenWork._OPNARate, flag);
+    return _State.pcm86_vol ? true : false;
 }
 
 /// <summary>
@@ -952,41 +962,41 @@ void PMD::setp86interpolation(bool flag)
 /// </summary>
 int PMD::maskon(int ch)
 {
-    if (ch >= sizeof(_OpenWork._Track) / sizeof(Track *))
+    if (ch >= sizeof(_State._Track) / sizeof(Track *))
         return ERR_WRONG_PARTNO;
 
     if (TrackTable[ch][0] < 0)
     {
-        _OpenWork.rhythmmask = 0;  // Rhythm音源をMask
+        _State.rhythmmask = 0;  // Rhythm音源をMask
         _OPNA->SetReg(0x10, 0xff);  // Rhythm音源を全部Dump
     }
     else
     {
-        int fmseltmp = pmdwork.fmsel;
+        int fmseltmp = _DriverState.fmsel;
 
-        if ((_OpenWork._Track[ch]->partmask == 0) && _OpenWork._IsPlaying)
+        if ((_State._Track[ch]->partmask == 0) && _State._IsPlaying)
         {
             if (TrackTable[ch][2] == 0)
             {
-                pmdwork._CurrentTrack = TrackTable[ch][1];
-                pmdwork.fmsel = 0;
+                _DriverState._CurrentTrack = TrackTable[ch][1];
+                _DriverState.fmsel = 0;
 
-                MuteFMPart(_OpenWork._Track[ch]);
+                MuteFMPart(_State._Track[ch]);
             }
             else
             if (TrackTable[ch][2] == 1)
             {
-                pmdwork._CurrentTrack = TrackTable[ch][1];
-                pmdwork.fmsel = 0x100;
+                _DriverState._CurrentTrack = TrackTable[ch][1];
+                _DriverState.fmsel = 0x100;
 
-                MuteFMPart(_OpenWork._Track[ch]);
+                MuteFMPart(_State._Track[ch]);
             }
             else
             if (TrackTable[ch][2] == 2)
             {
-                pmdwork._CurrentTrack = TrackTable[ch][1];
+                _DriverState._CurrentTrack = TrackTable[ch][1];
 
-                int ah = 1 << (pmdwork._CurrentTrack - 1);
+                int ah = 1 << (_DriverState._CurrentTrack - 1);
 
                 ah |= (ah << 3);
 
@@ -1002,7 +1012,7 @@ int PMD::maskon(int ch)
             else
             if (TrackTable[ch][2] == 4)
             {
-                if (effwork.psgefcnum < 11)
+                if (_EffectState.psgefcnum < 11)
                     effend();
             }
             else
@@ -1010,8 +1020,8 @@ int PMD::maskon(int ch)
                 _PPZ8->Stop(TrackTable[ch][1]);
         }
 
-        _OpenWork._Track[ch]->partmask |= 1;
-        pmdwork.fmsel = fmseltmp;
+        _State._Track[ch]->partmask |= 1;
+        _DriverState.fmsel = fmseltmp;
     }
 
     return ERR_SUCCESS;
@@ -1022,47 +1032,47 @@ int PMD::maskon(int ch)
 /// </summary>
 int PMD::maskoff(int ch)
 {
-    if (ch >= sizeof(_OpenWork._Track) / sizeof(Track *))
+    if (ch >= sizeof(_State._Track) / sizeof(Track *))
         return ERR_WRONG_PARTNO;
 
     if (TrackTable[ch][0] < 0)
     {
-        _OpenWork.rhythmmask = 0xff;
+        _State.rhythmmask = 0xff;
     }
     else
     {
-        if (_OpenWork._Track[ch]->partmask == 0)
+        if (_State._Track[ch]->partmask == 0)
             return ERR_NOT_MASKED;
 
         // Still masked by sound effects
 
-        if ((_OpenWork._Track[ch]->partmask &= 0xfe) != 0)
+        if ((_State._Track[ch]->partmask &= 0xfe) != 0)
             return ERR_EFFECT_USED;
 
         // The song has stopped.
-        if (!_OpenWork._IsPlaying)
+        if (!_State._IsPlaying)
             return ERR_MUSIC_STOPPED;
 
-        int fmseltmp = pmdwork.fmsel;
+        int fmseltmp = _DriverState.fmsel;
 
-        if (_OpenWork._Track[ch]->address)
+        if (_State._Track[ch]->address)
         {
             if (TrackTable[ch][2] == 0)
             {    // FM音源(表)
-                pmdwork.fmsel = 0;
-                pmdwork._CurrentTrack = TrackTable[ch][1];
-                neiro_reset(_OpenWork._Track[ch]);
+                _DriverState.fmsel = 0;
+                _DriverState._CurrentTrack = TrackTable[ch][1];
+                neiro_reset(_State._Track[ch]);
             }
             else
             if (TrackTable[ch][2] == 1)
             {  // FM音源(裏)
-                pmdwork.fmsel = 0x100;
-                pmdwork._CurrentTrack = TrackTable[ch][1];
-                neiro_reset(_OpenWork._Track[ch]);
+                _DriverState.fmsel = 0x100;
+                _DriverState._CurrentTrack = TrackTable[ch][1];
+                neiro_reset(_State._Track[ch]);
             }
         }
 
-        pmdwork.fmsel = fmseltmp;
+        _DriverState.fmsel = fmseltmp;
     }
 
     return ERR_SUCCESS;
@@ -1071,94 +1081,94 @@ int PMD::maskoff(int ch)
 //  FM Volume Down の設定
 void PMD::setfmvoldown(int voldown)
 {
-    _OpenWork.fm_voldown = _OpenWork._fm_voldown = voldown;
+    _State.fm_voldown = _State._fm_voldown = voldown;
 }
 
 //  SSG Volume Down の設定
 void PMD::setssgvoldown(int voldown)
 {
-    _OpenWork.ssg_voldown = _OpenWork._ssg_voldown = voldown;
+    _State.ssg_voldown = _State._ssg_voldown = voldown;
 }
 
 //  Rhythm Volume Down の設定
 void PMD::setrhythmvoldown(int voldown)
 {
-    _OpenWork.rhythm_voldown = _OpenWork._rhythm_voldown = voldown;
-    _OpenWork.rhyvol         = 48 * 4 * (256 - _OpenWork.rhythm_voldown) / 1024;
+    _State.rhythm_voldown = _State._rhythm_voldown = voldown;
+    _State.rhyvol         = 48 * 4 * (256 - _State.rhythm_voldown) / 1024;
 
-    _OPNA->SetReg(0x11, (uint32_t) _OpenWork.rhyvol);
+    _OPNA->SetReg(0x11, (uint32_t) _State.rhyvol);
 }
 
 //  ADPCM Volume Down の設定
 void PMD::setadpcmvoldown(int voldown)
 {
-    _OpenWork.pcm_voldown = _OpenWork._pcm_voldown = voldown;
+    _State.pcm_voldown = _State._pcm_voldown = voldown;
 }
 
 //  PPZ8 Volume Down の設定
 void PMD::setppzvoldown(int voldown)
 {
-    _OpenWork.ppz_voldown = _OpenWork._ppz_voldown = voldown;
+    _State.ppz_voldown = _State._ppz_voldown = voldown;
 }
 
 //  FM Volume Down の取得
 int PMD::getfmvoldown()
 {
-    return _OpenWork.fm_voldown;
+    return _State.fm_voldown;
 }
 
 //  FM Volume Down の取得（その２）
 int PMD::getfmvoldown2()
 {
-    return _OpenWork._fm_voldown;
+    return _State._fm_voldown;
 }
 
 //  SSG Volume Down の取得
 int PMD::getssgvoldown()
 {
-    return _OpenWork.ssg_voldown;
+    return _State.ssg_voldown;
 }
 
 //  SSG Volume Down の取得（その２）
 int PMD::getssgvoldown2()
 {
-    return _OpenWork._ssg_voldown;
+    return _State._ssg_voldown;
 }
 
 //  Rhythm Volume Down の取得
 int PMD::getrhythmvoldown()
 {
-    return _OpenWork.rhythm_voldown;
+    return _State.rhythm_voldown;
 }
 
 //  Rhythm Volume Down の取得（その２）
 int PMD::getrhythmvoldown2()
 {
-    return _OpenWork._rhythm_voldown;
+    return _State._rhythm_voldown;
 }
 
 //  ADPCM Volume Down の取得
 int PMD::getadpcmvoldown()
 {
-    return _OpenWork.pcm_voldown;
+    return _State.pcm_voldown;
 }
 
 //  ADPCM Volume Down の取得（その２）
 int PMD::getadpcmvoldown2()
 {
-    return _OpenWork._pcm_voldown;
+    return _State._pcm_voldown;
 }
 
 //  PPZ8 Volume Down の取得
 int PMD::getppzvoldown()
 {
-    return _OpenWork.ppz_voldown;
+    return _State.ppz_voldown;
 }
 
 //  PPZ8 Volume Down の取得（その２）
 int PMD::getppzvoldown2()
 {
-    return _OpenWork._ppz_voldown;
+    return _State._ppz_voldown;
 }
 
 // Gets a note.
@@ -1192,7 +1202,7 @@ void PMD::GetText(const uint8_t * data, size_t size, int index, char * text) con
 
     if (data == nullptr || size == 0)
     {
-        Data = _OpenWork._MData;
+        Data = _State._MData;
         Size = sizeof(_MData) - 1;
     }
     else
@@ -1279,7 +1289,7 @@ int PMD::LoadPPC(const WCHAR * filePath)
     int Result = LoadPPCInternal(filePath);
 
     if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
-        _OpenWork._UseP86 = false;
+        _State._IsUsingP86 = false;
 
     return Result;
 }
@@ -1309,7 +1319,7 @@ int PMD::LoadP86(const WCHAR * filename)
     int Result = _P86->Load(filename);
 
     if (Result == P86_SUCCESS || Result == P86_ALREADY_LOADED)
-        _OpenWork._UseP86 = true;
+        _State._IsUsingP86 = true;
 
     switch (Result)
     {
@@ -1340,117 +1350,110 @@ int PMD::LoadPPZ(const WCHAR * filename, int bufnum)
     }
 }
 
-// Get the OPEN_WORK pointer
-OPEN_WORK * PMD::GetOpenWork()
+Track * PMD::GetTrack(int trackNumber)
 {
-    return &_OpenWork;
-}
+    if (trackNumber >= _countof(_State._Track))
+        return nullptr;
 
-// Get part work pointer
-Track * PMD::GetOpenPartWork(int ch)
-{
-    if (ch >= sizeof(_OpenWork._Track) / sizeof(Track *))
-        return NULL;
-
-    return _OpenWork._Track[ch];
+    return _State._Track[trackNumber];
 }
 
 void PMD::HandleTimerA()
 {
-    _OpenWork._IsTimerABusy = true;
-    _OpenWork._TimerATime++;
+    _State._IsTimerABusy = true;
+    _State._TimerATime++;
 
-    if ((_OpenWork._TimerATime & 7) == 0)
+    if ((_State._TimerATime & 7) == 0)
         Fade();
 
-    if (effwork.effon && (!pmdwork._UsePPS || effwork.psgefcnum == 0x80))
+    if (_EffectState.effon && (!_DriverState._UsePPS || _EffectState.psgefcnum == 0x80))
         effplay(); // SSG Sound Source effect processing
 
-    _OpenWork._IsTimerABusy = false;
+    _State._IsTimerABusy = false;
 }
 
 void PMD::HandleTimerB()
 {
-    _OpenWork._IsTimerBBusy = true;
+    _State._IsTimerBBusy = true;
 
-    if (pmdwork.music_flag)
+    if (_DriverState.music_flag)
     {
-        if (pmdwork.music_flag & 1)
+        if (_DriverState.music_flag & 1)
             DriverStart();
 
-        if (pmdwork.music_flag & 2)
+        if (_DriverState.music_flag & 2)
             DriverStop();
     }
 
-    if (_OpenWork._IsPlaying)
+    if (_State._IsPlaying)
     {
         DriverMain();
         settempo_b();
         syousetu_count();
 
-        pmdwork._OldTimerATime = _OpenWork._TimerATime;
+        _DriverState._OldTimerATime = _State._TimerATime;
     }
 
-    _OpenWork._IsTimerBBusy = false;
+    _State._IsTimerBBusy = false;
 }
 
 void PMD::DriverMain()
 {
     int i;
 
-    pmdwork.loop_work = 3;
+    _DriverState.loop_work = 3;
 
-    if (_OpenWork.x68_flg == 0)
+    if (_State.x68_flg == 0)
     {
         for (i = 0; i < 3; i++)
         {
-            pmdwork._CurrentTrack = i + 1;
+            _DriverState._CurrentTrack = i + 1;
             PSGMain(&SSGPart[i]);
         }
     }
 
-    pmdwork.fmsel = 0x100;
+    _DriverState.fmsel = 0x100;
 
     for (i = 0; i < 3; i++)
     {
-        pmdwork._CurrentTrack = i + 1;
+        _DriverState._CurrentTrack = i + 1;
         FMMain(&_FMTrack[i + 3]);
     }
 
-    pmdwork.fmsel = 0;
+    _DriverState.fmsel = 0;
 
     for (i = 0; i < 3; i++)
     {
-        pmdwork._CurrentTrack = i + 1;
+        _DriverState._CurrentTrack = i + 1;
         FMMain(&_FMTrack[i]);
     }
 
     for (i = 0; i < 3; i++)
     {
-        pmdwork._CurrentTrack = 3;
+        _DriverState._CurrentTrack = 3;
         FMMain(&ExtPart[i]);
     }
 
-    if (_OpenWork.x68_flg == 0)
+    if (_State.x68_flg == 0)
     {
         RhythmMain(&_RhythmTrack);
 
-        if (_OpenWork._UseP86)
+        if (_State._IsUsingP86)
             PCM86Main(&ADPCMPart);
         else
             ADPCMMain(&ADPCMPart);
     }
 
-    if (_OpenWork.x68_flg != 0xff)
+    if (_State.x68_flg != 0xff)
     {
         for (i = 0; i < 8; i++)
         {
-            pmdwork._CurrentTrack = i;
+            _DriverState._CurrentTrack = i;
             PPZ8Main(&PPZ8Part[i]);
         }
     }
 
-    if (pmdwork.loop_work == 0)
+    if (_DriverState.loop_work == 0)
         return;
 
     for (i = 0; i < 6; i++)
@@ -1483,15 +1486,15 @@ void PMD::DriverMain()
             PPZ8Part[i].loopcheck = 0;
     }
 
-    if (pmdwork.loop_work != 3)
+    if (_DriverState.loop_work != 3)
     {
-        _OpenWork._LoopCount++;
+        _State._LoopCount++;
 
-        if (_OpenWork._LoopCount == 255)
-            _OpenWork._LoopCount = 1;
+        if (_State._LoopCount == 255)
+            _State._LoopCount = 1;
     }
     else
-        _OpenWork._LoopCount = -1;
+        _State._LoopCount = -1;
 }
 
 void PMD::FMMain(Track * track)
@@ -1543,9 +1546,9 @@ void PMD::FMMain(Track * track)
                 {
                     if (track->partmask)
                     {
-                        pmdwork.tieflag = 0;
-                        pmdwork.volpush_flag = 0;
-                        pmdwork.loop_work &= track->loopcheck;
+                        _DriverState.tieflag = 0;
+                        _DriverState.volpush_flag = 0;
+                        _DriverState.loop_work &= track->loopcheck;
 
                         return;
                     }
@@ -1562,7 +1565,7 @@ void PMD::FMMain(Track * track)
                 if (*si == 0xda)
                 {   // ポルタメント
                     si = porta(track, ++si);
-                    pmdwork.loop_work &= track->loopcheck;
+                    _DriverState.loop_work &= track->loopcheck;
                     return;
                 }
                 else
@@ -1576,9 +1579,9 @@ void PMD::FMMain(Track * track)
 
                     if (track->volpush && track->onkai != 255)
                     {
-                        if (--pmdwork.volpush_flag)
+                        if (--_DriverState.volpush_flag)
                         {
-                            pmdwork.volpush_flag = 0;
+                            _DriverState.volpush_flag = 0;
                             track->volpush = 0;
                         }
                     }
@@ -1590,8 +1593,8 @@ void PMD::FMMain(Track * track)
                     track->keyon_flag++;
                     track->address = si;
 
-                    pmdwork.tieflag = 0;
-                    pmdwork.volpush_flag = 0;
+                    _DriverState.tieflag = 0;
+                    _DriverState.volpush_flag = 0;
 
                     if (*si == 0xfb)
                     {   // '&'が直後にあったらkeyoffしない
@@ -1601,7 +1604,7 @@ void PMD::FMMain(Track * track)
                     {
                         track->keyoff_flag = 0;
                     }
-                    pmdwork.loop_work &= track->loopcheck;
+                    _DriverState.loop_work &= track->loopcheck;
                     return;
                 }
                 else
@@ -1615,13 +1618,13 @@ void PMD::FMMain(Track * track)
                     track->keyon_flag++;
                     track->address = si;
 
-                    if (--pmdwork.volpush_flag)
+                    if (--_DriverState.volpush_flag)
                     {
                         track->volpush = 0;
                     }
 
-                    pmdwork.tieflag = 0;
-                    pmdwork.volpush_flag = 0;
+                    _DriverState.tieflag = 0;
+                    _DriverState.volpush_flag = 0;
                     break;
                 }
             }
@@ -1634,7 +1637,7 @@ void PMD::FMMain(Track * track)
         if (track->hldelay_c)
         {
             if (--track->hldelay_c == 0)
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + (pmdwork._CurrentTrack - 1 + 0xb4)), (uint32_t) track->fmpan);
+                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + (_DriverState._CurrentTrack - 1 + 0xb4)), (uint32_t) track->fmpan);
         }
 
         if (track->sdelay_c)
@@ -1650,13 +1653,13 @@ void PMD::FMMain(Track * track)
 
         if (track->lfoswi)
         {
-            pmdwork.lfo_switch = track->lfoswi & 8;
+            _DriverState.lfo_switch = track->lfoswi & 8;
 
             if (track->lfoswi & 3)
             {
                 if (lfo(track))
                 {
-                    pmdwork.lfo_switch |= (track->lfoswi & 3);
+                    _DriverState.lfo_switch |= (track->lfoswi & 3);
                 }
             }
 
@@ -1668,7 +1671,7 @@ void PMD::FMMain(Track * track)
                 {
                     lfo_change(track);
 
-                    pmdwork.lfo_switch |= (track->lfoswi & 0x30);
+                    _DriverState.lfo_switch |= (track->lfoswi & 0x30);
                 }
                 else
                 {
@@ -1676,9 +1679,9 @@ void PMD::FMMain(Track * track)
                 }
             }
 
-            if (pmdwork.lfo_switch & 0x19)
+            if (_DriverState.lfo_switch & 0x19)
             {
-                if (pmdwork.lfo_switch & 8)
+                if (_DriverState.lfo_switch & 8)
                 {
                     porta_calc(track);
 
@@ -1687,20 +1690,20 @@ void PMD::FMMain(Track * track)
                 otodasi(track);
             }
 
-            if (pmdwork.lfo_switch & 0x22)
+            if (_DriverState.lfo_switch & 0x22)
             {
                 volset(track);
-                pmdwork.loop_work &= track->loopcheck;
+                _DriverState.loop_work &= track->loopcheck;
 
                 return;
             }
         }
 
-        if (_OpenWork._FadeOutSpeed != 0)
+        if (_State._FadeOutSpeed != 0)
             volset(track);
     }
 
-    pmdwork.loop_work &= track->loopcheck;
+    _DriverState.loop_work &= track->loopcheck;
 }
 
 //  KEY OFF
@@ -1714,15 +1717,15 @@ void PMD::keyoff(Track * qq)
 
 void PMD::kof1(Track * qq)
 {
-    if (pmdwork.fmsel == 0)
+    if (_DriverState.fmsel == 0)
     {
-        pmdwork.omote_key[pmdwork._CurrentTrack - 1] = (~qq->slotmask) & (pmdwork.omote_key[pmdwork._CurrentTrack - 1]);
-        _OPNA->SetReg(0x28, (uint32_t) ((pmdwork._CurrentTrack - 1) | pmdwork.omote_key[pmdwork._CurrentTrack - 1]));
+        _DriverState.omote_key[_DriverState._CurrentTrack - 1] = (~qq->slotmask) & (_DriverState.omote_key[_DriverState._CurrentTrack - 1]);
+        _OPNA->SetReg(0x28, (uint32_t) ((_DriverState._CurrentTrack - 1) | _DriverState.omote_key[_DriverState._CurrentTrack - 1]));
     }
     else
     {
-        pmdwork.ura_key[pmdwork._CurrentTrack - 1] = (~qq->slotmask) & (pmdwork.ura_key[pmdwork._CurrentTrack - 1]);
-        _OPNA->SetReg(0x28, (uint32_t) (((pmdwork._CurrentTrack - 1) | pmdwork.ura_key[pmdwork._CurrentTrack - 1]) | 4));
+        _DriverState.ura_key[_DriverState._CurrentTrack - 1] = (~qq->slotmask) & (_DriverState.ura_key[_DriverState._CurrentTrack - 1]);
+        _OPNA->SetReg(0x28, (uint32_t) (((_DriverState._CurrentTrack - 1) | _DriverState.ura_key[_DriverState._CurrentTrack - 1]) | 4));
     }
 }
 
@@ -1734,25 +1737,25 @@ void PMD::keyon(Track * qq)
     if (qq->onkai == 255)
         return; // ｷｭｳﾌ ﾉ ﾄｷ
 
-    if (pmdwork.fmsel == 0)
+    if (_DriverState.fmsel == 0)
     {
-        al = pmdwork.omote_key[pmdwork._CurrentTrack - 1] | qq->slotmask;
+        al = _DriverState.omote_key[_DriverState._CurrentTrack - 1] | qq->slotmask;
 
         if (qq->sdelay_c)
             al &= qq->sdelay_m;
 
-        pmdwork.omote_key[pmdwork._CurrentTrack - 1] = al;
-        _OPNA->SetReg(0x28, (uint32_t) ((pmdwork._CurrentTrack - 1) | al));
+        _DriverState.omote_key[_DriverState._CurrentTrack - 1] = al;
+        _OPNA->SetReg(0x28, (uint32_t) ((_DriverState._CurrentTrack - 1) | al));
     }
     else
     {
-        al = pmdwork.ura_key[pmdwork._CurrentTrack - 1] | qq->slotmask;
+        al = _DriverState.ura_key[_DriverState._CurrentTrack - 1] | qq->slotmask;
 
         if (qq->sdelay_c)
             al &= qq->sdelay_m;
 
-        pmdwork.ura_key[pmdwork._CurrentTrack - 1] = al;
-        _OPNA->SetReg(0x28, (uint32_t) (((pmdwork._CurrentTrack - 1) | al) | 4));
+        _DriverState.ura_key[_DriverState._CurrentTrack - 1] = al;
+        _OPNA->SetReg(0x28, (uint32_t) (((_DriverState._CurrentTrack - 1) | al) | 4));
     }
 }
 
@@ -1768,7 +1771,7 @@ void PMD::otodasi(Track * qq)
     // Portament/LFO/Detune SET
     ax += qq->porta_num + qq->detune;
 
-    if ((pmdwork._CurrentTrack == 3) && (pmdwork.fmsel == 0) && (_OpenWork.ch3mode != 0x3f))
+    if ((_DriverState._CurrentTrack == 3) && (_DriverState.fmsel == 0) && (_State.ch3mode != 0x3f))
         ch3_special(qq, ax, cx);
     else
     {
@@ -1784,8 +1787,8 @@ void PMD::otodasi(Track * qq)
 
         ax |= cx;
 
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork._CurrentTrack + 0xa4 - 1), (uint32_t) HIBYTE(ax));
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork._CurrentTrack + 0xa4 - 5), (uint32_t) LOBYTE(ax));
+        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentTrack + 0xa4 - 1), (uint32_t) HIBYTE(ax));
+        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentTrack + 0xa4 - 5), (uint32_t) LOBYTE(ax));
     }
 }
 
@@ -1834,7 +1837,7 @@ void PMD::fm_block_calc(int * cx, int * ax)
 // Determine the part and set mode if ch3
 int PMD::ch3_setting(Track * qq)
 {
-    if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
+    if (_DriverState._CurrentTrack == 3 && _DriverState.fmsel == 0)
     {
         ch3mode_set(qq);
 
@@ -1848,9 +1851,9 @@ void PMD::cm_clear(int * ah, int * al)
 {
     *al ^= 0xff;
 
-    if ((pmdwork.slot3_flag &= *al) == 0)
+    if ((_DriverState.slot3_flag &= *al) == 0)
     {
-        if (pmdwork.slotdetune_flag != 1)
+        if (_DriverState.slotdetune_flag != 1)
         {
             *ah = 0x3f;
         }
@@ -1898,7 +1901,7 @@ void PMD::ch3mode_set(Track * qq)
     else
     if (qq->slotmask != 0xf0)
     {
-        pmdwork.slot3_flag |= al;
+        _DriverState.slot3_flag |= al;
         ah = 0x7f;
     }
     else
@@ -1909,7 +1912,7 @@ void PMD::ch3mode_set(Track * qq)
     else
     if ((qq->lfoswi & 1) != 0)
     {
-        pmdwork.slot3_flag |= al;
+        _DriverState.slot3_flag |= al;
         ah = 0x7f;
     }
     else
@@ -1920,7 +1923,7 @@ void PMD::ch3mode_set(Track * qq)
     else
     if (qq->lfoswi & 0x10)
     {
-        pmdwork.slot3_flag |= al;
+        _DriverState.slot3_flag |= al;
         ah = 0x7f;
     }
     else
@@ -1928,10 +1931,10 @@ void PMD::ch3mode_set(Track * qq)
         cm_clear(&ah, &al);
     }
 
-    if ((uint32_t) ah == _OpenWork.ch3mode)
+    if ((uint32_t) ah == _State.ch3mode)
         return;
 
-    _OpenWork.ch3mode = (uint32_t) ah;
+    _State.ch3mode = (uint32_t) ah;
 
     _OPNA->SetReg(0x27, (uint32_t) (ah & 0xcf)); // Don't reset.
 
@@ -1986,7 +1989,7 @@ void PMD::ch3_special(Track * qq, int ax, int cx)
     if (qq->slotmask & 0x80)
     {
         ax_ = ax;
-        ax += _OpenWork.slot_detune4;
+        ax += _State.slot_detune4;
         if ((bh & shiftmask) && (qq->lfoswi & 0x01))  ax += qq->lfodat;
         if ((ch & shiftmask) && (qq->lfoswi & 0x10))  ax += qq->_lfodat;
         shiftmask >>= 1;
@@ -2005,7 +2008,7 @@ void PMD::ch3_special(Track * qq, int ax, int cx)
     if (qq->slotmask & 0x40)
     {
         ax_ = ax;
-        ax += _OpenWork.slot_detune3;
+        ax += _State.slot_detune3;
         if ((bh & shiftmask) && (qq->lfoswi & 0x01))  ax += qq->lfodat;
         if ((ch & shiftmask) && (qq->lfoswi & 0x10))  ax += qq->_lfodat;
         shiftmask >>= 1;
@@ -2024,7 +2027,7 @@ void PMD::ch3_special(Track * qq, int ax, int cx)
     if (qq->slotmask & 0x20)
     {
         ax_ = ax;
-        ax += _OpenWork.slot_detune2;
+        ax += _State.slot_detune2;
 
         if ((bh & shiftmask) && (qq->lfoswi & 0x01))
             ax += qq->lfodat;
@@ -2048,7 +2051,7 @@ void PMD::ch3_special(Track * qq, int ax, int cx)
     if (qq->slotmask & 0x10)
     {
         ax_ = ax;
-        ax += _OpenWork.slot_detune1;
+        ax += _State.slot_detune1;
 
         if ((bh & shiftmask) && (qq->lfoswi & 0x01)) 
             ax += qq->lfodat;
@@ -2078,7 +2081,7 @@ void PMD::panset_main(Track * qq, int al)
 {
     qq->fmpan = (qq->fmpan & 0x3f) | ((al << 6) & 0xc0);
 
-    if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
+    if (_DriverState._CurrentTrack == 3 && _DriverState.fmsel == 0)
     {
         //  FM3の場合は 4つのパート総て設定
         _FMTrack[2].fmpan = qq->fmpan;
@@ -2090,7 +2093,7 @@ void PMD::panset_main(Track * qq, int al)
     if (qq->partmask == 0)
     {    // パートマスクされているか？
 // dl = al;
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork._CurrentTrack + 0xb4 - 1), calc_panout(qq));
+        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentTrack + 0xb4 - 1), calc_panout(qq));
     }
 }
 
@@ -2139,7 +2142,7 @@ uint8_t * PMD::panset8_ex(Track * qq, uint8_t * si)
     int    flag, data;
 
     qq->fmpan = (int8_t) *si++;
-    _OpenWork.revpan = *si++;
+    _State.revpan = *si++;
 
 
     if (qq->fmpan == 0)
@@ -2158,7 +2161,7 @@ uint8_t * PMD::panset8_ex(Track * qq, uint8_t * si)
         data = 128 + qq->fmpan;
     }
 
-    if (_OpenWork.revpan != 1)
+    if (_State.revpan != 1)
     {
         flag |= 4;        // 逆相
     }
@@ -2189,7 +2192,7 @@ int PMD::lfoinit(Track * qq, int al)
 
     qq->porta_num = 0;        // ポルタメントは初期化
 
-    if ((pmdwork.tieflag & 1) == 0)
+    if ((_DriverState.tieflag & 1) == 0)
     {
         lfin1(qq);
     }
@@ -2242,14 +2245,14 @@ void PMD::volset(Track * qq)
 //--------------------------------------------------------------------
 //  音量down計算
 //--------------------------------------------------------------------
-        if (_OpenWork.fm_voldown)
-            cl = ((256 - _OpenWork.fm_voldown) * cl) >> 8;
+        if (_State.fm_voldown)
+            cl = ((256 - _State.fm_voldown) * cl) >> 8;
 
         //--------------------------------------------------------------------
         //  Fadeout計算
         //--------------------------------------------------------------------
-        if (_OpenWork._FadeOutVolume >= 2)
-            cl = ((256 - (_OpenWork._FadeOutVolume >> 1)) * cl) >> 8;
+        if (_State._FadeOutVolume >= 2)
+            cl = ((256 - (_State._FadeOutVolume >> 1)) * cl) >> 8;
     }
 
     //  音量をcarrierに設定 & 音量LFO処理
@@ -2288,7 +2291,7 @@ void PMD::volset(Track * qq)
         }
     }
 
-    int dh = 0x4c - 1 + pmdwork._CurrentTrack;    // dh=FM Port Address
+    int dh = 0x4c - 1 + _DriverState._CurrentTrack;    // dh=FM Port Address
 
     if (bh & 0x80) volset_slot(dh,      qq->slot4, vol_tbl[0]);
     if (bh & 0x40) volset_slot(dh -  8, qq->slot3, vol_tbl[1]);
@@ -2308,7 +2311,7 @@ void PMD::volset_slot(int dh, int dl, int al)
     if ((al -= 0x80) < 0)
         al = 0;
 
-    _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) al);
+    _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) al);
 }
 
 //  音量LFO用サブ
@@ -2332,11 +2335,11 @@ void PMD::PSGMain(Track * track)
     track->leng--;
 
     // KEYOFF CHECK & Keyoff
-    if (track == &SSGPart[2] && pmdwork._UsePPS && _OpenWork.kshot_dat && track->leng <= track->qdat)
+    if (track == &SSGPart[2] && _DriverState._UsePPS && _State.kshot_dat && track->leng <= track->qdat)
     {
         // PPS 使用時 & SSG 3ch & SSG 効果音鳴らしている場合
         keyoffp(track);
-        _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), 0U);    // 強制的に音を止める
+        _OPNA->SetReg((uint32_t) (_DriverState._CurrentTrack + 8 - 1), 0U);    // 強制的に音を止める
         track->keyoff_flag = -1;
     }
 
@@ -2382,9 +2385,9 @@ void PMD::PSGMain(Track * track)
                 {
                     if (track->partmask)
                     {
-                        pmdwork.tieflag = 0;
-                        pmdwork.volpush_flag = 0;
-                        pmdwork.loop_work &= track->loopcheck;
+                        _DriverState.tieflag = 0;
+                        _DriverState.volpush_flag = 0;
+                        _DriverState.loop_work &= track->loopcheck;
                         return;
                     }
                     else
@@ -2401,7 +2404,7 @@ void PMD::PSGMain(Track * track)
                 if (*si == 0xda)
                 {            // ポルタメント
                     si = portap(track, ++si);
-                    pmdwork.loop_work &= track->loopcheck;
+                    _DriverState.loop_work &= track->loopcheck;
                     return;
                 }
                 else if (track->partmask)
@@ -2415,13 +2418,13 @@ void PMD::PSGMain(Track * track)
                         track->keyon_flag++;
                         track->address = si;
 
-                        if (--pmdwork.volpush_flag)
+                        if (--_DriverState.volpush_flag)
                         {
                             track->volpush = 0;
                         }
 
-                        pmdwork.tieflag = 0;
-                        pmdwork.volpush_flag = 0;
+                        _DriverState.tieflag = 0;
+                        _DriverState.volpush_flag = 0;
                         break;
                     }
                 }
@@ -2434,9 +2437,9 @@ void PMD::PSGMain(Track * track)
 
                 if (track->volpush && track->onkai != 255)
                 {
-                    if (--pmdwork.volpush_flag)
+                    if (--_DriverState.volpush_flag)
                     {
-                        pmdwork.volpush_flag = 0;
+                        _DriverState.volpush_flag = 0;
                         track->volpush = 0;
                     }
                 }
@@ -2448,21 +2451,21 @@ void PMD::PSGMain(Track * track)
                 track->keyon_flag++;
                 track->address = si;
 
-                pmdwork.tieflag = 0;
-                pmdwork.volpush_flag = 0;
+                _DriverState.tieflag = 0;
+                _DriverState.volpush_flag = 0;
                 track->keyoff_flag = 0;
 
                 if (*si == 0xfb)
                 {    // '&'が直後にあったらkeyoffしない
                     track->keyoff_flag = 2;
                 }
-                pmdwork.loop_work &= track->loopcheck;
+                _DriverState.loop_work &= track->loopcheck;
                 return;
             }
         }
     }
 
-    pmdwork.lfo_switch = (track->lfoswi & 8);
+    _DriverState.lfo_switch = (track->lfoswi & 8);
 
     if (track->lfoswi)
     {
@@ -2470,7 +2473,7 @@ void PMD::PSGMain(Track * track)
         {
             if (lfop(track))
             {
-                pmdwork.lfo_switch |= (track->lfoswi & 3);
+                _DriverState.lfo_switch |= (track->lfoswi & 3);
             }
         }
 
@@ -2480,7 +2483,7 @@ void PMD::PSGMain(Track * track)
             if (lfop(track))
             {
                 lfo_change(track);
-                pmdwork.lfo_switch |= (track->lfoswi & 0x30);
+                _DriverState.lfo_switch |= (track->lfoswi & 0x30);
             }
             else
             {
@@ -2488,29 +2491,29 @@ void PMD::PSGMain(Track * track)
             }
         }
 
-        if (pmdwork.lfo_switch & 0x19)
+        if (_DriverState.lfo_switch & 0x19)
         {
-            if (pmdwork.lfo_switch & 0x08)
+            if (_DriverState.lfo_switch & 0x08)
                 porta_calc(track);
 
             // SSG 3ch で休符かつ SSG Drum 発音中は操作しない
-            if (!(track == &SSGPart[2] && track->onkai == 255 && _OpenWork.kshot_dat && !pmdwork._UsePPS))
+            if (!(track == &SSGPart[2] && track->onkai == 255 && _State.kshot_dat && !_DriverState._UsePPS))
                 otodasip(track);
         }
     }
 
     temp = soft_env(track);
 
-    if (temp || pmdwork.lfo_switch & 0x22 || (_OpenWork._FadeOutSpeed != 0))
+    if (temp || _DriverState.lfo_switch & 0x22 || (_State._FadeOutSpeed != 0))
     {
         // SSG 3ch で休符かつ SSG Drum 発音中は volume set しない
-        if (!(track == &SSGPart[2] && track->onkai == 255 && _OpenWork.kshot_dat && !pmdwork._UsePPS))
+        if (!(track == &SSGPart[2] && track->onkai == 255 && _State.kshot_dat && !_DriverState._UsePPS))
         {
             volsetp(track);
         }
     }
 
-    pmdwork.loop_work &= track->loopcheck;
+    _DriverState.loop_work &= track->loopcheck;
 }
 
 void PMD::keyoffp(Track * qq)
@@ -2526,7 +2529,9 @@ void PMD::keyoffp(Track * qq)
     }
 }
 
-// Rhythm part performance main
+/// <summary>
+/// Main rythm processing
+/// </summary>
 void PMD::RhythmMain(Track * track)
 {
     if (track->address == nullptr)
@@ -2534,38 +2539,43 @@ void PMD::RhythmMain(Track * track)
 
     uint8_t * si = track->address;
 
-    uint8_t * bx;
-    int    al, result = 0;
-
-
     if (--track->leng == 0)
     {
-        bx = _OpenWork.rhyadr;
+        uint8_t * bx = _State.rhyadr;
+
+        int al;
+        int result = 0;
 
     rhyms00:
         do
         {
             result = 1;
+
             al = *bx++;
+
             if (al != 0xff)
             {
                 if (al & 0x80)
                 {
                     bx = rhythmon(track, bx, al, &result);
-                    if (result == 0) continue;
+
+                    if (result == 0)
+                        continue;
                 }
                 else
-                {
-                    _OpenWork.kshot_dat = 0;  //rest
-                }
+                    _State.kshot_dat = 0;  //rest
 
                 al = *bx++;
-                _OpenWork.rhyadr = bx;
+
+                _State.rhyadr = bx;
+
                 track->leng = al;
                 track->keyon_flag++;
-                pmdwork.tieflag = 0;
-                pmdwork.volpush_flag = 0;
-                pmdwork.loop_work &= track->loopcheck;
+
+                _DriverState.tieflag = 0;
+                _DriverState.volpush_flag = 0;
+                _DriverState.loop_work &= track->loopcheck;
+
                 return;
             }
         }
@@ -2579,9 +2589,7 @@ void PMD::RhythmMain(Track * track)
                 {
                     track->address = si;
 
-                    //          bx = (uint16_t *)&open_work.radtbl[al];
-                    //          bx = open_work.rhyadr = &open_work.mmlbuf[*bx];
-                    bx = _OpenWork.rhyadr = &_OpenWork._MData[_OpenWork._RythmAddressTable[al]];
+                    bx = _State.rhyadr = &_State._MData[_State._RythmAddressTable[al]];
                     goto rhyms00;
                 }
 
@@ -2591,54 +2599,61 @@ void PMD::RhythmMain(Track * track)
 
             track->address = --si;
             track->loopcheck = 3;
+
             bx = track->partloop;
-            if (bx == NULL)
+
+            if (bx == nullptr)
             {
-                _OpenWork.rhyadr = (uint8_t *) &pmdwork.rhydmy;
-                pmdwork.tieflag = 0;
-                pmdwork.volpush_flag = 0;
-                pmdwork.loop_work &= track->loopcheck;
+                _State.rhyadr = (uint8_t *) &_DriverState.rhydmy;
+                _DriverState.tieflag = 0;
+                _DriverState.volpush_flag = 0;
+                _DriverState.loop_work &= track->loopcheck;
+
                 return;
             }
             else
-            {    // "L"があった時
+            {
+                // If there's an "L"
                 si = bx;
+
                 track->loopcheck = 1;
             }
         }
     }
 
-    pmdwork.loop_work &= track->loopcheck;
+    _DriverState.loop_work &= track->loopcheck;
 }
 
 // PSG Rhythm ON
-uint8_t * PMD::rhythmon(Track * qq, uint8_t * bx, int al, int * result)
+uint8_t * PMD::rhythmon(Track * track, uint8_t * bx, int al, int * result)
 {
     if (al & 0x40)
     {
-        bx = RhythmCommands(qq, bx - 1);
+        bx = RhythmCommands(track, bx - 1);
         *result = 0;
+
         return bx;
     }
 
     *result = 1;
 
-    if (qq->partmask)
-    {    // maskされている場合
-        _OpenWork.kshot_dat = 0;
+    if (track->partmask)
+    {
+        _State.kshot_dat = 0;
+
         return ++bx;
     }
 
     al = ((al << 8) + *bx++) & 0x3fff;
 
-    _OpenWork.kshot_dat = al;
+    _State.kshot_dat = al;
 
     if (al == 0)
         return bx;
 
-    _OpenWork.rhyadr = bx;
+    _State.rhyadr = bx;
 
-    if (_OpenWork._UseRhythmSoundSource)
+    if (_State._UseSSG)
     {
         for (int cl = 0; cl < 11; cl++)
         {
@@ -2646,9 +2661,9 @@ uint8_t * PMD::rhythmon(Track * qq, uint8_t * bx, int al, int * result)
             {
                 _OPNA->SetReg((uint32_t) rhydat[cl][0], (uint32_t) rhydat[cl][1]);
 
-                int dl = rhydat[cl][2] & _OpenWork.rhythmmask;
+                int dl = rhydat[cl][2] & _State.rhythmmask;
 
-                if (dl != 0)
+                if (dl)
                 {
                     if (dl < 0x80)
                         _OPNA->SetReg(0x10, (uint32_t) dl);
@@ -2656,7 +2671,7 @@ uint8_t * PMD::rhythmon(Track * qq, uint8_t * bx, int al, int * result)
                     {
                         _OPNA->SetReg(0x10, 0x84);
 
-                        dl = _OpenWork.rhythmmask & 8;
+                        dl = _State.rhythmmask & 0x08;
 
                         if (dl)
                             _OPNA->SetReg(0x10, (uint32_t) dl);
@@ -2666,21 +2681,23 @@ uint8_t * PMD::rhythmon(Track * qq, uint8_t * bx, int al, int * result)
         }
     }
 
-    if (_OpenWork._FadeOutVolume)
+    if (_State._FadeOutVolume)
     {
-        if (_OpenWork._UseRhythmSoundSource)
+        if (_State._UseSSG)
         {
-            int dl = _OpenWork.rhyvol;
+            int dl = _State.rhyvol;
 
-            if (_OpenWork._FadeOutVolume)
-                dl = ((256 - _OpenWork._FadeOutVolume) * dl) >> 8;
+            if (_State._FadeOutVolume)
+                dl = ((256 - _State._FadeOutVolume) * dl) >> 8;
 
             _OPNA->SetReg(0x11, (uint32_t) dl);
         }
 
-        if (pmdwork._UsePPS == false)
-        {  // fadeout時ppsdrvでなら発音しない
-            bx = _OpenWork.rhyadr;
+        if (!_DriverState._UsePPS)
+        {
+            // No sound during fadeout when using PPS.
+            bx = _State.rhyadr;
+
             return bx;
         }
     }
@@ -2697,13 +2714,13 @@ uint8_t * PMD::rhythmon(Track * qq, uint8_t * bx, int al, int * result)
             al++;
         }
 
-        effgo(qq, al);
+        effgo(track, al);
 
         bx_ >>= 1;
     }
-    while (pmdwork._UsePPS && bx_);  // PPSDRVなら２音目以上も鳴らしてみる
+    while (_DriverState._UsePPS && bx_);  // If you use PPSDRV, try playing the second or more notes.
 
-    return _OpenWork.rhyadr;
+    return _State.rhyadr;
 }
 
 //  ＰＳＧ　ドラムス＆効果音　ルーチン
@@ -2713,26 +2730,26 @@ uint8_t * PMD::rhythmon(Track * qq, uint8_t * bx, int al, int * result)
 //  ppsdrvがあるならそっちを鳴らす
 void PMD::effgo(Track * qq, int al)
 {
-    if (pmdwork._UsePPS)
+    if (_DriverState._UsePPS)
     {    // PPS を鳴らす
         al |= 0x80;
-        if (effwork.last_shot_data == al)
+        if (_EffectState.last_shot_data == al)
         {
             _PPS->Stop();
         }
         else
         {
-            effwork.last_shot_data = al;
+            _EffectState.last_shot_data = al;
         }
     }
 
-    effwork.hosei_flag = 3;        //  音程/音量補正あり (K part)
+    _EffectState.hosei_flag = 3;        //  音程/音量補正あり (K part)
     eff_main(qq, al);
 }
 
 void PMD::eff_on2(Track * qq, int al)
 {
-    effwork.hosei_flag = 1;        //  音程のみ補正あり (n command)
+    _EffectState.hosei_flag = 1;        //  音程のみ補正あり (n command)
     eff_main(qq, al);
 }
 
@@ -2740,19 +2757,19 @@ void PMD::eff_main(Track * qq, int al)
 {
     int    ah, bh, bl;
 
-    if (_OpenWork.effflag) return;    //  効果音を使用しないモード
+    if (_State.effflag) return;    //  効果音を使用しないモード
 
-    if (pmdwork._UsePPS && (al & 0x80))
+    if (_DriverState._UsePPS && (al & 0x80))
     {  // PPS を鳴らす
-        if (effwork.effon >= 2) return;  // 通常効果音発音時は発声させない
+        if (_EffectState.effon >= 2) return;  // 通常効果音発音時は発声させない
 
         SSGPart[2].partmask |= 2;    // Part Mask
-        effwork.effon = 1;        // 優先度１(ppsdrv)
-        effwork.psgefcnum = al;      // 音色番号設定 (80H?)
+        _EffectState.effon = 1;        // 優先度１(ppsdrv)
+        _EffectState.psgefcnum = al;      // 音色番号設定 (80H?)
 
         bh = 0;
         bl = 15;
-        ah = effwork.hosei_flag;
+        ah = _EffectState.hosei_flag;
 
         if (ah & 1)
             bh = qq->detune % 256;    // BH = Detuneの下位 8bit
@@ -2762,8 +2779,8 @@ void PMD::eff_main(Track * qq, int al)
             if (qq->volume < 15)
                 bl = qq->volume;    // BL = volume値 (0?15)
 
-            if (_OpenWork._FadeOutVolume)
-                bl = (bl * (256 - _OpenWork._FadeOutVolume)) >> 8;
+            if (_State._FadeOutVolume)
+                bl = (bl * (256 - _State._FadeOutVolume)) >> 8;
         }
 
         if (bl)
@@ -2776,16 +2793,16 @@ void PMD::eff_main(Track * qq, int al)
     }
     else
     {
-        effwork.psgefcnum = al;
+        _EffectState.psgefcnum = al;
 
-        if (effwork.effon <= efftbl[al].priority)
+        if (_EffectState.effon <= efftbl[al].priority)
         {
-            if (pmdwork._UsePPS)
+            if (_DriverState._UsePPS)
                 _PPS->Stop();
 
             SSGPart[2].partmask |= 2;    // Part Mask
             efffor(efftbl[al].table);    // １発目を発音
-            effwork.effon = efftbl[al].priority;
+            _EffectState.effon = efftbl[al].priority;
             //  優先順位を設定(発音開始)
         }
     }
@@ -2795,13 +2812,13 @@ void PMD::eff_main(Track * qq, int al)
 //   Ｆｒｏｍ　ＶＲＴＣ
 void PMD::effplay()
 {
-    if (--effwork.effcnt)
+    if (--_EffectState.effcnt)
     {
         effsweep();      // 新しくセットされない
     }
     else
     {
-        efffor(effwork.effadr);
+        efffor(_EffectState.effadr);
     }
 }
 
@@ -2816,14 +2833,14 @@ void PMD::efffor(const int * si)
     }
     else
     {
-        effwork.effcnt = al;    // カウント数
+        _EffectState.effcnt = al;    // カウント数
         cl = *si;
         _OPNA->SetReg(4, (uint32_t) (*si++));    // 周波数セット
         ch = *si;
         _OPNA->SetReg(5, (uint32_t) (*si++));    // 周波数セット
-        effwork.eswthz = (ch << 8) + cl;
+        _EffectState.eswthz = (ch << 8) + cl;
 
-        _OpenWork.psnoi_last = effwork.eswnhz = *si;
+        _State.psnoi_last = _EffectState.eswnhz = *si;
         _OPNA->SetReg(6, (uint32_t) *si++);    // ノイズ
 
         _OPNA->SetReg(7, ((*si++ << 2) & 0x24) | (_OPNA->GetReg(0x07) & 0xdb));
@@ -2833,25 +2850,25 @@ void PMD::efffor(const int * si)
         _OPNA->SetReg(12, (uint32_t) *si++);    // 
         _OPNA->SetReg(13, (uint32_t) *si++);    // エンベロープPATTERN
 
-        effwork.eswtst = *si++;    // スイープ増分 (TONE)
-        effwork.eswnst = *si++;    // スイープ増分 (NOISE)
+        _EffectState.eswtst = *si++;    // スイープ増分 (TONE)
+        _EffectState.eswnst = *si++;    // スイープ増分 (NOISE)
 
-        effwork.eswnct = effwork.eswnst & 15;    // スイープカウント (NOISE)
+        _EffectState.eswnct = _EffectState.eswnst & 15;    // スイープカウント (NOISE)
 
-        effwork.effadr = (int *) si;
+        _EffectState.effadr = (int *) si;
     }
 }
 
 void PMD::effend()
 {
-    if (pmdwork._UsePPS)
+    if (_DriverState._UsePPS)
         _PPS->Stop();
 
     _OPNA->SetReg(0x0a, 0x00);
     _OPNA->SetReg(0x07, ((_OPNA->GetReg(0x07)) & 0xdb) | 0x24);
 
-    effwork.effon = 0;
-    effwork.psgefcnum = -1;
+    _EffectState.effon = 0;
+    _EffectState.psgefcnum = -1;
 }
 
 // 普段の処理
@@ -2859,15 +2876,15 @@ void PMD::effsweep()
 {
     int    dl;
 
-    effwork.eswthz += effwork.eswtst;
-    _OPNA->SetReg(4, (uint32_t) LOBYTE(effwork.eswthz));
-    _OPNA->SetReg(5, (uint32_t) HIBYTE(effwork.eswthz));
+    _EffectState.eswthz += _EffectState.eswtst;
+    _OPNA->SetReg(4, (uint32_t) LOBYTE(_EffectState.eswthz));
+    _OPNA->SetReg(5, (uint32_t) HIBYTE(_EffectState.eswthz));
 
-    if (effwork.eswnst == 0) return;    // ノイズスイープ無し
-    if (--effwork.eswnct) return;
+    if (_EffectState.eswnst == 0) return;    // ノイズスイープ無し
+    if (--_EffectState.eswnct) return;
 
-    dl = effwork.eswnst;
-    effwork.eswnct = dl & 15;
+    dl = _EffectState.eswnst;
+    _EffectState.eswnct = dl & 15;
 
     // used to be "dl / 16"
     // with negative value division is different from shifting right
@@ -2876,16 +2893,16 @@ void PMD::effsweep()
     // shift: usually arithmetic shift
     //   same as x86 sar
 
-    effwork.eswnhz += dl >> 4;
+    _EffectState.eswnhz += dl >> 4;
 
-    _OPNA->SetReg(6, (uint32_t) effwork.eswnhz);
-    _OpenWork.psnoi_last = effwork.eswnhz;
+    _OPNA->SetReg(6, (uint32_t) _EffectState.eswnhz);
+    _State.psnoi_last = _EffectState.eswnhz;
 }
 
 //  PDRのswitch
 uint8_t * PMD::pdrswitch(Track *, uint8_t * si)
 {
-    if (!pmdwork._UsePPS)
+    if (!_DriverState._UsePPS)
         return si + 1;
 
 //  ppsdrv->SetParam((*si & 1) << 1, *si & 1);    @暫定
@@ -2945,9 +2962,9 @@ void PMD::ADPCMMain(Track * track)
                 {
                     if (track->partmask)
                     {
-                        pmdwork.tieflag = 0;
-                        pmdwork.volpush_flag = 0;
-                        pmdwork.loop_work &= track->loopcheck;
+                        _DriverState.tieflag = 0;
+                        _DriverState.volpush_flag = 0;
+                        _DriverState.loop_work &= track->loopcheck;
 
                         return;
                     }
@@ -2965,7 +2982,7 @@ void PMD::ADPCMMain(Track * track)
                 {        // ポルタメント
                     si = portam(track, ++si);
 
-                    pmdwork.loop_work &= track->loopcheck;
+                    _DriverState.loop_work &= track->loopcheck;
 
                     return;
                 }
@@ -2980,11 +2997,11 @@ void PMD::ADPCMMain(Track * track)
                     track->keyon_flag++;
                     track->address = si;
 
-                    if (--pmdwork.volpush_flag)
+                    if (--_DriverState.volpush_flag)
                         track->volpush = 0;
 
-                    pmdwork.tieflag = 0;
-                    pmdwork.volpush_flag = 0;
+                    _DriverState.tieflag = 0;
+                    _DriverState.volpush_flag = 0;
                     break;
                 }
 
@@ -2996,9 +3013,9 @@ void PMD::ADPCMMain(Track * track)
 
                 if (track->volpush && track->onkai != 255)
                 {
-                    if (--pmdwork.volpush_flag)
+                    if (--_DriverState.volpush_flag)
                     {
-                        pmdwork.volpush_flag = 0;
+                        _DriverState.volpush_flag = 0;
                         track->volpush = 0;
                     }
                 }
@@ -3012,8 +3029,8 @@ void PMD::ADPCMMain(Track * track)
                 track->keyon_flag++;
                 track->address = si;
 
-                pmdwork.tieflag = 0;
-                pmdwork.volpush_flag = 0;
+                _DriverState.tieflag = 0;
+                _DriverState.volpush_flag = 0;
 
                 if (*si == 0xfb)
                 {   // Do not keyoff if '&' immediately follows
@@ -3024,21 +3041,21 @@ void PMD::ADPCMMain(Track * track)
                     track->keyoff_flag = 0;
                 }
 
-                pmdwork.loop_work &= track->loopcheck;
+                _DriverState.loop_work &= track->loopcheck;
 
                 return;
             }
         }
     }
 
-    pmdwork.lfo_switch = (track->lfoswi & 8);
+    _DriverState.lfo_switch = (track->lfoswi & 8);
 
     if (track->lfoswi)
     {
         if (track->lfoswi & 3)
         {
             if (lfo(track))
-                pmdwork.lfo_switch |= (track->lfoswi & 3);
+                _DriverState.lfo_switch |= (track->lfoswi & 3);
         }
 
         if (track->lfoswi & 0x30)
@@ -3048,15 +3065,15 @@ void PMD::ADPCMMain(Track * track)
             if (lfop(track))
             {
                 lfo_change(track);
-                pmdwork.lfo_switch |= (track->lfoswi & 0x30);
+                _DriverState.lfo_switch |= (track->lfoswi & 0x30);
             }
             else
                 lfo_change(track);
         }
 
-        if (pmdwork.lfo_switch & 0x19)
+        if (_DriverState.lfo_switch & 0x19)
         {
-            if (pmdwork.lfo_switch & 0x08)
+            if (_DriverState.lfo_switch & 0x08)
                 porta_calc(track);
 
             otodasim(track);
@@ -3065,10 +3082,10 @@ void PMD::ADPCMMain(Track * track)
 
     int temp = soft_env(track);
 
-    if ((temp != 0) || pmdwork.lfo_switch & 0x22 || (_OpenWork._FadeOutSpeed != 0))
+    if ((temp != 0) || _DriverState.lfo_switch & 0x22 || (_State._FadeOutSpeed != 0))
         volsetm(track);
 
-    pmdwork.loop_work &= track->loopcheck;
+    _DriverState.loop_work &= track->loopcheck;
 }
 
 /// <summary>
@@ -3121,9 +3138,9 @@ void PMD::PCM86Main(Track * track)
                 {
                     if (track->partmask)
                     {
-                        pmdwork.tieflag = 0;
-                        pmdwork.volpush_flag = 0;
-                        pmdwork.loop_work &= track->loopcheck;
+                        _DriverState.tieflag = 0;
+                        _DriverState.volpush_flag = 0;
+                        _DriverState.loop_work &= track->loopcheck;
                         return;
                     }
                     else
@@ -3147,13 +3164,13 @@ void PMD::PCM86Main(Track * track)
                     track->keyon_flag++;
                     track->address = si;
 
-                    if (--pmdwork.volpush_flag)
+                    if (--_DriverState.volpush_flag)
                     {
                         track->volpush = 0;
                     }
 
-                    pmdwork.tieflag = 0;
-                    pmdwork.volpush_flag = 0;
+                    _DriverState.tieflag = 0;
+                    _DriverState.volpush_flag = 0;
                     break;
                 }
 
@@ -3165,9 +3182,9 @@ void PMD::PCM86Main(Track * track)
 
                 if (track->volpush && track->onkai != 255)
                 {
-                    if (--pmdwork.volpush_flag)
+                    if (--_DriverState.volpush_flag)
                     {
-                        pmdwork.volpush_flag = 0;
+                        _DriverState.volpush_flag = 0;
                         track->volpush = 0;
                     }
                 }
@@ -3182,8 +3199,8 @@ void PMD::PCM86Main(Track * track)
                 track->keyon_flag++;
                 track->address = si;
 
-                pmdwork.tieflag = 0;
-                pmdwork.volpush_flag = 0;
+                _DriverState.tieflag = 0;
+                _DriverState.volpush_flag = 0;
 
                 if (*si == 0xfb)
                 {    // '&'が直後にあったらkeyoffしない
@@ -3193,7 +3210,7 @@ void PMD::PCM86Main(Track * track)
                 {
                     track->keyoff_flag = 0;
                 }
-                pmdwork.loop_work &= track->loopcheck;
+                _DriverState.loop_work &= track->loopcheck;
                 return;
 
             }
@@ -3202,11 +3219,11 @@ void PMD::PCM86Main(Track * track)
 
     if (track->lfoswi & 0x22)
     {
-        pmdwork.lfo_switch = 0;
+        _DriverState.lfo_switch = 0;
         if (track->lfoswi & 2)
         {
             lfo(track);
-            pmdwork.lfo_switch |= (track->lfoswi & 2);
+            _DriverState.lfo_switch |= (track->lfoswi & 2);
         }
 
         if (track->lfoswi & 0x20)
@@ -3215,7 +3232,7 @@ void PMD::PCM86Main(Track * track)
             if (lfo(track))
             {
                 lfo_change(track);
-                pmdwork.lfo_switch |= (track->lfoswi & 0x20);
+                _DriverState.lfo_switch |= (track->lfoswi & 0x20);
             }
             else
             {
@@ -3224,7 +3241,7 @@ void PMD::PCM86Main(Track * track)
         }
 
         temp = soft_env(track);
-        if (temp || pmdwork.lfo_switch & 0x22 || _OpenWork._FadeOutSpeed)
+        if (temp || _DriverState.lfo_switch & 0x22 || _State._FadeOutSpeed)
         {
             volset8(track);
         }
@@ -3232,13 +3249,13 @@ void PMD::PCM86Main(Track * track)
     else
     {
         temp = soft_env(track);
-        if (temp || _OpenWork._FadeOutSpeed)
+        if (temp || _State._FadeOutSpeed)
         {
             volset8(track);
         }
     }
 
-    pmdwork.loop_work &= track->loopcheck;
+    _DriverState.loop_work &= track->loopcheck;
 }
 
 /// <summary>
@@ -3293,9 +3310,9 @@ void PMD::PPZ8Main(Track * track)
                 {
                     if (track->partmask)
                     {
-                        pmdwork.tieflag = 0;
-                        pmdwork.volpush_flag = 0;
-                        pmdwork.loop_work &= track->loopcheck;
+                        _DriverState.tieflag = 0;
+                        _DriverState.volpush_flag = 0;
+                        _DriverState.loop_work &= track->loopcheck;
                         return;
                     }
                     else
@@ -3312,7 +3329,7 @@ void PMD::PPZ8Main(Track * track)
                 if (*si == 0xda)
                 {        // ポルタメント
                     si = portaz(track, ++si);
-                    pmdwork.loop_work &= track->loopcheck;
+                    _DriverState.loop_work &= track->loopcheck;
                     return;
                 }
                 else if (track->partmask)
@@ -3325,13 +3342,13 @@ void PMD::PPZ8Main(Track * track)
                     track->keyon_flag++;
                     track->address = si;
 
-                    if (--pmdwork.volpush_flag)
+                    if (--_DriverState.volpush_flag)
                     {
                         track->volpush = 0;
                     }
 
-                    pmdwork.tieflag = 0;
-                    pmdwork.volpush_flag = 0;
+                    _DriverState.tieflag = 0;
+                    _DriverState.volpush_flag = 0;
                     break;
                 }
 
@@ -3343,9 +3360,9 @@ void PMD::PPZ8Main(Track * track)
 
                 if (track->volpush && track->onkai != 255)
                 {
-                    if (--pmdwork.volpush_flag)
+                    if (--_DriverState.volpush_flag)
                     {
-                        pmdwork.volpush_flag = 0;
+                        _DriverState.volpush_flag = 0;
                         track->volpush = 0;
                     }
                 }
@@ -3360,8 +3377,8 @@ void PMD::PPZ8Main(Track * track)
                 track->keyon_flag++;
                 track->address = si;
 
-                pmdwork.tieflag = 0;
-                pmdwork.volpush_flag = 0;
+                _DriverState.tieflag = 0;
+                _DriverState.volpush_flag = 0;
 
                 if (*si == 0xfb)
                 {    // '&'が直後にあったらkeyoffしない
@@ -3371,21 +3388,21 @@ void PMD::PPZ8Main(Track * track)
                 {
                     track->keyoff_flag = 0;
                 }
-                pmdwork.loop_work &= track->loopcheck;
+                _DriverState.loop_work &= track->loopcheck;
                 return;
 
             }
         }
     }
 
-    pmdwork.lfo_switch = (track->lfoswi & 8);
+    _DriverState.lfo_switch = (track->lfoswi & 8);
     if (track->lfoswi)
     {
         if (track->lfoswi & 3)
         {
             if (lfo(track))
             {
-                pmdwork.lfo_switch |= (track->lfoswi & 3);
+                _DriverState.lfo_switch |= (track->lfoswi & 3);
             }
         }
 
@@ -3395,7 +3412,7 @@ void PMD::PPZ8Main(Track * track)
             if (lfop(track))
             {
                 lfo_change(track);
-                pmdwork.lfo_switch |= (track->lfoswi & 0x30);
+                _DriverState.lfo_switch |= (track->lfoswi & 0x30);
             }
             else
             {
@@ -3403,9 +3420,9 @@ void PMD::PPZ8Main(Track * track)
             }
         }
 
-        if (pmdwork.lfo_switch & 0x19)
+        if (_DriverState.lfo_switch & 0x19)
         {
-            if (pmdwork.lfo_switch & 0x08)
+            if (_DriverState.lfo_switch & 0x08)
             {
                 porta_calc(track);
             }
@@ -3414,12 +3431,12 @@ void PMD::PPZ8Main(Track * track)
     }
 
     temp = soft_env(track);
-    if (temp || pmdwork.lfo_switch & 0x22 || _OpenWork._FadeOutSpeed)
+    if (temp || _DriverState.lfo_switch & 0x22 || _State._FadeOutSpeed)
     {
         volsetz(track);
     }
 
-    pmdwork.loop_work &= track->loopcheck;
+    _DriverState.loop_work &= track->loopcheck;
 }
 
 //  PCM KEYON
@@ -3431,12 +3448,12 @@ void PMD::keyonm(Track * qq)
     _OPNA->SetReg(0x101, 0x02);  // PAN=0 / x8 bit mode
     _OPNA->SetReg(0x100, 0x21);  // PCM RESET
 
-    _OPNA->SetReg(0x102, (uint32_t) LOBYTE(_OpenWork.pcmstart));
-    _OPNA->SetReg(0x103, (uint32_t) HIBYTE(_OpenWork.pcmstart));
-    _OPNA->SetReg(0x104, (uint32_t) LOBYTE(_OpenWork.pcmstop));
-    _OPNA->SetReg(0x105, (uint32_t) HIBYTE(_OpenWork.pcmstop));
+    _OPNA->SetReg(0x102, (uint32_t) LOBYTE(_State.pcmstart));
+    _OPNA->SetReg(0x103, (uint32_t) HIBYTE(_State.pcmstart));
+    _OPNA->SetReg(0x104, (uint32_t) LOBYTE(_State.pcmstop));
+    _OPNA->SetReg(0x105, (uint32_t) HIBYTE(_State.pcmstop));
 
-    if ((pmdwork.pcmrepeat1 | pmdwork.pcmrepeat2) == 0)
+    if ((_DriverState.pcmrepeat1 | _DriverState.pcmrepeat2) == 0)
     {
         _OPNA->SetReg(0x100, 0xa0);  // PCM PLAY(non_repeat)
         _OPNA->SetReg(0x101, (uint32_t) (qq->fmpan | 2));  // PAN SET / x8 bit mode
@@ -3446,10 +3463,10 @@ void PMD::keyonm(Track * qq)
         _OPNA->SetReg(0x100, 0xb0);  // PCM PLAY(repeat)
         _OPNA->SetReg(0x101, (uint32_t) (qq->fmpan | 2));  // PAN SET / x8 bit mode
 
-        _OPNA->SetReg(0x102, (uint32_t) LOBYTE(pmdwork.pcmrepeat1));
-        _OPNA->SetReg(0x103, (uint32_t) HIBYTE(pmdwork.pcmrepeat1));
-        _OPNA->SetReg(0x104, (uint32_t) LOBYTE(pmdwork.pcmrepeat2));
-        _OPNA->SetReg(0x105, (uint32_t) HIBYTE(pmdwork.pcmrepeat2));
+        _OPNA->SetReg(0x102, (uint32_t) LOBYTE(_DriverState.pcmrepeat1));
+        _OPNA->SetReg(0x103, (uint32_t) HIBYTE(_DriverState.pcmrepeat1));
+        _OPNA->SetReg(0x104, (uint32_t) LOBYTE(_DriverState.pcmrepeat2));
+        _OPNA->SetReg(0x105, (uint32_t) HIBYTE(_DriverState.pcmrepeat2));
     }
 }
 
@@ -3467,11 +3484,11 @@ void PMD::keyonz(Track * qq)
 
     if ((qq->voicenum & 0x80) == 0)
     {
-        _PPZ8->Play(pmdwork._CurrentTrack, 0, qq->voicenum, 0, 0);
+        _PPZ8->Play(_DriverState._CurrentTrack, 0, qq->voicenum, 0, 0);
     }
     else
     {
-        _PPZ8->Play(pmdwork._CurrentTrack, 1, qq->voicenum & 0x7f, 0, 0);
+        _PPZ8->Play(_DriverState._CurrentTrack, 1, qq->voicenum & 0x7f, 0, 0);
     }
 }
 
@@ -3521,7 +3538,7 @@ void PMD::otodasi8(Track * qq)
     int bl = (int) ((qq->fnum & 0x0e00000) >> (16 + 5));    // 設定周波数
     int cx = (int) (qq->fnum & 0x01fffff);          // fnum
 
-    if (_OpenWork.pcm86_vol == 0 && qq->detune)
+    if (_State.pcm86_vol == 0 && qq->detune)
         cx = Limit((cx >> 5) + qq->detune, 65535, 1) << 5;
 
     _P86->SetOntei(bl, (uint32_t) cx);
@@ -3559,7 +3576,7 @@ void PMD::otodasiz(Track * qq)
     else cx = (uint32_t) cx2;
 
     // TONE SET
-    _PPZ8->SetPitchFrequency(pmdwork._CurrentTrack, cx);
+    _PPZ8->SetPitchFrequency(_DriverState._CurrentTrack, cx);
 }
 
 //  PCM VOLUME SET
@@ -3570,13 +3587,13 @@ void PMD::volsetm(Track * qq)
     //------------------------------------------------------------------------
     //  音量down計算
     //------------------------------------------------------------------------
-    al = ((256 - _OpenWork.pcm_voldown) * al) >> 8;
+    al = ((256 - _State.pcm_voldown) * al) >> 8;
 
     //------------------------------------------------------------------------
     //  Fadeout計算
     //------------------------------------------------------------------------
-    if (_OpenWork._FadeOutVolume)
-        al = (((256 - _OpenWork._FadeOutVolume) * (256 - _OpenWork._FadeOutVolume) >> 8) * al) >> 8;
+    if (_State._FadeOutVolume)
+        al = (((256 - _State._FadeOutVolume) * (256 - _State._FadeOutVolume) >> 8) * al) >> 8;
 
     //------------------------------------------------------------------------
     //  ENVELOPE 計算
@@ -3666,13 +3683,13 @@ void PMD::volset8(Track * qq)
     //------------------------------------------------------------------------
     //  音量down計算
     //------------------------------------------------------------------------
-    al = ((256 - _OpenWork.pcm_voldown) * al) >> 8;
+    al = ((256 - _State.pcm_voldown) * al) >> 8;
 
     //------------------------------------------------------------------------
     //  Fadeout計算
     //------------------------------------------------------------------------
-    if (_OpenWork._FadeOutVolume != 0)
-        al = ((256 - _OpenWork._FadeOutVolume) * al) >> 8;
+    if (_State._FadeOutVolume != 0)
+        al = ((256 - _State._FadeOutVolume) * al) >> 8;
 
     //------------------------------------------------------------------------
     //  ENVELOPE 計算
@@ -3739,7 +3756,7 @@ void PMD::volset8(Track * qq)
             al = 0;
     }
 
-    if (_OpenWork.pcm86_vol)
+    if (_State.pcm86_vol)
         al = (int) ::sqrt(al); //  SPBと同様の音量設定
     else
         al >>= 4;
@@ -3755,21 +3772,21 @@ void PMD::volsetz(Track * qq)
     //------------------------------------------------------------------------
     //  音量down計算
     //------------------------------------------------------------------------
-    al = ((256 - _OpenWork.ppz_voldown) * al) >> 8;
+    al = ((256 - _State.ppz_voldown) * al) >> 8;
 
     //------------------------------------------------------------------------
     //  Fadeout計算
     //------------------------------------------------------------------------
-    if (_OpenWork._FadeOutVolume != 0)
-        al = ((256 - _OpenWork._FadeOutVolume) * al) >> 8;
+    if (_State._FadeOutVolume != 0)
+        al = ((256 - _State._FadeOutVolume) * al) >> 8;
 
     //------------------------------------------------------------------------
     //  ENVELOPE 計算
     //------------------------------------------------------------------------
     if (al == 0)
     {
-        _PPZ8->SetVolume(pmdwork._CurrentTrack, 0);
-        _PPZ8->Stop(pmdwork._CurrentTrack);
+        _PPZ8->SetVolume(_DriverState._CurrentTrack, 0);
+        _PPZ8->Stop(_DriverState._CurrentTrack);
         return;
     }
 
@@ -3779,7 +3796,7 @@ void PMD::volsetz(Track * qq)
         if (qq->eenv_volume == 0)
         {
             //*@    ppz8->SetVol(pmdwork._CurrentPart, 0);
-            _PPZ8->Stop(pmdwork._CurrentTrack);
+            _PPZ8->Stop(_DriverState._CurrentTrack);
             return;
         }
 
@@ -3794,7 +3811,7 @@ void PMD::volsetz(Track * qq)
             if (al < ah)
             {
                 //*@      ppz8->SetVol(pmdwork._CurrentPart, 0);
-                _PPZ8->Stop(pmdwork._CurrentTrack);
+                _PPZ8->Stop(_DriverState._CurrentTrack);
                 return;
             }
             else
@@ -3834,9 +3851,9 @@ void PMD::volsetz(Track * qq)
     }
 
     if (al != 0)
-        _PPZ8->SetVolume(pmdwork._CurrentTrack, al >> 4);
+        _PPZ8->SetVolume(_DriverState._CurrentTrack, al >> 4);
     else
-        _PPZ8->Stop(pmdwork._CurrentTrack);
+        _PPZ8->Stop(_DriverState._CurrentTrack);
 }
 
 //  ADPCM FNUM SET
@@ -3891,7 +3908,7 @@ void PMD::fnumset8(Track * qq, int al)
     ah = al & 0x0f;
     if (ah != 0x0f)
     {      // 音符の場合
-        if (_OpenWork.pcm86_vol && al >= 0x65)
+        if (_State.pcm86_vol && al >= 0x65)
         {    // o7e?
             if (ah < 5)
             {
@@ -3962,14 +3979,14 @@ uint8_t * PMD::portam(Track * qq, uint8_t * si)
         qq->keyon_flag++;
         qq->address = si + 3;
 
-        if (--pmdwork.volpush_flag)
+        if (--_DriverState.volpush_flag)
         {
             qq->volpush = 0;
         }
 
-        pmdwork.tieflag = 0;
-        pmdwork.volpush_flag = 0;
-        pmdwork.loop_work &= qq->loopcheck;
+        _DriverState.tieflag = 0;
+        _DriverState.volpush_flag = 0;
+        _DriverState.loop_work &= qq->loopcheck;
         return si + 3;    // 読み飛ばす  (Mask時)
     }
 
@@ -3995,9 +4012,9 @@ uint8_t * PMD::portam(Track * qq, uint8_t * si)
 
     if (qq->volpush && qq->onkai != 255)
     {
-        if (--pmdwork.volpush_flag)
+        if (--_DriverState.volpush_flag)
         {
-            pmdwork.volpush_flag = 0;
+            _DriverState.volpush_flag = 0;
             qq->volpush = 0;
         }
     }
@@ -4012,8 +4029,8 @@ uint8_t * PMD::portam(Track * qq, uint8_t * si)
     qq->keyon_flag++;
     qq->address = si;
 
-    pmdwork.tieflag = 0;
-    pmdwork.volpush_flag = 0;
+    _DriverState.tieflag = 0;
+    _DriverState.volpush_flag = 0;
     qq->keyoff_flag = 0;
 
     if (*si == 0xfb)
@@ -4021,7 +4038,7 @@ uint8_t * PMD::portam(Track * qq, uint8_t * si)
         qq->keyoff_flag = 2;
     }
 
-    pmdwork.loop_work &= qq->loopcheck;
+    _DriverState.loop_work &= qq->loopcheck;
     return si;
 }
 
@@ -4038,14 +4055,14 @@ uint8_t * PMD::portaz(Track * qq, uint8_t * si)
         qq->keyon_flag++;
         qq->address = si + 3;
 
-        if (--pmdwork.volpush_flag)
+        if (--_DriverState.volpush_flag)
         {
             qq->volpush = 0;
         }
 
-        pmdwork.tieflag = 0;
-        pmdwork.volpush_flag = 0;
-        pmdwork.loop_work &= qq->loopcheck;
+        _DriverState.tieflag = 0;
+        _DriverState.volpush_flag = 0;
+        _DriverState.loop_work &= qq->loopcheck;
         return si + 3;    // 読み飛ばす  (Mask時)
     }
 
@@ -4070,9 +4087,9 @@ uint8_t * PMD::portaz(Track * qq, uint8_t * si)
 
     if (qq->volpush && qq->onkai != 255)
     {
-        if (--pmdwork.volpush_flag)
+        if (--_DriverState.volpush_flag)
         {
-            pmdwork.volpush_flag = 0;
+            _DriverState.volpush_flag = 0;
             qq->volpush = 0;
         }
     }
@@ -4087,8 +4104,8 @@ uint8_t * PMD::portaz(Track * qq, uint8_t * si)
     qq->keyon_flag++;
     qq->address = si;
 
-    pmdwork.tieflag = 0;
-    pmdwork.volpush_flag = 0;
+    _DriverState.tieflag = 0;
+    _DriverState.volpush_flag = 0;
     qq->keyoff_flag = 0;
 
     if (*si == 0xfb)
@@ -4096,7 +4113,7 @@ uint8_t * PMD::portaz(Track * qq, uint8_t * si)
         qq->keyoff_flag = 2;
     }
 
-    pmdwork.loop_work &= qq->loopcheck;
+    _DriverState.loop_work &= qq->loopcheck;
     return si;
 }
 
@@ -4111,17 +4128,17 @@ void PMD::keyoffm(Track * qq)
         if (qq->eenv_count == 4) return;
     }
 
-    if (pmdwork.pcmrelease != 0x8000)
+    if (_DriverState.pcmrelease != 0x8000)
     {
         // PCM RESET
         _OPNA->SetReg(0x100, 0x21);
 
-        _OPNA->SetReg(0x102, (uint32_t) LOBYTE(pmdwork.pcmrelease));
-        _OPNA->SetReg(0x103, (uint32_t) HIBYTE(pmdwork.pcmrelease));
+        _OPNA->SetReg(0x102, (uint32_t) LOBYTE(_DriverState.pcmrelease));
+        _OPNA->SetReg(0x103, (uint32_t) HIBYTE(_DriverState.pcmrelease));
 
         // Stop ADDRESS for Release
-        _OPNA->SetReg(0x104, (uint32_t) LOBYTE(_OpenWork.pcmstop));
-        _OPNA->SetReg(0x105, (uint32_t) HIBYTE(_OpenWork.pcmstop));
+        _OPNA->SetReg(0x104, (uint32_t) LOBYTE(_State.pcmstop));
+        _OPNA->SetReg(0x105, (uint32_t) HIBYTE(_State.pcmstop));
 
         // PCM PLAY(non_repeat)
         _OPNA->SetReg(0x100, 0xa0);
@@ -4196,40 +4213,40 @@ uint8_t * PMD::pcmrepeat_set(Track *, uint8_t * si)
 
     if (ax >= 0)
     {
-        ax += _OpenWork.pcmstart;
+        ax += _State.pcmstart;
     }
     else
     {
-        ax += _OpenWork.pcmstop;
+        ax += _State.pcmstop;
     }
 
-    pmdwork.pcmrepeat1 = ax;
+    _DriverState.pcmrepeat1 = ax;
 
     ax = *(int16_t *) si;
     si += 2;
     if (ax > 0)
     {
-        ax += _OpenWork.pcmstart;
+        ax += _State.pcmstart;
     }
     else
     {
-        ax += _OpenWork.pcmstop;
+        ax += _State.pcmstop;
     }
 
-    pmdwork.pcmrepeat2 = ax;
+    _DriverState.pcmrepeat2 = ax;
 
     ax = *(uint16_t *) si;
     si += 2;
     if (ax < 0x8000)
     {
-        ax += _OpenWork.pcmstart;
+        ax += _State.pcmstart;
     }
     else if (ax > 0x8000)
     {
-        ax += _OpenWork.pcmstop;
+        ax += _State.pcmstop;
     }
 
-    pmdwork.pcmrelease = ax;
+    _DriverState.pcmrelease = ax;
     return si;
 }
 
@@ -4244,7 +4261,7 @@ uint8_t * PMD::pcmrepeat_set8(Track *, uint8_t * si)
     si += 2;
     release_start = *(int16_t *) si;
 
-    if (_OpenWork.pcm86_vol)
+    if (_State.pcm86_vol)
     {
         _P86->SetLoop(loop_start, loop_end, release_start, true);
     }
@@ -4290,7 +4307,7 @@ uint8_t * PMD::ppzrepeat_set(Track * qq, uint8_t * data)
             LoopEnd = (int) (_PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].Size - LoopEnd);
     }
 
-    _PPZ8->SetLoop(pmdwork._CurrentTrack, (uint32_t) LoopStart, (uint32_t) LoopEnd);
+    _PPZ8->SetLoop(_DriverState._CurrentTrack, (uint32_t) LoopStart, (uint32_t) LoopEnd);
 
     return data + 2;
 }
@@ -4303,7 +4320,7 @@ uint8_t * PMD::vol_one_up_pcm(Track * qq, uint8_t * si)
     if (al > 254) al = 254;
     al++;
     qq->volpush = al;
-    pmdwork.volpush_flag = 1;
+    _DriverState.volpush_flag = 1;
     return si;
 }
 
@@ -4359,7 +4376,7 @@ uint8_t * PMD::panset8(Track *, uint8_t * si)
 uint8_t * PMD::pansetz(Track * qq, uint8_t * si)
 {
     qq->fmpan = ppzpandata[*si++];
-    _PPZ8->SetPan(pmdwork._CurrentTrack, qq->fmpan);
+    _PPZ8->SetPan(_DriverState._CurrentTrack, qq->fmpan);
     return si;
 }
 
@@ -4382,18 +4399,18 @@ uint8_t * PMD::pansetz_ex(Track * qq, uint8_t * si)
     }
 
     qq->fmpan = al + 5;
-    _PPZ8->SetPan(pmdwork._CurrentTrack, qq->fmpan);
+    _PPZ8->SetPan(_DriverState._CurrentTrack, qq->fmpan);
     return si;
 }
 
 uint8_t * PMD::comatm(Track * qq, uint8_t * si)
 {
     qq->voicenum = *si++;
-    _OpenWork.pcmstart = pcmends.Address[qq->voicenum][0];
-    _OpenWork.pcmstop = pcmends.Address[qq->voicenum][1];
-    pmdwork.pcmrepeat1 = 0;
-    pmdwork.pcmrepeat2 = 0;
-    pmdwork.pcmrelease = 0x8000;
+    _State.pcmstart = pcmends.Address[qq->voicenum][0];
+    _State.pcmstop = pcmends.Address[qq->voicenum][1];
+    _DriverState.pcmrepeat1 = 0;
+    _DriverState.pcmrepeat2 = 0;
+    _DriverState.pcmrelease = 0x8000;
     return si;
 }
 
@@ -4410,13 +4427,13 @@ uint8_t * PMD::comatz(Track * qq, uint8_t * si)
 
     if ((qq->voicenum & 0x80) == 0)
     {
-        _PPZ8->SetLoop(pmdwork._CurrentTrack, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].LoopStart, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].LoopEnd);
-        _PPZ8->SetSourceRate(pmdwork._CurrentTrack, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].SampleRate);
+        _PPZ8->SetLoop(_DriverState._CurrentTrack, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].LoopStart, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].LoopEnd);
+        _PPZ8->SetSourceRate(_DriverState._CurrentTrack, _PPZ8->PCME_WORK[0].pcmnum[qq->voicenum].SampleRate);
     }
     else
     {
-        _PPZ8->SetLoop(pmdwork._CurrentTrack, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].LoopStart, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].LoopEnd);
-        _PPZ8->SetSourceRate(pmdwork._CurrentTrack, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].SampleRate);
+        _PPZ8->SetLoop(_DriverState._CurrentTrack, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].LoopStart, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].LoopEnd);
+        _PPZ8->SetSourceRate(_DriverState._CurrentTrack, _PPZ8->PCME_WORK[1].pcmnum[qq->voicenum & 0x7f].SampleRate);
     }
     return si;
 }
@@ -4431,7 +4448,7 @@ int PMD::ssgdrum_check(Track * qq, int al)
     if ((qq->partmask & 1) || ((qq->partmask & 2) == 0)) return 0;
 
     // 普通の効果音は消さない
-    if (effwork.effon >= 2) return 0;
+    if (_EffectState.effon >= 2) return 0;
 
     al = (al & 0x0f);
 
@@ -4439,7 +4456,7 @@ int PMD::ssgdrum_check(Track * qq, int al)
     if (al == 0x0f) return 0;
 
     // SSGドラムはまだ再生中か？
-    if (effwork.effon == 1)
+    if (_EffectState.effon == 1)
     {
         effend();      // SSGドラムを消す
     }
@@ -4459,7 +4476,7 @@ uint8_t * PMD::FMCommands(Track * ps, uint8_t * si)
         case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
 
-        case 0xfb: pmdwork.tieflag |= 1; break;
+        case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
         case 0xf9: si = comstloop(ps, si); break;
         case 0xf8: si = comedloop(ps, si); break;
@@ -4472,7 +4489,7 @@ uint8_t * PMD::FMCommands(Track * ps, uint8_t * si)
         case 0xf1: si = lfoswitch(ps, si); ch3_setting(ps); break;
         case 0xf0: si += 4; break;
 
-        case 0xef: _OPNA->SetReg((uint32_t) (pmdwork.fmsel + *si), (uint32_t) (*(si + 1))); si += 2; break;
+        case 0xef: _OPNA->SetReg((uint32_t) (_DriverState.fmsel + *si), (uint32_t) (*(si + 1))); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
         case 0xec: si = panset(ps, si); break;        // FOR SB2
@@ -4494,15 +4511,15 @@ uint8_t * PMD::FMCommands(Track * ps, uint8_t * si)
             break;
             //
         case 0xe1: si = hlfo_set(ps, si); break;
-        case 0xe0: _OpenWork.port22h = *si; _OPNA->SetReg(0x22, *si++); break;
+        case 0xe0: _State.port22h = *si; _OPNA->SetReg(0x22, *si++); break;
             //
-        case 0xdf: _OpenWork.syousetu_lng = *si++; break;
+        case 0xdf: _State.syousetu_lng = *si++; break;
             //
         case 0xde: si = vol_one_up_fm(ps, si); break;
         case 0xdd: si = vol_one_down(ps, si); break;
             //
-        case 0xdc: _OpenWork.status = *si++; break;
-        case 0xdb: _OpenWork.status += *si++; break;
+        case 0xdc: _State.status = *si++; break;
+        case 0xdb: _State.status += *si++; break;
             //
         case 0xda: si = porta(ps, si); break;
             //
@@ -4516,8 +4533,8 @@ uint8_t * PMD::FMCommands(Track * ps, uint8_t * si)
         case 0xd4: si = ssg_efct_set(ps, si); break;
         case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
-            _OpenWork.fadeout_flag = 1;
-            _OpenWork._FadeOutSpeed = *si++;
+            _State.fadeout_flag = 1;
+            _State._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -4597,7 +4614,7 @@ uint8_t * PMD::PSGCommands(Track * ps, uint8_t * si)
         case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
 
-        case 0xfb: pmdwork.tieflag |= 1; break;
+        case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
         case 0xf9: si = comstloop(ps, si); break;
         case 0xf8: si = comedloop(ps, si); break;
@@ -4611,7 +4628,7 @@ uint8_t * PMD::PSGCommands(Track * ps, uint8_t * si)
         case 0xf0: si = psgenvset(ps, si); break;
 
         case 0xef: _OPNA->SetReg(*si, *(si + 1)); si += 2; break;
-        case 0xee: _OpenWork.psnoi = *si++; break;
+        case 0xee: _State.psnoi = *si++; break;
         case 0xed: ps->psgpat = *si++; break;
             //
         case 0xec: si++; break;
@@ -4634,13 +4651,13 @@ uint8_t * PMD::PSGCommands(Track * ps, uint8_t * si)
         case 0xe1: si++; break;
         case 0xe0: si++; break;
             //
-        case 0xdf: _OpenWork.syousetu_lng = *si++; break;
+        case 0xdf: _State.syousetu_lng = *si++; break;
             //
         case 0xde: si = vol_one_up_psg(ps, si); break;
         case 0xdd: si = vol_one_down(ps, si); break;
             //
-        case 0xdc: _OpenWork.status = *si++; break;
-        case 0xdb: _OpenWork.status += *si++; break;
+        case 0xdc: _State.status = *si++; break;
+        case 0xdb: _State.status += *si++; break;
             //
         case 0xda: si = portap(ps, si); break;
             //
@@ -4654,8 +4671,8 @@ uint8_t * PMD::PSGCommands(Track * ps, uint8_t * si)
         case 0xd4: si = ssg_efct_set(ps, si); break;
         case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
-            _OpenWork.fadeout_flag = 1;
-            _OpenWork._FadeOutSpeed = *si++;
+            _State.fadeout_flag = 1;
+            _State._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -4758,7 +4775,7 @@ uint8_t * PMD::RhythmCommands(Track * ps, uint8_t * si)
         case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
 
-        case 0xfb: pmdwork.tieflag |= 1; break;
+        case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
         case 0xf9: si = comstloop(ps, si); break;
         case 0xf8: si = comedloop(ps, si); break;
@@ -4793,13 +4810,13 @@ uint8_t * PMD::RhythmCommands(Track * ps, uint8_t * si)
         case 0xe1: si++; break;
         case 0xe0: si++; break;
             //
-        case 0xdf: _OpenWork.syousetu_lng = *si++; break;
+        case 0xdf: _State.syousetu_lng = *si++; break;
             //
         case 0xde: si = vol_one_up_psg(ps, si); break;
         case 0xdd: si = vol_one_down(ps, si); break;
             //
-        case 0xdc: _OpenWork.status = *si++; break;
-        case 0xdb: _OpenWork.status += *si++; break;
+        case 0xdc: _State.status = *si++; break;
+        case 0xdb: _State.status += *si++; break;
             //
         case 0xda: si++; break;
             //
@@ -4813,8 +4830,8 @@ uint8_t * PMD::RhythmCommands(Track * ps, uint8_t * si)
         case 0xd4: si = ssg_efct_set(ps, si); break;
         case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
-            _OpenWork.fadeout_flag = 1;
-            _OpenWork._FadeOutSpeed = *si++;
+            _State.fadeout_flag = 1;
+            _State._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -4870,7 +4887,7 @@ uint8_t * PMD::ADPCMCommands(Track * ps, uint8_t * si)
         case 0xfe: ps->qdata = *si++; break;
         case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
-        case 0xfb: pmdwork.tieflag |= 1; break;
+        case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
         case 0xf9: si = comstloop(ps, si); break;
         case 0xf8: si = comedloop(ps, si); break;
@@ -4916,13 +4933,13 @@ uint8_t * PMD::ADPCMCommands(Track * ps, uint8_t * si)
         case 0xe1: si++; break;
         case 0xe0: si++; break;
             //
-        case 0xdf: _OpenWork.syousetu_lng = *si++; break;
+        case 0xdf: _State.syousetu_lng = *si++; break;
             //
         case 0xde: si = vol_one_up_pcm(ps, si); break;
         case 0xdd: si = vol_one_down(ps, si); break;
             //
-        case 0xdc: _OpenWork.status = *si++; break;
-        case 0xdb: _OpenWork.status += *si++; break;
+        case 0xdc: _State.status = *si++; break;
+        case 0xdb: _State.status += *si++; break;
             //
         case 0xda: si = portam(ps, si); break;
             //
@@ -4936,8 +4953,8 @@ uint8_t * PMD::ADPCMCommands(Track * ps, uint8_t * si)
         case 0xd4: si = ssg_efct_set(ps, si); break;
         case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
-            _OpenWork.fadeout_flag = 1;
-            _OpenWork._FadeOutSpeed = *si++;
+            _State.fadeout_flag = 1;
+            _State._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -5030,7 +5047,7 @@ uint8_t * PMD::PCM86Commands(Track * ps, uint8_t * si)
         case 0xfe: ps->qdata = *si++; break;
         case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
-        case 0xfb: pmdwork.tieflag |= 1; break;
+        case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
         case 0xf9: si = comstloop(ps, si); break;
         case 0xf8: si = comedloop(ps, si); break;
@@ -5076,13 +5093,13 @@ uint8_t * PMD::PCM86Commands(Track * ps, uint8_t * si)
         case 0xe1: si++; break;
         case 0xe0: si++; break;
             //
-        case 0xdf: _OpenWork.syousetu_lng = *si++; break;
+        case 0xdf: _State.syousetu_lng = *si++; break;
             //
         case 0xde: si = vol_one_up_pcm(ps, si); break;
         case 0xdd: si = vol_one_down(ps, si); break;
             //
-        case 0xdc: _OpenWork.status = *si++; break;
-        case 0xdb: _OpenWork.status += *si++; break;
+        case 0xdc: _State.status = *si++; break;
+        case 0xdb: _State.status += *si++; break;
             //
         case 0xda: si++; break;
             //
@@ -5096,8 +5113,8 @@ uint8_t * PMD::PCM86Commands(Track * ps, uint8_t * si)
         case 0xd4: si = ssg_efct_set(ps, si); break;
         case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
-            _OpenWork.fadeout_flag = 1;
-            _OpenWork._FadeOutSpeed = *si++;
+            _State.fadeout_flag = 1;
+            _State._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -5160,7 +5177,7 @@ uint8_t * PMD::PPZ8Commands(Track * ps, uint8_t * si)
         case 0xfd: ps->volume = *si++; break;
         case 0xfc: si = comt(si); break;
 
-        case 0xfb: pmdwork.tieflag |= 1; break;
+        case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
         case 0xf9: si = comstloop(ps, si); break;
         case 0xf8: si = comedloop(ps, si); break;
@@ -5179,7 +5196,7 @@ uint8_t * PMD::PPZ8Commands(Track * ps, uint8_t * si)
         case 0xf1: si = lfoswitch(ps, si); break;
         case 0xf0: si = psgenvset(ps, si); break;
 
-        case 0xef: _OPNA->SetReg((uint32_t) (pmdwork.fmsel + *si), (uint32_t) *(si + 1)); si += 2; break;
+        case 0xef: _OPNA->SetReg((uint32_t) (_DriverState.fmsel + *si), (uint32_t) *(si + 1)); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
         case 0xec: si = pansetz(ps, si); break;        // FOR SB2
@@ -5208,13 +5225,13 @@ uint8_t * PMD::PPZ8Commands(Track * ps, uint8_t * si)
         case 0xe1: si++; break;
         case 0xe0: si++; break;
             //
-        case 0xdf: _OpenWork.syousetu_lng = *si++; break;
+        case 0xdf: _State.syousetu_lng = *si++; break;
             //
         case 0xde: si = vol_one_up_pcm(ps, si); break;
         case 0xdd: si = vol_one_down(ps, si); break;
             //
-        case 0xdc: _OpenWork.status = *si++; break;
-        case 0xdb: _OpenWork.status += *si++; break;
+        case 0xdc: _State.status = *si++; break;
+        case 0xdb: _State.status += *si++; break;
             //
         case 0xda: si = portaz(ps, si); break;
             //
@@ -5228,8 +5245,8 @@ uint8_t * PMD::PPZ8Commands(Track * ps, uint8_t * si)
         case 0xd4: si = ssg_efct_set(ps, si); break;
         case 0xd3: si = fm_efct_set(ps, si); break;
         case 0xd2:
-            _OpenWork.fadeout_flag = 1;
-            _OpenWork._FadeOutSpeed = *si++;
+            _State.fadeout_flag = 1;
+            _State._FadeOutSpeed = *si++;
             break;
             //
         case 0xd1: si++; break;
@@ -5327,18 +5344,18 @@ uint8_t * PMD::comat(Track * qq, uint8_t * si)
         qq->slot4 = bx[3];
 
         //  FM3chで、マスクされていた場合、fm3_alg_fbを設定
-        if (pmdwork._CurrentTrack == 3 && qq->neiromask)
+        if (_DriverState._CurrentTrack == 3 && qq->neiromask)
         {
-            if (pmdwork.fmsel == 0)
+            if (_DriverState.fmsel == 0)
             {
                 // in. dl = alg/fb
                 if ((qq->slotmask & 0x10) == 0)
                 {
-                    al = pmdwork.fm3_alg_fb & 0x38;    // fbは前の値を使用
+                    al = _DriverState.fm3_alg_fb & 0x38;    // fbは前の値を使用
                     dl = (dl & 7) | al;
                 }
 
-                pmdwork.fm3_alg_fb = dl;
+                _DriverState.fm3_alg_fb = dl;
                 qq->alg_fb = al;
             }
         }
@@ -5376,9 +5393,9 @@ void PMD::neiroset(Track * qq, int dl)
     //  AL/FBを設定
     //-------------------------------------------------------------------------
 
-    dh = 0xb0 - 1 + pmdwork._CurrentTrack;
+    dh = 0xb0 - 1 + _DriverState._CurrentTrack;
 
-    if (pmdwork.af_check)
+    if (_DriverState.af_check)
     {    // ALG/FBは設定しないmodeか？
         dl = qq->alg_fb;
     }
@@ -5387,23 +5404,23 @@ void PMD::neiroset(Track * qq, int dl)
         dl = bx[24];
     }
 
-    if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
+    if (_DriverState._CurrentTrack == 3 && _DriverState.fmsel == 0)
     {
-        if (pmdwork.af_check != 0)
+        if (_DriverState.af_check != 0)
         {  // ALG/FBは設定しないmodeか？
-            dl = pmdwork.fm3_alg_fb;
+            dl = _DriverState.fm3_alg_fb;
         }
         else
         {
             if ((qq->slotmask & 0x10) == 0)
             {  // slot1を使用しているか？
-                dl = (pmdwork.fm3_alg_fb & 0x38) | (dl & 7);
+                dl = (_DriverState.fm3_alg_fb & 0x38) | (dl & 7);
             }
-            pmdwork.fm3_alg_fb = dl;
+            _DriverState.fm3_alg_fb = dl;
         }
     }
 
-    _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     qq->alg_fb = dl;
     dl &= 7;    // dl = algo
 
@@ -5430,104 +5447,104 @@ void PMD::neiroset(Track * qq, int dl)
     //  各音色パラメータを設定 (TLはモジュレータのみ)
     //-------------------------------------------------------------------------
 
-    dh = 0x30 - 1 + pmdwork._CurrentTrack;
+    dh = 0x30 - 1 + _DriverState._CurrentTrack;
     dl = *bx++;        // DT/ML
-    if (al & 0x80) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x80) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x40) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x40) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x20) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x20) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x10) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x10) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // TL
-    if (ah & 0x80) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (ah & 0x80) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (ah & 0x40) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh),(uint32_t) dl);
+    if (ah & 0x40) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh),(uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (ah & 0x20) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (ah & 0x20) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (ah & 0x10) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (ah & 0x10) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // KS/AR
-    if (al & 0x08) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x08) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x04) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x04) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x02) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x02) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x01) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x01) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // AM/DR
-    if (al & 0x80) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x80) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x40) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x40) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x20) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x20) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x10) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x10) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // SR
-    if (al & 0x08) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x08) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x04) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x04) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x02) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x02) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x01) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x01) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // SL/RR
     if (al & 0x80)
     {
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     }
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x40) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x40) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x20) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x20) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x10) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+    if (al & 0x10) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     /*
@@ -5564,36 +5581,36 @@ int PMD::MuteFMPart(Track * qq)
     if (qq->neiromask == 0)
         return 1;
 
-    int dh = pmdwork._CurrentTrack + 0x40 - 1;
+    int dh = _DriverState._CurrentTrack + 0x40 - 1;
 
     if (qq->neiromask & 0x80)
     {
-        _OPNA->SetReg((uint32_t) ( pmdwork.fmsel         + dh), 127);
-        _OPNA->SetReg((uint32_t) ((pmdwork.fmsel + 0x40) + dh), 127);
+        _OPNA->SetReg((uint32_t) ( _DriverState.fmsel         + dh), 127);
+        _OPNA->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
     }
 
     dh += 4;
 
     if (qq->neiromask & 0x40)
     {
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), 127);
-        _OPNA->SetReg((uint32_t) ((pmdwork.fmsel + 0x40) + dh), 127);
+        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), 127);
+        _OPNA->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
     }
 
     dh += 4;
 
     if (qq->neiromask & 0x20)
     {
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), 127);
-        _OPNA->SetReg((uint32_t) ((pmdwork.fmsel + 0x40) + dh), 127);
+        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), 127);
+        _OPNA->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
     }
 
     dh += 4;
 
     if (qq->neiromask & 0x10)
     {
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), 127);
-        _OPNA->SetReg((uint32_t) ((pmdwork.fmsel + 0x40) + dh), 127);
+        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), 127);
+        _OPNA->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
     }
 
     kof1(qq);
@@ -5608,17 +5625,17 @@ uint8_t * PMD::toneadr_calc(Track * qq, int dl)
 {
     uint8_t * bx;
 
-    if (_OpenWork.prg_flg == 0 && qq != &_EffectTrack)
-        return _OpenWork._VData + ((size_t) dl << 5);
+    if (_State.prg_flg == 0 && qq != &_EffectTrack)
+        return _State._VData + ((size_t) dl << 5);
 
-    bx = _OpenWork.prgdat_adr;
+    bx = _State.prgdat_adr;
 
     while (*bx != dl)
     {
         bx += 26;
 
         if (bx > _MData + sizeof(_MData) - 26)
-            return _OpenWork.prgdat_adr + 1; // Set first timbre if not found.
+            return _State.prgdat_adr + 1; // Set first timbre if not found.
     }
 
     return bx + 1;
@@ -5629,7 +5646,7 @@ uint8_t * PMD::hlfo_set(Track * qq, uint8_t * si)
 {
     qq->fmpan = (qq->fmpan & 0xc0) | *si++;
 
-    if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
+    if (_DriverState._CurrentTrack == 3 && _DriverState.fmsel == 0)
     {
         // Part_e is impossible because it is only for 2608
         // For FM3, set all four parts
@@ -5641,7 +5658,7 @@ uint8_t * PMD::hlfo_set(Track * qq, uint8_t * si)
 
     if (qq->partmask == 0)
     {    // パートマスクされているか？
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork._CurrentTrack + 0xb4 - 1), calc_panout(qq));
+        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentTrack + 0xb4 - 1), calc_panout(qq));
     }
     return si;
 }
@@ -5655,7 +5672,7 @@ uint8_t * PMD::vol_one_up_fm(Track * qq, uint8_t * si)
     if (al > 128) al = 128;
 
     qq->volpush = al;
-    pmdwork.volpush_flag = 1;
+    _DriverState.volpush_flag = 1;
     return si;
 }
 
@@ -5672,14 +5689,14 @@ uint8_t * PMD::porta(Track * track, uint8_t * si)
         track->keyon_flag++;
         track->address = si + 3;
 
-        if (--pmdwork.volpush_flag)
+        if (--_DriverState.volpush_flag)
         {
             track->volpush = 0;
         }
 
-        pmdwork.tieflag = 0;
-        pmdwork.volpush_flag = 0;
-        pmdwork.loop_work &= track->loopcheck;
+        _DriverState.tieflag = 0;
+        _DriverState.volpush_flag = 0;
+        _DriverState.loop_work &= track->loopcheck;
 
         return si + 3;    // 読み飛ばす  (Mask時)
     }
@@ -5720,9 +5737,9 @@ uint8_t * PMD::porta(Track * track, uint8_t * si)
 
     if (track->volpush && track->onkai != 255)
     {
-        if (--pmdwork.volpush_flag)
+        if (--_DriverState.volpush_flag)
         {
-            pmdwork.volpush_flag = 0;
+            _DriverState.volpush_flag = 0;
             track->volpush = 0;
         }
     }
@@ -5734,8 +5751,8 @@ uint8_t * PMD::porta(Track * track, uint8_t * si)
     track->keyon_flag++;
     track->address = si;
 
-    pmdwork.tieflag = 0;
-    pmdwork.volpush_flag = 0;
+    _DriverState.tieflag = 0;
+    _DriverState.volpush_flag = 0;
 
     if (*si == 0xfb)
     {    // '&'が直後にあったらkeyoffしない
@@ -5745,7 +5762,7 @@ uint8_t * PMD::porta(Track * track, uint8_t * si)
     {
         track->keyoff_flag = 0;
     }
-    pmdwork.loop_work &= track->loopcheck;
+    _DriverState.loop_work &= track->loopcheck;
     return si;
 }
 
@@ -5763,9 +5780,9 @@ uint8_t * PMD::slotmask_set(Track * qq, uint8_t * si)
     }
     else
     {
-        if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
+        if (_DriverState._CurrentTrack == 3 && _DriverState.fmsel == 0)
         {
-            bl = pmdwork.fm3_alg_fb;
+            bl = _DriverState.fm3_alg_fb;
         }
         else
         {
@@ -5825,7 +5842,7 @@ uint8_t * PMD::slotdetune_set(Track * qq, uint8_t * si)
 {
     int    ax, bl;
 
-    if (pmdwork._CurrentTrack != 3 || pmdwork.fmsel)
+    if (_DriverState._CurrentTrack != 3 || _DriverState.fmsel)
     {
         return si + 3;
     }
@@ -5836,33 +5853,33 @@ uint8_t * PMD::slotdetune_set(Track * qq, uint8_t * si)
 
     if (bl & 1)
     {
-        _OpenWork.slot_detune1 = ax;
+        _State.slot_detune1 = ax;
     }
 
     if (bl & 2)
     {
-        _OpenWork.slot_detune2 = ax;
+        _State.slot_detune2 = ax;
     }
 
     if (bl & 4)
     {
-        _OpenWork.slot_detune3 = ax;
+        _State.slot_detune3 = ax;
     }
 
     if (bl & 8)
     {
-        _OpenWork.slot_detune4 = ax;
+        _State.slot_detune4 = ax;
     }
 
-    if (_OpenWork.slot_detune1 || _OpenWork.slot_detune2 ||
-        _OpenWork.slot_detune3 || _OpenWork.slot_detune4)
+    if (_State.slot_detune1 || _State.slot_detune2 ||
+        _State.slot_detune3 || _State.slot_detune4)
     {
-        pmdwork.slotdetune_flag = 1;
+        _DriverState.slotdetune_flag = 1;
     }
     else
     {
-        pmdwork.slotdetune_flag = 0;
-        _OpenWork.slot_detune1 = 0;
+        _DriverState.slotdetune_flag = 0;
+        _State.slot_detune1 = 0;
     }
     ch3mode_set(qq);
     return si;
@@ -5873,7 +5890,7 @@ uint8_t * PMD::slotdetune_set2(Track * qq, uint8_t * si)
 {
     int    ax, bl;
 
-    if (pmdwork._CurrentTrack != 3 || pmdwork.fmsel)
+    if (_DriverState._CurrentTrack != 3 || _DriverState.fmsel)
     {
         return si + 3;
     }
@@ -5884,33 +5901,33 @@ uint8_t * PMD::slotdetune_set2(Track * qq, uint8_t * si)
 
     if (bl & 1)
     {
-        _OpenWork.slot_detune1 += ax;
+        _State.slot_detune1 += ax;
     }
 
     if (bl & 2)
     {
-        _OpenWork.slot_detune2 += ax;
+        _State.slot_detune2 += ax;
     }
 
     if (bl & 4)
     {
-        _OpenWork.slot_detune3 += ax;
+        _State.slot_detune3 += ax;
     }
 
     if (bl & 8)
     {
-        _OpenWork.slot_detune4 += ax;
+        _State.slot_detune4 += ax;
     }
 
-    if (_OpenWork.slot_detune1 || _OpenWork.slot_detune2 ||
-        _OpenWork.slot_detune3 || _OpenWork.slot_detune4)
+    if (_State.slot_detune1 || _State.slot_detune2 ||
+        _State.slot_detune3 || _State.slot_detune4)
     {
-        pmdwork.slotdetune_flag = 1;
+        _DriverState.slotdetune_flag = 1;
     }
     else
     {
-        pmdwork.slotdetune_flag = 0;
-        _OpenWork.slot_detune1 = 0;
+        _DriverState.slotdetune_flag = 0;
+        _State.slot_detune1 = 0;
     }
     ch3mode_set(qq);
     return si;
@@ -5939,15 +5956,15 @@ uint8_t * PMD::fm3_extpartset(Track *, uint8_t * si)
 
     ax = *(int16_t *) si;
     si += 2;
-    if (ax) fm3_partinit(&ExtPart[0], &_OpenWork._MData[ax]);
+    if (ax) fm3_partinit(&ExtPart[0], &_State._MData[ax]);
 
     ax = *(int16_t *) si;
     si += 2;
-    if (ax) fm3_partinit(&ExtPart[1], &_OpenWork._MData[ax]);
+    if (ax) fm3_partinit(&ExtPart[1], &_State._MData[ax]);
 
     ax = *(int16_t *) si;
     si += 2;
-    if (ax) fm3_partinit(&ExtPart[2], &_OpenWork._MData[ax]);
+    if (ax) fm3_partinit(&ExtPart[2], &_State._MData[ax]);
     return si;
 }
 
@@ -5961,7 +5978,7 @@ uint8_t * PMD::ppz_extpartset(Track *, uint8_t * si)
 
         if (ax)
         {
-            PPZ8Part[i].address = &_OpenWork._MData[ax];
+            PPZ8Part[i].address = &_State._MData[ax];
             PPZ8Part[i].leng = 1;          // ｱﾄ 1ｶｳﾝﾄ ﾃﾞ ｴﾝｿｳ ｶｲｼ
             PPZ8Part[i].keyoff_flag = -1;      // 現在keyoff中
             PPZ8Part[i].mdc = -1;          // MDepth Counter (無限)
@@ -6001,16 +6018,16 @@ uint8_t * PMD::special_0c0h(Track * qq, uint8_t * si, uint8_t al)
 {
     switch (al)
     {
-        case 0xff: _OpenWork.fm_voldown = *si++; break;
+        case 0xff: _State.fm_voldown = *si++; break;
         case 0xfe: si = _vd_fm(qq, si); break;
-        case 0xfd: _OpenWork.ssg_voldown = *si++; break;
+        case 0xfd: _State.ssg_voldown = *si++; break;
         case 0xfc: si = _vd_ssg(qq, si); break;
-        case 0xfb: _OpenWork.pcm_voldown = *si++; break;
+        case 0xfb: _State.pcm_voldown = *si++; break;
         case 0xfa: si = _vd_pcm(qq, si); break;
-        case 0xf9: _OpenWork.rhythm_voldown = *si++; break;
+        case 0xf9: _State.rhythm_voldown = *si++; break;
         case 0xf8: si = _vd_rhythm(qq, si); break;
-        case 0xf7: _OpenWork.pcm86_vol = (*si++ & 1); break;
-        case 0xf6: _OpenWork.ppz_voldown = *si++; break;
+        case 0xf7: _State.pcm86_vol = (*si++ & 1); break;
+        case 0xf6: _State.ppz_voldown = *si++; break;
         case 0xf5: si = _vd_ppz(qq, si); break;
         default:
             si--;
@@ -6024,9 +6041,9 @@ uint8_t * PMD::_vd_fm(Track *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _OpenWork.fm_voldown = Limit(al + _OpenWork.fm_voldown, 255, 0);
+        _State.fm_voldown = Limit(al + _State.fm_voldown, 255, 0);
     else
-        _OpenWork.fm_voldown = _OpenWork._fm_voldown;
+        _State.fm_voldown = _State._fm_voldown;
 
     return si;
 }
@@ -6036,9 +6053,9 @@ uint8_t * PMD::_vd_ssg(Track *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _OpenWork.ssg_voldown = Limit(al + _OpenWork.ssg_voldown, 255, 0);
+        _State.ssg_voldown = Limit(al + _State.ssg_voldown, 255, 0);
     else
-        _OpenWork.ssg_voldown = _OpenWork._ssg_voldown;
+        _State.ssg_voldown = _State._ssg_voldown;
 
     return si;
 }
@@ -6048,9 +6065,9 @@ uint8_t * PMD::_vd_pcm(Track *, uint8_t * si)
     int  al = *(int8_t *) si++;
 
     if (al)
-        _OpenWork.pcm_voldown = Limit(al + _OpenWork.pcm_voldown, 255, 0);
+        _State.pcm_voldown = Limit(al + _State.pcm_voldown, 255, 0);
     else
-        _OpenWork.pcm_voldown = _OpenWork._pcm_voldown;
+        _State.pcm_voldown = _State._pcm_voldown;
 
     return si;
 }
@@ -6060,9 +6077,9 @@ uint8_t * PMD::_vd_rhythm(Track *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _OpenWork.rhythm_voldown = Limit(al + _OpenWork.rhythm_voldown, 255, 0);
+        _State.rhythm_voldown = Limit(al + _State.rhythm_voldown, 255, 0);
     else
-        _OpenWork.rhythm_voldown = _OpenWork._rhythm_voldown;
+        _State.rhythm_voldown = _State._rhythm_voldown;
 
     return si;
 }
@@ -6072,9 +6089,9 @@ uint8_t * PMD::_vd_ppz(Track *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _OpenWork.ppz_voldown = Limit(al + _OpenWork.ppz_voldown, 255, 0);
+        _State.ppz_voldown = Limit(al + _State.ppz_voldown, 255, 0);
     else
-        _OpenWork.ppz_voldown = _OpenWork._ppz_voldown;
+        _State.ppz_voldown = _State._ppz_voldown;
 
     return si;
 }
@@ -6116,7 +6133,7 @@ uint8_t * PMD::ssg_mml_part_mask(Track * qq, uint8_t * si)
 
         if (qq->partmask == 0x40)
         {
-            int ah = ((1 << (pmdwork._CurrentTrack - 1)) | (4 << pmdwork._CurrentTrack));
+            int ah = ((1 << (_DriverState._CurrentTrack - 1)) | (4 << _DriverState._CurrentTrack));
             uint32_t al = _OPNA->GetReg(0x07);
 
             _OPNA->SetReg(0x07, ah | al);    // PSG keyoff
@@ -6198,7 +6215,7 @@ uint8_t * PMD::ppz_mml_part_mask(Track * qq, uint8_t * si)
         qq->partmask |= 0x40;
 
         if (qq->partmask == 0x40)
-            _PPZ8->Stop(pmdwork._CurrentTrack);
+            _PPZ8->Stop(_DriverState._CurrentTrack);
     }
     else
         qq->partmask &= 0xbf;
@@ -6217,9 +6234,9 @@ void PMD::neiro_reset(Track * qq)
     int s3 = qq->slot3;
     int s4 = qq->slot4;
 
-    pmdwork.af_check = 1;
+    _DriverState.af_check = 1;
     neiroset(qq, qq->voicenum);    // 音色復帰
-    pmdwork.af_check = 0;
+    _DriverState.af_check = 0;
 
     qq->slot1 = s1;
     qq->slot2 = s2;
@@ -6233,26 +6250,26 @@ void PMD::neiro_reset(Track * qq)
     // al<- TLを再設定していいslot 4321xxxx
     if (al)
     {
-        dh = 0x4c - 1 + pmdwork._CurrentTrack;  // dh=TL FM Port Address
+        dh = 0x4c - 1 + _DriverState._CurrentTrack;  // dh=TL FM Port Address
 
-        if (al & 0x80) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) s4);
+        if (al & 0x80) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s4);
 
         dh -= 8;
 
-        if (al & 0x40) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) s3);
+        if (al & 0x40) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s3);
 
         dh += 4;
 
-        if (al & 0x20) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) s2);
+        if (al & 0x20) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s2);
 
         dh -= 8;
 
-        if (al & 0x10) _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) s1);
+        if (al & 0x10) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s1);
     }
 
-    dh = pmdwork._CurrentTrack + 0xb4 - 1;
+    dh = _DriverState._CurrentTrack + 0xb4 - 1;
 
-    _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), calc_panout(qq));
+    _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), calc_panout(qq));
 }
 
 uint8_t * PMD::_lfoswitch(Track * qq, uint8_t * si)
@@ -6288,7 +6305,7 @@ uint8_t * PMD::_volmask_set(Track * qq, uint8_t * si)
 //  TL変化
 uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
 {
-    int dh = 0x40 - 1 + pmdwork._CurrentTrack;    // dh=TL FM Port Address
+    int dh = 0x40 - 1 + _DriverState._CurrentTrack;    // dh=TL FM Port Address
     int al = *(int8_t *) si++;
     int ah = al & 0x0f;
     int ch = (qq->slotmask >> 4) | ((qq->slotmask << 4) & 0xf0);
@@ -6306,7 +6323,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             qq->slot1 = dl;
             if (qq->partmask == 0)
             {
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
         }
 
@@ -6316,7 +6333,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             qq->slot2 = dl;
             if (qq->partmask == 0)
             {
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
         }
 
@@ -6326,7 +6343,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             qq->slot3 = dl;
             if (qq->partmask == 0)
             {
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
         }
 
@@ -6336,7 +6353,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             qq->slot4 = dl;
             if (qq->partmask == 0)
             {
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
         }
     }
@@ -6353,7 +6370,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             }
             if (qq->partmask == 0)
             {
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
             qq->slot1 = dl;
         }
@@ -6368,7 +6385,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             }
             if (qq->partmask == 0)
             {
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
             qq->slot2 = dl;
         }
@@ -6383,7 +6400,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             }
             if (qq->partmask == 0)
             {
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
             qq->slot3 = dl;
         }
@@ -6398,7 +6415,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             }
             if (qq->partmask == 0)
             {
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
             qq->slot4 = dl;
         }
@@ -6411,7 +6428,7 @@ uint8_t * PMD::fb_set(Track * qq, uint8_t * si)
 {
     int dl;
 
-    int dh = pmdwork._CurrentTrack + 0xb0 - 1;  // dh=ALG/FB port address
+    int dh = _DriverState._CurrentTrack + 0xb0 - 1;  // dh=ALG/FB port address
     int al = *(int8_t *) si++;
 
     if (al >= 0)
@@ -6420,18 +6437,18 @@ uint8_t * PMD::fb_set(Track * qq, uint8_t * si)
         al = ((al << 3) & 0xff) | (al >> 5);
 
         // in  al 00xxx000 設定するFB
-        if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
+        if (_DriverState._CurrentTrack == 3 && _DriverState.fmsel == 0)
         {
             if ((qq->slotmask & 0x10) == 0) return si;
-            dl = (pmdwork.fm3_alg_fb & 7) | al;
-            pmdwork.fm3_alg_fb = dl;
+            dl = (_DriverState.fm3_alg_fb & 7) | al;
+            _DriverState.fm3_alg_fb = dl;
         }
         else
         {
             dl = (qq->alg_fb & 7) | al;
         }
 
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
         qq->alg_fb = dl;
 
         return si;
@@ -6441,9 +6458,9 @@ uint8_t * PMD::fb_set(Track * qq, uint8_t * si)
         if ((al & 0x40) == 0)
             al &= 7;
 
-        if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
+        if (_DriverState._CurrentTrack == 3 && _DriverState.fmsel == 0)
         {
-            dl = pmdwork.fm3_alg_fb;
+            dl = _DriverState.fm3_alg_fb;
         }
         else
         {
@@ -6458,18 +6475,18 @@ uint8_t * PMD::fb_set(Track * qq, uint8_t * si)
             if (al >= 8)
             {
                 al = 0x38;
-                if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
+                if (_DriverState._CurrentTrack == 3 && _DriverState.fmsel == 0)
                 {
                     if ((qq->slotmask & 0x10) == 0) return si;
 
-                    dl = (pmdwork.fm3_alg_fb & 7) | al;
-                    pmdwork.fm3_alg_fb = dl;
+                    dl = (_DriverState.fm3_alg_fb & 7) | al;
+                    _DriverState.fm3_alg_fb = dl;
                 }
                 else
                 {
                     dl = (qq->alg_fb & 7) | al;
                 }
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
                 qq->alg_fb = dl;
                 return si;
             }
@@ -6479,17 +6496,17 @@ uint8_t * PMD::fb_set(Track * qq, uint8_t * si)
                 al = ((al << 3) & 0xff) | (al >> 5);
 
                 // in  al 00xxx000 設定するFB
-                if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
+                if (_DriverState._CurrentTrack == 3 && _DriverState.fmsel == 0)
                 {
                     if ((qq->slotmask & 0x10) == 0) return si;
-                    dl = (pmdwork.fm3_alg_fb & 7) | al;
-                    pmdwork.fm3_alg_fb = dl;
+                    dl = (_DriverState.fm3_alg_fb & 7) | al;
+                    _DriverState.fm3_alg_fb = dl;
                 }
                 else
                 {
                     dl = (qq->alg_fb & 7) | al;
                 }
-                _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
                 qq->alg_fb = dl;
                 return si;
             }
@@ -6497,18 +6514,18 @@ uint8_t * PMD::fb_set(Track * qq, uint8_t * si)
         else
         {
             al = 0;
-            if (pmdwork._CurrentTrack == 3 && pmdwork.fmsel == 0)
+            if (_DriverState._CurrentTrack == 3 && _DriverState.fmsel == 0)
             {
                 if ((qq->slotmask & 0x10) == 0) return si;
 
-                dl = (pmdwork.fm3_alg_fb & 7) | al;
-                pmdwork.fm3_alg_fb = dl;
+                dl = (_DriverState.fm3_alg_fb & 7) | al;
+                _DriverState.fm3_alg_fb = dl;
             }
             else
             {
                 dl = (qq->alg_fb & 7) | al;
             }
-            _OPNA->SetReg((uint32_t) (pmdwork.fmsel + dh), (uint32_t) dl);
+            _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             qq->alg_fb = dl;
             return si;
         }
@@ -6526,8 +6543,8 @@ uint8_t * PMD::comt(uint8_t * si)
     al = *si++;
     if (al < 251)
     {
-        _OpenWork.tempo_d = al;    // T (FC)
-        _OpenWork.tempo_d_push = al;
+        _State.tempo_d = al;    // T (FC)
+        _State.tempo_d_push = al;
         calc_tb_tempo();
 
     }
@@ -6535,8 +6552,8 @@ uint8_t * PMD::comt(uint8_t * si)
     {
         al = *si++;          // t (FC FF)
         if (al < 18) al = 18;
-        _OpenWork.tempo_48 = al;
-        _OpenWork.tempo_48_push = al;
+        _State.tempo_48 = al;
+        _State.tempo_48_push = al;
         calc_tempo_tb();
 
     }
@@ -6545,11 +6562,11 @@ uint8_t * PMD::comt(uint8_t * si)
         al = int8_t(*si++);      // T± (FC FE)
         if (al >= 0)
         {
-            al += _OpenWork.tempo_d_push;
+            al += _State.tempo_d_push;
         }
         else
         {
-            al += _OpenWork.tempo_d_push;
+            al += _State.tempo_d_push;
             if (al < 0)
             {
                 al = 0;
@@ -6558,8 +6575,8 @@ uint8_t * PMD::comt(uint8_t * si)
 
         if (al > 250) al = 250;
 
-        _OpenWork.tempo_d = al;
-        _OpenWork.tempo_d_push = al;
+        _State.tempo_d = al;
+        _State.tempo_d_push = al;
         calc_tb_tempo();
 
     }
@@ -6568,7 +6585,7 @@ uint8_t * PMD::comt(uint8_t * si)
         al = int8_t(*si++);      // t± (FC FD)
         if (al >= 0)
         {
-            al += _OpenWork.tempo_48_push;
+            al += _State.tempo_48_push;
             if (al > 255)
             {
                 al = 255;
@@ -6576,12 +6593,12 @@ uint8_t * PMD::comt(uint8_t * si)
         }
         else
         {
-            al += _OpenWork.tempo_48_push;
+            al += _State.tempo_48_push;
             if (al < 0) al = 18;
         }
 
-        _OpenWork.tempo_48 = al;
-        _OpenWork.tempo_48_push = al;
+        _State.tempo_48 = al;
+        _State.tempo_48_push = al;
 
         calc_tempo_tb();
     }
@@ -6596,11 +6613,11 @@ uint8_t * PMD::comstloop(Track * qq, uint8_t * si)
 
     if (qq == &_EffectTrack)
     {
-        ax = _OpenWork._EData;
+        ax = _State._EData;
     }
     else
     {
-        ax = _OpenWork._MData;
+        ax = _State._MData;
     }
 
     ax[*(uint16_t *) si + 1] = 0;
@@ -6636,11 +6653,11 @@ uint8_t * PMD::comedloop(Track * qq, uint8_t * si)
 
     if (qq == &_EffectTrack)
     {
-        si = _OpenWork._EData + ax;
+        si = _State._EData + ax;
     }
     else
     {
-        si = _OpenWork._MData + ax;
+        si = _State._MData + ax;
     }
     return si;
 }
@@ -6654,11 +6671,11 @@ uint8_t * PMD::comexloop(Track * qq, uint8_t * si)
 
     if (qq == &_EffectTrack)
     {
-        bx = _OpenWork._EData;
+        bx = _State._EData;
     }
     else
     {
-        bx = _OpenWork._MData;
+        bx = _State._MData;
     }
 
 
@@ -6723,51 +6740,51 @@ uint8_t * PMD::psgenvset(Track * qq, uint8_t * si)
 //  "\?" COMMAND [ OPNA Rhythm Keyon/Dump ]
 uint8_t * PMD::rhykey(uint8_t * si)
 {
-    int dl = *si++ & _OpenWork.rhythmmask;
+    int dl = *si++ & _State.rhythmmask;
 
     if (dl == 0)
         return si;
 
-    if (_OpenWork._FadeOutVolume != 0)
+    if (_State._FadeOutVolume != 0)
     {
-        int al = ((256 - _OpenWork._FadeOutVolume) * _OpenWork.rhyvol) >> 8;
+        int al = ((256 - _State._FadeOutVolume) * _State.rhyvol) >> 8;
 
         _OPNA->SetReg(0x11, (uint32_t) al);
     }
 
     if (dl < 0x80)
     {
-        if (dl & 0x01) _OPNA->SetReg(0x18, (uint32_t) _OpenWork.rdat[0]);
-        if (dl & 0x02) _OPNA->SetReg(0x19, (uint32_t) _OpenWork.rdat[1]);
-        if (dl & 0x04) _OPNA->SetReg(0x1a, (uint32_t) _OpenWork.rdat[2]);
-        if (dl & 0x08) _OPNA->SetReg(0x1b, (uint32_t) _OpenWork.rdat[3]);
-        if (dl & 0x10) _OPNA->SetReg(0x1c, (uint32_t) _OpenWork.rdat[4]);
-        if (dl & 0x20) _OPNA->SetReg(0x1d, (uint32_t) _OpenWork.rdat[5]);
+        if (dl & 0x01) _OPNA->SetReg(0x18, (uint32_t) _State.rdat[0]);
+        if (dl & 0x02) _OPNA->SetReg(0x19, (uint32_t) _State.rdat[1]);
+        if (dl & 0x04) _OPNA->SetReg(0x1a, (uint32_t) _State.rdat[2]);
+        if (dl & 0x08) _OPNA->SetReg(0x1b, (uint32_t) _State.rdat[3]);
+        if (dl & 0x10) _OPNA->SetReg(0x1c, (uint32_t) _State.rdat[4]);
+        if (dl & 0x20) _OPNA->SetReg(0x1d, (uint32_t) _State.rdat[5]);
     }
 
     _OPNA->SetReg(0x10, (uint32_t) dl);
 
     if (dl >= 0x80)
     {
-        if (dl & 0x01) _OpenWork.rdump_bd++;
-        if (dl & 0x02) _OpenWork.rdump_sd++;
-        if (dl & 0x04) _OpenWork.rdump_sym++;
-        if (dl & 0x08) _OpenWork.rdump_hh++;
-        if (dl & 0x10) _OpenWork.rdump_tom++;
-        if (dl & 0x20) _OpenWork.rdump_rim++;
+        if (dl & 0x01) _State.rdump_bd++;
+        if (dl & 0x02) _State.rdump_sd++;
+        if (dl & 0x04) _State.rdump_sym++;
+        if (dl & 0x08) _State.rdump_hh++;
+        if (dl & 0x10) _State.rdump_tom++;
+        if (dl & 0x20) _State.rdump_rim++;
 
-        _OpenWork.rshot_dat &= (~dl);
+        _State.rshot_dat &= (~dl);
     }
     else
     {
-        if (dl & 0x01) _OpenWork.rshot_bd++;
-        if (dl & 0x02) _OpenWork.rshot_sd++;
-        if (dl & 0x04) _OpenWork.rshot_sym++;
-        if (dl & 0x08) _OpenWork.rshot_hh++;
-        if (dl & 0x10) _OpenWork.rshot_tom++;
-        if (dl & 0x20) _OpenWork.rshot_rim++;
+        if (dl & 0x01) _State.rshot_bd++;
+        if (dl & 0x02) _State.rshot_sd++;
+        if (dl & 0x04) _State.rshot_sym++;
+        if (dl & 0x08) _State.rshot_hh++;
+        if (dl & 0x10) _State.rshot_tom++;
+        if (dl & 0x20) _State.rshot_rim++;
 
-        _OpenWork.rshot_dat |= dl;
+        _State.rshot_dat |= dl;
     }
 
     return si;
@@ -6778,7 +6795,7 @@ uint8_t * PMD::rhyvs(uint8_t * si)
 {
     int dl = *si & 0x1f;
     int dh = *si++ >> 5;
-    int * bx = &_OpenWork.rdat[dh - 1];
+    int * bx = &_State.rdat[dh - 1];
 
     dh = 0x18 - 1 + dh;
     dl |= (*bx & 0xc0);
@@ -6791,7 +6808,7 @@ uint8_t * PMD::rhyvs(uint8_t * si)
 
 uint8_t * PMD::rhyvs_sft(uint8_t * si)
 {
-    int * bx = &_OpenWork.rdat[*si - 1];
+    int * bx = &_State.rdat[*si - 1];
     int dh = *si++ + 0x18 - 1;
     int dl = *bx & 0x1f;
     int al = (*(int8_t *) si++ + dl);
@@ -6823,7 +6840,7 @@ uint8_t * PMD::rpnset(uint8_t * si)
     dl = (*si & 3) << 6;
 
     dh = (*si++ >> 5) & 0x07;
-    bx = &_OpenWork.rdat[dh - 1];
+    bx = &_State.rdat[dh - 1];
 
     dh += 0x18 - 1;
     dl |= (*bx & 0x1f);
@@ -6838,13 +6855,13 @@ uint8_t * PMD::rmsvs(uint8_t * si)
 {
     int dl = *si++;
 
-    if (_OpenWork.rhythm_voldown != 0)
-        dl = ((256 - _OpenWork.rhythm_voldown) * dl) >> 8;
+    if (_State.rhythm_voldown != 0)
+        dl = ((256 - _State.rhythm_voldown) * dl) >> 8;
 
-    _OpenWork.rhyvol = dl;
+    _State.rhyvol = dl;
 
-    if (_OpenWork._FadeOutVolume != 0)
-        dl = ((256 - _OpenWork._FadeOutVolume) * dl) >> 8;
+    if (_State._FadeOutVolume != 0)
+        dl = ((256 - _State._FadeOutVolume) * dl) >> 8;
 
     _OPNA->SetReg(0x11, (uint32_t) dl);
 
@@ -6853,7 +6870,7 @@ uint8_t * PMD::rmsvs(uint8_t * si)
 
 uint8_t * PMD::rmsvs_sft(uint8_t * si)
 {
-    int dl = _OpenWork.rhyvol + *(int8_t *) si++;
+    int dl = _State.rhyvol + *(int8_t *) si++;
 
     if (dl >= 64)
     {
@@ -6863,10 +6880,10 @@ uint8_t * PMD::rmsvs_sft(uint8_t * si)
             dl = 63;
     }
 
-    _OpenWork.rhyvol = dl;
+    _State.rhyvol = dl;
 
-    if (_OpenWork._FadeOutVolume != 0)
-        dl = ((256 - _OpenWork._FadeOutVolume) * dl) >> 8;
+    if (_State._FadeOutVolume != 0)
+        dl = ((256 - _State._FadeOutVolume) * dl) >> 8;
 
     _OPNA->SetReg(0x11, (uint32_t) dl);
 
@@ -6881,7 +6898,7 @@ uint8_t * PMD::vol_one_up_psg(Track * qq, uint8_t * si)
     al = qq->volume + *si++;
     if (al > 15) al = 15;
     qq->volpush = ++al;
-    pmdwork.volpush_flag = 1;
+    _DriverState.volpush_flag = 1;
     return si;
 }
 
@@ -6900,7 +6917,7 @@ uint8_t * PMD::vol_one_down(Track * qq, uint8_t * si)
     }
 
     qq->volpush = ++al;
-    pmdwork.volpush_flag = 1;
+    _DriverState.volpush_flag = 1;
     return si;
 }
 
@@ -6917,14 +6934,14 @@ uint8_t * PMD::portap(Track * qq, uint8_t * si)
         qq->keyon_flag++;
         qq->address = si + 3;
 
-        if (--pmdwork.volpush_flag)
+        if (--_DriverState.volpush_flag)
         {
             qq->volpush = 0;
         }
 
-        pmdwork.tieflag = 0;
-        pmdwork.volpush_flag = 0;
-        pmdwork.loop_work &= qq->loopcheck;
+        _DriverState.tieflag = 0;
+        _DriverState.volpush_flag = 0;
+        _DriverState.loop_work &= qq->loopcheck;
         return si + 3;    // 読み飛ばす  (Mask時)
     }
 
@@ -6950,9 +6967,9 @@ uint8_t * PMD::portap(Track * qq, uint8_t * si)
 
     if (qq->volpush && qq->onkai != 255)
     {
-        if (--pmdwork.volpush_flag)
+        if (--_DriverState.volpush_flag)
         {
-            pmdwork.volpush_flag = 0;
+            _DriverState.volpush_flag = 0;
             qq->volpush = 0;
         }
     }
@@ -6964,8 +6981,8 @@ uint8_t * PMD::portap(Track * qq, uint8_t * si)
     qq->keyon_flag++;
     qq->address = si;
 
-    pmdwork.tieflag = 0;
-    pmdwork.volpush_flag = 0;
+    _DriverState.tieflag = 0;
+    _DriverState.volpush_flag = 0;
     qq->keyoff_flag = 0;
 
     if (*si == 0xfb)
@@ -6973,16 +6990,16 @@ uint8_t * PMD::portap(Track * qq, uint8_t * si)
         qq->keyoff_flag = 2;
     }
 
-    pmdwork.loop_work &= qq->loopcheck;
+    _DriverState.loop_work &= qq->loopcheck;
     return si;
 }
 
 //  'w' COMMAND [PSG NOISE ﾍｲｷﾝ ｼｭｳﾊｽｳ]
 uint8_t * PMD::psgnoise_move(uint8_t * si)
 {
-    _OpenWork.psnoi += *(int8_t *) si++;
-    if (_OpenWork.psnoi < 0) _OpenWork.psnoi = 0;
-    if (_OpenWork.psnoi > 31) _OpenWork.psnoi = 31;
+    _State.psnoi += *(int8_t *) si++;
+    if (_State.psnoi < 0) _State.psnoi = 0;
+    if (_State.psnoi > 31) _State.psnoi = 31;
     return si;
 }
 
@@ -7053,7 +7070,7 @@ int PMD::lfoinitp(Track * qq, int al)
 
     qq->porta_num = 0;      // ポルタメントは初期化
 
-    if (pmdwork.tieflag & 1)
+    if (_DriverState.tieflag & 1)
     {  // ﾏｴ ｶﾞ & ﾉ ﾄｷ ﾓ INIT ｼﾅｲ｡
 // PMD 4.8r 修正
         soft_env(qq);      // 前が & の場合 -> 1回 SofeEnv処理
@@ -7134,7 +7151,7 @@ void PMD::lfin1(Track * qq)
     qq->hldelay_c = qq->hldelay;
 
     if (qq->hldelay)
-        _OPNA->SetReg((uint32_t) (pmdwork.fmsel + pmdwork._CurrentTrack + 0xb4 - 1), (uint32_t) (qq->fmpan & 0xc0));
+        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentTrack + 0xb4 - 1), (uint32_t) (qq->fmpan & 0xc0));
 
     qq->sdelay_c = qq->sdelay;
 
@@ -7324,19 +7341,19 @@ void PMD::volsetp(Track * qq)
     //------------------------------------------------------------------------
     //  音量down計算
     //------------------------------------------------------------------------
-    dl = ((256 - _OpenWork.ssg_voldown) * dl) >> 8;
+    dl = ((256 - _State.ssg_voldown) * dl) >> 8;
 
     //------------------------------------------------------------------------
     //  Fadeout計算
     //------------------------------------------------------------------------
-    dl = ((256 - _OpenWork._FadeOutVolume) * dl) >> 8;
+    dl = ((256 - _State._FadeOutVolume) * dl) >> 8;
 
     //------------------------------------------------------------------------
     //  ENVELOPE 計算
     //------------------------------------------------------------------------
     if (dl <= 0)
     {
-        _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), 0);
+        _OPNA->SetReg((uint32_t) (_DriverState._CurrentTrack + 8 - 1), 0);
         return;
     }
 
@@ -7344,7 +7361,7 @@ void PMD::volsetp(Track * qq)
     {
         if (qq->eenv_volume == 0)
         {
-            _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), 0);
+            _OPNA->SetReg((uint32_t) (_DriverState._CurrentTrack + 8 - 1), 0);
             return;
         }
 
@@ -7356,7 +7373,7 @@ void PMD::volsetp(Track * qq)
 
         if (dl <= 0)
         {
-            _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), 0);
+            _OPNA->SetReg((uint32_t) (_DriverState._CurrentTrack + 8 - 1), 0);
             return;
         }
 
@@ -7369,7 +7386,7 @@ void PMD::volsetp(Track * qq)
     //--------------------------------------------------------------------
     if ((qq->lfoswi & 0x22) == 0)
     {
-        _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), (uint32_t) dl);
+        _OPNA->SetReg((uint32_t) (_DriverState._CurrentTrack + 8 - 1), (uint32_t) dl);
         return;
     }
 
@@ -7382,7 +7399,7 @@ void PMD::volsetp(Track * qq)
 
     if (dl < 0)
     {
-        _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), 0);
+        _OPNA->SetReg((uint32_t) (_DriverState._CurrentTrack + 8 - 1), 0);
         return;
     }
 
@@ -7392,7 +7409,7 @@ void PMD::volsetp(Track * qq)
     //------------------------------------------------------------------------
     //  出力
     //------------------------------------------------------------------------
-    _OPNA->SetReg((uint32_t) (pmdwork._CurrentTrack + 8 - 1), (uint32_t) dl);
+    _OPNA->SetReg((uint32_t) (_DriverState._CurrentTrack + 8 - 1), (uint32_t) dl);
 }
 
 //  ＰＳＧ　音程設定
@@ -7482,8 +7499,8 @@ void PMD::otodasip(Track * qq)
         }
     }
 
-    _OPNA->SetReg((uint32_t) ((pmdwork._CurrentTrack - 1) * 2),     (uint32_t) LOBYTE(ax));
-    _OPNA->SetReg((uint32_t) ((pmdwork._CurrentTrack - 1) * 2 + 1), (uint32_t) HIBYTE(ax));
+    _OPNA->SetReg((uint32_t) ((_DriverState._CurrentTrack - 1) * 2),     (uint32_t) LOBYTE(ax));
+    _OPNA->SetReg((uint32_t) ((_DriverState._CurrentTrack - 1) * 2 + 1), (uint32_t) HIBYTE(ax));
 }
 
 //  ＰＳＧ　ＫＥＹＯＮ
@@ -7492,7 +7509,7 @@ void PMD::keyonp(Track * qq)
     if (qq->onkai == 255)
         return;    // ｷｭｳﾌ ﾉ ﾄｷ
 
-    int ah = (1 << (pmdwork._CurrentTrack - 1)) | (1 << (pmdwork._CurrentTrack + 2));
+    int ah = (1 << (_DriverState._CurrentTrack - 1)) | (1 << (_DriverState._CurrentTrack + 2));
     int al = ((int32_t) _OPNA->GetReg(0x07) | ah);
 
     ah = ~(ah & qq->psgpat);
@@ -7502,10 +7519,10 @@ void PMD::keyonp(Track * qq)
 
     // PSG ﾉｲｽﾞ ｼｭｳﾊｽｳ ﾉ ｾｯﾄ
 
-    if (_OpenWork.psnoi != _OpenWork.psnoi_last && effwork.effon == 0)
+    if (_State.psnoi != _State.psnoi_last && _EffectState.effon == 0)
     {
-        _OPNA->SetReg(6, (uint32_t) _OpenWork.psnoi);
-        _OpenWork.psnoi_last = _OpenWork.psnoi;
+        _OPNA->SetReg(6, (uint32_t) _State.psnoi);
+        _State.psnoi_last = _State.psnoi;
     }
 }
 
@@ -7530,7 +7547,7 @@ int PMD::lfop(Track * qq)
     if (qq->extendmode & 2)
     {  // TimerAと合わせるか？
         // そうじゃないなら無条件にlfo処理
-        ch = _OpenWork._TimerATime - pmdwork._OldTimerATime;
+        ch = _State._TimerATime - _DriverState._OldTimerATime;
         if (ch == 0) return 0;
         ax = qq->lfodat;
 
@@ -7770,11 +7787,11 @@ int PMD::soft_env(Track * qq)
 {
     if (qq->extendmode & 4)
     {
-        if (_OpenWork._TimerATime == pmdwork._OldTimerATime) return 0;
+        if (_State._TimerATime == _DriverState._OldTimerATime) return 0;
 
         int cl = 0;
 
-        for (int i = 0; i < _OpenWork._TimerATime - pmdwork._OldTimerATime; i++)
+        for (int i = 0; i < _State._TimerATime - _DriverState._OldTimerATime; i++)
         {
             if (soft_env_main(qq))
                 cl = 1;
@@ -7979,24 +7996,24 @@ void PMD::esm_sub(Track * qq, int ah)
 //  テンポ設定
 void PMD::settempo_b()
 {
-    if (_OpenWork._TimerBSpeed != _OpenWork.tempo_d)
+    if (_State._TimerBSpeed != _State.tempo_d)
     {
-        _OpenWork._TimerBSpeed = _OpenWork.tempo_d;
-        _OPNA->SetReg(0x26, (uint32_t) _OpenWork._TimerBSpeed);
+        _State._TimerBSpeed = _State.tempo_d;
+        _OPNA->SetReg(0x26, (uint32_t) _State._TimerBSpeed);
     }
 }
 
 //  小節のカウント
 void PMD::syousetu_count()
 {
-    if (_OpenWork.opncount + 1 == _OpenWork.syousetu_lng)
+    if (_State.opncount + 1 == _State.syousetu_lng)
     {
-        _OpenWork.syousetu++;
-        _OpenWork.opncount = 0;
+        _State.syousetu++;
+        _State.opncount = 0;
     }
     else
     {
-        _OpenWork.opncount++;
+        _State.opncount++;
     }
 }
 
@@ -8014,8 +8031,8 @@ void PMD::StartOPNInterrupt()
     ::memset(&_EffectTrack, 0, sizeof(_EffectTrack));
     ::memset(PPZ8Part, 0, sizeof(PPZ8Part));
 
-    _OpenWork.rhythmmask = 255;
-    pmdwork.rhydmy = 255;
+    _State.rhythmmask = 255;
+    _DriverState.rhydmy = 255;
     InitializeDataArea();
     opn_init();
 
@@ -8027,10 +8044,10 @@ void PMD::StartOPNInterrupt()
 
 void PMD::InitializeDataArea()
 {
-    _OpenWork._FadeOutVolume = 0;
-    _OpenWork._FadeOutSpeed = 0;
-    _OpenWork.fadeout_flag = 0;
-    _OpenWork._FadeOutSpeedHQ = 0;
+    _State._FadeOutVolume = 0;
+    _State._FadeOutSpeed = 0;
+    _State.fadeout_flag = 0;
+    _State._FadeOutSpeedHQ = 0;
 
     for (int i = 0; i < 6; i++)
     {
@@ -8108,53 +8125,53 @@ void PMD::InitializeDataArea()
         PPZ8Part[i].onkai_def = 255;
     }
 
-    pmdwork.tieflag = 0;
-    _OpenWork.status = 0;
-    _OpenWork._LoopCount = 0;
-    _OpenWork.syousetu = 0;
-    _OpenWork.opncount = 0;
-    _OpenWork._TimerATime = 0;
-    pmdwork._OldTimerATime = 0;
+    _DriverState.tieflag = 0;
+    _State.status = 0;
+    _State._LoopCount = 0;
+    _State.syousetu = 0;
+    _State.opncount = 0;
+    _State._TimerATime = 0;
+    _DriverState._OldTimerATime = 0;
 
-    pmdwork.omote_key[0] = 0;
-    pmdwork.omote_key[1] = 0;
-    pmdwork.omote_key[2] = 0;
-    pmdwork.ura_key[0] = 0;
-    pmdwork.ura_key[1] = 0;
-    pmdwork.ura_key[2] = 0;
+    _DriverState.omote_key[0] = 0;
+    _DriverState.omote_key[1] = 0;
+    _DriverState.omote_key[2] = 0;
+    _DriverState.ura_key[0] = 0;
+    _DriverState.ura_key[1] = 0;
+    _DriverState.ura_key[2] = 0;
 
-    pmdwork.fm3_alg_fb = 0;
-    pmdwork.af_check = 0;
+    _DriverState.fm3_alg_fb = 0;
+    _DriverState.af_check = 0;
 
-    _OpenWork.pcmstart = 0;
-    _OpenWork.pcmstop = 0;
-    pmdwork.pcmrepeat1 = 0;
-    pmdwork.pcmrepeat2 = 0;
-    pmdwork.pcmrelease = 0x8000;
+    _State.pcmstart = 0;
+    _State.pcmstop = 0;
+    _DriverState.pcmrepeat1 = 0;
+    _DriverState.pcmrepeat2 = 0;
+    _DriverState.pcmrelease = 0x8000;
 
-    _OpenWork.kshot_dat = 0;
-    _OpenWork.rshot_dat = 0;
-    effwork.last_shot_data = 0;
+    _State.kshot_dat = 0;
+    _State.rshot_dat = 0;
+    _EffectState.last_shot_data = 0;
 
-    pmdwork.slotdetune_flag = 0;
-    _OpenWork.slot_detune1 = 0;
-    _OpenWork.slot_detune2 = 0;
-    _OpenWork.slot_detune3 = 0;
-    _OpenWork.slot_detune4 = 0;
+    _DriverState.slotdetune_flag = 0;
+    _State.slot_detune1 = 0;
+    _State.slot_detune2 = 0;
+    _State.slot_detune3 = 0;
+    _State.slot_detune4 = 0;
 
-    pmdwork.slot3_flag = 0;
-    _OpenWork.ch3mode = 0x3f;
+    _DriverState.slot3_flag = 0;
+    _State.ch3mode = 0x3f;
 
-    pmdwork.fmsel = 0;
+    _DriverState.fmsel = 0;
 
-    _OpenWork.syousetu_lng = 96;
+    _State.syousetu_lng = 96;
 
-    _OpenWork.fm_voldown = _OpenWork._fm_voldown;
-    _OpenWork.ssg_voldown = _OpenWork._ssg_voldown;
-    _OpenWork.pcm_voldown = _OpenWork._pcm_voldown;
-    _OpenWork.ppz_voldown = _OpenWork._ppz_voldown;
-    _OpenWork.rhythm_voldown = _OpenWork._rhythm_voldown;
-    _OpenWork.pcm86_vol = _OpenWork._pcm86_vol;
+    _State.fm_voldown = _State._fm_voldown;
+    _State.ssg_voldown = _State._ssg_voldown;
+    _State.pcm_voldown = _State._pcm_voldown;
+    _State.ppz_voldown = _State._ppz_voldown;
+    _State.rhythm_voldown = _State._rhythm_voldown;
+    _State.pcm86_vol = _State._pcm86_vol;
 }
 
 //  OPN INIT
@@ -8163,10 +8180,10 @@ void PMD::opn_init()
     _OPNA->ClearBuffer();
     _OPNA->SetReg(0x29, 0x83);
 
-    _OpenWork.psnoi = 0;
+    _State.psnoi = 0;
 
     _OPNA->SetReg(0x06, 0x00);
-    _OpenWork.psnoi_last = 0;
+    _State.psnoi_last = 0;
 
     // SSG-EG RESET (4.8s)
     for (uint32_t i = 0x90; i < 0x9F; i++)
@@ -8189,18 +8206,18 @@ void PMD::opn_init()
     _OPNA->SetReg(0x1b5, 0xc0);
     _OPNA->SetReg(0x1b6, 0xc0);
 
-    _OpenWork.port22h = 0x00;
+    _State.port22h = 0x00;
     _OPNA->SetReg(0x22, 0x00);
 
     //  Rhythm Default = Pan : Mid , Vol : 15
     for (int i = 0; i < 6; i++)
-        _OpenWork.rdat[i] = 0xcf;
+        _State.rdat[i] = 0xcf;
 
     _OPNA->SetReg(0x10, 0xff);
 
     // Rhythm total level set
-    _OpenWork.rhyvol = 48 * 4 * (256 - _OpenWork.rhythm_voldown) / 1024;
-    _OPNA->SetReg(0x11, (uint32_t) _OpenWork.rhyvol);
+    _State.rhyvol = 48 * 4 * (256 - _State.rhythm_voldown) / 1024;
+    _OPNA->SetReg(0x11, (uint32_t) _State.rhyvol);
 
     // PCM reset & LIMIT SET
     _OPNA->SetReg(0x10c, 0xff);
@@ -8276,9 +8293,9 @@ void PMD::Silence()
 /// </summary>
 void PMD::Start()
 {
-    if (_OpenWork._IsTimerABusy || _OpenWork._IsTimerBBusy)
+    if (_State._IsTimerABusy || _State._IsTimerBBusy)
     {
-        pmdwork.music_flag |= 1; // Not executed during TA/TB processing
+        _DriverState.music_flag |= 1; // Not executed during TA/TB processing
 
         return;
     }
@@ -8291,13 +8308,13 @@ void PMD::Start()
 /// </summary>
 void PMD::Stop()
 {
-    if (_OpenWork._IsTimerABusy || _OpenWork._IsTimerBBusy)
+    if (_State._IsTimerABusy || _State._IsTimerBBusy)
     {
-        pmdwork.music_flag |= 2;
+        _DriverState.music_flag |= 2;
     }
     else
     {
-        _OpenWork.fadeout_flag = 0;
+        _State.fadeout_flag = 0;
         DriverStop();
     }
 
@@ -8308,13 +8325,13 @@ void PMD::Stop()
 void PMD::DriverStart()
 {
     // Set TimerB = 0 and Timer Reset (to match the length of the song every time)
-    _OpenWork.tempo_d = 0;
+    _State.tempo_d = 0;
 
     settempo_b();
 
     _OPNA->SetReg(0x27, 0x00); // TIMER RESET (both timer A and B)
 
-    pmdwork.music_flag &= 0xFE;
+    _DriverState.music_flag &= 0xFE;
     DriverStop();
 
     _SamplePtr = _SampleSrc;
@@ -8328,17 +8345,17 @@ void PMD::DriverStart()
 
     setint();
 
-    _OpenWork._IsPlaying = true;
+    _State._IsPlaying = true;
 }
 
 void PMD::DriverStop()
 {
-    pmdwork.music_flag &= 0xfd;
+    _DriverState.music_flag &= 0xfd;
 
-    _OpenWork._IsPlaying = false;
-    _OpenWork._LoopCount = -1;
-    _OpenWork._FadeOutSpeed = 0;
-    _OpenWork._FadeOutVolume = 0xFF;
+    _State._IsPlaying = false;
+    _State._LoopCount = -1;
+    _State._FadeOutSpeed = 0;
+    _State._FadeOutVolume = 0xFF;
 
     Silence();
 }
@@ -8348,27 +8365,27 @@ void PMD::DriverStop()
 /// </summary>
 void PMD::InitializeTracks()
 {
-    _OpenWork.x68_flg = *(_OpenWork._MData - 1);
+    _State.x68_flg = *(_State._MData - 1);
 
     // 2.6 additional minutes
-    if (*_OpenWork._MData != 2 * (max_part2 + 1))
+    if (*_State._MData != 2 * (max_part2 + 1))
     {
-        _OpenWork.prgdat_adr = _OpenWork._MData + *(uint16_t *) (&_OpenWork._MData[2 * (max_part2 + 1)]);
-        _OpenWork.prg_flg = 1;
+        _State.prgdat_adr = _State._MData + *(uint16_t *) (&_State._MData[2 * (max_part2 + 1)]);
+        _State.prg_flg = 1;
     }
     else
     {
-        _OpenWork.prg_flg = 0;
+        _State.prg_flg = 0;
     }
 
-    uint16_t * p = (uint16_t *) _OpenWork._MData;
+    uint16_t * p = (uint16_t *) _State._MData;
 
     for (size_t i = 0; i < _countof(_FMTrack); ++i)
     {
-        if (_OpenWork._MData[*p] == 0x80) // Do not play.
+        if (_State._MData[*p] == 0x80) // Do not play.
             _FMTrack[i].address = nullptr;
         else
-            _FMTrack[i].address = &_OpenWork._MData[*p];
+            _FMTrack[i].address = &_State._MData[*p];
 
         _FMTrack[i].leng = 1;
         _FMTrack[i].keyoff_flag = -1;    // 現在keyoff中
@@ -8388,10 +8405,10 @@ void PMD::InitializeTracks()
 
     for (size_t i = 0; i < _countof(SSGPart); i++)
     {
-        if (_OpenWork._MData[*p] == 0x80) // Do not play.
+        if (_State._MData[*p] == 0x80) // Do not play.
             SSGPart[i].address = nullptr;
         else
-            SSGPart[i].address = &_OpenWork._MData[*p];
+            SSGPart[i].address = &_State._MData[*p];
 
         SSGPart[i].leng = 1;
         SSGPart[i].keyoff_flag = -1;  // 現在keyoff中
@@ -8408,10 +8425,10 @@ void PMD::InitializeTracks()
         p++;
     }
 
-    if (_OpenWork._MData[*p] == 0x80) // Do not play
+    if (_State._MData[*p] == 0x80) // Do not play
         ADPCMPart.address = NULL;
     else
-        ADPCMPart.address = &_OpenWork._MData[*p];
+        ADPCMPart.address = &_State._MData[*p];
 
     ADPCMPart.leng = 1;
     ADPCMPart.keyoff_flag = -1;    // 現在keyoff中
@@ -8425,10 +8442,10 @@ void PMD::InitializeTracks()
     ADPCMPart.fmpan = 0xc0;      // PCM PAN = Middle
     p++;
 
-    if (_OpenWork._MData[*p] == 0x80) // Do not play
+    if (_State._MData[*p] == 0x80) // Do not play
         _RhythmTrack.address = nullptr;
     else
-        _RhythmTrack.address = &_OpenWork._MData[*p];
+        _RhythmTrack.address = &_State._MData[*p];
 
     _RhythmTrack.leng = 1;
     _RhythmTrack.keyoff_flag = -1;  // 現在keyoff中
@@ -8441,9 +8458,9 @@ void PMD::InitializeTracks()
     _RhythmTrack.volume = 15;      // PPSDRV volume
     p++;
 
-    _OpenWork._RythmAddressTable = (uint16_t *) &_OpenWork._MData[*p];
+    _State._RythmAddressTable = (uint16_t *) &_State._MData[*p];
 
-    _OpenWork.rhyadr = (uint8_t *) &pmdwork.rhydmy;
+    _State.rhyadr = (uint8_t *) &_DriverState.rhydmy;
 }
 
 //  インタラプト　設定
@@ -8451,8 +8468,8 @@ void PMD::InitializeTracks()
 void PMD::setint()
 {
     // ＯＰＮ割り込み初期設定
-    _OpenWork.tempo_d = 200;
-    _OpenWork.tempo_d_push = 200;
+    _State.tempo_d = 200;
+    _State.tempo_d_push = 200;
 
     calc_tb_tempo();
     settempo_b();
@@ -8462,9 +8479,9 @@ void PMD::setint()
     _OPNA->SetReg(0x27, 0x3f);      // TIMER ENABLE
 
     //　小節カウンタリセット
-    _OpenWork.opncount = 0;
-    _OpenWork.syousetu = 0;
-    _OpenWork.syousetu_lng = 96;
+    _State.opncount = 0;
+    _State.syousetu = 0;
+    _State.syousetu_lng = 96;
 }
 
 //  T->t 変換
@@ -8475,20 +8492,20 @@ void PMD::calc_tb_tempo()
     //  TEMPO = 0x112C / [ 256 - TB ]  timerB -> tempo
     int temp;
 
-    if (256 - _OpenWork.tempo_d == 0)
+    if (256 - _State.tempo_d == 0)
     {
         temp = 255;
     }
     else
     {
-        temp = (0x112c * 2 / (256 - _OpenWork.tempo_d) + 1) / 2;
+        temp = (0x112c * 2 / (256 - _State.tempo_d) + 1) / 2;
 
         if (temp > 255)
             temp = 255;
     }
 
-    _OpenWork.tempo_48 = temp;
-    _OpenWork.tempo_48_push = temp;
+    _State.tempo_48 = temp;
+    _State.tempo_48_push = temp;
 }
 
 //  t->T 変換
@@ -8500,10 +8517,10 @@ void PMD::calc_tempo_tb()
 
     //  TB = 256 - [ 112CH / TEMPO ]  tempo -> timerB
 
-    if (_OpenWork.tempo_48 >= 18)
+    if (_State.tempo_48 >= 18)
     {
-        al = 256 - 0x112c / _OpenWork.tempo_48;
-        if (0x112c % _OpenWork.tempo_48 >= 128)
+        al = 256 - 0x112c / _State.tempo_48;
+        if (0x112c % _State.tempo_48 >= 128)
         {
             al--;
         }
@@ -8513,8 +8530,8 @@ void PMD::calc_tempo_tb()
     {
         al = 0;
     }
-    _OpenWork.tempo_d = al;
-    _OpenWork.tempo_d_push = al;
+    _State.tempo_d = al;
+    _State.tempo_d_push = al;
 }
 
 //  ＰＣＭメモリからメインメモリへのデータ取り込み
@@ -8596,7 +8613,7 @@ int PMD::LoadPPCInternal(const WCHAR * filePath)
 
     int Result = LoadPPCInternal(pcmbuf, (int) Size);
 
-    ::wcscpy(_OpenWork._PPCFileName, filePath);
+    ::wcscpy(_State._PPCFileName, filePath);
 
     free(pcmbuf);
 
@@ -8610,7 +8627,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 {
     if (size < 0x10)
     {
-        _OpenWork._PPCFileName[0] = '\0';
+        _State._PPCFileName[0] = '\0';
 
         return ERR_UNKNOWN_FORMAT;
     }
@@ -8661,7 +8678,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
         if (size < 30 + 4 * 256 + 2)
         {
-            _OpenWork._PPCFileName[0] = '\0';
+            _State._PPCFileName[0] = '\0';
 
             return ERR_UNKNOWN_FORMAT;
         }
@@ -8676,7 +8693,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
     }
     else
     {
-        _OpenWork._PPCFileName[0] = '\0';
+        _State._PPCFileName[0] = '\0';
 
         return ERR_UNKNOWN_FORMAT;
     }
@@ -8706,7 +8723,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
         if (size < (int) (pcmends.Count - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
         {
-            _OpenWork._PPCFileName[0] = '\0';
+            _State._PPCFileName[0] = '\0';
 
             return ERR_UNKNOWN_FORMAT;
         }
@@ -8717,7 +8734,7 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
         if (size < (pcmends.Count - ((30 + 4 * 256 + 2) / 2)) * 32)
         {
-            _OpenWork._PPCFileName[0] = '\0';
+            _State._PPCFileName[0] = '\0';
 
             return ERR_UNKNOWN_FORMAT;
         }
@@ -8738,9 +8755,9 @@ WCHAR * PMD::FindFile(WCHAR * filePath, const WCHAR * filename)
 {
     WCHAR FilePath[MAX_PATH];
 
-    for (size_t i = 0; i < _OpenWork._SearchPath.size(); ++i)
+    for (size_t i = 0; i < _State._SearchPath.size(); ++i)
     {
-        CombinePath(FilePath, _countof(FilePath), _OpenWork._SearchPath[i].c_str(), filename);
+        CombinePath(FilePath, _countof(FilePath), _State._SearchPath[i].c_str(), filename);
 
         if (_File->GetFileSize(FilePath) > 0)
         {
@@ -8777,36 +8794,36 @@ uint8_t * PMD::ssg_efct_set(Track * qq, uint8_t * si)
 // Fade In / Out
 void PMD::Fade()
 {
-    if (_OpenWork._FadeOutSpeed == 0)
+    if (_State._FadeOutSpeed == 0)
         return;
 
-    if (_OpenWork._FadeOutSpeed > 0)
+    if (_State._FadeOutSpeed > 0)
     {
-        if (_OpenWork._FadeOutSpeed + _OpenWork._FadeOutVolume < 256)
+        if (_State._FadeOutSpeed + _State._FadeOutVolume < 256)
         {
-            _OpenWork._FadeOutVolume += _OpenWork._FadeOutSpeed;
+            _State._FadeOutVolume += _State._FadeOutSpeed;
         }
         else
         {
-            _OpenWork._FadeOutVolume = 255;
-            _OpenWork._FadeOutSpeed  =   0;
+            _State._FadeOutVolume = 255;
+            _State._FadeOutSpeed  =   0;
 
-            if (_OpenWork.fade_stop_flag == 1)
-                pmdwork.music_flag |= 2;
+            if (_State.fade_stop_flag == 1)
+                _DriverState.music_flag |= 2;
         }
     }
     else
     {   // Fade in
-        if (_OpenWork._FadeOutSpeed + _OpenWork._FadeOutVolume > 255)
+        if (_State._FadeOutSpeed + _State._FadeOutVolume > 255)
         {
-            _OpenWork._FadeOutVolume += _OpenWork._FadeOutSpeed;
+            _State._FadeOutVolume += _State._FadeOutSpeed;
         }
         else
         {
-            _OpenWork._FadeOutVolume = 0;
-            _OpenWork._FadeOutSpeed = 0;
+            _State._FadeOutVolume = 0;
+            _State._FadeOutSpeed = 0;
 
-            _OPNA->SetReg(0x11, (uint32_t) _OpenWork.rhyvol);
+            _OPNA->SetReg(0x11, (uint32_t) _State.rhyvol);
         }
     }
 }

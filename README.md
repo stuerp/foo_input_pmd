@@ -103,6 +103,11 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
+v0.4.0, 2023-09-xx, *""*
+
+* Added: Checkboxes to enable or disable the use of PPS and the SSG (Software-controlled Sound Generator).
+* Fixed: Some settings weren't reset by the Reset button.
+
 v0.3.0, 2023-07-22, *"What's your preference?"*
 
 * Improved: Added all configuration parameters to the Preferences page.

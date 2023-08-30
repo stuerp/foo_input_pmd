@@ -1,5 +1,5 @@
 
-/** $VER: Resources.h (2023.07.17) P. Stuer **/
+/** $VER: Resources.h (2023.08.30) P. Stuer **/
 
 #pragma once
 
@@ -25,7 +25,7 @@
 #define STR_COPYRIGHT           TEXT(STR_COMPONENT_COPYRIGHT)
 
 #define NUM_FILE_MAJOR          0
-#define NUM_FILE_MINOR          3
+#define NUM_FILE_MINOR          4
 #define NUM_FILE_PATCH          0
 #define NUM_FILE_PRERELEASE     0
 
@@ -34,7 +34,7 @@
 #define STR_FILE_DESCRIPTION    TEXT(STR_COMPONENT_DESCRIPTION)
 
 #define NUM_PRODUCT_MAJOR       0
-#define NUM_PRODUCT_MINOR       3
+#define NUM_PRODUCT_MINOR       4
 #define NUM_PRODUCT_PATCH       0
 #define NUM_PRODUCT_PRERELEASE  0
 
@@ -55,9 +55,12 @@
 
 #define IDC_PLAYBACK_MODE           IDC_SAMPLES_PATH_SELECT + 1
 #define IDC_LOOP_COUNT              IDC_PLAYBACK_MODE + 1
-#define IDC_FADE_OUT_DURATION         IDC_LOOP_COUNT + 1
+#define IDC_FADE_OUT_DURATION       IDC_LOOP_COUNT + 1
 
 #define IDC_SYNTHESIS_RATE          IDC_FADE_OUT_DURATION + 1
+
+#define IDC_USE_PPS                 IDC_SYNTHESIS_RATE + 1
+#define IDC_USE_SSG                 IDC_USE_PPS + 1
 
 #pragma region("Layout")
 
@@ -159,5 +162,17 @@
 #define X_A14    X_A13 + W_A13 + 3
 #define Y_A14    Y_A13 + 2
 #pragma endregion
+
+// Checkbox: Use PPS
+#define X_A15    7
+#define Y_A15    Y_A04 + H_A04 + 4
+#define W_A15    W_A00 - 5 - 6
+#define H_A15    10
+
+// Checkbox: Use SSG
+#define X_A16    7
+#define Y_A16    Y_A15 + H_A15 + 4
+#define W_A16    W_A00 - 5 - 6
+#define H_A16    10
 
 #pragma endregion

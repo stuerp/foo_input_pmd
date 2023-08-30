@@ -1,5 +1,5 @@
 
-/** $VER: Configuration.h (2023.07.19) **/
+/** $VER: Configuration.h (2023.08.30) **/
 
 #pragma once
 
@@ -29,6 +29,9 @@ enum PlaybackModes
 
 #define DefaultSynthesisRate    SOUND_55K
 
+#define DefaultUsePPS           false
+#define DefaultUseSSG           false
+
 extern cfg_string CfgSamplesPath;
 
 extern cfg_uint CfgPlaybackMode;
@@ -36,3 +39,6 @@ extern cfg_uint CfgLoopCount;
 extern cfg_uint CfgFadeOutDuration;
 
 extern cfg_uint CfgSynthesisRate;
+
+extern cfg_bool CfgUsePPS;
+extern cfg_bool CfgUseSSG;
