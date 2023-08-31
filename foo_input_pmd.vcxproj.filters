@@ -19,7 +19,7 @@
     <ClInclude Include="PMD\P86.h" />
     <ClInclude Include="PMD\PMD.h" />
     <ClInclude Include="PMD\PPS.h" />
-    <ClInclude Include="PMD\PPZ.h" />
+    <ClInclude Include="PMD\PPZ8.h" />
     <ClInclude Include="PMD\Table.h" />
     <ClInclude Include="PMD\Utility.h" />
     <ClInclude Include="PMD\RIFF.h" />
@@ -41,7 +41,7 @@
     <ClCompile Include="PMD\P86.cpp" />
     <ClCompile Include="PMD\PMD.cpp" />
     <ClCompile Include="PMD\PPS.cpp" />
-    <ClCompile Include="PMD\PPZ.cpp" />
+    <ClCompile Include="PMD\PPZ8.cpp" />
     <ClCompile Include="PMD\Table.cpp" />
     <ClCompile Include="PMD\Utility.cpp" />
   </ItemGroup>

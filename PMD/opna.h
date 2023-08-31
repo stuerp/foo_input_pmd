@@ -28,7 +28,8 @@ struct Stereo16bit
 
 #pragma warning(disable: 4265)
 /// <summary>
-/// Implements a FM Sound Source module, a six-channel FM synthesis sound system, based on the YM2203.
+/// Implements a YM2608, aka OPNA, is a sixteen-channel sound chip developed by Yamaha.
+/// It's a member of Yamaha's OPN family of FM synthesis chips, and the successor to the YM2203. It was notably used in NEC's PC-8801/PC-9801 series computers.
 /// </summary>
 class OPNA : public ymfm::ymfm_interface
 {

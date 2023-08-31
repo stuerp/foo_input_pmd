@@ -1,5 +1,5 @@
 ﻿
-// Based on PMDWin code by C60
+// Based on PMDWin code by C60 / Masahiro Kajihara
 
 #pragma once
 
@@ -12,10 +12,9 @@
 #include <Windows.h>
 #include <tchar.h>
 
-#include "OPNA.h"
 #include "OPNAW.h"
-#include "PPZ.h"
 #include "PPS.h"
+#include "PPZ8.h"
 #include "P86.h"
 
 #include "PMDPrivate.h"
@@ -50,7 +49,7 @@ public:
     PMD();
     virtual ~PMD();
 
-    bool Initialize(const WCHAR * path);
+    bool Initialize(const WCHAR * directoryPath);
 
     static bool IsPMD(const uint8_t * data, size_t size) noexcept;
 
@@ -79,8 +78,8 @@ public:
 
     void SetFMWait(int nsec);
     void SetSSGWait(int nsec);
-    void SetRhythmWait(int nsec);
     void SetADPCMWait(int nsec);
+    void SetRhythmWait(int nsec);
 
     void SetFadeOutSpeed(int speed);
     void SetFadeOutDurationHQ(int speed);
@@ -105,8 +104,8 @@ public:
 
     void setfmvoldown(int voldown);
     void setssgvoldown(int voldown);
-    void setrhythmvoldown(int voldown);
     void setadpcmvoldown(int voldown);
+    void setrhythmvoldown(int voldown);
     void setppzvoldown(int voldown);
 
     int getfmvoldown();
@@ -196,12 +195,12 @@ protected:
     void PCM86Main(Track * track);
     void PPZ8Main(Track * track);
 
-    uint8_t * FMCommands(Track * track, uint8_t * si);
-    uint8_t * PSGCommands(Track * track, uint8_t * si);
-    uint8_t * RhythmCommands(Track * track, uint8_t * si);
-    uint8_t * ADPCMCommands(Track * track, uint8_t * si);
-    uint8_t * PCM86Commands(Track * track, uint8_t * si);
-    uint8_t * PPZ8Commands(Track * track, uint8_t * si);
+    uint8_t * ExecuteFMCommand(Track * track, uint8_t * si);
+    uint8_t * ExecutePSGCommand(Track * track, uint8_t * si);
+    uint8_t * ExecuteRhythmCommand(Track * track, uint8_t * si);
+    uint8_t * ExecuteADPCMCommand(Track * track, uint8_t * si);
+    uint8_t * ExecutePCM86Command(Track * track, uint8_t * si);
+    uint8_t * ExecutePPZ8Command(Track * track, uint8_t * si);
 
     uint8_t * rhythmon(Track * track, uint8_t * bx, int al, int * result);
 

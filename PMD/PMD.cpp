@@ -11,7 +11,7 @@
 #include "Table.h"
 
 #include "OPNAW.h"
-#include "PPZ.h"
+#include "PPZ8.h"
 #include "PPS.h"
 #include "P86.h"
 
@@ -22,10 +22,10 @@ PMD::PMD()
 {
     _File = new File();
 
-    _OPNA = new OPNAW(_File);
-    _PPZ8 = new PPZ8(_File);
-    _PPS  = new PPSDRV(_File);
-    _P86  = new P86DRV(_File);
+    _OPNA = new OPNAW(_File);   // FM Sound Source, an FM synthesis sound system, based around the YM2203
+    _PPZ8 = new PPZ8(_File);    // ADPCM Sound Source, a single 8-bit ADPCM channel, 2-16kHz sampling rate
+    _PPS  = new PPSDRV(_File);  // SSG Sound Source, a complete internal SSG implementation
+    _P86  = new P86DRV(_File);  // Rhythm Sound Source, a six-channel ADPCM system, with six percussion "rhythm tones" on a built-in ROM
 
     Reset();
 }
@@ -115,7 +115,6 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     return true;
 }
 
-// Initialization (internal processing)
 void PMD::Reset()
 {
     ::memset(&_State, 0, sizeof(_State));
@@ -274,7 +273,6 @@ bool PMD::IsPMD(const uint8_t * data, size_t size) noexcept
 
     return true;
 }
-
 
 int PMD::Load(const uint8_t * data, size_t size)
 {
@@ -1535,7 +1533,7 @@ void PMD::FMMain(Track * track)
         {
             if (*si > 0x80 && *si != 0xda)
             {
-                si = FMCommands(track, si);
+                si = ExecuteFMCommand(track, si);
             }
             else
             if (*si == 0x80)
@@ -2357,7 +2355,7 @@ void PMD::PSGMain(Track * track)
             else
             if (*si > 0x80 && *si != 0xda)
             {
-                si = PSGCommands(track, si);
+                si = ExecutePSGCommand(track, si);
             }
             else
             if (*si == 0x80)
@@ -2582,7 +2580,7 @@ void PMD::RhythmMain(Track * track)
                 }
 
                 // al > 0x80
-                si = RhythmCommands(track, si - 1);
+                si = ExecuteRhythmCommand(track, si - 1);
             }
 
             track->Data = --si;
@@ -2617,7 +2615,7 @@ uint8_t * PMD::rhythmon(Track * track, uint8_t * bx, int al, int * result)
 {
     if (al & 0x40)
     {
-        bx = RhythmCommands(track, bx - 1);
+        bx = ExecuteRhythmCommand(track, bx - 1);
         *result = 0;
 
         return bx;
@@ -2942,7 +2940,7 @@ void PMD::ADPCMMain(Track * track)
         {
             if (*si > 0x80 && *si != 0xda)
             {
-                si = ADPCMCommands(track, si);
+                si = ExecuteADPCMCommand(track, si);
             }
             else
             if (*si == 0x80)
@@ -3120,7 +3118,7 @@ void PMD::PCM86Main(Track * track)
             //      if(*si > 0x80 && *si != 0xda) {
             if (*si > 0x80)
             {
-                si = PCM86Commands(track, si);
+                si = ExecutePCM86Command(track, si);
             }
             else if (*si == 0x80)
             {
@@ -3292,7 +3290,7 @@ void PMD::PPZ8Main(Track * track)
         {
             if (*si > 0x80 && *si != 0xda)
             {
-                si = PPZ8Commands(track, si);
+                si = ExecutePPZ8Command(track, si);
             }
             else if (*si == 0x80)
             {
@@ -4453,7 +4451,7 @@ bool PMD::ssgdrum_check(Track * track, int al)
     return (track->_PartMask == 0);
 }
 
-uint8_t * PMD::FMCommands(Track * track, uint8_t * si)
+uint8_t * PMD::ExecuteFMCommand(Track * track, uint8_t * si)
 {
     int al = *si++;
 
@@ -4613,33 +4611,33 @@ uint8_t * PMD::FMCommands(Track * track, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::PSGCommands(Track * ps, uint8_t * si)
+uint8_t * PMD::ExecutePSGCommand(Track * track, uint8_t * si)
 {
     int al = *si++;
 
     switch (al)
     {
         case 0xff: si++; break;
-        case 0xfe: ps->qdata = *si++; ps->qdat3 = 0; break;
-        case 0xfd: ps->volume = *si++; break;
+        case 0xfe: track->qdata = *si++; track->qdat3 = 0; break;
+        case 0xfd: track->volume = *si++; break;
         case 0xfc: si = comt(si); break;
 
         case 0xfb: _DriverState.tieflag |= 1; break;
-        case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = comstloop(ps, si); break;
-        case 0xf8: si = comedloop(ps, si); break;
-        case 0xf7: si = comexloop(ps, si); break;
-        case 0xf6: ps->LoopData = si; break;
-        case 0xf5: ps->shift = *(int8_t *) si++; break;
-        case 0xf4: if (ps->volume < 15) ps->volume++; break;
-        case 0xf3: if (ps->volume > 0) ps->volume--; break;
-        case 0xf2: si = lfoset(ps, si); break;
-        case 0xf1: si = lfoswitch(ps, si); break;
-        case 0xf0: si = psgenvset(ps, si); break;
+        case 0xfa: track->detune = *(int16_t *) si; si += 2; break;
+        case 0xf9: si = comstloop(track, si); break;
+        case 0xf8: si = comedloop(track, si); break;
+        case 0xf7: si = comexloop(track, si); break;
+        case 0xf6: track->LoopData = si; break;
+        case 0xf5: track->shift = *(int8_t *) si++; break;
+        case 0xf4: if (track->volume < 15) track->volume++; break;
+        case 0xf3: if (track->volume > 0) track->volume--; break;
+        case 0xf2: si = lfoset(track, si); break;
+        case 0xf1: si = lfoswitch(track, si); break;
+        case 0xf0: si = psgenvset(track, si); break;
 
         case 0xef: _OPNA->SetReg(*si, *(si + 1)); si += 2; break;
         case 0xee: _State._PSGNoiseFrequency = *si++; break;
-        case 0xed: ps->psgpat = *si++; break;
+        case 0xed: track->psgpat = *si++; break;
             //
         case 0xec: si++; break;
         case 0xeb: si = rhykey(si); break;
@@ -4647,15 +4645,15 @@ uint8_t * PMD::PSGCommands(Track * ps, uint8_t * si)
         case 0xe9: si = rpnset(si); break;
         case 0xe8: si = rmsvs(si); break;
             //
-        case 0xe7: ps->shift += *(int8_t *) si++; break;
+        case 0xe7: track->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
         case 0xe5: si = rhyvs_sft(si); break;
             //
         case 0xe4: si++; break;
             //追加 for V2.3
             // saturate
-        case 0xe3: ps->volume += *si++; if (ps->volume > 15) ps->volume = 15; break;
-        case 0xe2: ps->volume -= *si++; if (ps->volume < 0) ps->volume = 0; break;
+        case 0xe3: track->volume += *si++; if (track->volume > 15) track->volume = 15; break;
+        case 0xe2: track->volume -= *si++; if (track->volume < 0) track->volume = 0; break;
 
             //
         case 0xe1: si++; break;
@@ -4663,23 +4661,23 @@ uint8_t * PMD::PSGCommands(Track * ps, uint8_t * si)
             //
         case 0xdf: _State._BarLength = *si++; break;
             //
-        case 0xde: si = vol_one_up_psg(ps, si); break;
-        case 0xdd: si = vol_one_down(ps, si); break;
+        case 0xde: si = vol_one_up_psg(track, si); break;
+        case 0xdd: si = vol_one_down(track, si); break;
             //
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
             //
-        case 0xda: si = portap(ps, si); break;
+        case 0xda: si = portap(track, si); break;
             //
         case 0xd9: si++; break;
         case 0xd8: si++; break;
         case 0xd7: si++; break;
             //
-        case 0xd6: ps->mdspd = ps->mdspd2 = *si++; ps->mdepth = *(int8_t *) si++; break;
-        case 0xd5: ps->detune += *(int16_t *) si; si += 2; break;
+        case 0xd6: track->mdspd = track->mdspd2 = *si++; track->mdepth = *(int8_t *) si++; break;
+        case 0xd5: track->detune += *(int16_t *) si; si += 2; break;
             //
-        case 0xd4: si = ssg_efct_set(ps, si); break;
-        case 0xd3: si = fm_efct_set(ps, si); break;
+        case 0xd4: si = ssg_efct_set(track, si); break;
+        case 0xd3: si = fm_efct_set(track, si); break;
         case 0xd2:
             _State.fadeout_flag = 1;
             _State._FadeOutSpeed = *si++;
@@ -4690,81 +4688,81 @@ uint8_t * PMD::PSGCommands(Track * ps, uint8_t * si)
             //
         case 0xcf: si++; break;
         case 0xce: si += 6; break;
-        case 0xcd: si = extend_psgenvset(ps, si); break;
+        case 0xcd: si = extend_psgenvset(track, si); break;
         case 0xcc:
-            ps->extendmode = (ps->extendmode & 0xfe) | (*si++ & 1);
+            track->extendmode = (track->extendmode & 0xfe) | (*si++ & 1);
             break;
 
-        case 0xcb: ps->lfo_wave = *si++; break;
+        case 0xcb: track->lfo_wave = *si++; break;
         case 0xca:
-            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            track->extendmode = (track->extendmode & 0xfd) | ((*si++ & 1) << 1);
             break;
 
         case 0xc9:
-            ps->extendmode = (ps->extendmode & 0xfb) | ((*si++ & 1) << 2);
+            track->extendmode = (track->extendmode & 0xfb) | ((*si++ & 1) << 2);
             break;
 
         case 0xc8: si += 3; break;
         case 0xc7: si += 3; break;
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
-        case 0xc4: ps->qdatb = *si++; break;
+        case 0xc4: track->qdatb = *si++; break;
         case 0xc3: si += 2; break;
-        case 0xc2: ps->delay = ps->delay2 = *si++; lfoinit_main(ps); break;
+        case 0xc2: track->delay = track->delay2 = *si++; lfoinit_main(track); break;
         case 0xc1: break;
-        case 0xc0: si = ssg_mml_part_mask(ps, si); break;
-        case 0xbf: SwapLFO(ps); si = lfoset(ps, si); SwapLFO(ps); break;
+        case 0xc0: si = ssg_mml_part_mask(track, si); break;
+        case 0xbf: SwapLFO(track); si = lfoset(track, si); SwapLFO(track); break;
         case 0xbe:
-            ps->lfoswi = (ps->lfoswi & 0x8f) | ((*si++ & 7) << 4);
+            track->lfoswi = (track->lfoswi & 0x8f) | ((*si++ & 7) << 4);
 
-            SwapLFO(ps);
-            lfoinit_main(ps);
-            SwapLFO(ps);
+            SwapLFO(track);
+            lfoinit_main(track);
+            SwapLFO(track);
             break;
 
         case 0xbd:
-            SwapLFO(ps);
-            ps->mdspd = ps->mdspd2 = *si++;
-            ps->mdepth = *(int8_t *) si++;
-            SwapLFO(ps);
+            SwapLFO(track);
+            track->mdspd = track->mdspd2 = *si++;
+            track->mdepth = *(int8_t *) si++;
+            SwapLFO(track);
             break;
 
         case 0xbc:
-            SwapLFO(ps);
+            SwapLFO(track);
 
-            ps->lfo_wave = *si++;
+            track->lfo_wave = *si++;
 
-            SwapLFO(ps);
+            SwapLFO(track);
             break;
 
         case 0xbb:
-            SwapLFO(ps);
+            SwapLFO(track);
 
-            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            track->extendmode = (track->extendmode & 0xfd) | ((*si++ & 1) << 1);
 
-            SwapLFO(ps);
+            SwapLFO(track);
             break;
 
         case 0xba: si++; break;
         case 0xb9:
-            SwapLFO(ps);
+            SwapLFO(track);
 
-            ps->delay = ps->delay2 = *si++;
-            lfoinit_main(ps);
+            track->delay = track->delay2 = *si++;
+            lfoinit_main(track);
 
 // FIXME    break;
 
-            SwapLFO(ps);
+            SwapLFO(track);
             break;
 
         case 0xb8: si += 2; break;
-        case 0xb7: si = mdepth_count(ps, si); break;
+        case 0xb7: si = mdepth_count(track, si); break;
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
         case 0xb4: si += 16; break;
-        case 0xb3: ps->qdat2 = *si++; break;
-        case 0xb2: ps->shift_def = *(int8_t *) si++; break;
-        case 0xb1: ps->qdat3 = *si++; break;
+        case 0xb3: track->qdat2 = *si++; break;
+        case 0xb2: track->shift_def = *(int8_t *) si++; break;
+        case 0xb1: track->qdat3 = *si++; break;
 
         default:
             si--;
@@ -4774,7 +4772,7 @@ uint8_t * PMD::PSGCommands(Track * ps, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::RhythmCommands(Track * ps, uint8_t * si)
+uint8_t * PMD::ExecuteRhythmCommand(Track * track, uint8_t * si)
 {
     int al = *si++;
 
@@ -4782,20 +4780,20 @@ uint8_t * PMD::RhythmCommands(Track * ps, uint8_t * si)
     {
         case 0xff: si++; break;
         case 0xfe: si++; break;
-        case 0xfd: ps->volume = *si++; break;
+        case 0xfd: track->volume = *si++; break;
         case 0xfc: si = comt(si); break;
 
         case 0xfb: _DriverState.tieflag |= 1; break;
-        case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = comstloop(ps, si); break;
-        case 0xf8: si = comedloop(ps, si); break;
-        case 0xf7: si = comexloop(ps, si); break;
-        case 0xf6: ps->LoopData = si; break;
+        case 0xfa: track->detune = *(int16_t *) si; si += 2; break;
+        case 0xf9: si = comstloop(track, si); break;
+        case 0xf8: si = comedloop(track, si); break;
+        case 0xf7: si = comexloop(track, si); break;
+        case 0xf6: track->LoopData = si; break;
         case 0xf5: si++; break;
-        case 0xf4: if (ps->volume < 15) ps->volume++; break;
-        case 0xf3: if (ps->volume > 0) ps->volume--; break;
+        case 0xf4: if (track->volume < 15) track->volume++; break;
+        case 0xf3: if (track->volume > 0) track->volume--; break;
         case 0xf2: si += 4; break;
-        case 0xf1: si = pdrswitch(ps, si); break;
+        case 0xf1: si = pdrswitch(track, si); break;
         case 0xf0: si += 4; break;
 
         case 0xef: _OPNA->SetReg(*si, *(si + 1)); si += 2; break;
@@ -4814,16 +4812,16 @@ uint8_t * PMD::RhythmCommands(Track * ps, uint8_t * si)
             //
         case 0xe4: si++; break;
             //追加 for V2.3
-        case 0xe3: if ((ps->volume + *si) < 16) ps->volume += *si; si++; break;
-        case 0xe2: if ((ps->volume - *si) >= 0) ps->volume -= *si; si++; break;
+        case 0xe3: if ((track->volume + *si) < 16) track->volume += *si; si++; break;
+        case 0xe2: if ((track->volume - *si) >= 0) track->volume -= *si; si++; break;
             //
         case 0xe1: si++; break;
         case 0xe0: si++; break;
             //
         case 0xdf: _State._BarLength = *si++; break;
             //
-        case 0xde: si = vol_one_up_psg(ps, si); break;
-        case 0xdd: si = vol_one_down(ps, si); break;
+        case 0xde: si = vol_one_up_psg(track, si); break;
+        case 0xdd: si = vol_one_down(track, si); break;
             //
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -4835,10 +4833,10 @@ uint8_t * PMD::RhythmCommands(Track * ps, uint8_t * si)
         case 0xd7: si++; break;
             //
         case 0xd6: si += 2; break;
-        case 0xd5: ps->detune += *(int16_t *) si; si += 2; break;
+        case 0xd5: track->detune += *(int16_t *) si; si += 2; break;
             //
-        case 0xd4: si = ssg_efct_set(ps, si); break;
-        case 0xd3: si = fm_efct_set(ps, si); break;
+        case 0xd4: si = ssg_efct_set(track, si); break;
+        case 0xd3: si = fm_efct_set(track, si); break;
         case 0xd2:
             _State.fadeout_flag = 1;
             _State._FadeOutSpeed = *si++;
@@ -4862,7 +4860,7 @@ uint8_t * PMD::RhythmCommands(Track * ps, uint8_t * si)
         case 0xc3: si += 2; break;
         case 0xc2: si++; break;
         case 0xc1: break;
-        case 0xc0: si = rhythm_mml_part_mask(ps, si); break;
+        case 0xc0: si = rhythm_mml_part_mask(track, si); break;
         case 0xbf: si += 4; break;
         case 0xbe: si++; break;
         case 0xbd: si += 2; break;
@@ -4887,56 +4885,56 @@ uint8_t * PMD::RhythmCommands(Track * ps, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::ADPCMCommands(Track * ps, uint8_t * si)
+uint8_t * PMD::ExecuteADPCMCommand(Track * track, uint8_t * si)
 {
     int al = *si++;
 
     switch (al)
     {
-        case 0xff: si = comatm(ps, si); break;
-        case 0xfe: ps->qdata = *si++; break;
-        case 0xfd: ps->volume = *si++; break;
+        case 0xff: si = comatm(track, si); break;
+        case 0xfe: track->qdata = *si++; break;
+        case 0xfd: track->volume = *si++; break;
         case 0xfc: si = comt(si); break;
         case 0xfb: _DriverState.tieflag |= 1; break;
-        case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = comstloop(ps, si); break;
-        case 0xf8: si = comedloop(ps, si); break;
-        case 0xf7: si = comexloop(ps, si); break;
-        case 0xf6: ps->LoopData = si; break;
-        case 0xf5: ps->shift = *(int8_t *) si++; break;
+        case 0xfa: track->detune = *(int16_t *) si; si += 2; break;
+        case 0xf9: si = comstloop(track, si); break;
+        case 0xf8: si = comedloop(track, si); break;
+        case 0xf7: si = comexloop(track, si); break;
+        case 0xf6: track->LoopData = si; break;
+        case 0xf5: track->shift = *(int8_t *) si++; break;
         case 0xf4:
-            if (ps->volume < (255 - 16)) ps->volume += 16;
-            else ps->volume = 255;
+            if (track->volume < (255 - 16)) track->volume += 16;
+            else track->volume = 255;
             break;
 
-        case 0xf3: if (ps->volume < 16) ps->volume = 0; else ps->volume -= 16; break;
-        case 0xf2: si = lfoset(ps, si); break;
-        case 0xf1: si = lfoswitch(ps, si); break;
-        case 0xf0: si = psgenvset(ps, si); break;
+        case 0xf3: if (track->volume < 16) track->volume = 0; else track->volume -= 16; break;
+        case 0xf2: si = lfoset(track, si); break;
+        case 0xf1: si = lfoswitch(track, si); break;
+        case 0xf0: si = psgenvset(track, si); break;
 
         case 0xef: _OPNA->SetReg((uint32_t) (0x100 + *si), (uint32_t) (*(si + 1))); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
-        case 0xec: si = pansetm(ps, si); break;        // FOR SB2
+        case 0xec: si = pansetm(track, si); break;        // FOR SB2
         case 0xeb: si = rhykey(si); break;
         case 0xea: si = rhyvs(si); break;
         case 0xe9: si = rpnset(si); break;
         case 0xe8: si = rmsvs(si); break;
             //
-        case 0xe7: ps->shift += *(int8_t *) si++; break;
+        case 0xe7: track->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
         case 0xe5: si = rhyvs_sft(si); break;
             //
         case 0xe4: si++; break;
             //追加 for V2.3
         case 0xe3:
-            if (ps->volume < (255 - (*si))) ps->volume += (*si);
-            else ps->volume = 255;
+            if (track->volume < (255 - (*si))) track->volume += (*si);
+            else track->volume = 255;
             si++;
             break;
 
         case 0xe2:
-            if (ps->volume < *si) ps->volume = 0; else ps->volume -= *si;
+            if (track->volume < *si) track->volume = 0; else track->volume -= *si;
             si++;
             break;
             //
@@ -4945,23 +4943,23 @@ uint8_t * PMD::ADPCMCommands(Track * ps, uint8_t * si)
             //
         case 0xdf: _State._BarLength = *si++; break;
             //
-        case 0xde: si = vol_one_up_pcm(ps, si); break;
-        case 0xdd: si = vol_one_down(ps, si); break;
+        case 0xde: si = vol_one_up_pcm(track, si); break;
+        case 0xdd: si = vol_one_down(track, si); break;
             //
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
             //
-        case 0xda: si = portam(ps, si); break;
+        case 0xda: si = portam(track, si); break;
             //
         case 0xd9: si++; break;
         case 0xd8: si++; break;
         case 0xd7: si++; break;
             //
-        case 0xd6: ps->mdspd = ps->mdspd2 = *si++; ps->mdepth = *(int8_t *) si++; break;
-        case 0xd5: ps->detune += *(int16_t *) si; si += 2; break;
+        case 0xd6: track->mdspd = track->mdspd2 = *si++; track->mdepth = *(int8_t *) si++; break;
+        case 0xd5: track->detune += *(int16_t *) si; si += 2; break;
             //
-        case 0xd4: si = ssg_efct_set(ps, si); break;
-        case 0xd3: si = fm_efct_set(ps, si); break;
+        case 0xd4: si = ssg_efct_set(track, si); break;
+        case 0xd3: si = fm_efct_set(track, si); break;
         case 0xd2:
             _State.fadeout_flag = 1;
             _State._FadeOutSpeed = *si++;
@@ -4971,73 +4969,73 @@ uint8_t * PMD::ADPCMCommands(Track * ps, uint8_t * si)
         case 0xd0: si++; break;
             //
         case 0xcf: si++; break;
-        case 0xce: si = pcmrepeat_set(ps, si); break;
-        case 0xcd: si = extend_psgenvset(ps, si); break;
+        case 0xce: si = pcmrepeat_set(track, si); break;
+        case 0xcd: si = extend_psgenvset(track, si); break;
         case 0xcc: si++; break;
-        case 0xcb: ps->lfo_wave = *si++; break;
+        case 0xcb: track->lfo_wave = *si++; break;
         case 0xca:
-            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            track->extendmode = (track->extendmode & 0xfd) | ((*si++ & 1) << 1);
             break;
 
         case 0xc9:
-            ps->extendmode = (ps->extendmode & 0xfb) | ((*si++ & 1) << 2);
+            track->extendmode = (track->extendmode & 0xfb) | ((*si++ & 1) << 2);
             break;
 
         case 0xc8: si += 3; break;
         case 0xc7: si += 3; break;
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
-        case 0xc4: ps->qdatb = *si++; break;
-        case 0xc3: si = pansetm_ex(ps, si); break;
-        case 0xc2: ps->delay = ps->delay2 = *si++; lfoinit_main(ps); break;
+        case 0xc4: track->qdatb = *si++; break;
+        case 0xc3: si = pansetm_ex(track, si); break;
+        case 0xc2: track->delay = track->delay2 = *si++; lfoinit_main(track); break;
         case 0xc1: break;
-        case 0xc0: si = pcm_mml_part_mask(ps, si); break;
-        case 0xbf: SwapLFO(ps); si = lfoset(ps, si); SwapLFO(ps); break;
-        case 0xbe: si = _lfoswitch(ps, si); break;
+        case 0xc0: si = pcm_mml_part_mask(track, si); break;
+        case 0xbf: SwapLFO(track); si = lfoset(track, si); SwapLFO(track); break;
+        case 0xbe: si = _lfoswitch(track, si); break;
         case 0xbd:
-            SwapLFO(ps);
+            SwapLFO(track);
 
-            ps->mdspd = ps->mdspd2 = *si++;
-            ps->mdepth = *(int8_t *) si++;
+            track->mdspd = track->mdspd2 = *si++;
+            track->mdepth = *(int8_t *) si++;
 
-            SwapLFO(ps);
+            SwapLFO(track);
             break;
 
         case 0xbc:
-            SwapLFO(ps);
+            SwapLFO(track);
 
-            ps->lfo_wave = *si++;
+            track->lfo_wave = *si++;
 
-            SwapLFO(ps);
+            SwapLFO(track);
             break;
 
         case 0xbb:
-            SwapLFO(ps);
+            SwapLFO(track);
 
-            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            track->extendmode = (track->extendmode & 0xfd) | ((*si++ & 1) << 1);
 
-            SwapLFO(ps);
+            SwapLFO(track);
             break;
 
-        case 0xba: si = _volmask_set(ps, si); break;
+        case 0xba: si = _volmask_set(track, si); break;
         case 0xb9:
-            SwapLFO(ps);
+            SwapLFO(track);
 
-            ps->delay = ps->delay2 = *si++;
-            lfoinit_main(ps);
+            track->delay = track->delay2 = *si++;
+            lfoinit_main(track);
 // FIXME    break;
 
-            SwapLFO(ps);
+            SwapLFO(track);
             break;
 
         case 0xb8: si += 2; break;
-        case 0xb7: si = mdepth_count(ps, si); break;
+        case 0xb7: si = mdepth_count(track, si); break;
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
-        case 0xb4: si = ppz_extpartset(ps, si); break;
-        case 0xb3: ps->qdat2 = *si++; break;
-        case 0xb2: ps->shift_def = *(int8_t *) si++; break;
-        case 0xb1: ps->qdat3 = *si++; break;
+        case 0xb4: si = ppz_extpartset(track, si); break;
+        case 0xb3: track->qdat2 = *si++; break;
+        case 0xb2: track->shift_def = *(int8_t *) si++; break;
+        case 0xb1: track->qdat3 = *si++; break;
 
         default:
             si--;
@@ -5047,56 +5045,56 @@ uint8_t * PMD::ADPCMCommands(Track * ps, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::PCM86Commands(Track * ps, uint8_t * si)
+uint8_t * PMD::ExecutePCM86Command(Track * track, uint8_t * si)
 {
     int al = *si++;
 
     switch (al)
     {
-        case 0xff: si = comat8(ps, si); break;
-        case 0xfe: ps->qdata = *si++; break;
-        case 0xfd: ps->volume = *si++; break;
+        case 0xff: si = comat8(track, si); break;
+        case 0xfe: track->qdata = *si++; break;
+        case 0xfd: track->volume = *si++; break;
         case 0xfc: si = comt(si); break;
         case 0xfb: _DriverState.tieflag |= 1; break;
-        case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = comstloop(ps, si); break;
-        case 0xf8: si = comedloop(ps, si); break;
-        case 0xf7: si = comexloop(ps, si); break;
-        case 0xf6: ps->LoopData = si; break;
-        case 0xf5: ps->shift = *(int8_t *) si++; break;
+        case 0xfa: track->detune = *(int16_t *) si; si += 2; break;
+        case 0xf9: si = comstloop(track, si); break;
+        case 0xf8: si = comedloop(track, si); break;
+        case 0xf7: si = comexloop(track, si); break;
+        case 0xf6: track->LoopData = si; break;
+        case 0xf5: track->shift = *(int8_t *) si++; break;
         case 0xf4:
-            if (ps->volume < (255 - 16)) ps->volume += 16;
-            else ps->volume = 255;
+            if (track->volume < (255 - 16)) track->volume += 16;
+            else track->volume = 255;
             break;
 
-        case 0xf3: if (ps->volume < 16) ps->volume = 0; else ps->volume -= 16; break;
-        case 0xf2: si = lfoset(ps, si); break;
-        case 0xf1: si = lfoswitch(ps, si); break;
-        case 0xf0: si = psgenvset(ps, si); break;
+        case 0xf3: if (track->volume < 16) track->volume = 0; else track->volume -= 16; break;
+        case 0xf2: si = lfoset(track, si); break;
+        case 0xf1: si = lfoswitch(track, si); break;
+        case 0xf0: si = psgenvset(track, si); break;
 
         case 0xef: _OPNA->SetReg((uint32_t) (0x100 + *si), (uint32_t) (*(si + 1))); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
-        case 0xec: si = panset8(ps, si); break;        // FOR SB2
+        case 0xec: si = panset8(track, si); break;        // FOR SB2
         case 0xeb: si = rhykey(si); break;
         case 0xea: si = rhyvs(si); break;
         case 0xe9: si = rpnset(si); break;
         case 0xe8: si = rmsvs(si); break;
             //
-        case 0xe7: ps->shift += *(int8_t *) si++; break;
+        case 0xe7: track->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
         case 0xe5: si = rhyvs_sft(si); break;
             //
         case 0xe4: si++; break;
             //追加 for V2.3
         case 0xe3:
-            if (ps->volume < (255 - (*si))) ps->volume += (*si);
-            else ps->volume = 255;
+            if (track->volume < (255 - (*si))) track->volume += (*si);
+            else track->volume = 255;
             si++;
             break;
 
         case 0xe2:
-            if (ps->volume < *si) ps->volume = 0; else ps->volume -= *si;
+            if (track->volume < *si) track->volume = 0; else track->volume -= *si;
             si++;
             break;
             //
@@ -5105,8 +5103,8 @@ uint8_t * PMD::PCM86Commands(Track * ps, uint8_t * si)
             //
         case 0xdf: _State._BarLength = *si++; break;
             //
-        case 0xde: si = vol_one_up_pcm(ps, si); break;
-        case 0xdd: si = vol_one_down(ps, si); break;
+        case 0xde: si = vol_one_up_pcm(track, si); break;
+        case 0xdd: si = vol_one_down(track, si); break;
             //
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -5117,11 +5115,11 @@ uint8_t * PMD::PCM86Commands(Track * ps, uint8_t * si)
         case 0xd8: si++; break;
         case 0xd7: si++; break;
             //
-        case 0xd6: ps->mdspd = ps->mdspd2 = *si++; ps->mdepth = *(int8_t *) si++; break;
-        case 0xd5: ps->detune += *(int16_t *) si; si += 2; break;
+        case 0xd6: track->mdspd = track->mdspd2 = *si++; track->mdepth = *(int8_t *) si++; break;
+        case 0xd5: track->detune += *(int16_t *) si; si += 2; break;
             //
-        case 0xd4: si = ssg_efct_set(ps, si); break;
-        case 0xd3: si = fm_efct_set(ps, si); break;
+        case 0xd4: si = ssg_efct_set(track, si); break;
+        case 0xd3: si = fm_efct_set(track, si); break;
         case 0xd2:
             _State.fadeout_flag = 1;
             _State._FadeOutSpeed = *si++;
@@ -5131,27 +5129,27 @@ uint8_t * PMD::PCM86Commands(Track * ps, uint8_t * si)
         case 0xd0: si++; break;
             //
         case 0xcf: si++; break;
-        case 0xce: si = pcmrepeat_set8(ps, si); break;
-        case 0xcd: si = extend_psgenvset(ps, si); break;
+        case 0xce: si = pcmrepeat_set8(track, si); break;
+        case 0xcd: si = extend_psgenvset(track, si); break;
         case 0xcc: si++; break;
-        case 0xcb: ps->lfo_wave = *si++; break;
+        case 0xcb: track->lfo_wave = *si++; break;
         case 0xca:
-            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            track->extendmode = (track->extendmode & 0xfd) | ((*si++ & 1) << 1);
             break;
 
         case 0xc9:
-            ps->extendmode = (ps->extendmode & 0xfb) | ((*si++ & 1) << 2);
+            track->extendmode = (track->extendmode & 0xfb) | ((*si++ & 1) << 2);
             break;
 
         case 0xc8: si += 3; break;
         case 0xc7: si += 3; break;
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
-        case 0xc4: ps->qdatb = *si++; break;
-        case 0xc3: si = panset8_ex(ps, si); break;
-        case 0xc2: ps->delay = ps->delay2 = *si++; lfoinit_main(ps); break;
+        case 0xc4: track->qdatb = *si++; break;
+        case 0xc3: si = panset8_ex(track, si); break;
+        case 0xc2: track->delay = track->delay2 = *si++; lfoinit_main(track); break;
         case 0xc1: break;
-        case 0xc0: si = pcm_mml_part_mask8(ps, si); break;
+        case 0xc0: si = pcm_mml_part_mask8(track, si); break;
         case 0xbf: si += 4; break;
         case 0xbe: si++; break;
         case 0xbd: si += 2; break;
@@ -5160,13 +5158,13 @@ uint8_t * PMD::PCM86Commands(Track * ps, uint8_t * si)
         case 0xba: si++; break;
         case 0xb9: si++; break;
         case 0xb8: si += 2; break;
-        case 0xb7: si = mdepth_count(ps, si); break;
+        case 0xb7: si = mdepth_count(track, si); break;
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
-        case 0xb4: si = ppz_extpartset(ps, si); break;
-        case 0xb3: ps->qdat2 = *si++; break;
-        case 0xb2: ps->shift_def = *(int8_t *) si++; break;
-        case 0xb1: ps->qdat3 = *si++; break;
+        case 0xb4: si = ppz_extpartset(track, si); break;
+        case 0xb3: track->qdat2 = *si++; break;
+        case 0xb2: track->shift_def = *(int8_t *) si++; break;
+        case 0xb1: track->qdat3 = *si++; break;
 
         default:
             si--;
@@ -5176,59 +5174,59 @@ uint8_t * PMD::PCM86Commands(Track * ps, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::PPZ8Commands(Track * ps, uint8_t * si)
+uint8_t * PMD::ExecutePPZ8Command(Track * track, uint8_t * si)
 {
     int al = *si++;
 
     switch (al)
     {
-        case 0xff: si = comatz(ps, si); break;
-        case 0xfe: ps->qdata = *si++; break;
-        case 0xfd: ps->volume = *si++; break;
+        case 0xff: si = comatz(track, si); break;
+        case 0xfe: track->qdata = *si++; break;
+        case 0xfd: track->volume = *si++; break;
         case 0xfc: si = comt(si); break;
 
         case 0xfb: _DriverState.tieflag |= 1; break;
-        case 0xfa: ps->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = comstloop(ps, si); break;
-        case 0xf8: si = comedloop(ps, si); break;
-        case 0xf7: si = comexloop(ps, si); break;
-        case 0xf6: ps->LoopData = si; break;
-        case 0xf5: ps->shift = *(int8_t *) si++; break;
+        case 0xfa: track->detune = *(int16_t *) si; si += 2; break;
+        case 0xf9: si = comstloop(track, si); break;
+        case 0xf8: si = comedloop(track, si); break;
+        case 0xf7: si = comexloop(track, si); break;
+        case 0xf6: track->LoopData = si; break;
+        case 0xf5: track->shift = *(int8_t *) si++; break;
         case 0xf4:
-            if (ps->volume < (255 - 16))
-                ps->volume += 16;
+            if (track->volume < (255 - 16))
+                track->volume += 16;
             else
-                ps->volume = 255;
+                track->volume = 255;
             break;
 
-        case 0xf3: if (ps->volume < 16) ps->volume = 0; else ps->volume -= 16; break;
-        case 0xf2: si = lfoset(ps, si); break;
-        case 0xf1: si = lfoswitch(ps, si); break;
-        case 0xf0: si = psgenvset(ps, si); break;
+        case 0xf3: if (track->volume < 16) track->volume = 0; else track->volume -= 16; break;
+        case 0xf2: si = lfoset(track, si); break;
+        case 0xf1: si = lfoswitch(track, si); break;
+        case 0xf0: si = psgenvset(track, si); break;
 
         case 0xef: _OPNA->SetReg((uint32_t) (_DriverState.fmsel + *si), (uint32_t) *(si + 1)); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
-        case 0xec: si = pansetz(ps, si); break;        // FOR SB2
+        case 0xec: si = pansetz(track, si); break;        // FOR SB2
         case 0xeb: si = rhykey(si); break;
         case 0xea: si = rhyvs(si); break;
         case 0xe9: si = rpnset(si); break;
         case 0xe8: si = rmsvs(si); break;
             //
-        case 0xe7: ps->shift += *(int8_t *) si++; break;
+        case 0xe7: track->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
         case 0xe5: si = rhyvs_sft(si); break;
             //
         case 0xe4: si++; break;
             //追加 for V2.3
         case 0xe3:
-            if (ps->volume < (255 - (*si))) ps->volume += (*si);
-            else ps->volume = 255;
+            if (track->volume < (255 - (*si))) track->volume += (*si);
+            else track->volume = 255;
             si++;
             break;
 
         case 0xe2:
-            if (ps->volume < *si) ps->volume = 0; else ps->volume -= *si;
+            if (track->volume < *si) track->volume = 0; else track->volume -= *si;
             si++;
             break;
             //
@@ -5237,23 +5235,23 @@ uint8_t * PMD::PPZ8Commands(Track * ps, uint8_t * si)
             //
         case 0xdf: _State._BarLength = *si++; break;
             //
-        case 0xde: si = vol_one_up_pcm(ps, si); break;
-        case 0xdd: si = vol_one_down(ps, si); break;
+        case 0xde: si = vol_one_up_pcm(track, si); break;
+        case 0xdd: si = vol_one_down(track, si); break;
             //
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
             //
-        case 0xda: si = portaz(ps, si); break;
+        case 0xda: si = portaz(track, si); break;
             //
         case 0xd9: si++; break;
         case 0xd8: si++; break;
         case 0xd7: si++; break;
             //
-        case 0xd6: ps->mdspd = ps->mdspd2 = *si++; ps->mdepth = *(int8_t *) si++; break;
-        case 0xd5: ps->detune += *(int16_t *) si; si += 2; break;
+        case 0xd6: track->mdspd = track->mdspd2 = *si++; track->mdepth = *(int8_t *) si++; break;
+        case 0xd5: track->detune += *(int16_t *) si; si += 2; break;
             //
-        case 0xd4: si = ssg_efct_set(ps, si); break;
-        case 0xd3: si = fm_efct_set(ps, si); break;
+        case 0xd4: si = ssg_efct_set(track, si); break;
+        case 0xd3: si = fm_efct_set(track, si); break;
         case 0xd2:
             _State.fadeout_flag = 1;
             _State._FadeOutSpeed = *si++;
@@ -5263,61 +5261,61 @@ uint8_t * PMD::PPZ8Commands(Track * ps, uint8_t * si)
         case 0xd0: si++; break;
             //
         case 0xcf: si++; break;
-        case 0xce: si = ppzrepeat_set(ps, si); break;
-        case 0xcd: si = extend_psgenvset(ps, si); break;
+        case 0xce: si = ppzrepeat_set(track, si); break;
+        case 0xcd: si = extend_psgenvset(track, si); break;
         case 0xcc: si++; break;
-        case 0xcb: ps->lfo_wave = *si++; break;
+        case 0xcb: track->lfo_wave = *si++; break;
         case 0xca:
-            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            track->extendmode = (track->extendmode & 0xfd) | ((*si++ & 1) << 1);
             break;
 
         case 0xc9:
-            ps->extendmode = (ps->extendmode & 0xfb) | ((*si++ & 1) << 2);
+            track->extendmode = (track->extendmode & 0xfb) | ((*si++ & 1) << 2);
             break;
 
         case 0xc8: si += 3; break;
         case 0xc7: si += 3; break;
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
-        case 0xc4: ps->qdatb = *si++; break;
-        case 0xc3: si = pansetz_ex(ps, si); break;
-        case 0xc2: ps->delay = ps->delay2 = *si++; lfoinit_main(ps); break;
+        case 0xc4: track->qdatb = *si++; break;
+        case 0xc3: si = pansetz_ex(track, si); break;
+        case 0xc2: track->delay = track->delay2 = *si++; lfoinit_main(track); break;
         case 0xc1: break;
-        case 0xc0: si = ppz_mml_part_mask(ps, si); break;
-        case 0xbf: SwapLFO(ps); si = lfoset(ps, si); SwapLFO(ps); break;
-        case 0xbe: si = _lfoswitch(ps, si); break;
+        case 0xc0: si = ppz_mml_part_mask(track, si); break;
+        case 0xbf: SwapLFO(track); si = lfoset(track, si); SwapLFO(track); break;
+        case 0xbe: si = _lfoswitch(track, si); break;
         case 0xbd:
-            SwapLFO(ps);
-            ps->mdspd = ps->mdspd2 = *si++;
-            ps->mdepth = *(int8_t *) si++;
-            SwapLFO(ps);
+            SwapLFO(track);
+            track->mdspd = track->mdspd2 = *si++;
+            track->mdepth = *(int8_t *) si++;
+            SwapLFO(track);
             break;
 
-        case 0xbc: SwapLFO(ps); ps->lfo_wave = *si++; SwapLFO(ps); break;
+        case 0xbc: SwapLFO(track); track->lfo_wave = *si++; SwapLFO(track); break;
         case 0xbb:
-            SwapLFO(ps);
-            ps->extendmode = (ps->extendmode & 0xfd) | ((*si++ & 1) << 1);
-            SwapLFO(ps);
+            SwapLFO(track);
+            track->extendmode = (track->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            SwapLFO(track);
             break;
 
-        case 0xba: si = _volmask_set(ps, si); break;
+        case 0xba: si = _volmask_set(track, si); break;
         case 0xb9:
-            SwapLFO(ps);
+            SwapLFO(track);
 
-            ps->delay = ps->delay2 = *si++;
-            lfoinit_main(ps);
+            track->delay = track->delay2 = *si++;
+            lfoinit_main(track);
 // FIXME     break;
-            SwapLFO(ps);
+            SwapLFO(track);
             break;
 
         case 0xb8: si += 2; break;
-        case 0xb7: si = mdepth_count(ps, si); break;
+        case 0xb7: si = mdepth_count(track, si); break;
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
         case 0xb4: si += 16; break;
-        case 0xb3: ps->qdat2 = *si++; break;
-        case 0xb2: ps->shift_def = *(int8_t *) si++; break;
-        case 0xb1: ps->qdat3 = *si++; break;
+        case 0xb3: track->qdat2 = *si++; break;
+        case 0xb2: track->shift_def = *(int8_t *) si++; break;
+        case 0xb1: track->qdat3 = *si++; break;
 
         default:
             si--;

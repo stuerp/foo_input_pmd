@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "PPZ.h"
+#include "PPZ8.h"
 
 //  Constant table (ADPCM Volume to PPZ8 Volume)
 const int ADPCM_EM_VOL[256] =
@@ -648,6 +648,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
 
                         _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
                         _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
+
                         if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
                             _Channel[i].PCM_NOW_XOR -= 0x10000;
@@ -684,6 +685,7 @@ void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
 
                         _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
                         _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
+
                         if (_Channel[i].PCM_NOW_XOR > 0xffff)
                         {
                             _Channel[i].PCM_NOW_XOR -= 0x10000;
