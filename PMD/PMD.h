@@ -170,86 +170,86 @@ private:
     PCMEnds pcmends;
 
 protected:
-    void InitializeInternal();
+    void Reset();
     void StartOPNInterrupt();
     void InitializeDataArea();
-    void opn_init();
+    void InitializeOPN();
 
     void DriverStart();
     void DriverStop();
 
     void Silence();
     void InitializeTracks();
-    void setint();
+    void InitializeInterrupt();
     void calc_tb_tempo();
     void calc_tempo_tb();
-    void settempo_b();
+    void SetTimerBTempo();
     void HandleTimerA();
     void HandleTimerB();
     void DriverMain();
-    void syousetu_count();
+    void IncreaseBarCounter();
 
-    void FMMain(Track * ps);
-    void PSGMain(Track * ps);
-    void RhythmMain(Track * ps);
-    void ADPCMMain(Track * ps);
-    void PCM86Main(Track * ps);
-    void PPZ8Main(Track * ps);
+    void FMMain(Track * track);
+    void PSGMain(Track * track);
+    void RhythmMain(Track * track);
+    void ADPCMMain(Track * track);
+    void PCM86Main(Track * track);
+    void PPZ8Main(Track * track);
 
-    uint8_t * FMCommands(Track * ps, uint8_t * si);
-    uint8_t * PSGCommands(Track * ps, uint8_t * si);
-    uint8_t * RhythmCommands(Track * ps, uint8_t * si);
-    uint8_t * ADPCMCommands(Track * ps, uint8_t * si);
-    uint8_t * PCM86Commands(Track * ps, uint8_t * si);
-    uint8_t * PPZ8Commands(Track * ps, uint8_t * si);
+    uint8_t * FMCommands(Track * track, uint8_t * si);
+    uint8_t * PSGCommands(Track * track, uint8_t * si);
+    uint8_t * RhythmCommands(Track * track, uint8_t * si);
+    uint8_t * ADPCMCommands(Track * track, uint8_t * si);
+    uint8_t * PCM86Commands(Track * track, uint8_t * si);
+    uint8_t * PPZ8Commands(Track * track, uint8_t * si);
 
-    uint8_t * rhythmon(Track * ps, uint8_t * bx, int al, int * result);
+    uint8_t * rhythmon(Track * track, uint8_t * bx, int al, int * result);
 
-    void effgo(Track * ps, int al);
-    void eff_on2(Track * ps, int al);
-    void eff_main(Track * ps, int al);
+    void effgo(Track * track, int al);
+    void eff_on2(Track * track, int al);
+    void eff_main(Track * track, int al);
     void effplay();
     void efffor(const int * si);
     void effend();
     void effsweep();
 
-    uint8_t * pdrswitch(Track * ps, uint8_t * si);
+    uint8_t * pdrswitch(Track * track, uint8_t * si);
 
     void GetText(const uint8_t * data, size_t size, int al, char * text) const noexcept;
 
-    int MuteFMPart(Track * ps);
-    void keyoff(Track * ps);
-    void kof1(Track * ps);
-    void keyoffp(Track * ps);
-    void keyoffm(Track * ps);
-    void keyoff8(Track * ps);
-    void keyoffz(Track * ps);
+    int MuteFMPart(Track * track);
+    void KeyOff(Track * track);
+    void KeyOffEx(Track * track);
+    void keyoffp(Track * track);
+    void keyoffm(Track * track);
+    void keyoff8(Track * track);
+    void keyoffz(Track * track);
 
-    bool ssgdrum_check(Track * ps, int al);
+    bool ssgdrum_check(Track * track, int al);
 
-    uint8_t * special_0c0h(Track * ps, uint8_t * si, uint8_t al);
+    uint8_t * special_0c0h(Track * track, uint8_t * si, uint8_t al);
 
-    uint8_t * _vd_fm(Track * ps, uint8_t * si);
-    uint8_t * _vd_ssg(Track * ps, uint8_t * si);
-    uint8_t * _vd_pcm(Track * ps, uint8_t * si);
-    uint8_t * _vd_rhythm(Track * ps, uint8_t * si);
-    uint8_t * _vd_ppz(Track * ps, uint8_t * si);
+    uint8_t * _vd_fm(Track * track, uint8_t * si);
+    uint8_t * _vd_ssg(Track * track, uint8_t * si);
+    uint8_t * _vd_pcm(Track * track, uint8_t * si);
+    uint8_t * _vd_rhythm(Track * track, uint8_t * si);
+    uint8_t * _vd_ppz(Track * track, uint8_t * si);
 
     uint8_t * comt(uint8_t * si);
-    uint8_t * comat(Track * ps, uint8_t * si);
-    uint8_t * comatm(Track * ps, uint8_t * si);
-    uint8_t * comat8(Track * ps, uint8_t * si);
-    uint8_t * comatz(Track * ps, uint8_t * si);
-    uint8_t * comstloop(Track * ps, uint8_t * si);
-    uint8_t * comedloop(Track * ps, uint8_t * si);
-    uint8_t * comexloop(Track * ps, uint8_t * si);
-    uint8_t * extend_psgenvset(Track * ps, uint8_t * si);
+    uint8_t * ProgramChange(Track * track, uint8_t * si);
+    uint8_t * comatm(Track * track, uint8_t * si);
+    uint8_t * comat8(Track * track, uint8_t * si);
+    uint8_t * comatz(Track * track, uint8_t * si);
+    uint8_t * comstloop(Track * track, uint8_t * si);
+    uint8_t * comedloop(Track * track, uint8_t * si);
+    uint8_t * comexloop(Track * track, uint8_t * si);
+    uint8_t * extend_psgenvset(Track * track, uint8_t * si);
 
-    int lfoinit(Track * ps, int al);
-    int lfoinitp(Track * ps, int al);
+    int lfoinit(Track * track, int al);
+    int lfoinitp(Track * track, int al);
 
-    uint8_t * lfoset(Track * ps, uint8_t * si);
-    uint8_t * psgenvset(Track * ps, uint8_t * si);
+    uint8_t * lfoset(Track * track, uint8_t * si);
+    uint8_t * psgenvset(Track * track, uint8_t * si);
     uint8_t * rhykey(uint8_t * si);
     uint8_t * rhyvs(uint8_t * si);
     uint8_t * rpnset(uint8_t * si);
@@ -257,125 +257,132 @@ protected:
     uint8_t * rmsvs_sft(uint8_t * si);
     uint8_t * rhyvs_sft(uint8_t * si);
 
-    uint8_t * vol_one_up_psg(Track * ps, uint8_t * si);
-    uint8_t * vol_one_up_pcm(Track * ps, uint8_t * si);
-    uint8_t * vol_one_down(Track * ps, uint8_t * si);
-    uint8_t * portap(Track * ps, uint8_t * si);
-    uint8_t * portam(Track * ps, uint8_t * si);
-    uint8_t * portaz(Track * ps, uint8_t * si);
+    uint8_t * vol_one_up_psg(Track * track, uint8_t * si);
+    uint8_t * vol_one_up_pcm(Track * track, uint8_t * si);
+    uint8_t * vol_one_down(Track * track, uint8_t * si);
+    uint8_t * portap(Track * track, uint8_t * si);
+    uint8_t * portam(Track * track, uint8_t * si);
+    uint8_t * portaz(Track * track, uint8_t * si);
     uint8_t * psgnoise_move(uint8_t * si);
-    uint8_t * mdepth_count(Track * ps, uint8_t * si);
-    uint8_t * toneadr_calc(Track * ps, int dl);
+    uint8_t * mdepth_count(Track * track, uint8_t * si);
+    uint8_t * toneadr_calc(Track * track, int dl);
 
-    void neiroset(Track * ps, int dl);
+    void SetTone(Track * track, int dl);
 
-    int oshift(Track * ps, int al);
-    int oshiftp(Track * ps, int al);
-    void fnumset(Track * ps, int al);
-    void fnumsetp(Track * ps, int al);
-    void fnumsetm(Track * ps, int al);
-    void fnumset8(Track * ps, int al);
-    void fnumsetz(Track * ps, int al);
+    int oshift(Track * track, int al);
+    int oshiftp(Track * track, int al);
+    void fnumset(Track * track, int al);
+    void SetPSGTune(Track * track, int al);
+    void fnumsetm(Track * track, int al);
+    void fnumset8(Track * track, int al);
+    void fnumsetz(Track * track, int al);
 
-    uint8_t * panset(Track * ps, uint8_t * si);
-    uint8_t * panset_ex(Track * ps, uint8_t * si);
-    uint8_t * pansetm(Track * ps, uint8_t * si);
-    uint8_t * panset8(Track * ps, uint8_t * si);
-    uint8_t * pansetz(Track * ps, uint8_t * si);
-    uint8_t * pansetz_ex(Track * ps, uint8_t * si);
-    void panset_main(Track * ps, int al);
+    uint8_t * panset(Track * track, uint8_t * si);
+    uint8_t * panset_ex(Track * track, uint8_t * si);
+    uint8_t * pansetm(Track * track, uint8_t * si);
+    uint8_t * panset8(Track * track, uint8_t * si);
+    uint8_t * pansetz(Track * track, uint8_t * si);
+    uint8_t * pansetz_ex(Track * track, uint8_t * si);
+    void panset_main(Track * track, int al);
 
-    uint8_t calc_panout(Track * ps);
-    uint8_t * calc_q(Track * ps, uint8_t * si);
+    uint8_t calc_panout(Track * track);
+    uint8_t * calc_q(Track * track, uint8_t * si);
     void fm_block_calc(int * cx, int * ax);
-    int ch3_setting(Track * ps);
+    int ch3_setting(Track * track);
     void cm_clear(int * ah, int * al);
-    void ch3mode_set(Track * ps);
-    void ch3_special(Track * ps, int ax, int cx);
+    void ch3mode_set(Track * track);
+    void ch3_special(Track * track, int ax, int cx);
 
-    void volset(Track * ps);
-    void volsetp(Track * ps);
-    void volsetm(Track * ps);
-    void volset8(Track * ps);
-    void volsetz(Track * ps);
+    void volset(Track * track);
+    void volsetp(Track * track);
+    void volsetm(Track * track);
+    void volset8(Track * track);
+    void volsetz(Track * track);
 
-    void Otodasi(Track * ps);
-    void OtodasiP(Track * ps);
-    void OtodasiM(Track * ps);
-    void Otodasi8(Track * ps);
-    void OtodasiZ(Track * ps);
+    void Otodasi(Track * track);
+    void OtodasiP(Track * track);
+    void OtodasiM(Track * track);
+    void Otodasi8(Track * track);
+    void OtodasiZ(Track * track);
 
-    void keyon(Track * ps);
-    void keyonp(Track * ps);
-    void keyonm(Track * ps);
-    void keyon8(Track * ps);
-    void keyonz(Track * ps);
+    void KeyOn(Track * track);
+    void keyonp(Track * track);
+    void keyonm(Track * track);
+    void keyon8(Track * track);
+    void keyonz(Track * track);
 
-    int lfo(Track * ps);
-    int lfop(Track * ps);
-    uint8_t * lfoswitch(Track * ps, uint8_t * si);
-    void lfoinit_main(Track * ps);
-    void lfo_change(Track * ps);
-    void lfo_exit(Track * ps);
-    void lfin1(Track * ps);
-    void lfo_main(Track * ps);
+    int lfo(Track * track);
+    int lfop(Track * track);
+    uint8_t * lfoswitch(Track * track, uint8_t * si);
+    void lfoinit_main(Track * track);
+    void SwapLFO(Track * track);
+    void lfo_exit(Track * track);
+    void lfin1(Track * track);
+    void lfo_main(Track * track);
 
     int rnd(int ax);
 
-    void fmlfo_sub(Track * ps, int al, int bl, uint8_t * vol_tbl);
+    void fmlfo_sub(Track * track, int al, int bl, uint8_t * vol_tbl);
     void volset_slot(int dh, int dl, int al);
-    void porta_calc(Track * ps);
-    int soft_env(Track * ps);
-    int soft_env_main(Track * ps);
-    int soft_env_sub(Track * ps);
-    int ext_ssgenv_main(Track * ps);
-    void esm_sub(Track * ps, int ah);
-    void md_inc(Track * ps);
+    void porta_calc(Track * track);
+    int soft_env(Track * track);
+    int soft_env_main(Track * track);
+    int soft_env_sub(Track * track);
+    int ext_ssgenv_main(Track * track);
+    void esm_sub(Track * track, int ah);
+    void md_inc(Track * track);
 
-    uint8_t * pcmrepeat_set(Track * ps, uint8_t * si);
-    uint8_t * pcmrepeat_set8(Track * ps, uint8_t * si);
-    uint8_t * ppzrepeat_set(Track * ps, uint8_t * si);
-    uint8_t * pansetm_ex(Track * ps, uint8_t * si);
-    uint8_t * panset8_ex(Track * ps, uint8_t * si);
-    uint8_t * pcm_mml_part_mask(Track * ps, uint8_t * si);
-    uint8_t * pcm_mml_part_mask8(Track * ps, uint8_t * si);
-    uint8_t * ppz_mml_part_mask(Track * ps, uint8_t * si);
+    uint8_t * pcmrepeat_set(Track * track, uint8_t * si);
+    uint8_t * pcmrepeat_set8(Track * track, uint8_t * si);
+    uint8_t * ppzrepeat_set(Track * track, uint8_t * si);
+    uint8_t * pansetm_ex(Track * track, uint8_t * si);
+    uint8_t * panset8_ex(Track * track, uint8_t * si);
+    uint8_t * pcm_mml_part_mask(Track * track, uint8_t * si);
+    uint8_t * pcm_mml_part_mask8(Track * track, uint8_t * si);
+    uint8_t * ppz_mml_part_mask(Track * track, uint8_t * si);
 
     void pcmstore(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf);
     void pcmread(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf);
 
-    uint8_t * hlfo_set(Track * ps, uint8_t * si);
-    uint8_t * vol_one_up_fm(Track * ps, uint8_t * si);
-    uint8_t * porta(Track * ps, uint8_t * si);
-    uint8_t * slotmask_set(Track * ps, uint8_t * si);
-    uint8_t * slotdetune_set(Track * ps, uint8_t * si);
-    uint8_t * slotdetune_set2(Track * ps, uint8_t * si);
-    void fm3_partinit(Track * ps, uint8_t * ax);
-    uint8_t * fm3_extpartset(Track * ps, uint8_t * si);
-    uint8_t * ppz_extpartset(Track * ps, uint8_t * si);
-    uint8_t * volmask_set(Track * ps, uint8_t * si);
-    uint8_t * fm_mml_part_mask(Track * ps, uint8_t * si);
-    uint8_t * ssg_mml_part_mask(Track * ps, uint8_t * si);
-    uint8_t * rhythm_mml_part_mask(Track * ps, uint8_t * si);
-    uint8_t * _lfoswitch(Track * ps, uint8_t * si);
-    uint8_t * _volmask_set(Track * ps, uint8_t * si);
-    uint8_t * tl_set(Track * ps, uint8_t * si);
-    uint8_t * fb_set(Track * ps, uint8_t * si);
-    uint8_t * fm_efct_set(Track * ps, uint8_t * si);
-    uint8_t * ssg_efct_set(Track * ps, uint8_t * si);
+    uint8_t * hlfo_set(Track * track, uint8_t * si);
+    uint8_t * vol_one_up_fm(Track * track, uint8_t * si);
+    uint8_t * porta(Track * track, uint8_t * si);
+    uint8_t * SetSlotMask(Track * track, uint8_t * si);
+    uint8_t * slotdetune_set(Track * track, uint8_t * si);
+    uint8_t * slotdetune_set2(Track * track, uint8_t * si);
+    void fm3_partinit(Track * track, uint8_t * ax);
+    uint8_t * fm3_extpartset(Track * track, uint8_t * si);
+    uint8_t * ppz_extpartset(Track * track, uint8_t * si);
+    uint8_t * volmask_set(Track * track, uint8_t * si);
+    uint8_t * fm_mml_part_mask(Track * track, uint8_t * si);
+    uint8_t * ssg_mml_part_mask(Track * track, uint8_t * si);
+    uint8_t * rhythm_mml_part_mask(Track * track, uint8_t * si);
+    uint8_t * _lfoswitch(Track * track, uint8_t * si);
+    uint8_t * _volmask_set(Track * track, uint8_t * si);
+    uint8_t * tl_set(Track * track, uint8_t * si);
+    uint8_t * fb_set(Track * track, uint8_t * si);
+    uint8_t * fm_efct_set(Track * track, uint8_t * si);
+    uint8_t * ssg_efct_set(Track * track, uint8_t * si);
 
     void Fade();
-    void neiro_reset(Track * ps);
+    void ResetTone(Track * track);
 
     int LoadPPCInternal(const WCHAR * filename);
     int LoadPPCInternal(uint8_t * pcmdata, int size);
 
     WCHAR * FindFile(WCHAR * dest, const WCHAR * filename);
-    void swap(int * a, int * b);
 
-    inline int Limit(int v, int max, int min)
+    inline void Swap(int * a, int * b) const noexcept
     {
-        return v > max ? max : (v < min ? min : v);
+        int t = *a;
+
+        *a = *b;
+        *b = t;
+    }
+
+    inline int Limit(int value, int max, int min) const noexcept
+    {
+        return value > max ? max : (value < min ? min : value);
     }
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member

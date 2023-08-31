@@ -61,20 +61,20 @@ struct PZIHEADER
         uint32_t LoopStart;
         uint32_t LoopEnd;
         uint16_t SampleRate;
-    } pcmnum[128];
+    } PZIItem[128];
 };
 
 struct PVIHEADER
 {
     char ID[4];                     // 'PVI2'
-    char dummy1[0x0b - 4];
-    uint8_t pvinum;                 // Number of PVI entries available
-    char dummy2[0x10 - 0x0b - 1];
+    char Dummy1[0x0b - 4];
+    uint8_t Count;                  // Number of PVI entries available
+    char Dummy2[0x10 - 0x0b - 1];
     struct
     {
-        uint16_t startaddress;      // Address
-        uint16_t endaddress;        // Size of data
-    } pcmnum[128];
+        uint16_t Start;
+        uint16_t End;
+    } PVIItem[128];
 };
 #pragma pack(pop)
 
@@ -115,8 +115,8 @@ public:
 private:
     void Reset();
 
-    void InitializeInternal(void);                        // 初期化(内部処理)
-    void MakeVolumeTable(int vol);            // 音量テーブルの作成
+    void InitializeInternal();
+    void CreateVolumeTable(int volume);
     void ReadHeader(File * file, PZIHEADER & pziheader);
     void ReadHeader(File * file, PVIHEADER & pviheader);
 
@@ -126,21 +126,17 @@ private:
     }
 
 private:
-    File * _File;                        // ファイルアクセス関連のクラスライブラリ
+    File * _File;
 
     bool _EmulateADPCM; // Should channel 8 emulate ADPCM?
-    bool _UseInterpolation;                        // 補完するか？
+    bool _UseInterpolation;
 
-    int        AVolume;
-    PPZChannel _Channel[PCM_CNL_MAX];        // 各チャンネルのワーク
-    uint8_t * XMS_FRAME_ADR[2];                    // XMSで確保したメモリアドレス（リニア）
-    int        XMS_FRAME_SIZE[2];                    // PZI or PVI 内部データサイズ
-    int        PCM_VOLUME;                            // 86B Mixer全体ボリューム
-    // (DEF=12)
-    int        _Volume;                                // 全体ボリューム
-    // (opna unit 互換)
-    int        DIST_F;                                // 再生周波数
+    PPZChannel _Channel[PCM_CNL_MAX];
+    uint8_t * XMS_FRAME_ADR[2]; // Memory allocated by XMS
+    int XMS_FRAME_SIZE[2]; // PZI or PVI internal state
+    int PCM_VOLUME; // Overall 86B Mixer volume
+    int _Volume;
+    int DIST_F; // Playback frequency
 
-    //    static Sample VolumeTable[16][256];            // 音量テーブル
     Sample _VolumeTable[16][256];                // 音量テーブル
 };

@@ -1,5 +1,5 @@
 ﻿
-// 86B PCM Driver「P86DRV Unit / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60
+// 86B PCM Driver「P86DRV Unit / Programmed by M. Kajihara 96/01/16 / Windows Converted by C60
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -15,7 +15,7 @@
 
 P86DRV::P86DRV(File * file) : _File(file), _Data()
 {
-    _Init();
+    InitializeInternal();
 }
 
 P86DRV::~P86DRV()
@@ -24,18 +24,16 @@ P86DRV::~P86DRV()
         ::free(_Data);
 }
 
-//  初期化
-bool P86DRV::Init(uint32_t r, bool useInterpolation)
+bool P86DRV::Initialize(uint32_t sampleRate, bool useInterpolation)
 {
-    _Init();
+    InitializeInternal();
 
-    SetSampleRate(r, useInterpolation);
+    SetSampleRate(sampleRate, useInterpolation);
 
     return true;
 }
 
-//  初期化(内部処理)
-void P86DRV::_Init(void)
+void P86DRV::InitializeInternal()
 {
     ::memset(_FilePath, 0, sizeof(_FilePath));
     ::memset(&_Header, 0, sizeof(_Header));
@@ -43,7 +41,7 @@ void P86DRV::_Init(void)
     if (_Data)
     {
         ::free(_Data);
-        _Data = NULL;
+        _Data = nullptr;
     }
 
     _UseInterpolation = false;
@@ -52,20 +50,20 @@ void P86DRV::_Init(void)
     _Pitch = 0;
     _Volume = 0;
 
-    start_ofs = NULL;
+    start_ofs = nullptr;
     start_ofs_x = 0;
     size = 0;
 
-    _start_ofs = NULL;
+    _start_ofs = nullptr;
     _size = 0;
 
     addsize1 = 0;
     addsize2 = 0;
 
-    repeat_ofs = NULL;
+    repeat_ofs = nullptr;
     repeat_size = 0;
 
-    release_ofs = NULL;
+    release_ofs = nullptr;
     release_size = 0;
 
     repeat_flag = false;
@@ -99,7 +97,7 @@ int P86DRV::Load(const WCHAR * filePath)
         if (_Data)
         {
             ::free(_Data);
-            _Data = NULL;
+            _Data = nullptr;
 
             ::memset(&_Header, 0, sizeof(_Header));
             ::memset(_FilePath, 0, sizeof(_FilePath));
@@ -108,44 +106,47 @@ int P86DRV::Load(const WCHAR * filePath)
         return P86_OPEN_FAILED;
     }
 
+    P86HEADER ph;
+
     // Header Hexdump:  50 43 4D 38 36 20 44 41 54 41 0A
-    int i;
-    P86HEADER  _p86header;
-    P86HEADER2  p86header2;
+    size_t FileSize = (size_t) _File->GetFileSize(filePath);
 
-    size_t FileSize = (size_t) _File->GetFileSize(filePath);    // ファイルサイズ
-
-    ReadHeader(_File, _p86header);
-
-    // P86HEADER → P86HEADER2 へ変換
-    memset(&p86header2, 0, sizeof(p86header2));
-
-    for (i = 0; i < MAX_P86; i++)
     {
-        p86header2.pcmnum[i].start = _p86header.pcmnum[i].start[0] + _p86header.pcmnum[i].start[1] * 0x100 + _p86header.pcmnum[i].start[2] * 0x10000 - 0x610;
-        p86header2.pcmnum[i].size  = _p86header.pcmnum[i].size[0]  + _p86header.pcmnum[i].size[1]  * 0x100 + _p86header.pcmnum[i].size[2]  * 0x10000;
-    }
+        P86FILEHEADER fh;
 
-    if (::memcmp(&_Header, &p86header2, sizeof(_Header)) == 0)
-    {
-        ::wcscpy_s(_FilePath, filePath);
+        ReadHeader(_File, fh);
 
-        _File->Close();
+        ::memset(&ph, 0, sizeof(ph));
 
-        return P86_ALREADY_LOADED;    // 同じファイル
+        for (size_t i = 0; i < _countof(P86HEADER::P86Item); ++i)
+        {
+            ph.P86Item[i].Offset = fh.P86Item[i].Offset[0] + fh.P86Item[i].Offset[1] * 0x100 + fh.P86Item[i].Offset[2] * 0x10000 - 0x610;
+            ph.P86Item[i].Size   = fh.P86Item[i].Size[0]   + fh.P86Item[i].Size[1]   * 0x100 + fh.P86Item[i].Size[2]   * 0x10000;
+        }
+
+        if (::memcmp(&_Header, &ph, sizeof(_Header)) == 0)
+        {
+            ::wcscpy_s(_FilePath, filePath);
+
+            _File->Close();
+
+            return P86_ALREADY_LOADED;
+        }
     }
 
     if (_Data)
     {
         ::free(_Data);
-        _Data = NULL;
+        _Data = nullptr;
     }
 
-    ::memcpy(&_Header, &p86header2, sizeof(_Header));
+    ::memcpy(&_Header, &ph, sizeof(_Header));
 
-    FileSize -= P86HEADERSIZE;
+    FileSize -= P86FILEHEADERSIZE;
 
-    if ((_Data = (uint8_t *) ::malloc(FileSize)) == NULL)
+    _Data = (uint8_t *) ::malloc(FileSize);
+
+    if (_Data == nullptr)
     {
         _File->Close();
         return PPZ_OUT_OF_MEMORY;
@@ -184,20 +185,14 @@ bool P86DRV::SetVol(int volume)
     return true;
 }
 
-//  PCM 番号設定
-bool P86DRV::SetNeiro(int num)
+bool P86DRV::SelectSample(int index)
 {
-    if (_Data == NULL)
-    {
-        _start_ofs = NULL;
-    }
-    else
-    {
-        _start_ofs = _Data + _Header.pcmnum[num].start;
-    }
-    _size = _Header.pcmnum[num].size;
+    _start_ofs = (_Data) ? _Data + _Header.P86Item[index].Offset : nullptr;
+    _size = _Header.P86Item[index].Size;
+
     repeat_flag = false;
     release_flag1 = false;
+
     return true;
 }
 
@@ -232,14 +227,15 @@ bool P86DRV::SetPitch(int sampleRateIndex, uint32_t pitch)
 //  リピート設定
 bool P86DRV::SetLoop(int loop_start, int loop_end, int release_start, bool adpcm)
 {
-    int    ax, dx, _dx;
-
     repeat_flag = true;
     release_flag1 = false;
-    dx = _dx = _size;
+
+    int dx = _size;
+    int _dx = _size;
 
     // 一個目 = リピート開始位置
-    ax = loop_start;
+    int ax = loop_start;
+
     if (ax >= 0)
     {
         // 正の場合
@@ -294,6 +290,7 @@ bool P86DRV::SetLoop(int loop_start, int loop_end, int release_start, bool adpcm
 
     // ３個目 = リリース開始位置
     ax = release_start;
+
     if ((uint16_t) ax != 0x8000)
     {        // 8000Hなら設定しない
 // release開始位置 = start位置に設定
@@ -304,6 +301,7 @@ bool P86DRV::SetLoop(int loop_start, int loop_end, int release_start, bool adpcm
 
         // リリースするに設定
         release_flag1 = true;
+
         if (ax > 0)
         {
             // 正の場合
@@ -333,6 +331,7 @@ bool P86DRV::SetLoop(int loop_start, int loop_end, int release_start, bool adpcm
             release_ofs += _dx;
         }
     }
+
     return true;
 }
 
@@ -353,7 +352,7 @@ bool P86DRV::Stop(void)
     return true;
 }
 
-//  P86 keyoff
+//  P86 KeyOff
 bool P86DRV::Keyoff(void)
 {
     if (release_flag1 == true)
@@ -692,23 +691,21 @@ void P86DRV::CreateVolumeTable(int volume)
     }
 }
 
-//  ヘッダ読み込み
-void P86DRV::ReadHeader(File * file, P86HEADER & header)
+void P86DRV::ReadHeader(File * file, P86FILEHEADER & header)
 {
-    uint8_t buf[1552];
+    uint8_t Data[1552];
 
-    file->Read(buf, sizeof(buf));
+    file->Read(Data, sizeof(Data));
 
-    ::memcpy(header.header, &buf[0x00], 12);
+    ::memcpy(header.Id, Data, 12);
 
-    header.Version = buf[0x0c];
+    header.Version = Data[0x0c];
 
-    ::memcpy(header.All_Size, &buf[0x0d], 3);
+    ::memcpy(header.Size, Data + 0x0d, 3);
 
-    for (int i = 0; i < MAX_P86; i++)
+    for (size_t i = 0; i < _countof(P86FILEHEADER::P86Item); ++i)
     {
-        ::memcpy(&header.pcmnum[i].start[0], &buf[0x10 + i * 6], 3);
-        ::memcpy(&header.pcmnum[i].size[0], &buf[0x13 + i * 6], 3);
+        ::memcpy(header.P86Item[i].Offset, &Data[0x10 + i * 6], 3);
+        ::memcpy(header.P86Item[i].Size,   &Data[0x13 + i * 6], 3);
     }
 }
-

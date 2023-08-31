@@ -25,31 +25,31 @@ typedef int32_t Sample;
 
 #pragma pack(push)
 #pragma pack(1)
-struct P86HEADER // header(original)
+struct P86FILEHEADER
 {
-    char header[12];      // "PCM86 DATA",0,0
+    char Id[12]; // "PCM86 DATA",0,0
     uint8_t Version;
-    char All_Size[3];
+    char Size[3];
     struct
     {
-        uint8_t  start[3];
-        uint8_t  size[3];
-    } pcmnum[MAX_P86];
+        uint8_t Offset[3];
+        uint8_t Size[3];
+    } P86Item[MAX_P86];
 };
 #pragma pack(pop)
 
-const size_t P86HEADERSIZE = sizeof(char) * 12 + sizeof(uint8_t) + sizeof(char) * 3 + sizeof(uint8_t) * (3 + 3) * MAX_P86;
+const size_t P86FILEHEADERSIZE = (sizeof(char) * 12) + sizeof(uint8_t) + (sizeof(char) * 3) + (sizeof(uint8_t) * (3 + 3) * MAX_P86);
 
-struct P86HEADER2  // header(for PMDWin, int alignment)
+struct P86HEADER
 {
-    char header[12];      // "PCM86 DATA",0,0
+    char Id[12]; // "PCM86 DATA",0,0
     int Version;
-    int All_Size;
+    int Size;
     struct
     {
-        int    start;
-        int    size;
-    } pcmnum[MAX_P86];
+        int Offset;
+        int Size;
+    } P86Item[MAX_P86];
 };
 
 const int SampleRates[] =
@@ -66,32 +66,32 @@ public:
     P86DRV(File * file);
     virtual ~P86DRV();
 
-    bool Init(uint32_t r, bool useInterpolation);            // 初期化
-    bool Stop(void);                // P86 停止
+    bool Initialize(uint32_t r, bool useInterpolation);
+    bool Stop(void);
     void Play();
 
-    bool Keyoff(void);                // P86 keyoff
+    bool Keyoff(void);
     int Load(const WCHAR * filePath);
 
     void SetSampleRate(uint32_t sampleRate, bool useInterpolation);
     void SetVolume(int volume);
     bool SetVol(int volume);
     bool SetPitch(int sampleRateIndex, uint32_t pitch);
-    bool SetPan(int flag, int data);        // PAN 設定
-    bool SetNeiro(int num);              // PCM 番号設定
-    bool SetLoop(int loop_start, int loop_end, int release_start, bool adpcm); // ループ設定
+    bool SetPan(int flag, int data);
+    bool SelectSample(int num); // PCM number setting
+    bool SetLoop(int loop_start, int loop_end, int release_start, bool adpcm);
 
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
 
 public:
     WCHAR _FilePath[_MAX_PATH];
-    P86HEADER2 _Header;
+    P86HEADER _Header;
 
 private:
-    void _Init();
+    void InitializeInternal();
 
     void CreateVolumeTable(int volume);
-    void ReadHeader(File * file, P86HEADER & p86header);
+    void ReadHeader(File * file, P86FILEHEADER & p86header);
 
     void double_trans(Sample * sampleData, size_t sampleCount);
     void double_trans_g(Sample * sampleData, size_t sampleCount);
@@ -106,7 +106,7 @@ private:
     void right_trans_i(Sample * sampleData, size_t sampleCount);
     void right_trans_g_i(Sample * sampleData, size_t sampleCount);
 
-    bool AddAddress(void);
+    bool AddAddress();
 
 private:
     File * _File;

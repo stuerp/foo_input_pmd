@@ -61,9 +61,11 @@ struct DriverState
     int ura_key[3]; // FM keyondata裏(=0x100)
     int loop_work; // Loop Work
     bool _UsePPS;  // ppsdrv を使用するか？flag(ユーザーが代入)
-    int pcmrepeat1; // PCMのリピートアドレス1
-    int pcmrepeat2; // PCMのリピートアドレス2
-    int pcmrelease; // PCMのRelease開始アドレス
+
+    int PCMRepeat1;
+    int PCMRepeat2;
+    int PCMRelease;
+
     int _OldTimerATime;  // 一個前の割り込み時の_TimerATime値
     int music_flag; // B0:次でMSTART 1:次でMSTOP のFlag
     int slotdetune_flag; // FM3 Slot Detuneを使っているか
@@ -89,22 +91,22 @@ struct EffectState
     int last_shot_data;  // 最後に発音させたPPSDRV音色
 };
 
-// Data area during performance
 struct Track
 {
-    uint8_t * address; // 2 ｴﾝｿｳﾁｭｳ ﾉ ｱﾄﾞﾚｽ
-    uint8_t * partloop; // 2 ｴﾝｿｳ ｶﾞ ｵﾜｯﾀﾄｷ ﾉ ﾓﾄﾞﾘｻｷ
+    uint8_t * Data;
+    uint8_t * LoopData;
+    int Length;
 
-    int leng;  // 1 ﾉｺﾘ LENGTH
-    int qdat;  // 1 gatetime (q/Q値を計算した値)
-    uint32_t fnum;  // 2 ｴﾝｿｳﾁｭｳ ﾉ BLOCK/FNUM
-    int detune;  // 2 ﾃﾞﾁｭｰﾝ
+    int qdat; // 1 gatetime (value calculated from q/Q value)
+
+    uint32_t fnum;  // 2 Power BLOCK/FNUM
+    int detune;  // 2 Detune
+
+    int lfoswi;  // 1. LFOSW: bit 0: tone, bit 1: vol,  bit 2: same period, bit 3: portamento
+    int extendmode; // 1. bit 1: Detune, bit 2: LFO, bit 3: Env Normal/Extend
+
+    // LFO 1
     int lfodat;  // 2 LFO DATA
-    int porta_num; // 2 ポルタメントの加減値（全体）
-    int porta_num2; // 2 ポルタメントの加減値（一回）
-    int porta_num3; // 2 ポルタメントの加減値（余り）
-    int volume;  // 1 VOLUME
-    int shift;  // 1 ｵﾝｶｲ ｼﾌﾄ ﾉ ｱﾀｲ
     int delay;  // 1 LFO [DELAY]
     int speed;  // 1 [SPEED]
     int step;  // 1 [STEP]
@@ -113,13 +115,39 @@ struct Track
     int speed2;  // 1 [SPEED_2]
     int step2;  // 1 [STEP_2]
     int time2;  // 1 [TIME_2]
-    int lfoswi;  // 1 LFOSW. B0/tone B1/vol B2/同期 B3/porta
-
-    //          B4/tone B5/vol B6/同期
-    int volpush; // 1 Volume PUSHarea
     int mdepth;  // 1 M depth
     int mdspd;  // 1 M speed
     int mdspd2;  // 1 M speed_2
+    int lfo_wave; // 1 LFO waveform
+    int mdc;  // 1 M depth Counter (Fluctuation value)
+    int mdc2;  // 1 M depth Counter
+
+    // LFO 2
+    int _lfodat; // 2 LFO DATA
+    int _delay;  // 1 LFO [DELAY]
+    int _speed;  // 1  [SPEED]
+    int _step;  // 1  [STEP]
+    int _time;  // 1  [TIME]
+    int _delay2; // 1  [DELAY_2]
+    int _speed2; // 1  [SPEED_2]
+    int _step2;  // 1  [STEP_2]
+    int _time2;  // 1  [TIME_2]
+    int _mdepth; // 1 M depth
+    int _mdspd;  // 1 M speed
+    int _mdspd2; // 1 M speed_2
+    int _lfo_wave; // 1 LFO waveform
+    int _mdc;  // 1 M depth Counter (Fluctuation value)
+    int _mdc2;  // 1 M depth Counter
+
+    int porta_num; // 2 ポルタメントの加減値（全体）
+    int porta_num2; // 2 ポルタメントの加減値（一回）
+    int porta_num3; // 2 ポルタメントの加減値（余り）
+
+    int volume;  // 1 VOLUME
+    int shift;  // 1 ｵﾝｶｲ ｼﾌﾄ ﾉ ｱﾀｲ
+
+    // bit 4: tone / bit 5: vol / bit 6: same period
+    int volpush; // 1 Volume PUSHarea
     int envf;  // 1 PSG ENV. [START_FLAG] / -1でextend
     int eenv_count; // 1 ExtendPSGenv/No=0 AR=1 DR=2 SR=3 RR=4
     int eenv_ar; // 1  /AR  /旧pat
@@ -133,55 +161,39 @@ struct Track
     int eenv_src; // 1 /SRのカウンタ /旧pr1b
     int eenv_rrc; // 1 /RRのカウンタ /旧pr2b
     int eenv_volume;  // 1 /Volume値(0?15)/旧penv
-    int extendmode; // 1 B1/Detune B2/LFO B3/Env Normal/Extend
+
     int fmpan;  // 1 FM Panning + AMD + PMD
     int psgpat;  // 1 PSG PATTERN [TONE/NOISE/MIX]
-    int voicenum; // 1 音色番号
-    int loopcheck; // 1 ループしたら１ 終了したら３
+    int _SampleNumber; // 1 Tone number
+    int loopcheck; // 1 When the loop ends 1 When the loop ends 3
     int carrier; // 1 FM Carrier
     int slot1;  // 1 SLOT 1 ﾉ TL
     int slot3;  // 1 SLOT 3 ﾉ TL
     int slot2;  // 1 SLOT 2 ﾉ TL
     int slot4;  // 1 SLOT 4 ﾉ TL
-    int slotmask; // 1 FM slotmask
-    int neiromask; // 1 FM 音色定義用maskdata
-    int lfo_wave; // 1 LFOの波形
-    int Mask; // 1 PartMask b0:通常 b1:効果音 b2:NECPCM用
 
-    //    b3:none b4:PPZ/ADE用 b5:s0時 b6:m b7:一時
-    int keyoff_flag;  // 1 KeyoffしたかどうかのFlag
-    int volmask; // 1 音量LFOのマスク
-    int qdata;  // 1 qの値
-    int qdatb;  // 1 Qの値
+    int _SlotMask; // 1 FM slotmask
+    int _ToneMask; // 1 maskdata for FM tone definition
+    int _PartMask; // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
+    int _VolumeMask1; // Volume LFO mask
+    int _VolumeMask2; // Volume LFO mask
+
+    // bit 3: none / bit 4: For PPZ/ADE / bit 5: s0 time / bit 6: m / bit 7: temporary
+    int keyoff_flag;  // 1 Flag indicating whether keyoff has been performed
+    int qdata;  // 1 value of q
+    int qdatb;  // 1 value of q
     int hldelay; // 1 HardLFO delay
     int hldelay_c; // 1 HardLFO delay Counter
-    int _lfodat; // 2 LFO DATA
-    int _delay;  // 1 LFO [DELAY]
-    int _speed;  // 1  [SPEED]
-    int _step;  // 1  [STEP]
-    int _time;  // 1  [TIME]
-    int _delay2; // 1  [DELAY_2]
-    int _speed2; // 1  [SPEED_2]
-    int _step2;  // 1  [STEP_2]
-    int _time2;  // 1  [TIME_2]
-    int _mdepth; // 1 M depth
-    int _mdspd;  // 1 M speed
-    int _mdspd2; // 1 M speed_2
-    int _lfo_wave; // 1 LFOの波形
-    int _volmask; // 1 音量LFOのマスク
-    int mdc;  // 1 M depth Counter (変動値)
-    int mdc2;  // 1 M depth Counter
-    int _mdc;  // 1 M depth Counter (変動値)
-    int _mdc2;  // 1 M depth Counter
-    int onkai;  // 1 演奏中の音階データ (0ffh:rest)
+
+    int onkai;  // Scale data being played (0xFF = rest)
     int sdelay;  // 1 Slot delay
     int sdelay_c; // 1 Slot delay counter
     int sdelay_m; // 1 Slot delay Mask
-    int alg_fb;  // 1 音色のalg/fb
-    int keyon_flag; // 1 新音階/休符データを処理したらinc
-    int qdat2;  // 1 q 最低保証値
-    int onkai_def; // 1 演奏中の音階データ (転調処理前 / ?fh:rest)
-    int shift_def; // 1 マスター転調値
+    int alg_fb;  // 1 Tone alg/fb
+    int keyon_flag; // 1 After processing new scale/rest data, inc
+    int qdat2;  // 1 q minimum guaranteed value
+    int onkai_def; // 1 Scale data being played (before modulation processing / ?fh: rest)
+    int shift_def; // 1 Master modulation value
     int qdat3;  // 1 q Random
 };
 
@@ -191,46 +203,48 @@ struct State
     Track * _Track[MaxTracks];
 
     uint8_t * _MData;  // Address of MML data + 1
-    uint8_t * _VData;  // Voicedataのaddress
-    uint8_t * _EData;  // FM Effecdataのaddress
-    uint8_t * prgdat_adr; // 曲データ中音色データ先頭番地
+    uint8_t * _VData;  // Voice data
+    uint8_t * _EData;  // FM Effect data
+    uint8_t * prgdat_adr; // Start address of tone data in song data
 
-    uint16_t * _RythmAddressTable;  // R part offset table 先頭番地
-    uint8_t * rhyadr;  // R part 演奏中番地
+    uint16_t * _RythmAddressTable;  // R part offset table. Start address
+    uint8_t * rhyadr;  // R part Current address
 
-    bool _UseSSG;  // Play Rhythm sound source with K/Rpart flag
+    bool _UseSSG;  // Play Rhythm Sound Source with K/Rpart flag
 
     bool _UseFM55kHzSynthesis;
     bool _UseInterpolationPPZ8;
     bool _UseInterpolationPPS;
     bool _UseInterpolationP86;
 
-    int rhythmmask; // Rhythm音源のマスク x8c/10hのbitに対応
+    int rhythmmask; // Rhythm Sound Source mask. Compatible with x8c/10h bit
 
     int fm_voldown; // FM voldown 数値
     int ssg_voldown;  // PSG voldown 数値
     int pcm_voldown;  // ADPCM voldown 数値
     int rhythm_voldown;  // RHYTHM voldown 数値
 
-    int prg_flg; // 曲データに音色が含まれているかflag
+    int prg_flg; // Whether the song data contains a tone flag
     int x68_flg; // OPM flag
     int status;  // status1
 
     int _LoopCount;
 
-    int tempo_d; // tempo (TIMER-B)
-    int tempo_d_push;  // tempo (TIMER-B) / 保存用
+    int tempo_d; // Tempo (TIMER-B)
+    int tempo_d_push;  // Tempo (TIMER-B) / for saving
 
     int _FadeOutSpeed;  // Fadeout速度
     int _FadeOutVolume;  // Fadeout音量
 
-    int syousetu_lng;  // 小節の長さ
-    int opncount; // 最短音符カウンタ
-    int effflag; // PSG効果音発声on/off flag(ユーザーが代入)
-    int psnoi;  // PSG noise周波数
-    int psnoi_last; // PSG noise周波数(最後に定義した数値)
-    int pcmstart; // PCM音色のstart値
-    int pcmstop; // PCM音色のstop値
+    int _BarLength;  // Bar length
+    int _OpsCounter; // Shortest note counter
+    int effflag; // PSG sound effect on/off flag (substituted by user)
+    int _PSGNoiseFrequency;  // PSG noise frequency
+    int _PSGNoiseFrequencyLast; // PSG noise frequency (last defined value)
+
+    int PCMStart;
+    int PCMStop;
+
     int rshot_dat; // リズム音源 shot flag
     int rdat[6]; // リズム音源 音量/パンデータ
     int rhyvol;  // リズムトータルレベル
@@ -246,10 +260,11 @@ struct State
     int fadeout_flag;  // When calling Fade from inside 1
     int revpan;  // PCM86逆相flag
     int pcm86_vol; // PCM86の音量をSPBに合わせるか?
-    int syousetu; // 小節カウンタ
+    int _BarCounter;
     int port22h; // OPN-PORT 22H に最後に出力した値(hlfo)
-    int tempo_48; // 現在のテンポ(clock=48 tの値)
-    int tempo_48_push;  // 現在のテンポ(同上/保存用)
+
+    int tempo_48; // Current tempo (value of clock = 48 t)
+    int tempo_48_push;  // Current tempo (same as above / for saving)
 
     int _fm_voldown;  // FM voldown 数値 (保存用)
     int _ssg_voldown;  // PSG voldown 数値 (保存用)
@@ -278,7 +293,7 @@ struct State
     int _TimerATime;
 
     bool _IsTimerBBusy;
-    int _TimerBSpeed;  // Current value of TimerB (= ff_tempo during ff)
+    int _TimerBTempo;  // Current value of TimerB (= ff_tempo during ff)
 
     uint32_t _OPNARate; // PCM output frequency (11k, 22k, 44k, 55k)
     uint32_t _PPZ8Rate; // PPZ output frequency

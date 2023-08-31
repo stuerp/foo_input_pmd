@@ -124,8 +124,8 @@ bool PPZ8::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
     }
     else
     {
-        _Channel[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start];
-        _Channel[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size];
+        _Channel[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start];
+        _Channel[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + PCME_WORK[bufnum].PZIItem[num].Size];
 
         if (_Channel[ch].PCM_LOOP_FLG == 0)
         {
@@ -135,15 +135,15 @@ bool PPZ8::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
         else
         {
             // ループあり
-            if (_Channel[ch].PCM_LOOP_START >= PCME_WORK[bufnum].pcmnum[num].Size)
-                _Channel[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size - 1];
+            if (_Channel[ch].PCM_LOOP_START >= PCME_WORK[bufnum].PZIItem[num].Size)
+                _Channel[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + PCME_WORK[bufnum].PZIItem[num].Size - 1];
             else
-                _Channel[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + _Channel[ch].PCM_LOOP_START];
+                _Channel[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + _Channel[ch].PCM_LOOP_START];
 
-            if (_Channel[ch].PCM_LOOP_END >= PCME_WORK[bufnum].pcmnum[num].Size)
-                _Channel[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + PCME_WORK[bufnum].pcmnum[num].Size];
+            if (_Channel[ch].PCM_LOOP_END >= PCME_WORK[bufnum].PZIItem[num].Size)
+                _Channel[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + PCME_WORK[bufnum].PZIItem[num].Size];
             else
-                _Channel[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].pcmnum[num].Start + _Channel[ch].PCM_LOOP_END];
+                _Channel[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + _Channel[ch].PCM_LOOP_END];
         }
     }
 
@@ -269,27 +269,27 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
 
         int PVISize = 0;
 
-        for (int i = 0; i < PVIHeader.pvinum; ++i)
+        for (int i = 0; i < PVIHeader.Count; ++i)
         {
-            PZIHeader.pcmnum[i].Start      = (uint32_t) ((                                 PVIHeader.pcmnum[i].startaddress      << (5 + 1)));
-            PZIHeader.pcmnum[i].Size       = (uint32_t) ((PVIHeader.pcmnum[i].endaddress - PVIHeader.pcmnum[i].startaddress + 1) << (5 + 1));
-            PZIHeader.pcmnum[i].LoopStart  = 0xFFFF;
-            PZIHeader.pcmnum[i].LoopEnd    = 0xFFFF;
-            PZIHeader.pcmnum[i].SampleRate = 16000; // 16kHz
+            PZIHeader.PZIItem[i].Start      = (uint32_t) ((                                 PVIHeader.PVIItem[i].Start      << (5 + 1)));
+            PZIHeader.PZIItem[i].Size       = (uint32_t) ((PVIHeader.PVIItem[i].End - PVIHeader.PVIItem[i].Start + 1) << (5 + 1));
+            PZIHeader.PZIItem[i].LoopStart  = 0xFFFF;
+            PZIHeader.PZIItem[i].LoopEnd    = 0xFFFF;
+            PZIHeader.PZIItem[i].SampleRate = 16000; // 16kHz
 
-            PVISize += PZIHeader.pcmnum[i].Size;
+            PVISize += PZIHeader.PZIItem[i].Size;
         }
 
-        for (int i = PVIHeader.pvinum; i < 128; ++i)
+        for (int i = PVIHeader.Count; i < 128; ++i)
         {
-            PZIHeader.pcmnum[i].Start      = 0;
-            PZIHeader.pcmnum[i].Size       = 0;
-            PZIHeader.pcmnum[i].LoopStart  = 0xFFFF;
-            PZIHeader.pcmnum[i].LoopEnd    = 0xFFFF;
-            PZIHeader.pcmnum[i].SampleRate = 0;
+            PZIHeader.PZIItem[i].Start      = 0;
+            PZIHeader.PZIItem[i].Size       = 0;
+            PZIHeader.PZIItem[i].LoopStart  = 0xFFFF;
+            PZIHeader.PZIItem[i].LoopEnd    = 0xFFFF;
+            PZIHeader.PZIItem[i].SampleRate = 0;
         }
 
-        if (::memcmp(&PCME_WORK[bufnum].pcmnum, &PZIHeader.pcmnum, sizeof(PZIHEADER) - 0x20) == 0)
+        if (::memcmp(&PCME_WORK[bufnum].PZIItem, &PZIHeader.PZIItem, sizeof(PZIHEADER) - 0x20) == 0)
         {
             ::wcscpy(_FilePath[bufnum], filePath);
             _File->Close();
@@ -346,12 +346,12 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
             uint8_t * psrc2 = psrc;
 
             // ADPCM > PCM に変換
-            for (int i = 0; i < PVIHeader.pvinum; ++i)
+            for (int i = 0; i < PVIHeader.Count; ++i)
             {
                 int X_N     = X_N0;     // Xn (ADPCM>PCM 変換用)
                 int DELTA_N = DELTA_N0; // DELTA_N(ADPCM>PCM 変換用)
 
-                for (int j = 0; j < (int) PZIHeader.pcmnum[i].Size / 2; ++j)
+                for (int j = 0; j < (int) PZIHeader.PZIItem[i].Size / 2; ++j)
                 {
 
                     X_N     = Limit(X_N + table1[(*psrc >> 4) & 0x0f] * DELTA_N / 8, 32767, -32768);
@@ -488,18 +488,17 @@ void PPZ8::SetAllVolume(int vol)
     if (vol < 16 && vol != PCM_VOLUME)
     {
         PCM_VOLUME = vol;
-        MakeVolumeTable(_Volume);
+        CreateVolumeTable(_Volume);
     }
 }
 
-//  音量調整用
 void PPZ8::SetVolume(int volume)
 {
     if (volume != _Volume)
-        MakeVolumeTable(volume);
+        CreateVolumeTable(volume);
 }
 
-//  ADPCM エミュレート設定
+//  ADPCM Emulation settings
 void PPZ8::ADPCM_EM_SET(bool flag)
 {
     _EmulateADPCM = flag;
@@ -515,66 +514,63 @@ void PPZ8::ReadHeader(File * file, PZIHEADER & ph)
     if (file->Read(Data, sizeof(Data)) != sizeof(Data))
         return;
 
-    ::memcpy(ph.ID,     &Data[0x00], sizeof(ph.ID));
+    ::memcpy(ph.ID, Data, sizeof(ph.ID));
     ::memcpy(ph.Dummy1, &Data[0x04], sizeof(ph.Dummy1));
+
     ph.Count = Data[0x0B];
+
     ::memcpy(ph.Dummy2, &Data[0x0C], sizeof(ph.Dummy2));
 
     for (int i = 0; i < 128; i++)
     {
-        ph.pcmnum[i].Start      = (uint32_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
-        ph.pcmnum[i].Size       = (uint32_t) ((Data[0x24 + i * 18]) | (Data[0x25 + i * 18] << 8) | (Data[0x26 + i * 18] << 16) | (Data[0x27 + i * 18] << 24));
-        ph.pcmnum[i].LoopStart  = (uint32_t) ((Data[0x28 + i * 18]) | (Data[0x29 + i * 18] << 8) | (Data[0x2a + i * 18] << 16) | (Data[0x2b + i * 18] << 24));
-        ph.pcmnum[i].LoopEnd    = (uint32_t) ((Data[0x2c + i * 18]) | (Data[0x2d + i * 18] << 8) | (Data[0x2e + i * 18] << 16) | (Data[0x2f + i * 18] << 24));
-        ph.pcmnum[i].SampleRate = (uint16_t) ((Data[0x30 + i * 18]) | (Data[0x31 + i * 18] << 8));
+        ph.PZIItem[i].Start      = (uint32_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
+        ph.PZIItem[i].Size       = (uint32_t) ((Data[0x24 + i * 18]) | (Data[0x25 + i * 18] << 8) | (Data[0x26 + i * 18] << 16) | (Data[0x27 + i * 18] << 24));
+        ph.PZIItem[i].LoopStart  = (uint32_t) ((Data[0x28 + i * 18]) | (Data[0x29 + i * 18] << 8) | (Data[0x2a + i * 18] << 16) | (Data[0x2b + i * 18] << 24));
+        ph.PZIItem[i].LoopEnd    = (uint32_t) ((Data[0x2c + i * 18]) | (Data[0x2d + i * 18] << 8) | (Data[0x2e + i * 18] << 16) | (Data[0x2f + i * 18] << 24));
+        ph.PZIItem[i].SampleRate = (uint16_t) ((Data[0x30 + i * 18]) | (Data[0x31 + i * 18] << 8));
     }
 }
 
 /// <summary>
 /// Reads the PVI header.
 /// </summary>
-void PPZ8::ReadHeader(File * file, PVIHEADER & pviheader)
+void PPZ8::ReadHeader(File * file, PVIHEADER & ph)
 {
     uint8_t Data[528];
 
     file->Read(Data, sizeof(Data));
 
-    ::memcpy(pviheader.ID, &Data[0x00], 4);
-    ::memcpy(pviheader.dummy1, &Data[0x04], (size_t) 0x0b - 4);
+    ::memcpy(ph.ID, Data, 4);
+    ::memcpy(ph.Dummy1, &Data[0x04], (size_t) 0x0b - 4);
 
-    pviheader.pvinum = Data[0x0b];
+    ph.Count = Data[0x0b];
 
-    ::memcpy(pviheader.dummy2, &Data[0x0c], (size_t) 0x10 - 0x0b - 1);
+    ::memcpy(ph.Dummy2, &Data[0x0c], (size_t) 0x10 - 0x0b - 1);
 
     for (int i = 0; i < 128; i++)
     {
-        pviheader.pcmnum[i].startaddress = (uint16_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
+        ph.PVIItem[i].Start = (uint16_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
 //FIXME: Why is startaddress overwritten here?
-        pviheader.pcmnum[i].startaddress = (uint16_t) ((Data[0x10 + i * 4]) | (Data[0x11 + i * 4] << 8));
-        pviheader.pcmnum[i].endaddress   = (uint16_t) ((Data[0x12 + i * 4]) | (Data[0x13 + i * 4] << 8));
+        ph.PVIItem[i].Start = (uint16_t) ((Data[0x10 + i * 4]) | (Data[0x11 + i * 4] << 8));
+        ph.PVIItem[i].End   = (uint16_t) ((Data[0x12 + i * 4]) | (Data[0x13 + i * 4] << 8));
     }
 }
 
-//  音量テーブル作成
-void PPZ8::MakeVolumeTable(int vol)
+void PPZ8::CreateVolumeTable(int volume)
 {
-    int    i, j;
-    double  temp;
+    _Volume = volume;
 
-    _Volume = vol;
-    AVolume = (int) (0x1000 * pow(10.0, vol / 40.0));
+    int AVolume = (int) (0x1000 * ::pow(10.0, volume / 40.0));
 
-    for (i = 0; i < 16; i++)
+    for (int i = 0; i < 16; i++)
     {
-        temp = pow(2.0, ((double) (i) +PCM_VOLUME) / 2.0) * AVolume / 0x18000;
-        for (j = 0; j < 256; j++)
-        {
-            _VolumeTable[i][j] = (Sample) ((j - 128) * temp);
-        }
+        double Value = ::pow(2.0, ((double) (i) + PCM_VOLUME) / 2.0) * AVolume / 0x18000;
+
+        for (int j = 0; j < 256; j++)
+            _VolumeTable[i][j] = (Sample) ((j - 128) * Value);
     }
 }
 
-//  ﾜｰｸ初期化
 void PPZ8::Reset()
 {
     ::memset(_Channel, 0, sizeof(_Channel));
@@ -585,9 +581,9 @@ void PPZ8::Reset()
         _Channel[i].PCM_ADD_L = 0;
         _Channel[i].PCM_ADDS_H = 1;
         _Channel[i].PCM_ADDS_L = 0;
-        _Channel[i].PCM_SORC_F = 16000;    // 元データの再生レート
-        _Channel[i].PCM_PAN = 5;      // PAN中心
-        _Channel[i].PCM_VOL = 8;      // ボリュームデフォルト
+        _Channel[i].PCM_SORC_F = 16000; // Original playback rate
+        _Channel[i].PCM_PAN = 5;        // Pan Center
+        _Channel[i].PCM_VOL = 8;        // Default volume
     }
 
     // MOV  PCME_WORK0 + PVI_NUM_MAX, 0  ; @ PVIのMAXを０にする
