@@ -86,7 +86,7 @@ public:
                 if (::_strnicmp(filePath, "file://", 7) == 0)
                     filePath += 7;
 
-                if (!_Decoder->Open(filePath, CfgSamplesPath, &Data[0], (size_t) _FileStats.m_size, CfgSynthesisRate))
+                if (!_Decoder->Open(filePath, CfgSamplesPath.get(), &Data[0], (size_t) _FileStats.m_size, (uint32_t) CfgSynthesisRate))
                     throw exception_io_data("Invalid PMD file");
             }
         }
@@ -203,8 +203,8 @@ public:
 
         _Decoder->Initialize();
 
-        _Decoder->SetMaxLoopNumber(CfgLoopCount);
-        _Decoder->SetFadeOutDuration(CfgFadeOutDuration);
+        _Decoder->SetMaxLoopNumber((uint32_t) CfgLoopCount);
+        _Decoder->SetFadeOutDuration((uint32_t) CfgFadeOutDuration);
 
         _LoopNumber = 0;
 
