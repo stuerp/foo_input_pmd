@@ -1,5 +1,5 @@
 ﻿
-// Based on PMDWin code by C60
+// PMD driver (Based on PMDWin code by C60)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -22,7 +22,7 @@ PMD::PMD()
 {
     _File = new File();
 
-    _OPNA = new OPNAW(_File);   // FM Sound Source, an FM synthesis sound system, based around the YM2203
+    _OPNAW = new OPNAW(_File);   // FM Sound Source, an FM synthesis sound system, based around the YM2203
     _PPZ8 = new PPZ8(_File);    // ADPCM Sound Source, a single 8-bit ADPCM channel, 2-16kHz sampling rate
     _PPS  = new PPSDRV(_File);  // SSG Sound Source, a complete internal SSG implementation
     _P86  = new P86DRV(_File);  // Rhythm Sound Source, a six-channel ADPCM system, with six percussion "rhythm tones" on a built-in ROM
@@ -38,7 +38,7 @@ PMD::~PMD()
     delete _P86;
     delete _PPS;
     delete _PPZ8;
-    delete _OPNA;
+    delete _OPNAW;
 }
 
 /// <summary>
@@ -60,15 +60,15 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _PPS->Init(_State._OPNARate, false);
     _P86->Initialize(_State._OPNARate, false);
 
-    if (_OPNA->Init(OPNAClock, SOUND_44K, false, DirectoryPath) == false)
+    if (_OPNAW->Init(OPNAClock, SOUND_44K, false, DirectoryPath) == false)
         return false;
 
     // Initialize ADPCM RAM.
     {
-        _OPNA->SetFMWait(0);
-        _OPNA->SetSSGWait(0);
-        _OPNA->SetRhythmWait(0);
-        _OPNA->SetADPCMWait(0);
+        _OPNAW->SetFMDelay(0);
+        _OPNAW->SetSSGDelay(0);
+        _OPNAW->SetRSSDelay(0);
+        _OPNAW->SetADPCMDelay(0);
 
         uint8_t  Page[0x400]; // 0x400 * 0x100 = 0x40000(256K)
 
@@ -78,19 +78,19 @@ bool PMD::Initialize(const WCHAR * directoryPath)
             pcmstore((uint16_t) i * sizeof(Page) / 32, (uint16_t) (i + 1) * sizeof(Page) / 32, Page);
     }
 
-    _OPNA->SetFMVolume(0);
-    _OPNA->SetPSGVolume(-18);
-    _OPNA->SetADPCMVolume(0);
-    _OPNA->SetRhythmMasterVolume(0);
+    _OPNAW->SetFMVolume(0);
+    _OPNAW->SetSSGVolume(-18);
+    _OPNAW->SetADPCMVolume(0);
+    _OPNAW->SetRSSVolume(0);
 
     _PPZ8->SetVolume(0);
     _PPS->SetVolume(0);
     _P86->SetVolume(0);
 
-    _OPNA->SetFMWait(DEFAULT_REG_WAIT);
-    _OPNA->SetSSGWait(DEFAULT_REG_WAIT);
-    _OPNA->SetRhythmWait(DEFAULT_REG_WAIT);
-    _OPNA->SetADPCMWait(DEFAULT_REG_WAIT);
+    _OPNAW->SetFMDelay(DEFAULT_REG_WAIT);
+    _OPNAW->SetSSGDelay(DEFAULT_REG_WAIT);
+    _OPNAW->SetRSSDelay(DEFAULT_REG_WAIT);
+    _OPNAW->SetADPCMDelay(DEFAULT_REG_WAIT);
 
     pcmends.Count = 0x26;
 
@@ -103,11 +103,11 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _State._PPCFileName[0] = '\0';
 
     // Initial setting of 088/188/288/388 (same INT number only)
-    _OPNA->SetReg(0x29, 0x00);
-    _OPNA->SetReg(0x24, 0x00);
-    _OPNA->SetReg(0x25, 0x00);
-    _OPNA->SetReg(0x26, 0x00);
-    _OPNA->SetReg(0x27, 0x3f);
+    _OPNAW->SetReg(0x29, 0x00);
+    _OPNAW->SetReg(0x24, 0x00);
+    _OPNAW->SetReg(0x25, 0x00);
+    _OPNAW->SetReg(0x26, 0x00);
+    _OPNAW->SetReg(0x27, 0x3f);
 
     // Start the OPN interrupt.
     StartOPNInterrupt();
@@ -408,30 +408,30 @@ bool PMD::GetLength(int * songLength, int * loopLength)
     _Position = 0; // Time from start of playing (μs)
     *songLength = 0;
 
-    int FMWait = _OPNA->GetFMWait();
-    int SSGWait = _OPNA->GetSSGWait();
-    int RhythmWait = _OPNA->GetRhythmWait();
-    int ADPCMWait = _OPNA->GetADPCMWait();
+    int FMDelay = _OPNAW->GetFMDelay();
+    int SSGDelay = _OPNAW->GetSSGDelay();
+    int ADPCMDelay = _OPNAW->GetADPCMDelay();
+    int RSSDelay = _OPNAW->GetRSSDelay();
 
-    _OPNA->SetFMWait(0);
-    _OPNA->SetSSGWait(0);
-    _OPNA->SetRhythmWait(0);
-    _OPNA->SetADPCMWait(0);
+    _OPNAW->SetFMDelay(0);
+    _OPNAW->SetSSGDelay(0);
+    _OPNAW->SetADPCMDelay(0);
+    _OPNAW->SetRSSDelay(0);
 
     do
     {
         {
-            if (_OPNA->ReadStatus() & 0x01)
+            if (_OPNAW->ReadStatus() & 0x01)
                 HandleTimerA();
 
-            if (_OPNA->ReadStatus() & 0x02)
+            if (_OPNAW->ReadStatus() & 0x02)
                 HandleTimerB();
 
-            _OPNA->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+            _OPNAW->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
 
-            uint32_t us = _OPNA->GetNextEvent();
+            uint32_t us = _OPNAW->GetNextEvent();
 
-            _OPNA->Count(us);
+            _OPNAW->Count(us);
             _Position += us;
         }
 
@@ -447,10 +447,10 @@ bool PMD::GetLength(int * songLength, int * loopLength)
 
             DriverStop();
 
-            _OPNA->SetFMWait(FMWait);
-            _OPNA->SetSSGWait(SSGWait);
-            _OPNA->SetRhythmWait(RhythmWait);
-            _OPNA->SetADPCMWait(ADPCMWait);
+            _OPNAW->SetFMDelay(FMDelay);
+            _OPNAW->SetSSGDelay(SSGDelay);
+            _OPNAW->SetADPCMDelay(ADPCMDelay);
+            _OPNAW->SetRSSDelay(RSSDelay);
 
             return true;
         }
@@ -469,10 +469,10 @@ bool PMD::GetLength(int * songLength, int * loopLength)
 
     DriverStop();
 
-    _OPNA->SetFMWait(FMWait);
-    _OPNA->SetSSGWait(SSGWait);
-    _OPNA->SetRhythmWait(RhythmWait);
-    _OPNA->SetADPCMWait(ADPCMWait);
+    _OPNAW->SetFMDelay(FMDelay);
+    _OPNAW->SetSSGDelay(SSGDelay);
+    _OPNAW->SetADPCMDelay(ADPCMDelay);
+    _OPNAW->SetRSSDelay(RSSDelay);
 
     return true;
 }
@@ -487,30 +487,30 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
     _Position = 0; // Time from start of playing (μs)
     *eventCount = 0;
 
-    int FMWait = _OPNA->GetFMWait();
-    int SSGWait = _OPNA->GetSSGWait();
-    int RhythmWait = _OPNA->GetRhythmWait();
-    int ADPCMWait = _OPNA->GetADPCMWait();
+    int FMDelay = _OPNAW->GetFMDelay();
+    int SSGDelay = _OPNAW->GetSSGDelay();
+    int ADPCMDelay = _OPNAW->GetADPCMDelay();
+    int RSSDelay = _OPNAW->GetRSSDelay();
 
-    _OPNA->SetFMWait(0);
-    _OPNA->SetSSGWait(0);
-    _OPNA->SetRhythmWait(0);
-    _OPNA->SetADPCMWait(0);
+    _OPNAW->SetFMDelay(0);
+    _OPNAW->SetSSGDelay(0);
+    _OPNAW->SetADPCMDelay(0);
+    _OPNAW->SetRSSDelay(0);
 
     do
     {
         {
-            if (_OPNA->ReadStatus() & 0x01)
+            if (_OPNAW->ReadStatus() & 0x01)
                 HandleTimerA();
 
-            if (_OPNA->ReadStatus() & 0x02)
+            if (_OPNAW->ReadStatus() & 0x02)
                 HandleTimerB();
 
-            _OPNA->SetReg(0x27, _State.ch3mode | 0x30);  // Timer Reset (Both timer A and B)
+            _OPNAW->SetReg(0x27, _State.ch3mode | 0x30);  // Timer Reset (Both timer A and B)
 
-            uint32_t us = _OPNA->GetNextEvent();
+            uint32_t us = _OPNAW->GetNextEvent();
 
-            _OPNA->Count(us);
+            _OPNAW->Count(us);
             _Position += us;
         }
 
@@ -526,10 +526,10 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
 
             DriverStop();
 
-            _OPNA->SetFMWait(FMWait);
-            _OPNA->SetSSGWait(SSGWait);
-            _OPNA->SetRhythmWait(RhythmWait);
-            _OPNA->SetADPCMWait(ADPCMWait);
+            _OPNAW->SetFMDelay(FMDelay);
+            _OPNAW->SetSSGDelay(SSGDelay);
+            _OPNAW->SetADPCMDelay(ADPCMDelay);
+            _OPNAW->SetRSSDelay(RSSDelay);
 
             return true;
         }
@@ -548,10 +548,10 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
 
     DriverStop();
 
-    _OPNA->SetFMWait(FMWait);
-    _OPNA->SetSSGWait(SSGWait);
-    _OPNA->SetRhythmWait(RhythmWait);
-    _OPNA->SetADPCMWait(ADPCMWait);
+    _OPNAW->SetFMDelay(FMDelay);
+    _OPNAW->SetSSGDelay(SSGDelay);
+    _OPNAW->SetADPCMDelay(ADPCMDelay);
+    _OPNAW->SetRSSDelay(RSSDelay);
 
     return true;
 }
@@ -585,24 +585,24 @@ void PMD::SetPosition(uint32_t position)
 
     while (_Position < NewPosition)
     {
-        if (_OPNA->ReadStatus() & 0x01)
+        if (_OPNAW->ReadStatus() & 0x01)
             HandleTimerA();
 
-        if (_OPNA->ReadStatus() & 0x02)
+        if (_OPNAW->ReadStatus() & 0x02)
             HandleTimerB();
 
-        _OPNA->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+        _OPNAW->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
 
-        uint32_t us = _OPNA->GetNextEvent();
+        uint32_t us = _OPNAW->GetNextEvent();
 
-        _OPNA->Count(us);
+        _OPNAW->Count(us);
         _Position += us;
     }
 
     if (_State._LoopCount == -1)
         Silence();
 
-    _OPNA->ClearBuffer();
+    _OPNAW->ClearBuffer();
 }
 
 // Renders a chunk of PCM data.
@@ -631,20 +631,20 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
             }
 
             {
-                if (_OPNA->ReadStatus() & 0x01)
+                if (_OPNAW->ReadStatus() & 0x01)
                     HandleTimerA();
 
-                if (_OPNA->ReadStatus() & 0x02)
+                if (_OPNAW->ReadStatus() & 0x02)
                     HandleTimerB();
 
-                _OPNA->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+                _OPNAW->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
             }
 
-            uint32_t us = _OPNA->GetNextEvent(); // in microseconds
+            uint32_t us = _OPNAW->GetNextEvent(); // in microseconds
 
             {
                 _SamplesToDo = (size_t) ((double) us * _State._OPNARate / 1000000.0);
-                _OPNA->Count(us);
+                _OPNAW->Count(us);
 
                 ::memset(_SampleDst, 0, _SamplesToDo * sizeof(Stereo32bit));
 
@@ -674,7 +674,7 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
             }
 
             {
-                _OPNA->Mix((Sample *) _SampleDst, _SamplesToDo);
+                _OPNAW->Mix((Sample *) _SampleDst, _SamplesToDo);
 
                 if (_DriverState._UsePPS)
                     _PPS->Mix((Sample *) _SampleDst, _SamplesToDo);
@@ -724,7 +724,7 @@ bool PMD::LoadRythmSample(WCHAR * path)
 
     Stop();
 
-    return _OPNA->LoadInstruments(Path);
+    return _OPNAW->LoadInstruments(Path);
 }
 
 // Sets the PCM search directory
@@ -761,7 +761,7 @@ void PMD::SetSynthesisRate(uint32_t frequency)
         _State._UseFM55kHzSynthesis = false;
     }
 
-    _OPNA->SetRate(OPNAClock, _State._OPNARate, _State._UseFM55kHzSynthesis);
+    _OPNAW->SetRate(OPNAClock, _State._OPNARate, _State._UseFM55kHzSynthesis);
 
     _PPZ8->SetRate(_State._PPZ8Rate, _State._UseInterpolationPPZ8);
     _PPS->SetRate(_State._OPNARate, _State._UseInterpolationPPS);
@@ -775,7 +775,7 @@ void PMD::SetFM55kHzSynthesisMode(bool flag)
 {
     _State._UseFM55kHzSynthesis = flag;
 
-    _OPNA->SetRate(OPNAClock, _State._OPNARate, _State._UseFM55kHzSynthesis);
+    _OPNAW->SetRate(OPNAClock, _State._OPNARate, _State._UseFM55kHzSynthesis);
 }
 
 /// <summary>
@@ -819,27 +819,27 @@ void PMD::SetP86Interpolation(bool flag)
 }
 
 // Sets FM Wait after register output.
-void PMD::SetFMWait(int nsec)
+void PMD::SetFMDelay(int nsec)
 {
-    _OPNA->SetFMWait(nsec);
+    _OPNAW->SetFMDelay(nsec);
 }
 
 // Sets SSG Wait after register output.
-void PMD::SetSSGWait(int nsec)
+void PMD::SetSSGDelay(int nsec)
 {
-    _OPNA->SetSSGWait(nsec);
+    _OPNAW->SetSSGDelay(nsec);
 }
 
 // Sets Rythm Wait after register output.
-void PMD::SetRhythmWait(int nsec)
+void PMD::SetRSSDelay(int nsec)
 {
-    _OPNA->SetRhythmWait(nsec);
+    _OPNAW->SetRSSDelay(nsec);
 }
 
 // Sets ADPCM Wait after register output.
-void PMD::SetADPCMWait(int nsec)
+void PMD::SetADPCMDelay(int nsec)
 {
-    _OPNA->SetADPCMWait(nsec);
+    _OPNAW->SetADPCMDelay(nsec);
 }
 
 // Fade out (PMD compatible)
@@ -875,23 +875,23 @@ void PMD::SetEventNumber(int eventNumber)
 
     while (((_State._BarLength * _State._BarCounter) + _State._OpsCounter) < eventNumber)
     {
-        if (_OPNA->ReadStatus() & 0x01)
+        if (_OPNAW->ReadStatus() & 0x01)
             HandleTimerA();
 
-        if (_OPNA->ReadStatus() & 0x02)
+        if (_OPNAW->ReadStatus() & 0x02)
             HandleTimerB();
 
-        _OPNA->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+        _OPNAW->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
 
-        uint32_t us = _OPNA->GetNextEvent();
+        uint32_t us = _OPNAW->GetNextEvent();
 
-        _OPNA->Count(us);
+        _OPNAW->Count(us);
     }
 
     if (_State._LoopCount == -1)
         Silence();
 
-    _OPNA->ClearBuffer();
+    _OPNAW->ClearBuffer();
 }
 
 // Gets the playback position (in ticks)
@@ -967,7 +967,7 @@ int PMD::maskon(int ch)
     if (TrackTable[ch][0] < 0)
     {
         _State.rhythmmask = 0;  // Rhythm音源をMask
-        _OPNA->SetReg(0x10, 0xff);  // Rhythm音源を全部Dump
+        _OPNAW->SetReg(0x10, 0xff);  // Rhythm音源を全部Dump
     }
     else
     {
@@ -1000,13 +1000,13 @@ int PMD::maskon(int ch)
                 ah |= (ah << 3);
 
                 // PSG KeyOff
-                _OPNA->SetReg(0x07, ah | _OPNA->GetReg(0x07));
+                _OPNAW->SetReg(0x07, ah | _OPNAW->GetReg(0x07));
             }
             else
             if (TrackTable[ch][2] == 3)
             {
-                _OPNA->SetReg(0x101, 0x02);    // PAN=0 / x8 bit mode
-                _OPNA->SetReg(0x100, 0x01);    // PCM RESET
+                _OPNAW->SetReg(0x101, 0x02);    // PAN=0 / x8 bit mode
+                _OPNAW->SetReg(0x100, 0x01);    // PCM RESET
             }
             else
             if (TrackTable[ch][2] == 4)
@@ -1095,7 +1095,7 @@ void PMD::setrhythmvoldown(int voldown)
     _State.rhythm_voldown = _State._rhythm_voldown = voldown;
     _State.rhyvol         = 48 * 4 * (256 - _State.rhythm_voldown) / 1024;
 
-    _OPNA->SetReg(0x11, (uint32_t) _State.rhyvol);
+    _OPNAW->SetReg(0x11, (uint32_t) _State.rhyvol);
 }
 
 //  ADPCM Volume Down の設定
@@ -1635,7 +1635,7 @@ void PMD::FMMain(Track * track)
         if (track->hldelay_c)
         {
             if (--track->hldelay_c == 0)
-                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + (_DriverState._CurrentChannel - 1 + 0xb4)), (uint32_t) track->fmpan);
+                _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + (_DriverState._CurrentChannel - 1 + 0xb4)), (uint32_t) track->fmpan);
         }
 
         if (track->sdelay_c)
@@ -1708,12 +1708,12 @@ void PMD::KeyOffEx(Track * track)
     if (_DriverState.fmsel == 0)
     {
         _DriverState.omote_key[_DriverState._CurrentChannel - 1] = (~track->_SlotMask) & (_DriverState.omote_key[_DriverState._CurrentChannel - 1]);
-        _OPNA->SetReg(0x28, (uint32_t) ((_DriverState._CurrentChannel - 1) | _DriverState.omote_key[_DriverState._CurrentChannel - 1]));
+        _OPNAW->SetReg(0x28, (uint32_t) ((_DriverState._CurrentChannel - 1) | _DriverState.omote_key[_DriverState._CurrentChannel - 1]));
     }
     else
     {
         _DriverState.ura_key[_DriverState._CurrentChannel - 1] = (~track->_SlotMask) & (_DriverState.ura_key[_DriverState._CurrentChannel - 1]);
-        _OPNA->SetReg(0x28, (uint32_t) (((_DriverState._CurrentChannel - 1) | _DriverState.ura_key[_DriverState._CurrentChannel - 1]) | 4));
+        _OPNAW->SetReg(0x28, (uint32_t) (((_DriverState._CurrentChannel - 1) | _DriverState.ura_key[_DriverState._CurrentChannel - 1]) | 4));
     }
 }
 
@@ -1732,7 +1732,7 @@ void PMD::KeyOn(Track * track)
             al &= track->sdelay_m;
 
         _DriverState.omote_key[_DriverState._CurrentChannel - 1] = al;
-        _OPNA->SetReg(0x28, (uint32_t) ((_DriverState._CurrentChannel - 1) | al));
+        _OPNAW->SetReg(0x28, (uint32_t) ((_DriverState._CurrentChannel - 1) | al));
     }
     else
     {
@@ -1742,7 +1742,7 @@ void PMD::KeyOn(Track * track)
             al &= track->sdelay_m;
 
         _DriverState.ura_key[_DriverState._CurrentChannel - 1] = al;
-        _OPNA->SetReg(0x28, (uint32_t) (((_DriverState._CurrentChannel - 1) | al) | 4));
+        _OPNAW->SetReg(0x28, (uint32_t) (((_DriverState._CurrentChannel - 1) | al) | 4));
     }
 }
 
@@ -1774,8 +1774,8 @@ void PMD::Otodasi(Track * track)
 
         ax |= cx;
 
-        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentChannel + 0xa4 - 1), (uint32_t) HIBYTE(ax));
-        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentChannel + 0xa4 - 5), (uint32_t) LOBYTE(ax));
+        _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentChannel + 0xa4 - 1), (uint32_t) HIBYTE(ax));
+        _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentChannel + 0xa4 - 5), (uint32_t) LOBYTE(ax));
     }
 }
 
@@ -1917,7 +1917,7 @@ void PMD::ch3mode_set(Track * track)
 
     _State.ch3mode = (uint32_t) ah;
 
-    _OPNA->SetReg(0x27, (uint32_t) (ah & 0xCF)); // Don't reset.
+    _OPNAW->SetReg(0x27, (uint32_t) (ah & 0xCF)); // Don't reset.
 
     // When moving to sound effect mode, the pitch is rewritten with the previous FM3 part
     if (ah == 0x3F || track == &_FMTrack[2])
@@ -1976,8 +1976,8 @@ void PMD::ch3_special(Track * track, int ax, int cx)
         fm_block_calc(&cx, &ax);
         ax |= cx;
 
-        _OPNA->SetReg(0xa6, (uint32_t) HIBYTE(ax));
-        _OPNA->SetReg(0xa2, (uint32_t) LOBYTE(ax));
+        _OPNAW->SetReg(0xa6, (uint32_t) HIBYTE(ax));
+        _OPNAW->SetReg(0xa2, (uint32_t) LOBYTE(ax));
 
         ax = ax_;
     }
@@ -1996,8 +1996,8 @@ void PMD::ch3_special(Track * track, int ax, int cx)
         fm_block_calc(&cx, &ax);
         ax |= cx;
 
-        _OPNA->SetReg(0xac, (uint32_t) HIBYTE(ax));
-        _OPNA->SetReg(0xa8, (uint32_t) LOBYTE(ax));
+        _OPNAW->SetReg(0xac, (uint32_t) HIBYTE(ax));
+        _OPNAW->SetReg(0xa8, (uint32_t) LOBYTE(ax));
 
         ax = ax_;
     }
@@ -2020,8 +2020,8 @@ void PMD::ch3_special(Track * track, int ax, int cx)
         fm_block_calc(&cx, &ax);
         ax |= cx;
 
-        _OPNA->SetReg(0xae, (uint32_t) HIBYTE(ax));
-        _OPNA->SetReg(0xaa, (uint32_t) LOBYTE(ax));
+        _OPNAW->SetReg(0xae, (uint32_t) HIBYTE(ax));
+        _OPNAW->SetReg(0xaa, (uint32_t) LOBYTE(ax));
 
         ax = ax_;
     }
@@ -2042,8 +2042,8 @@ void PMD::ch3_special(Track * track, int ax, int cx)
         fm_block_calc(&cx, &ax);
         ax |= cx;
 
-        _OPNA->SetReg(0xad, (uint32_t) HIBYTE(ax));
-        _OPNA->SetReg(0xa9, (uint32_t) LOBYTE(ax));
+        _OPNAW->SetReg(0xad, (uint32_t) HIBYTE(ax));
+        _OPNAW->SetReg(0xa9, (uint32_t) LOBYTE(ax));
 
         ax = ax_;
     }
@@ -2072,7 +2072,7 @@ void PMD::panset_main(Track * qq, int al)
     if (qq->_PartMask == 0)
     {    // パートマスクされているか？
 // dl = al;
-        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentChannel + 0xb4 - 1), calc_panout(qq));
+        _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentChannel + 0xb4 - 1), calc_panout(qq));
     }
 }
 
@@ -2292,7 +2292,7 @@ void PMD::volset_slot(int dh, int dl, int al)
     if ((al -= 0x80) < 0)
         al = 0;
 
-    _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) al);
+    _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) al);
 }
 
 //  Sub for volume LFO
@@ -2320,7 +2320,7 @@ void PMD::PSGMain(Track * track)
     {
         // PPS 使用時 & SSG 3ch & SSG 効果音鳴らしている場合
         keyoffp(track);
-        _OPNA->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), 0U);    // 強制的に音を止める
+        _OPNAW->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), 0U);    // 強制的に音を止める
         track->keyoff_flag = -1;
     }
 
@@ -2645,22 +2645,22 @@ uint8_t * PMD::rhythmon(Track * track, uint8_t * bx, int al, int * result)
         {
             if (al & (1 << cl))
             {
-                _OPNA->SetReg((uint32_t) rhydat[cl][0], (uint32_t) rhydat[cl][1]);
+                _OPNAW->SetReg((uint32_t) rhydat[cl][0], (uint32_t) rhydat[cl][1]);
 
                 int dl = rhydat[cl][2] & _State.rhythmmask;
 
                 if (dl)
                 {
                     if (dl < 0x80)
-                        _OPNA->SetReg(0x10, (uint32_t) dl);
+                        _OPNAW->SetReg(0x10, (uint32_t) dl);
                     else
                     {
-                        _OPNA->SetReg(0x10, 0x84);
+                        _OPNAW->SetReg(0x10, 0x84);
 
                         dl = _State.rhythmmask & 0x08;
 
                         if (dl)
-                            _OPNA->SetReg(0x10, (uint32_t) dl);
+                            _OPNAW->SetReg(0x10, (uint32_t) dl);
                     }
                 }
             }
@@ -2676,7 +2676,7 @@ uint8_t * PMD::rhythmon(Track * track, uint8_t * bx, int al, int * result)
             if (_State._FadeOutVolume)
                 dl = ((256 - _State._FadeOutVolume) * dl) >> 8;
 
-            _OPNA->SetReg(0x11, (uint32_t) dl);
+            _OPNAW->SetReg(0x11, (uint32_t) dl);
         }
 
         if (!_DriverState._UsePPS)
@@ -2826,20 +2826,20 @@ void PMD::efffor(const int * si)
     {
         _EffectState.effcnt = al;    // カウント数
         cl = *si;
-        _OPNA->SetReg(4, (uint32_t) (*si++));    // 周波数セット
+        _OPNAW->SetReg(4, (uint32_t) (*si++));    // 周波数セット
         ch = *si;
-        _OPNA->SetReg(5, (uint32_t) (*si++));    // 周波数セット
+        _OPNAW->SetReg(5, (uint32_t) (*si++));    // 周波数セット
         _EffectState.eswthz = (ch << 8) + cl;
 
         _State._PSGNoiseFrequencyLast = _EffectState.eswnhz = *si;
-        _OPNA->SetReg(6, (uint32_t) *si++);    // ノイズ
+        _OPNAW->SetReg(6, (uint32_t) *si++);    // ノイズ
 
-        _OPNA->SetReg(7, ((*si++ << 2) & 0x24) | (_OPNA->GetReg(0x07) & 0xdb));
+        _OPNAW->SetReg(7, ((*si++ << 2) & 0x24) | (_OPNAW->GetReg(0x07) & 0xdb));
 
-        _OPNA->SetReg(10, (uint32_t) *si++);    // ボリューム
-        _OPNA->SetReg(11, (uint32_t) *si++);    // エンベロープ周波数
-        _OPNA->SetReg(12, (uint32_t) *si++);    // 
-        _OPNA->SetReg(13, (uint32_t) *si++);    // エンベロープPATTERN
+        _OPNAW->SetReg(10, (uint32_t) *si++);    // ボリューム
+        _OPNAW->SetReg(11, (uint32_t) *si++);    // エンベロープ周波数
+        _OPNAW->SetReg(12, (uint32_t) *si++);    // 
+        _OPNAW->SetReg(13, (uint32_t) *si++);    // エンベロープPATTERN
 
         _EffectState.eswtst = *si++;    // スイープ増分 (TONE)
         _EffectState.eswnst = *si++;    // スイープ増分 (NOISE)
@@ -2855,8 +2855,8 @@ void PMD::effend()
     if (_DriverState._UsePPS)
         _PPS->Stop();
 
-    _OPNA->SetReg(0x0a, 0x00);
-    _OPNA->SetReg(0x07, ((_OPNA->GetReg(0x07)) & 0xdb) | 0x24);
+    _OPNAW->SetReg(0x0a, 0x00);
+    _OPNAW->SetReg(0x07, ((_OPNAW->GetReg(0x07)) & 0xdb) | 0x24);
 
     _EffectState.effon = 0;
     _EffectState.psgefcnum = -1;
@@ -2868,8 +2868,8 @@ void PMD::effsweep()
     int    dl;
 
     _EffectState.eswthz += _EffectState.eswtst;
-    _OPNA->SetReg(4, (uint32_t) LOBYTE(_EffectState.eswthz));
-    _OPNA->SetReg(5, (uint32_t) HIBYTE(_EffectState.eswthz));
+    _OPNAW->SetReg(4, (uint32_t) LOBYTE(_EffectState.eswthz));
+    _OPNAW->SetReg(5, (uint32_t) HIBYTE(_EffectState.eswthz));
 
     if (_EffectState.eswnst == 0) return;    // ノイズスイープ無し
     if (--_EffectState.eswnct) return;
@@ -2886,7 +2886,7 @@ void PMD::effsweep()
 
     _EffectState.eswnhz += dl >> 4;
 
-    _OPNA->SetReg(6, (uint32_t) _EffectState.eswnhz);
+    _OPNAW->SetReg(6, (uint32_t) _EffectState.eswnhz);
     _State._PSGNoiseFrequencyLast = _EffectState.eswnhz;
 }
 
@@ -3438,28 +3438,28 @@ void PMD::keyonm(Track * track)
     if (track->onkai == 255)
         return;
 
-    _OPNA->SetReg(0x101, 0x02);  // PAN=0 / x8 bit mode
-    _OPNA->SetReg(0x100, 0x21);  // PCM RESET
+    _OPNAW->SetReg(0x101, 0x02);  // PAN=0 / x8 bit mode
+    _OPNAW->SetReg(0x100, 0x21);  // PCM RESET
 
-    _OPNA->SetReg(0x102, (uint32_t) LOBYTE(_State.PCMStart));
-    _OPNA->SetReg(0x103, (uint32_t) HIBYTE(_State.PCMStart));
-    _OPNA->SetReg(0x104, (uint32_t) LOBYTE(_State.PCMStop));
-    _OPNA->SetReg(0x105, (uint32_t) HIBYTE(_State.PCMStop));
+    _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_State.PCMStart));
+    _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_State.PCMStart));
+    _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State.PCMStop));
+    _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State.PCMStop));
 
     if ((_DriverState.PCMRepeat1 | _DriverState.PCMRepeat2) == 0)
     {
-        _OPNA->SetReg(0x100, 0xa0);  // PCM PLAY (non_repeat)
-        _OPNA->SetReg(0x101, (uint32_t) (track->fmpan | 2));  // PAN SET / x8 bit mode
+        _OPNAW->SetReg(0x100, 0xa0);  // PCM PLAY (non_repeat)
+        _OPNAW->SetReg(0x101, (uint32_t) (track->fmpan | 2));  // PAN SET / x8 bit mode
     }
     else
     {
-        _OPNA->SetReg(0x100, 0xb0);  // PCM PLAY (repeat)
-        _OPNA->SetReg(0x101, (uint32_t) (track->fmpan | 2));  // PAN SET / x8 bit mode
+        _OPNAW->SetReg(0x100, 0xb0);  // PCM PLAY (repeat)
+        _OPNAW->SetReg(0x101, (uint32_t) (track->fmpan | 2));  // PAN SET / x8 bit mode
 
-        _OPNA->SetReg(0x102, (uint32_t) LOBYTE(_DriverState.PCMRepeat1));
-        _OPNA->SetReg(0x103, (uint32_t) HIBYTE(_DriverState.PCMRepeat1));
-        _OPNA->SetReg(0x104, (uint32_t) LOBYTE(_DriverState.PCMRepeat2));
-        _OPNA->SetReg(0x105, (uint32_t) HIBYTE(_DriverState.PCMRepeat2));
+        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_DriverState.PCMRepeat1));
+        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_DriverState.PCMRepeat1));
+        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_DriverState.PCMRepeat2));
+        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_DriverState.PCMRepeat2));
     }
 }
 
@@ -3520,8 +3520,8 @@ void PMD::OtodasiM(Track * track)
     }
 
     // TONE SET
-    _OPNA->SetReg(0x109, (uint32_t) LOBYTE(bx));
-    _OPNA->SetReg(0x10a, (uint32_t) HIBYTE(bx));
+    _OPNAW->SetReg(0x109, (uint32_t) LOBYTE(bx));
+    _OPNAW->SetReg(0x10a, (uint32_t) HIBYTE(bx));
 }
 
 //  PCM OTODASI (PMD86)
@@ -3590,7 +3590,7 @@ void PMD::volsetm(Track * qq)
     //------------------------------------------------------------------------
     if (al == 0)
     {
-        _OPNA->SetReg(0x10b, 0);
+        _OPNAW->SetReg(0x10b, 0);
         return;
     }
 
@@ -3599,7 +3599,7 @@ void PMD::volsetm(Track * qq)
         //  拡張版 音量=al*(eenv_vol+1)/16
         if (qq->eenv_volume == 0)
         {
-            _OPNA->SetReg(0x10b, 0);
+            _OPNAW->SetReg(0x10b, 0);
             return;
         }
 
@@ -3613,7 +3613,7 @@ void PMD::volsetm(Track * qq)
 
             if (al < ah)
             {
-                _OPNA->SetReg(0x10b, 0);
+                _OPNAW->SetReg(0x10b, 0);
                 return;
             }
             else
@@ -3636,7 +3636,7 @@ void PMD::volsetm(Track * qq)
 
     if ((qq->lfoswi & 0x22) == 0)
     {
-        _OPNA->SetReg(0x10b, (uint32_t) al);
+        _OPNAW->SetReg(0x10b, (uint32_t) al);
         return;
     }
 
@@ -3650,18 +3650,18 @@ void PMD::volsetm(Track * qq)
         al += dx;
 
         if (al & 0xff00)
-            _OPNA->SetReg(0x10b, 255);
+            _OPNAW->SetReg(0x10b, 255);
         else
-            _OPNA->SetReg(0x10b, (uint32_t) al);
+            _OPNAW->SetReg(0x10b, (uint32_t) al);
     }
     else
     {
         al += dx;
 
         if (al < 0)
-            _OPNA->SetReg(0x10b, 0);
+            _OPNAW->SetReg(0x10b, 0);
         else
-            _OPNA->SetReg(0x10b, (uint32_t) al);
+            _OPNAW->SetReg(0x10b, (uint32_t) al);
     }
 }
 
@@ -3686,7 +3686,7 @@ void PMD::volset8(Track * qq)
     //------------------------------------------------------------------------
     if (al == 0)
     {
-        _OPNA->SetReg(0x10b, 0);
+        _OPNAW->SetReg(0x10b, 0);
         return;
     }
 
@@ -3695,7 +3695,7 @@ void PMD::volset8(Track * qq)
         //  拡張版 音量=al*(eenv_vol+1)/16
         if (qq->eenv_volume == 0)
         {
-            _OPNA->SetReg(0x10b, 0);
+            _OPNAW->SetReg(0x10b, 0);
             return;
         }
 
@@ -3709,7 +3709,7 @@ void PMD::volset8(Track * qq)
 
             if (al < ah)
             {
-                _OPNA->SetReg(0x10b, 0);
+                _OPNAW->SetReg(0x10b, 0);
                 return;
             }
             else
@@ -4121,17 +4121,17 @@ void PMD::keyoffm(Track * qq)
     if (_DriverState.PCMRelease != 0x8000)
     {
         // PCM RESET
-        _OPNA->SetReg(0x100, 0x21);
+        _OPNAW->SetReg(0x100, 0x21);
 
-        _OPNA->SetReg(0x102, (uint32_t) LOBYTE(_DriverState.PCMRelease));
-        _OPNA->SetReg(0x103, (uint32_t) HIBYTE(_DriverState.PCMRelease));
+        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_DriverState.PCMRelease));
+        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_DriverState.PCMRelease));
 
         // Stop ADDRESS for Release
-        _OPNA->SetReg(0x104, (uint32_t) LOBYTE(_State.PCMStop));
-        _OPNA->SetReg(0x105, (uint32_t) HIBYTE(_State.PCMStop));
+        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State.PCMStop));
+        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State.PCMStop));
 
         // PCM PLAY(non_repeat)
-        _OPNA->SetReg(0x100, 0xa0);
+        _OPNAW->SetReg(0x100, 0xa0);
     }
 
     keyoffp(qq);
@@ -4476,7 +4476,7 @@ uint8_t * PMD::ExecuteFMCommand(Track * track, uint8_t * si)
         case 0xf0: si += 4; break;
 
         case 0xef:
-            _OPNA->SetReg((uint32_t) (_DriverState.fmsel + *si), (uint32_t) (*(si + 1)));
+            _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + *si), (uint32_t) (*(si + 1)));
             si += 2;
             break;
 
@@ -4508,7 +4508,7 @@ uint8_t * PMD::ExecuteFMCommand(Track * track, uint8_t * si)
             break;
 
         case 0xe1: si = hlfo_set(track, si); break;
-        case 0xe0: _State.port22h = *si; _OPNA->SetReg(0x22, *si++); break;
+        case 0xe0: _State.port22h = *si; _OPNAW->SetReg(0x22, *si++); break;
             //
         case 0xdf: _State._BarLength = *si++; break;
             //
@@ -4635,7 +4635,7 @@ uint8_t * PMD::ExecutePSGCommand(Track * track, uint8_t * si)
         case 0xf1: si = lfoswitch(track, si); break;
         case 0xf0: si = psgenvset(track, si); break;
 
-        case 0xef: _OPNA->SetReg(*si, *(si + 1)); si += 2; break;
+        case 0xef: _OPNAW->SetReg(*si, *(si + 1)); si += 2; break;
         case 0xee: _State._PSGNoiseFrequency = *si++; break;
         case 0xed: track->psgpat = *si++; break;
             //
@@ -4796,7 +4796,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Track * track, uint8_t * si)
         case 0xf1: si = pdrswitch(track, si); break;
         case 0xf0: si += 4; break;
 
-        case 0xef: _OPNA->SetReg(*si, *(si + 1)); si += 2; break;
+        case 0xef: _OPNAW->SetReg(*si, *(si + 1)); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
             //
@@ -4912,7 +4912,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Track * track, uint8_t * si)
         case 0xf1: si = lfoswitch(track, si); break;
         case 0xf0: si = psgenvset(track, si); break;
 
-        case 0xef: _OPNA->SetReg((uint32_t) (0x100 + *si), (uint32_t) (*(si + 1))); si += 2; break;
+        case 0xef: _OPNAW->SetReg((uint32_t) (0x100 + *si), (uint32_t) (*(si + 1))); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
         case 0xec: si = pansetm(track, si); break;        // FOR SB2
@@ -5072,7 +5072,7 @@ uint8_t * PMD::ExecutePCM86Command(Track * track, uint8_t * si)
         case 0xf1: si = lfoswitch(track, si); break;
         case 0xf0: si = psgenvset(track, si); break;
 
-        case 0xef: _OPNA->SetReg((uint32_t) (0x100 + *si), (uint32_t) (*(si + 1))); si += 2; break;
+        case 0xef: _OPNAW->SetReg((uint32_t) (0x100 + *si), (uint32_t) (*(si + 1))); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
         case 0xec: si = panset8(track, si); break;        // FOR SB2
@@ -5204,7 +5204,7 @@ uint8_t * PMD::ExecutePPZ8Command(Track * track, uint8_t * si)
         case 0xf1: si = lfoswitch(track, si); break;
         case 0xf0: si = psgenvset(track, si); break;
 
-        case 0xef: _OPNA->SetReg((uint32_t) (_DriverState.fmsel + *si), (uint32_t) *(si + 1)); si += 2; break;
+        case 0xef: _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + *si), (uint32_t) *(si + 1)); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
         case 0xec: si = pansetz(track, si); break;        // FOR SB2
@@ -5412,7 +5412,7 @@ void PMD::SetTone(Track * track, int dl)
         }
     }
 
-    _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
 
     track->alg_fb = dl;
     dl &= 7;    // dl = algo
@@ -5435,115 +5435,115 @@ void PMD::SetTone(Track * track, int dl)
     dh = 0x30 - 1 + _DriverState._CurrentChannel;
 
     dl = *bx++;        // DT/ML
-    if (al & 0x80) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x40) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x20) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x10) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // TL
-    if (ah & 0x80) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (ah & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (ah & 0x40) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh),(uint32_t) dl);
+    if (ah & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh),(uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (ah & 0x20) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (ah & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (ah & 0x10) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (ah & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // KS/AR
-    if (al & 0x08) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x08) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x04) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x04) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x02) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x02) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x01) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x01) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // AM/DR
-    if (al & 0x80) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x40) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x20) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x10) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // SR
-    if (al & 0x08) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x08) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x04) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x04) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x02) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x02) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x01) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x01) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // SL/RR
-    if (al & 0x80) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x40) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x20) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x10) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh += 4;
 /*
     dl = *bx++;        // SL/RR
-    if (al & 0x80) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh+=4;
 
     dl = *bx++;
-    if (al & 0x40) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh+=4;
 
     dl = *bx++;
-    if (al & 0x20) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh+=4;
 
     dl = *bx++;
-    if (al & 0x10) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
     dh+=4;
 */
     // Save TL for each SLOT in workpiece
@@ -5564,32 +5564,32 @@ int PMD::MuteFMPart(Track * track)
 
     if (track->_ToneMask & 0x80)
     {
-        _OPNA->SetReg((uint32_t) ( _DriverState.fmsel         + dh), 127);
-        _OPNA->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
+        _OPNAW->SetReg((uint32_t) ( _DriverState.fmsel         + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
     }
 
     dh += 4;
 
     if (track->_ToneMask & 0x40)
     {
-        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), 127);
-        _OPNA->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
+        _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
     }
 
     dh += 4;
 
     if (track->_ToneMask & 0x20)
     {
-        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), 127);
-        _OPNA->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
+        _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
     }
 
     dh += 4;
 
     if (track->_ToneMask & 0x10)
     {
-        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), 127);
-        _OPNA->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
+        _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_DriverState.fmsel + 0x40) + dh), 127);
     }
 
     KeyOffEx(track);
@@ -5635,7 +5635,7 @@ uint8_t * PMD::hlfo_set(Track * qq, uint8_t * si)
 
     if (qq->_PartMask == 0)
     {    // パートマスクされているか？
-        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentChannel + 0xb4 - 1), calc_panout(qq));
+        _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentChannel + 0xb4 - 1), calc_panout(qq));
     }
     return si;
 }
@@ -6114,9 +6114,9 @@ uint8_t * PMD::ssg_mml_part_mask(Track * qq, uint8_t * si)
         if (qq->_PartMask == 0x40)
         {
             int ah = ((1 << (_DriverState._CurrentChannel - 1)) | (4 << _DriverState._CurrentChannel));
-            uint32_t al = _OPNA->GetReg(0x07);
+            uint32_t al = _OPNAW->GetReg(0x07);
 
-            _OPNA->SetReg(0x07, ah | al);    // PSG KeyOff
+            _OPNAW->SetReg(0x07, ah | al);    // PSG KeyOff
         }
     }
     else
@@ -6153,8 +6153,8 @@ uint8_t * PMD::pcm_mml_part_mask(Track * qq, uint8_t * si)
 
         if (qq->_PartMask == 0x40)
         {
-            _OPNA->SetReg(0x101, 0x02);    // PAN=0 / x8 bit mode
-            _OPNA->SetReg(0x100, 0x01);    // PCM RESET
+            _OPNAW->SetReg(0x101, 0x02);    // PAN=0 / x8 bit mode
+            _OPNAW->SetReg(0x100, 0x01);    // PCM RESET
         }
     }
     else
@@ -6234,24 +6234,24 @@ void PMD::ResetTone(Track * track)
     {
         dh = 0x4c - 1 + _DriverState._CurrentChannel;  // dh=TL FM Port Address
 
-        if (al & 0x80) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s4);
+        if (al & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s4);
 
         dh -= 8;
 
-        if (al & 0x40) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s3);
+        if (al & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s3);
 
         dh += 4;
 
-        if (al & 0x20) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s2);
+        if (al & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s2);
 
         dh -= 8;
 
-        if (al & 0x10) _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s1);
+        if (al & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) s1);
     }
 
     dh = _DriverState._CurrentChannel + 0xb4 - 1;
 
-    _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), calc_panout(track));
+    _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), calc_panout(track));
 }
 
 uint8_t * PMD::_lfoswitch(Track * track, uint8_t * si)
@@ -6305,7 +6305,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             qq->slot1 = dl;
             if (qq->_PartMask == 0)
             {
-                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
         }
 
@@ -6315,7 +6315,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             qq->slot2 = dl;
             if (qq->_PartMask == 0)
             {
-                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
         }
 
@@ -6325,7 +6325,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             qq->slot3 = dl;
             if (qq->_PartMask == 0)
             {
-                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
         }
 
@@ -6335,7 +6335,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             qq->slot4 = dl;
             if (qq->_PartMask == 0)
             {
-                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
         }
     }
@@ -6352,7 +6352,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             }
             if (qq->_PartMask == 0)
             {
-                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
             qq->slot1 = dl;
         }
@@ -6367,7 +6367,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             }
             if (qq->_PartMask == 0)
             {
-                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
             qq->slot2 = dl;
         }
@@ -6382,7 +6382,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             }
             if (qq->_PartMask == 0)
             {
-                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
             qq->slot3 = dl;
         }
@@ -6397,7 +6397,7 @@ uint8_t * PMD::tl_set(Track * qq, uint8_t * si)
             }
             if (qq->_PartMask == 0)
             {
-                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             }
             qq->slot4 = dl;
         }
@@ -6430,7 +6430,7 @@ uint8_t * PMD::fb_set(Track * qq, uint8_t * si)
             dl = (qq->alg_fb & 7) | al;
         }
 
-        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+        _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
         qq->alg_fb = dl;
 
         return si;
@@ -6468,7 +6468,7 @@ uint8_t * PMD::fb_set(Track * qq, uint8_t * si)
                 {
                     dl = (qq->alg_fb & 7) | al;
                 }
-                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
                 qq->alg_fb = dl;
                 return si;
             }
@@ -6488,7 +6488,7 @@ uint8_t * PMD::fb_set(Track * qq, uint8_t * si)
                 {
                     dl = (qq->alg_fb & 7) | al;
                 }
-                _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
                 qq->alg_fb = dl;
                 return si;
             }
@@ -6507,7 +6507,7 @@ uint8_t * PMD::fb_set(Track * qq, uint8_t * si)
             {
                 dl = (qq->alg_fb & 7) | al;
             }
-            _OPNA->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+            _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
             qq->alg_fb = dl;
             return si;
         }
@@ -6736,20 +6736,20 @@ uint8_t * PMD::rhykey(uint8_t * si)
     {
         int al = ((256 - _State._FadeOutVolume) * _State.rhyvol) >> 8;
 
-        _OPNA->SetReg(0x11, (uint32_t) al);
+        _OPNAW->SetReg(0x11, (uint32_t) al);
     }
 
     if (dl < 0x80)
     {
-        if (dl & 0x01) _OPNA->SetReg(0x18, (uint32_t) _State.rdat[0]);
-        if (dl & 0x02) _OPNA->SetReg(0x19, (uint32_t) _State.rdat[1]);
-        if (dl & 0x04) _OPNA->SetReg(0x1a, (uint32_t) _State.rdat[2]);
-        if (dl & 0x08) _OPNA->SetReg(0x1b, (uint32_t) _State.rdat[3]);
-        if (dl & 0x10) _OPNA->SetReg(0x1c, (uint32_t) _State.rdat[4]);
-        if (dl & 0x20) _OPNA->SetReg(0x1d, (uint32_t) _State.rdat[5]);
+        if (dl & 0x01) _OPNAW->SetReg(0x18, (uint32_t) _State.rdat[0]);
+        if (dl & 0x02) _OPNAW->SetReg(0x19, (uint32_t) _State.rdat[1]);
+        if (dl & 0x04) _OPNAW->SetReg(0x1a, (uint32_t) _State.rdat[2]);
+        if (dl & 0x08) _OPNAW->SetReg(0x1b, (uint32_t) _State.rdat[3]);
+        if (dl & 0x10) _OPNAW->SetReg(0x1c, (uint32_t) _State.rdat[4]);
+        if (dl & 0x20) _OPNAW->SetReg(0x1d, (uint32_t) _State.rdat[5]);
     }
 
-    _OPNA->SetReg(0x10, (uint32_t) dl);
+    _OPNAW->SetReg(0x10, (uint32_t) dl);
 
     if (dl >= 0x80)
     {
@@ -6788,7 +6788,7 @@ uint8_t * PMD::rhyvs(uint8_t * si)
     dl |= (*bx & 0xc0);
     *bx = dl;
 
-    _OPNA->SetReg((uint32_t) dh, (uint32_t) dl);
+    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
 
     return si;
 }
@@ -6813,7 +6813,7 @@ uint8_t * PMD::rhyvs_sft(uint8_t * si)
     dl = (al &= 0x1f);
     dl = *bx = ((*bx & 0xe0) | dl);
 
-    _OPNA->SetReg((uint32_t) dh, (uint32_t) dl);
+    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
 
     return si;
 }
@@ -6832,7 +6832,7 @@ uint8_t * PMD::rpnset(uint8_t * si)
     dh += 0x18 - 1;
     dl |= (*bx & 0x1f);
     *bx = dl;
-    _OPNA->SetReg((uint32_t) dh, (uint32_t) dl);
+    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
 
     return si;
 }
@@ -6850,7 +6850,7 @@ uint8_t * PMD::rmsvs(uint8_t * si)
     if (_State._FadeOutVolume != 0)
         dl = ((256 - _State._FadeOutVolume) * dl) >> 8;
 
-    _OPNA->SetReg(0x11, (uint32_t) dl);
+    _OPNAW->SetReg(0x11, (uint32_t) dl);
 
     return si;
 }
@@ -6872,7 +6872,7 @@ uint8_t * PMD::rmsvs_sft(uint8_t * si)
     if (_State._FadeOutVolume != 0)
         dl = ((256 - _State._FadeOutVolume) * dl) >> 8;
 
-    _OPNA->SetReg(0x11, (uint32_t) dl);
+    _OPNAW->SetReg(0x11, (uint32_t) dl);
 
     return si;
 }
@@ -7142,7 +7142,7 @@ void PMD::lfin1(Track * track)
     track->hldelay_c = track->hldelay;
 
     if (track->hldelay)
-        _OPNA->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentChannel + 0xb4 - 1), (uint32_t) (track->fmpan & 0xc0));
+        _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + _DriverState._CurrentChannel + 0xb4 - 1), (uint32_t) (track->fmpan & 0xc0));
 
     track->sdelay_c = track->sdelay;
 
@@ -7355,7 +7355,7 @@ void PMD::volsetp(Track * track)
     //------------------------------------------------------------------------
     if (dl <= 0)
     {
-        _OPNA->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), 0);
+        _OPNAW->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), 0);
         return;
     }
 
@@ -7363,7 +7363,7 @@ void PMD::volsetp(Track * track)
     {
         if (track->eenv_volume == 0)
         {
-            _OPNA->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), 0);
+            _OPNAW->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), 0);
             return;
         }
 
@@ -7375,7 +7375,7 @@ void PMD::volsetp(Track * track)
 
         if (dl <= 0)
         {
-            _OPNA->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), 0);
+            _OPNAW->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), 0);
             return;
         }
 
@@ -7388,7 +7388,7 @@ void PMD::volsetp(Track * track)
     //--------------------------------------------------------------------
     if ((track->lfoswi & 0x22) == 0)
     {
-        _OPNA->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), (uint32_t) dl);
+        _OPNAW->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), (uint32_t) dl);
         return;
     }
 
@@ -7401,7 +7401,7 @@ void PMD::volsetp(Track * track)
 
     if (dl < 0)
     {
-        _OPNA->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), 0);
+        _OPNAW->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), 0);
         return;
     }
 
@@ -7411,7 +7411,7 @@ void PMD::volsetp(Track * track)
     //------------------------------------------------------------------------
     //  出力
     //------------------------------------------------------------------------
-    _OPNA->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), (uint32_t) dl);
+    _OPNAW->SetReg((uint32_t) (_DriverState._CurrentChannel + 8 - 1), (uint32_t) dl);
 }
 
 // Set PSG pitch.
@@ -7485,8 +7485,8 @@ void PMD::OtodasiP(Track * track)
             ax = 0;
     }
 
-    _OPNA->SetReg((uint32_t) ((_DriverState._CurrentChannel - 1) * 2),     (uint32_t) LOBYTE(ax));
-    _OPNA->SetReg((uint32_t) ((_DriverState._CurrentChannel - 1) * 2 + 1), (uint32_t) HIBYTE(ax));
+    _OPNAW->SetReg((uint32_t) ((_DriverState._CurrentChannel - 1) * 2),     (uint32_t) LOBYTE(ax));
+    _OPNAW->SetReg((uint32_t) ((_DriverState._CurrentChannel - 1) * 2 + 1), (uint32_t) HIBYTE(ax));
 }
 
 //  ＰＳＧ　ＫＥＹＯＮ
@@ -7496,18 +7496,18 @@ void PMD::keyonp(Track * qq)
         return;    // ｷｭｳﾌ ﾉ ﾄｷ
 
     int ah = (1 << (_DriverState._CurrentChannel - 1)) | (1 << (_DriverState._CurrentChannel + 2));
-    int al = ((int32_t) _OPNA->GetReg(0x07) | ah);
+    int al = ((int32_t) _OPNAW->GetReg(0x07) | ah);
 
     ah = ~(ah & qq->psgpat);
     al &= ah;
 
-    _OPNA->SetReg(7, (uint32_t) al);
+    _OPNAW->SetReg(7, (uint32_t) al);
 
     // PSG ﾉｲｽﾞ ｼｭｳﾊｽｳ ﾉ ｾｯﾄ
 
     if (_State._PSGNoiseFrequency != _State._PSGNoiseFrequencyLast && _EffectState.effon == 0)
     {
-        _OPNA->SetReg(6, (uint32_t) _State._PSGNoiseFrequency);
+        _OPNAW->SetReg(6, (uint32_t) _State._PSGNoiseFrequency);
         _State._PSGNoiseFrequencyLast = _State._PSGNoiseFrequency;
     }
 }
@@ -7965,7 +7965,7 @@ void PMD::SetTimerBTempo()
     {
         _State._TimerBTempo = _State.tempo_d;
 
-        _OPNA->SetReg(0x26, (uint32_t) _State._TimerBTempo);
+        _OPNAW->SetReg(0x26, (uint32_t) _State._TimerBTempo);
     }
 }
 
@@ -8003,12 +8003,12 @@ void PMD::StartOPNInterrupt()
     InitializeDataArea();
     InitializeOPN();
 
-    _OPNA->SetReg(0x07, 0xbf);
+    _OPNAW->SetReg(0x07, 0xbf);
 
     DriverStop();
     InitializeInterrupt();
 
-    _OPNA->SetReg(0x29, 0x83);
+    _OPNAW->SetReg(0x29, 0x83);
 }
 
 void PMD::InitializeDataArea()
@@ -8145,51 +8145,51 @@ void PMD::InitializeDataArea()
 
 void PMD::InitializeOPN()
 {
-    _OPNA->ClearBuffer();
-    _OPNA->SetReg(0x29, 0x83);
+    _OPNAW->ClearBuffer();
+    _OPNAW->SetReg(0x29, 0x83);
 
     _State._PSGNoiseFrequency = 0;
 
-    _OPNA->SetReg(0x06, 0x00);
+    _OPNAW->SetReg(0x06, 0x00);
     _State._PSGNoiseFrequencyLast = 0;
 
     // SSG-EG RESET (4.8s)
     for (uint32_t i = 0x90; i < 0x9F; i++)
     {
         if (i % 4 != 3)
-            _OPNA->SetReg(i, 0x00);
+            _OPNAW->SetReg(i, 0x00);
     }
 
     for (uint32_t i = 0x190; i < 0x19F; i++)
     {
         if (i % 4 != 3)
-            _OPNA->SetReg(i, 0x00);
+            _OPNAW->SetReg(i, 0x00);
     }
 
     // PAN/HARDLFO DEFAULT
-    _OPNA->SetReg(0x0b4, 0xc0);
-    _OPNA->SetReg(0x0b5, 0xc0);
-    _OPNA->SetReg(0x0b6, 0xc0);
-    _OPNA->SetReg(0x1b4, 0xc0);
-    _OPNA->SetReg(0x1b5, 0xc0);
-    _OPNA->SetReg(0x1b6, 0xc0);
+    _OPNAW->SetReg(0x0b4, 0xc0);
+    _OPNAW->SetReg(0x0b5, 0xc0);
+    _OPNAW->SetReg(0x0b6, 0xc0);
+    _OPNAW->SetReg(0x1b4, 0xc0);
+    _OPNAW->SetReg(0x1b5, 0xc0);
+    _OPNAW->SetReg(0x1b6, 0xc0);
 
     _State.port22h = 0x00;
-    _OPNA->SetReg(0x22, 0x00);
+    _OPNAW->SetReg(0x22, 0x00);
 
     //  Rhythm Default = Pan : Mid , Vol : 15
     for (int i = 0; i < 6; i++)
         _State.rdat[i] = 0xcf;
 
-    _OPNA->SetReg(0x10, 0xff);
+    _OPNAW->SetReg(0x10, 0xff);
 
     // Rhythm total level set
     _State.rhyvol = 48 * 4 * (256 - _State.rhythm_voldown) / 1024;
-    _OPNA->SetReg(0x11, (uint32_t) _State.rhyvol);
+    _OPNAW->SetReg(0x11, (uint32_t) _State.rhyvol);
 
     // PCM reset & LIMIT SET
-    _OPNA->SetReg(0x10c, 0xff);
-    _OPNA->SetReg(0x10d, 0xff);
+    _OPNAW->SetReg(0x10c, 0xff);
+    _OPNAW->SetReg(0x10d, 0xff);
 
     for (int i = 0; i < PCM_CNL_MAX; i++)
         _PPZ8->SetPan(i, 5);
@@ -8197,39 +8197,39 @@ void PMD::InitializeOPN()
 
 void PMD::Silence()
 {
-    _OPNA->SetReg(0x80, 0xff); // FM Release = 15
-    _OPNA->SetReg(0x81, 0xff);
-    _OPNA->SetReg(0x82, 0xff);
-    _OPNA->SetReg(0x84, 0xff);
-    _OPNA->SetReg(0x85, 0xff);
-    _OPNA->SetReg(0x86, 0xff);
-    _OPNA->SetReg(0x88, 0xff);
-    _OPNA->SetReg(0x89, 0xff);
-    _OPNA->SetReg(0x8a, 0xff);
-    _OPNA->SetReg(0x8c, 0xff);
-    _OPNA->SetReg(0x8d, 0xff);
-    _OPNA->SetReg(0x8e, 0xff);
+    _OPNAW->SetReg(0x80, 0xff); // FM Release = 15
+    _OPNAW->SetReg(0x81, 0xff);
+    _OPNAW->SetReg(0x82, 0xff);
+    _OPNAW->SetReg(0x84, 0xff);
+    _OPNAW->SetReg(0x85, 0xff);
+    _OPNAW->SetReg(0x86, 0xff);
+    _OPNAW->SetReg(0x88, 0xff);
+    _OPNAW->SetReg(0x89, 0xff);
+    _OPNAW->SetReg(0x8a, 0xff);
+    _OPNAW->SetReg(0x8c, 0xff);
+    _OPNAW->SetReg(0x8d, 0xff);
+    _OPNAW->SetReg(0x8e, 0xff);
 
-    _OPNA->SetReg(0x180, 0xff);
-    _OPNA->SetReg(0x181, 0xff);
-    _OPNA->SetReg(0x184, 0xff);
-    _OPNA->SetReg(0x185, 0xff);
-    _OPNA->SetReg(0x188, 0xff);
-    _OPNA->SetReg(0x189, 0xff);
-    _OPNA->SetReg(0x18c, 0xff);
-    _OPNA->SetReg(0x18d, 0xff);
+    _OPNAW->SetReg(0x180, 0xff);
+    _OPNAW->SetReg(0x181, 0xff);
+    _OPNAW->SetReg(0x184, 0xff);
+    _OPNAW->SetReg(0x185, 0xff);
+    _OPNAW->SetReg(0x188, 0xff);
+    _OPNAW->SetReg(0x189, 0xff);
+    _OPNAW->SetReg(0x18c, 0xff);
+    _OPNAW->SetReg(0x18d, 0xff);
 
-    _OPNA->SetReg(0x182, 0xff);
-    _OPNA->SetReg(0x186, 0xff);
-    _OPNA->SetReg(0x18a, 0xff);
-    _OPNA->SetReg(0x18e, 0xff);
+    _OPNAW->SetReg(0x182, 0xff);
+    _OPNAW->SetReg(0x186, 0xff);
+    _OPNAW->SetReg(0x18a, 0xff);
+    _OPNAW->SetReg(0x18e, 0xff);
 
-    _OPNA->SetReg(0x28, 0x00); // FM KEYOFF
-    _OPNA->SetReg(0x28, 0x01);
-    _OPNA->SetReg(0x28, 0x02);
-    _OPNA->SetReg(0x28, 0x04); // FM KEYOFF [URA]
-    _OPNA->SetReg(0x28, 0x05);
-    _OPNA->SetReg(0x28, 0x06);
+    _OPNAW->SetReg(0x28, 0x00); // FM KEYOFF
+    _OPNAW->SetReg(0x28, 0x01);
+    _OPNAW->SetReg(0x28, 0x02);
+    _OPNAW->SetReg(0x28, 0x04); // FM KEYOFF [URA]
+    _OPNAW->SetReg(0x28, 0x05);
+    _OPNAW->SetReg(0x28, 0x06);
 
     _PPS->Stop();
     _P86->Stop();
@@ -8237,20 +8237,20 @@ void PMD::Silence()
 
     // 2003.11.30 For small noise measures
 //@  if(effwork.effon == 0) {
-    _OPNA->SetReg(0x07, 0xBF);
-    _OPNA->SetReg(0x08, 0x00);
-    _OPNA->SetReg(0x09, 0x00);
-    _OPNA->SetReg(0x0a, 0x00);
+    _OPNAW->SetReg(0x07, 0xBF);
+    _OPNAW->SetReg(0x08, 0x00);
+    _OPNAW->SetReg(0x09, 0x00);
+    _OPNAW->SetReg(0x0a, 0x00);
 //@  } else {
 //@ opna->SetReg(0x07, (opna->GetReg(0x07) & 0x3f) | 0x9b);
 //@  }
 
-    _OPNA->SetReg(0x10, 0xff);   // Rhythm dump
+    _OPNAW->SetReg(0x10, 0xff);   // Rhythm dump
 
-    _OPNA->SetReg(0x101, 0x02);  // PAN=0 / x8 bit mode
-    _OPNA->SetReg(0x100, 0x01);  // PCM RESET
-    _OPNA->SetReg(0x110, 0x80);  // TA/TB/EOS を RESET
-    _OPNA->SetReg(0x110, 0x18);  // Bit change only for TIMERB/A/EOS
+    _OPNAW->SetReg(0x101, 0x02);  // PAN=0 / x8 bit mode
+    _OPNAW->SetReg(0x100, 0x01);  // PCM RESET
+    _OPNAW->SetReg(0x110, 0x80);  // TA/TB/EOS を RESET
+    _OPNAW->SetReg(0x110, 0x18);  // Bit change only for TIMERB/A/EOS
 
     for (int i = 0; i < PCM_CNL_MAX; i++)
         _PPZ8->Stop(i);
@@ -8297,7 +8297,7 @@ void PMD::DriverStart()
 
     SetTimerBTempo();
 
-    _OPNA->SetReg(0x27, 0x00); // Timer reset (both timer A and B)
+    _OPNAW->SetReg(0x27, 0x00); // Timer reset (both timer A and B)
 
     _DriverState.music_flag &= 0xFE;
     DriverStop();
@@ -8440,9 +8440,9 @@ void PMD::InitializeInterrupt()
     calc_tb_tempo();
     SetTimerBTempo();
 
-    _OPNA->SetReg(0x25, 0x00); // Timer A Set (9216μs fixed)
-    _OPNA->SetReg(0x24, 0x00); // The slowest and just right
-    _OPNA->SetReg(0x27, 0x3f); // Timer Enable
+    _OPNAW->SetReg(0x25, 0x00); // Timer A Set (9216μs fixed)
+    _OPNAW->SetReg(0x24, 0x00); // The slowest and just right
+    _OPNAW->SetReg(0x27, 0x3f); // Timer Enable
 
     //　Measure counter reset
     _State._OpsCounter = 0;
@@ -8503,26 +8503,26 @@ void PMD::calc_tempo_tb()
 //      .. buf      to PCMDATA_Buffer
 void PMD::pcmread(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf)
 {
-    _OPNA->SetReg(0x100, 0x01);
-    _OPNA->SetReg(0x110, 0x00);
-    _OPNA->SetReg(0x110, 0x80);
-    _OPNA->SetReg(0x100, 0x20);
-    _OPNA->SetReg(0x101, 0x02);    // x8
-    _OPNA->SetReg(0x10c, 0xff);
-    _OPNA->SetReg(0x10d, 0xff);
-    _OPNA->SetReg(0x102, (uint32_t) LOBYTE(pcmstart));
-    _OPNA->SetReg(0x103, (uint32_t) HIBYTE(pcmstart));
-    _OPNA->SetReg(0x104, 0xff);
-    _OPNA->SetReg(0x105, 0xff);
+    _OPNAW->SetReg(0x100, 0x01);
+    _OPNAW->SetReg(0x110, 0x00);
+    _OPNAW->SetReg(0x110, 0x80);
+    _OPNAW->SetReg(0x100, 0x20);
+    _OPNAW->SetReg(0x101, 0x02);    // x8
+    _OPNAW->SetReg(0x10c, 0xff);
+    _OPNAW->SetReg(0x10d, 0xff);
+    _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(pcmstart));
+    _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(pcmstart));
+    _OPNAW->SetReg(0x104, 0xff);
+    _OPNAW->SetReg(0x105, 0xff);
 
-    *buf = (uint8_t) _OPNA->GetReg(0x108);    // 無駄読み
-    *buf = (uint8_t) _OPNA->GetReg(0x108);    // 無駄読み
+    *buf = (uint8_t) _OPNAW->GetReg(0x108);    // 無駄読み
+    *buf = (uint8_t) _OPNAW->GetReg(0x108);    // 無駄読み
 
     for (int i = 0; i < (pcmstop - pcmstart) * 32; i++)
     {
-        *buf++ = (uint8_t) _OPNA->GetReg(0x108);
+        *buf++ = (uint8_t) _OPNAW->GetReg(0x108);
 
-        _OPNA->SetReg(0x110, 0x80);
+        _OPNAW->SetReg(0x110, 0x80);
     }
 }
 
@@ -8533,20 +8533,20 @@ void PMD::pcmread(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf)
 //      .. buf      to PCMDATA_Buffer
 void PMD::pcmstore(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf)
 {
-    _OPNA->SetReg(0x100, 0x01);
-//  _OPNA->SetReg(0x110, 0x17);  // brdy以外はマスク(=timer割り込みは掛からない)
-    _OPNA->SetReg(0x110, 0x80);
-    _OPNA->SetReg(0x100, 0x60);
-    _OPNA->SetReg(0x101, 0x02);  // x8
-    _OPNA->SetReg(0x10c, 0xff);
-    _OPNA->SetReg(0x10d, 0xff);
-    _OPNA->SetReg(0x102, (uint32_t) LOBYTE(pcmstart));
-    _OPNA->SetReg(0x103, (uint32_t) HIBYTE(pcmstart));
-    _OPNA->SetReg(0x104, 0xff);
-    _OPNA->SetReg(0x105, 0xff);
+    _OPNAW->SetReg(0x100, 0x01);
+//  _OPNAW->SetReg(0x110, 0x17);  // brdy以外はマスク(=timer割り込みは掛からない)
+    _OPNAW->SetReg(0x110, 0x80);
+    _OPNAW->SetReg(0x100, 0x60);
+    _OPNAW->SetReg(0x101, 0x02);  // x8
+    _OPNAW->SetReg(0x10c, 0xff);
+    _OPNAW->SetReg(0x10d, 0xff);
+    _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(pcmstart));
+    _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(pcmstart));
+    _OPNAW->SetReg(0x104, 0xff);
+    _OPNAW->SetReg(0x105, 0xff);
 
     for (int i = 0; i < (pcmstop - pcmstart) * 32; i++)
-        _OPNA->SetReg(0x108, *buf++);
+        _OPNAW->SetReg(0x108, *buf++);
 }
 
 /// <summary>
@@ -8785,7 +8785,7 @@ void PMD::Fade()
             _State._FadeOutVolume = 0;
             _State._FadeOutSpeed = 0;
 
-            _OPNA->SetReg(0x11, (uint32_t) _State.rhyvol);
+            _OPNAW->SetReg(0x11, (uint32_t) _State.rhyvol);
         }
     }
 }

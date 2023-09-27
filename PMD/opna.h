@@ -1,5 +1,5 @@
 ﻿
-// Based on PMDWin code by C60
+// OPNA emulator (Based on PMDWin code by C60)
 
 #pragma once
 
@@ -40,13 +40,16 @@ public:
     bool Init(uint32_t c, uint32_t r, bool ip = false, const WCHAR * directoryPath = nullptr);
     bool SetRate(uint32_t r);
     bool SetRate(uint32_t c, uint32_t r, bool = false);
+
     bool LoadInstruments(const WCHAR *);
+    bool HasADPCMROM() const noexcept { return _HasADPCMROM; }
+    bool HasPercussionSamples() const noexcept { return _InstrumentCounter == _countof(_Instrument); }
 
     void SetFMVolume(int dB);
-    void SetPSGVolume(int dB);
+    void SetSSGVolume(int dB);
     void SetADPCMVolume(int dB);
-    void SetRhythmMasterVolume(int dB);
-    void SetRhythmVolume(int index, int dB);
+    void SetRSSVolume(int dB);
+    void SetInstrumentVolume(int index, int dB);
     
     void SetReg(uint32_t addr, uint32_t value);
     uint32_t GetReg(uint32_t addr);
@@ -62,8 +65,8 @@ public:
     
     static constexpr uint32_t DEFAULT_CLOCK = 3993600 * 2;
 
-protected:
-    void RhythmMix(Sample * sampleData, size_t sampleCount) noexcept;
+private:
+    void MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept;
     void StoreSample(Sample & sample, int32_t data);
 
     uint32_t GetSampleRate() const { return _Chip.sample_rate(_ClockSpeed); }
@@ -104,6 +107,7 @@ protected:
     };
     
     Instrument _Instrument[6];
+    uint32_t _InstrumentCounter;
 
     int32_t _MasterVolume;
 
@@ -139,6 +143,9 @@ protected:
 
     uint8_t reg27;
     #pragma endregion
+
+private:
+    void DeleteInstruments() noexcept;
 };
 
 inline int Limit(int value, int max, int min)

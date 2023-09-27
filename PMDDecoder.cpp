@@ -142,7 +142,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
 }
 
 /// <summary>
-/// Returns true if  the buffer points to PMD data.
+/// Returns true if the buffer points to PMD data.
 /// </summary>
 bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
 {
@@ -160,6 +160,9 @@ void PMDDecoder::Initialize() const noexcept
     _PMD->UsePPS(CfgUsePPS);
     _PMD->UseSSG(CfgUseSSG);
     _PMD->Start();
+
+    console::printf("PMDDecoder: ADPCM ROM %s.", (_PMD->HasADPCMROM() ? "available" : "missing"));
+    console::printf("PMDDecoder: Percussion samples %s.", (_PMD->HasPercussionSamples() ? "available" : "missing"));
 }
 
 /// <summary>

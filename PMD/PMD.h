@@ -76,10 +76,10 @@ public:
     void SetFM55kHzSynthesisMode(bool flag);
     void SetPPZInterpolation(bool flag);
 
-    void SetFMWait(int nsec);
-    void SetSSGWait(int nsec);
-    void SetADPCMWait(int nsec);
-    void SetRhythmWait(int nsec);
+    void SetFMDelay(int nsec);
+    void SetSSGDelay(int nsec);
+    void SetADPCMDelay(int nsec);
+    void SetRSSDelay(int nsec);
 
     void SetFadeOutSpeed(int speed);
     void SetFadeOutDurationHQ(int speed);
@@ -92,6 +92,9 @@ public:
 
     void UsePPS(bool value) noexcept;
     void UseSSG(bool value) noexcept;
+
+    bool HasADPCMROM() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasADPCMROM(); }
+    bool HasPercussionSamples() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasPercussionSamples(); }
 
     void EnablePMDB2CompatibilityMode(bool value);
     bool GetPMDB2CompatibilityMode();
@@ -132,7 +135,8 @@ public:
 private:
     File * _File;
 
-    OPNAW * _OPNA;
+    OPNAW * _OPNAW;
+
     PPZ8 * _PPZ8; 
     PPSDRV * _PPS;
     P86DRV * _P86;

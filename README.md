@@ -31,7 +31,16 @@ or
 
 ### Configuration
 
+#### Drum Samples
+
 You can specify the directory that contains the [YM2608 (OPNA)](https://en.wikipedia.org/wiki/Yamaha_YM2608) drum samples in the preferences.
+
+The sample files should meet the following conditions:
+
+* RIFF WAVE PCM Format (1), 1 channel, Sample Rate 44100Hz, 16 bits per sample
+* Filenames: 2608_bd.wav, 2608_sd.wav, 2608_top.wav, 2608_hh.wav, 2608_tom.wav and 2608_rim.wav or 2608_rym.wav.
+
+A "ym2608_adpcm_rom.bin" ROM file in the same directory takes precedence over the WAV sample files and will be used when found.
 
 ### Tags
 
@@ -155,6 +164,7 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
   * [pmdmini](https://github.com/gzaffin/pmdmini)
   * [pmdmini](https://github.com/mistydemeo/pmdmini)
   * [FMP/PMD plugin for KbMediaPlayer 1.0r6](https://www.purose.net/befis/download/kmp/)
+  * [Kaja Tools](http://www5.airnet.ne.jp/kajapon/tool.html)
 
 * Music Macro Language
   * [PMD MML Command Manual](https://pigu-a.github.io/pmddocs/pmdmml.htm)

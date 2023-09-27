@@ -1,5 +1,5 @@
 ﻿
-// Based on PMDWin code by C60
+// OPNA emulator with waiting (Based on PMDWin code by C60)
 
 #pragma once
 
@@ -21,9 +21,6 @@
 /// <summary>
 /// Implements a YM2608, aka OPNA, is a sixteen-channel sound chip developed by Yamaha.
 /// It's a member of Yamaha's OPN family of FM synthesis chips, and the successor to the YM2203. It was notably used in NEC's PC-8801/PC-9801 series computers.
-/// 
-/// Implements an FM Sound Source module with six concurrent FM channels (voices), four operators per channel, with dual interrupt timers and an LFO.
-/// It also includes eight possible operator interconnections, or algorithms, for producing different types of instrument sounds.
 /// </summary>
 class OPNAW : public OPNA
 {
@@ -38,15 +35,15 @@ public:
     bool Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath);
     bool SetRate(uint32_t clock, uint32_t synthesisRate, bool useInterpolation = false);
 
-    void SetFMWait(int nsec);
-    void SetSSGWait(int nsec);
-    void SetADPCMWait(int nsec);
-    void SetRhythmWait(int nsec);
+    void SetFMDelay(int nsec);
+    void SetSSGDelay(int nsec);
+    void SetADPCMDelay(int nsec);
+    void SetRSSDelay(int nsec);
 
-    int GetFMWait() const { return _FMWait; }          // FM wait in ns
-    int GetSSGWait() const { return _SSGWait; }        // SSG wait in ns
-    int GetADPCMWait() { return _ADPCMWait; }    // ADPCM wait in ns
-    int GetRhythmWait() const { return _RhythmWait; }  // Rythm wait in ns
+    int GetFMDelay() const { return _FMDelay; }
+    int GetSSGDelay() const { return _SSGDelay; }
+    int GetADPCMDelay() { return _ADPCMDelay; }
+    int GetRSSDelay() const { return _RSSDelay; }
 
     void SetReg(uint32_t addr, uint32_t data);
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
@@ -68,30 +65,31 @@ private:
 private:
     Sample _PreBuffer[WAIT_PCM_BUFFER_SIZE * 2];
 
-    // Synthetic sound saving during wait
-    int _FMWait; // in ns
-    int _SSGWait; // in ns
-    int _ADPCMWait; // in ns
-    int _RhythmWait; // in ns
+    int _FMDelay;           // in ns
+    int _SSGDelay;          // in ns
+    int _ADPCMDelay;        // in ns
+    int _RSSDelay;          // in ns
 
-    int _FMWaitCount;
-    int _SSGWaitCount;
-    int _ADPCMWaitCount;
-    int _RhythmWaitCount;
+    int _FMDelayCount;      // No. of samples
+    int _SSGDelayCount;     // No. of samples
+    int _ADPCMDelayCount;   // No. of samples
+    int _RSSDelayCount;     // No. of samples
 
     size_t _ReadIndex;
     size_t _WriteIndex;
-    int    count2;                // Count decimal part (* 1000)
+
+    int _Counter;
 
     Sample _InterpolationBuffer[IP_PCM_BUFFER_SIZE * 2];
     size_t _InterpolationIndex;
 
     uint32_t _OutputRate; // in Hz
-    bool  interpolation2;            // First order interpolation flag
-    int    delta;                // Difference fraction (divided by 16384 samples)
 
-    double  delta_double;            // Difference fraction
+    bool _interpolation2;            // First order interpolation flag
+    int _delta;                // Difference fraction (divided by 16384 samples)
 
-    bool  ffirst;                // Data first time flag
-    double  rest; // Position of the previous remaining sample data when resampling the sampling theorem
+    double _delta_double;            // Difference fraction
+
+    bool _ffirst;                // Data first time flag
+    double _Rest; // Position of the previous remaining sample data when resampling the sampling theorem
 };

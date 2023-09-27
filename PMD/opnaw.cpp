@@ -1,5 +1,5 @@
 ﻿
-// OPNA module with waiting / Based on PMDWin code by C60
+// OPNA emulator with waiting (Based on PMDWin code by C60)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -34,16 +34,16 @@ bool OPNAW::Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, 
 /// </summary>
 bool OPNAW::SetRate(uint32_t clock, uint32_t synthesisRate, bool useFM55kHzSynthesis)
 {
-    SetFMWait(_FMWait);
-    SetSSGWait(_SSGWait);
-    SetRhythmWait(_RhythmWait);
-    SetADPCMWait(_ADPCMWait);
+    SetFMDelay(_FMDelay);
+    SetSSGDelay(_SSGDelay);
+    SetRSSDelay(_RSSDelay);
+    SetADPCMDelay(_ADPCMDelay);
 
-    interpolation2 = useFM55kHzSynthesis;
+    _interpolation2 = useFM55kHzSynthesis;
     _OutputRate = synthesisRate;
 
     // Sampling theorem and provisional setting of LPF.
-    ffirst = true;
+    _ffirst = true;
 
 #ifdef USE_INTERPOLATION
     bool Result =  OPNA::SetRate(clock, useFM55kHzSynthesis ? SOUND_55K_2 : synthesisRate, false);
@@ -51,10 +51,10 @@ bool OPNAW::SetRate(uint32_t clock, uint32_t synthesisRate, bool useFM55kHzSynth
     bool Result = OPNA::SetRate(clock, synthesisRate, useFM55kHzSynthesis);
 #endif
 /*
-    _FMWaitCount = (int) (_FMWait * _SynthesisRate / 1000000);
-    _SSGWaitCount = (int) (_SSGWait * _SynthesisRate / 1000000);
-    _RhythmWaitCount = (int) (_RhythmWait * _SynthesisRate / 1000000);
-    _ADPCMWaitCount = (int) (_ADPCMWait * _SynthesisRate / 1000000);
+    _FMDelayCount = (int) (_FMWait * _SynthesisRate / 1000000);
+    _SSGDelayCount = (int) (_SSGDelay * _SynthesisRate / 1000000);
+    _RSSDelayCount = (int) (_RSSDelay * _SynthesisRate / 1000000);
+    _ADPCMDelayCount = (int) (_ADPCMDelay * _SynthesisRate / 1000000);
 */
     return Result;
 }
@@ -62,37 +62,37 @@ bool OPNAW::SetRate(uint32_t clock, uint32_t synthesisRate, bool useFM55kHzSynth
 /// <summary>
 /// Sets the FM delay.
 /// </summary>
-void OPNAW::SetFMWait(int ns)
+void OPNAW::SetFMDelay(int ns)
 {
-    _FMWait      = ns;
-    _FMWaitCount = (int) (ns * _SynthesisRate / 1000000);
+    _FMDelay      = ns;
+    _FMDelayCount = (int) (ns * _SynthesisRate / 1000000);
 }
 
 /// <summary>
 /// Sets the SSG delay.
 /// </summary>
-void OPNAW::SetSSGWait(int ns)
+void OPNAW::SetSSGDelay(int ns)
 {
-    _SSGWait      = ns;
-    _SSGWaitCount = (int) (ns * _SynthesisRate / 1000000);
+    _SSGDelay      = ns;
+    _SSGDelayCount = (int) (ns * _SynthesisRate / 1000000);
 }
 
 /// <summary>
 /// Sets the ADPCM delay.
 /// </summary>
-void OPNAW::SetADPCMWait(int ns)
+void OPNAW::SetADPCMDelay(int ns)
 {
-    _ADPCMWait      = ns;
-    _ADPCMWaitCount = (int) (ns * _SynthesisRate / 1000000);
+    _ADPCMDelay      = ns;
+    _ADPCMDelayCount = (int) (ns * _SynthesisRate / 1000000);
 }
 
 /// <summary>
 /// Sets the Rhythm delay.
 /// </summary>
-void OPNAW::SetRhythmWait(int ns)
+void OPNAW::SetRSSDelay(int ns)
 {
-    _RhythmWait      = ns;
-    _RhythmWaitCount = (int) (ns * _SynthesisRate / 1000000);
+    _RSSDelay      = ns;
+    _RSSDelayCount = (int) (ns * _SynthesisRate / 1000000);
 }
 
 /// <summary>
@@ -102,25 +102,25 @@ void OPNAW::SetReg(uint32_t addr, uint32_t value)
 {
     if (addr < 0x10)
     {   // SSG
-        if (_SSGWaitCount != 0)
-            CalcWaitPCM(_SSGWaitCount);
+        if (_SSGDelayCount != 0)
+            CalcWaitPCM(_SSGDelayCount);
     }
     else
     if ((addr % 0x100) <= 0x10)
     {   // ADPCM
-        if (_ADPCMWaitCount !=0)
-            CalcWaitPCM(_ADPCMWaitCount);
+        if (_ADPCMDelayCount !=0)
+            CalcWaitPCM(_ADPCMDelayCount);
     }
     else
     if (addr < 0x20)
     {   // RHYTHM
-        if (_RhythmWaitCount != 0)
-            CalcWaitPCM(_RhythmWaitCount);
+        if (_RSSDelayCount != 0)
+            CalcWaitPCM(_RSSDelayCount);
     }
     else
     {   // FM
-        if (_FMWaitCount != 0)
-            CalcWaitPCM(_FMWaitCount);
+        if (_FMDelayCount != 0)
+            CalcWaitPCM(_FMDelayCount);
     }
 
     OPNA::SetReg(addr, value);
@@ -132,7 +132,7 @@ void OPNAW::SetReg(uint32_t addr, uint32_t value)
 void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
 {
 #ifdef USE_INTERPOLATION
-    if (interpolation2 && (_OutputRate != SOUND_55K_2))
+    if (_interpolation2 && (_OutputRate != SOUND_55K_2))
     {
     #if 0  
         int  nmixdata2;
@@ -169,11 +169,11 @@ void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
 
         for (size_t i = 0; i < sampleCount; i++)
         {
-            size_t irest = (size_t) rest;
+            size_t irest = (size_t) _Rest;
 
             if ((irest + NUMOFINTERPOLATION) > _InterpolationIndex)
             {
-                size_t nrefill = (size_t) (rest + (double) (sampleCount - i - 1) * ((double) SOUND_55K_2 / _OutputRate)) + NUMOFINTERPOLATION - _InterpolationIndex;
+                size_t nrefill = (size_t) (_Rest + (double) (sampleCount - i - 1) * ((double) SOUND_55K_2 / _OutputRate)) + NUMOFINTERPOLATION - _InterpolationIndex;
 
                 if (_InterpolationIndex + nrefill - IP_PCM_BUFFER_SIZE > irest)
                     nrefill = (size_t) irest + IP_PCM_BUFFER_SIZE - _InterpolationIndex;
@@ -199,7 +199,7 @@ void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
             {
                 double temps;
 
-                temps = Sinc((double) j - rest - NUMOFINTERPOLATION / 2 + 1);
+                temps = Sinc((double) j - _Rest - NUMOFINTERPOLATION / 2 + 1);
 
                 tempL += temps * _InterpolationBuffer[(j % IP_PCM_BUFFER_SIZE) * 2];
                 tempR += temps * _InterpolationBuffer[(j % IP_PCM_BUFFER_SIZE) * 2 + 1];
@@ -208,7 +208,7 @@ void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
             *sampleData++ += Limit((int) tempL, 32767, -32768);
             *sampleData++ += Limit((int) tempR, 32767, -32768);
 
-            rest += (double) SOUND_55K_2 / _OutputRate;
+            _Rest += (double) SOUND_55K_2 / _OutputRate;
         }
 
     }
@@ -227,7 +227,7 @@ void OPNAW::ClearBuffer()
     ::memset(_PreBuffer, 0, sizeof(_PreBuffer));
     ::memset(_InterpolationBuffer, 0, sizeof(_InterpolationBuffer));
 
-    rest = 0.;
+    _Rest = 0.;
     _InterpolationIndex = NUMOFINTERPOLATION;
 }
 
@@ -239,31 +239,31 @@ void OPNAW::Reset() noexcept
 {
     ::memset(_PreBuffer, 0, sizeof(_PreBuffer));
 
-    _FMWait = 0;
-    _SSGWait = 0;
-    _RhythmWait = 0;
-    _ADPCMWait = 0;
+    _FMDelay = 0;
+    _SSGDelay = 0;
+    _RSSDelay = 0;
+    _ADPCMDelay = 0;
 
-    _FMWaitCount = 0;
-    _SSGWaitCount = 0;
-    _RhythmWaitCount = 0;
-    _ADPCMWaitCount = 0;
+    _FMDelayCount = 0;
+    _SSGDelayCount = 0;
+    _RSSDelayCount = 0;
+    _ADPCMDelayCount = 0;
 
     _ReadIndex = 0;
     _WriteIndex = 0;
-    count2 = 0;
+    _Counter = 0;
 
     ::memset(_InterpolationBuffer, 0, sizeof(_InterpolationBuffer));
 
     _OutputRate = 0;
-    interpolation2 = false;
-    delta = 0;
-    delta_double = 0.0;
+    _interpolation2 = false;
+    _delta = 0;
+    _delta_double = 0.0;
 
     // Sampling theorem and provisional setting of LPF
-    ffirst = true;
+    _ffirst = true;
     
-    rest = 0.;
+    _Rest = 0.;
     _InterpolationIndex = NUMOFINTERPOLATION;
 }
 
@@ -272,13 +272,13 @@ void OPNAW::Reset() noexcept
 /// </summary>
 void OPNAW::CalcWaitPCM(int value)
 {
-    count2 += value % 1000;
+    _Counter += value % 1000;
     value /= 1000;
 
-    if (count2 > 1000)
+    if (_Counter > 1000)
     {
         value++;
-        count2 -= 1000;
+        _Counter -= 1000;
     }
 
     size_t SampleCount;
@@ -315,7 +315,7 @@ double OPNAW::Sinc(double x)
 }
 
 /// <summary>
-/// Least nonnegative remainder
+/// Least non-negative remainder
 /// </summary>
 double OPNAW::Fmod2(double x, double y)
 {
