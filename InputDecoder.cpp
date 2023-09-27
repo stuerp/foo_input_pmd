@@ -311,6 +311,6 @@ private:
 #pragma warning(default: 4820) // x bytes padding added after last data member
 
 // Declare the supported file types to make it show in "open file" dialog etc.
-DECLARE_FILE_TYPE("Professional Music Driver (PMD) files", "*.m;*.m2");
+DECLARE_FILE_TYPE("Professional Music Driver (PMD) files", "*.m;*.m2;*.mz");
 
 static input_factory_t<InputDecoder> _InputDecoderFactory;

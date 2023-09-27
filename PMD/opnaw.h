@@ -32,7 +32,7 @@ public:
 
     virtual ~OPNAW() { }
 
-    bool Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath);
+    bool Initialize(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath);
     bool SetRate(uint32_t clock, uint32_t synthesisRate, bool useInterpolation = false);
 
     void SetFMDelay(int nsec);

@@ -37,9 +37,9 @@ public:
     OPNA(File * file);
     ~OPNA();
     
-    bool Init(uint32_t c, uint32_t r, bool ip = false, const WCHAR * directoryPath = nullptr);
-    bool SetRate(uint32_t r);
-    bool SetRate(uint32_t c, uint32_t r, bool = false);
+    bool Initialize(uint32_t clock, uint32_t synthesisRate, bool useInterpolation = false, const WCHAR * directoryPath = nullptr);
+    bool SetRate(uint32_t synthesisRate);
+    bool SetRate(uint32_t clock, uint32_t synthesisRate, bool = false);
 
     bool LoadInstruments(const WCHAR *);
     bool HasADPCMROM() const noexcept { return _HasADPCMROM; }

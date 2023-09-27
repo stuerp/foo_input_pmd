@@ -1,5 +1,5 @@
 ﻿
-// SSG (Software-controlled Sound Generator) PCM Driver / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
+// PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -13,18 +13,18 @@
 
 #include "PPS.h"
 
-PPSDRV::PPSDRV(File * file) : _File(file), _Samples()
+PPSDriver::PPSDriver(File * file) : _File(file), _Samples()
 {
     _Init();
 }
 
-PPSDRV::~PPSDRV()
+PPSDriver::~PPSDriver()
 {
     if (_Samples)
         ::free(_Samples);
 }
 
-bool PPSDRV::Init(uint32_t r, bool ip)
+bool PPSDriver::Initialize(uint32_t r, bool ip)
 {
     _Init();
 
@@ -33,7 +33,7 @@ bool PPSDRV::Init(uint32_t r, bool ip)
     return true;
 }
 
-void PPSDRV::_Init(void)
+void PPSDriver::_Init(void)
 {
     _FilePath[0] = '\0';
 
@@ -71,7 +71,7 @@ void PPSDRV::_Init(void)
 }
 
 //  00H PDR 停止
-bool PPSDRV::Stop(void)
+bool PPSDriver::Stop(void)
 {
     _IsPlaying = false;
 
@@ -82,7 +82,7 @@ bool PPSDRV::Stop(void)
 }
 
 //  01H PDR 再生
-bool PPSDRV::Play(int num, int shift, int volshift)
+bool PPSDriver::Play(int num, int shift, int volshift)
 {
     if (_Header.pcmnum[num].Address == 0)
         return false;
@@ -146,7 +146,7 @@ bool PPSDRV::Play(int num, int shift, int volshift)
 }
 
 //  PPS 読み込み
-int PPSDRV::Load(const WCHAR * filePath)
+int PPSDriver::Load(const WCHAR * filePath)
 {
     Stop();
 
@@ -258,7 +258,7 @@ int PPSDRV::Load(const WCHAR * filePath)
 /// <summary>
 /// Reads  the header.
 /// </summary>
-void PPSDRV::ReadHeader(File * file, PPSHEADER & header)
+void PPSDriver::ReadHeader(File * file, PPSHEADER & header)
 {
     uint8_t Data[84];
 
@@ -276,7 +276,7 @@ void PPSDRV::ReadHeader(File * file, PPSHEADER & header)
 /// <summary>
 /// Sets a parameter.
 /// </summary>
-bool PPSDRV::SetParam(int index, bool value)
+bool PPSDriver::SetParam(int index, bool value)
 {
     switch (index)
     {
@@ -296,7 +296,7 @@ bool PPSDRV::SetParam(int index, bool value)
 /// <summary>
 /// Sets the synthesis rate.
 /// </summary>
-bool PPSDRV::SetRate(uint32_t rate, bool useInterpolation)
+bool PPSDriver::SetRate(uint32_t rate, bool useInterpolation)
 {
     _SynthesisRate = (int) rate;
     _UseInterpolation = useInterpolation;
@@ -307,7 +307,7 @@ bool PPSDRV::SetRate(uint32_t rate, bool useInterpolation)
 /// <summary>
 /// Sets the volume.
 /// </summary>
-void PPSDRV::SetVolume(int vol)
+void PPSDriver::SetVolume(int vol)
 {
     double Base = 0x4000 * 2 / 3.0 * ::pow(10.0, vol / 40.0);
 
@@ -320,7 +320,7 @@ void PPSDRV::SetVolume(int vol)
     _EmitTable[0] = 0;
 }
 
-void PPSDRV::Mix(Sample * sampleData, size_t sampleCount)  // 合成
+void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
 {
 /*
     static const int table[16*16] = {

@@ -16,14 +16,14 @@
 /// <summary>
 /// Initializes the module.
 /// </summary>
-bool OPNAW::Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath)
+bool OPNAW::Initialize(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath)
 {
     Reset();
 
     _OutputRate = synthesisRate;
 
 #ifdef USE_INTERPOLATION
-    return OPNA::Init(clock, useInterpolation ? SOUND_55K_2 : synthesisRate, false, directoryPath);
+    return OPNA::Initialize(clock, useInterpolation ? SOUND_55K_2 : synthesisRate, false, directoryPath);
 #else
     return OPNA::Init(clock, synthesisRate, useInterpolation, directoryPath);
 #endif

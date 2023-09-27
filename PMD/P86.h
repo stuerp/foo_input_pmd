@@ -1,5 +1,5 @@
 ﻿
-// 86B PCM Driver「P86DRV Unit / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60
+// PMD's internal 86PCM driver for the PC-98's 86 soundboard / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60
 
 #pragma once
 
@@ -58,13 +58,14 @@ const int SampleRates[] =
 };
 
 /// <summary>
-/// Implements a ADPCM Sound Source module, a single channel for samples in 4-bit ADPCM format at a sampling rate between 2–55 kHz.
+/// Implements PMD's internal 86PCM driver.
+/// It replaces the ADPCM channel with 8-bit sample playback. Its stereo capabilities also adds a new functionality to panning.
 /// </summary>
-class P86DRV
+class P86Driver
 {
 public:
-    P86DRV(File * file);
-    virtual ~P86DRV();
+    P86Driver(File * file);
+    virtual ~P86Driver();
 
     bool Initialize(uint32_t r, bool useInterpolation);
     bool Stop(void);

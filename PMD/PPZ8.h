@@ -1,5 +1,5 @@
 ﻿
-// 8 Channel PCM Driver「PPZ8」Unit (Light Version) / Programmed by UKKY / Windows Converted by C60
+// PC-98's 86 soundboard's 8 PCM driver / Programmed by UKKY / Windows Converted by C60
 
 #pragma once
 
@@ -79,15 +79,16 @@ struct PVIHEADER
 #pragma pack(pop)
 
 /// <summary>
-/// Implements a Rhythm Sound Source module, a six-channel ADPCM system, enabling playback of six percussion "rhythm tones" from a built-in ROM.
+/// Implements a driver that synthesizes up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit aside from the user's PC98 setup.
+/// It supports 2 kinds of PCM banks: .PVI and .PZI
 /// </summary>
-class PPZ8
+class PPZ8Driver
 {
 public:
-    PPZ8(File * fileio);
-    virtual ~PPZ8();
+    PPZ8Driver(File * fileio);
+    virtual ~PPZ8Driver();
 
-    bool Init(uint32_t rate, bool ip);            // 00H 初期化
+    bool Initialize(uint32_t rate, bool ip);            // 00H 初期化
     bool Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop); // 01H PCM 発音
     bool Stop(int ch);                            // 02H PCM 停止
     int  Load(const WCHAR * filePath, int bufnum);

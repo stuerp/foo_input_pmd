@@ -1,5 +1,5 @@
 
-/** $VER: Configuration.cpp (2023.08.30) **/
+/** $VER: Configuration.cpp (2023.09.27) **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -31,4 +31,4 @@ cfg_uint CfgFadeOutDuration(CfgFadeOutDurationGUID, DefaultFadeOutDuration);
 cfg_uint CfgSynthesisRate(CfgSynthesisRateGUID, DefaultSynthesisRate);
 
 cfg_bool CfgUsePPS(CfgUsePPSGUID, DefaultUsePPS);
-cfg_bool CfgUseSSG(CfgUseSSGGUID, DefaultUseSSG);
+cfg_bool CfgUseRhythmSoundSource(CfgUseSSGGUID, DefaultUseRhythmSoundSource);

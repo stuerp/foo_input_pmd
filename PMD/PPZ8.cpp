@@ -1,5 +1,5 @@
 ﻿
-// 8 Channel PCM Driver「PPZ8」Unit (Light Version) / Programmed by UKKY / Windows Converted by C60
+// PC-98's 86 soundboard's 8 PCM driver / Programmed by UKKY / Windows Converted by C60
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -42,7 +42,7 @@ const int ADPCM_EM_PAN[4] =
     0, 9, 1, 5
 };
 
-PPZ8::PPZ8(File * file) : _File(file)
+PPZ8Driver::PPZ8Driver(File * file) : _File(file)
 {
     XMS_FRAME_ADR[0] = nullptr;
     XMS_FRAME_ADR[1] = nullptr;
@@ -50,7 +50,7 @@ PPZ8::PPZ8(File * file) : _File(file)
     InitializeInternal();
 }
 
-PPZ8::~PPZ8()
+PPZ8Driver::~PPZ8Driver()
 {
     if (XMS_FRAME_ADR[0])
         ::free(XMS_FRAME_ADR[0]);
@@ -59,14 +59,14 @@ PPZ8::~PPZ8()
         ::free(XMS_FRAME_ADR[1]);
 }
 
-bool PPZ8::Init(uint32_t rate, bool ip)
+bool PPZ8Driver::Initialize(uint32_t rate, bool ip)
 {
     InitializeInternal();
 
     return SetRate(rate, ip);
 }
 
-void PPZ8::InitializeInternal(void)
+void PPZ8Driver::InitializeInternal(void)
 {
     ::memset(PCME_WORK, 0, sizeof(PCME_WORK));
 
@@ -105,7 +105,7 @@ void PPZ8::InitializeInternal(void)
 }
 
 //  01H PCM 発音
-bool PPZ8::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
+bool PPZ8Driver::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
 {
     if ((ch >= _countof(_Channel)) || (XMS_FRAME_ADR[bufnum] == NULL) || (XMS_FRAME_SIZE[bufnum] == 0))
         return false;
@@ -150,7 +150,7 @@ bool PPZ8::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
 }
 
 //  02H PCM 停止
-bool PPZ8::Stop(int ch)
+bool PPZ8Driver::Stop(int ch)
 {
     if (ch >= PCM_CNL_MAX) return false;
 
@@ -159,7 +159,7 @@ bool PPZ8::Stop(int ch)
 }
 
 // 03H Read PVI/PZI file
-int PPZ8::Load(const WCHAR * filePath, int bufnum)
+int PPZ8Driver::Load(const WCHAR * filePath, int bufnum)
 {
     if (filePath == nullptr || (filePath && (*filePath == '\0')))
         return PPZ_OPEN_FAILED;
@@ -186,7 +186,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
     {
         if (XMS_FRAME_ADR[bufnum] != NULL)
         {
-            free(XMS_FRAME_ADR[bufnum]);    // 開放
+            ::free(XMS_FRAME_ADR[bufnum]);    // 開放
             XMS_FRAME_ADR[bufnum] = NULL;
             XMS_FRAME_SIZE[bufnum] = 0;
             memset(&PCME_WORK[bufnum], 0, sizeof(PZIHEADER));
@@ -379,7 +379,7 @@ int PPZ8::Load(const WCHAR * filePath, int bufnum)
 }
 
 // 07H Volume
-bool PPZ8::SetVolume(int ch, int vol)
+bool PPZ8Driver::SetVolume(int ch, int vol)
 {
     if (ch >= PCM_CNL_MAX)
         return false;
@@ -393,7 +393,7 @@ bool PPZ8::SetVolume(int ch, int vol)
 }
 
 // 0BH Pitch Frequency
-bool PPZ8::SetPitch(int channelNumber, uint32_t pitch)
+bool PPZ8Driver::SetPitch(int channelNumber, uint32_t pitch)
 {
     if (channelNumber >= _countof(_Channel))
         return false;
@@ -412,7 +412,7 @@ bool PPZ8::SetPitch(int channelNumber, uint32_t pitch)
 }
 
 // 0EH Set loop pointer
-bool PPZ8::SetLoop(int ch, uint32_t loop_start, uint32_t loop_end)
+bool PPZ8Driver::SetLoop(int ch, uint32_t loop_start, uint32_t loop_end)
 {
     if (ch >= PCM_CNL_MAX) return false;
 
@@ -436,7 +436,7 @@ bool PPZ8::SetLoop(int ch, uint32_t loop_start, uint32_t loop_end)
 }
 
 //  12H (PPZ8)全停止
-void PPZ8::AllStop(void)
+void PPZ8Driver::AllStop(void)
 {
     int    i;
 
@@ -448,7 +448,7 @@ void PPZ8::AllStop(void)
 }
 
 //  13H (PPZ8)PAN指定
-bool PPZ8::SetPan(int ch, int pan)
+bool PPZ8Driver::SetPan(int ch, int pan)
 {
     if (ch >= PCM_CNL_MAX) return false;
 
@@ -464,7 +464,7 @@ bool PPZ8::SetPan(int ch, int pan)
 }
 
 //  14H (PPZ8)ﾚｰﾄ設定
-bool PPZ8::SetRate(uint32_t rate, bool ip)
+bool PPZ8Driver::SetRate(uint32_t rate, bool ip)
 {
     DIST_F = (int) rate;
     _UseInterpolation = ip;
@@ -473,7 +473,7 @@ bool PPZ8::SetRate(uint32_t rate, bool ip)
 }
 
 //  15H (PPZ8)元ﾃﾞｰﾀ周波数設定
-bool PPZ8::SetSourceRate(int ch, int rate)
+bool PPZ8Driver::SetSourceRate(int ch, int rate)
 {
     if (ch >= PCM_CNL_MAX) return false;
 
@@ -482,7 +482,7 @@ bool PPZ8::SetSourceRate(int ch, int rate)
 }
 
 //  16H (PPZ8)全体ﾎﾞﾘﾕｰﾑの設定（86B Mixer)
-void PPZ8::SetAllVolume(int vol)
+void PPZ8Driver::SetAllVolume(int vol)
 {
     if (vol < 16 && vol != PCM_VOLUME)
     {
@@ -491,14 +491,14 @@ void PPZ8::SetAllVolume(int vol)
     }
 }
 
-void PPZ8::SetVolume(int volume)
+void PPZ8Driver::SetVolume(int volume)
 {
     if (volume != _Volume)
         CreateVolumeTable(volume);
 }
 
 //  ADPCM Emulation settings
-void PPZ8::ADPCM_EM_SET(bool flag)
+void PPZ8Driver::ADPCM_EM_SET(bool flag)
 {
     _EmulateADPCM = flag;
 }
@@ -506,7 +506,7 @@ void PPZ8::ADPCM_EM_SET(bool flag)
 /// <summary>
 /// Reads the PZI header.
 /// </summary>
-void PPZ8::ReadHeader(File * file, PZIHEADER & ph)
+void PPZ8Driver::ReadHeader(File * file, PZIHEADER & ph)
 {
     uint8_t Data[2336];
 
@@ -533,7 +533,7 @@ void PPZ8::ReadHeader(File * file, PZIHEADER & ph)
 /// <summary>
 /// Reads the PVI header.
 /// </summary>
-void PPZ8::ReadHeader(File * file, PVIHEADER & ph)
+void PPZ8Driver::ReadHeader(File * file, PVIHEADER & ph)
 {
     uint8_t Data[528];
 
@@ -555,7 +555,7 @@ void PPZ8::ReadHeader(File * file, PVIHEADER & ph)
     }
 }
 
-void PPZ8::CreateVolumeTable(int volume)
+void PPZ8Driver::CreateVolumeTable(int volume)
 {
     _Volume = volume;
 
@@ -570,7 +570,7 @@ void PPZ8::CreateVolumeTable(int volume)
     }
 }
 
-void PPZ8::Reset()
+void PPZ8Driver::Reset()
 {
     ::memset(_Channel, 0, sizeof(_Channel));
 
@@ -589,7 +589,7 @@ void PPZ8::Reset()
 }
 
 //  合成、出力
-void PPZ8::Mix(Sample * sampleData, size_t sampleCount) noexcept
+void PPZ8Driver::Mix(Sample * sampleData, size_t sampleCount) noexcept
 {
     Sample * di;
     Sample  bx;

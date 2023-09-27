@@ -1,5 +1,5 @@
 ﻿
-// 86B PCM Driver「P86DRV Unit / Programmed by M. Kajihara 96/01/16 / Windows Converted by C60
+// PMD's internal 86PCM driver for the PC-98's 86 soundboard / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -13,18 +13,18 @@
 
 #include "P86.h"
 
-P86DRV::P86DRV(File * file) : _File(file), _Data()
+P86Driver::P86Driver(File * file) : _File(file), _Data()
 {
     InitializeInternal();
 }
 
-P86DRV::~P86DRV()
+P86Driver::~P86Driver()
 {
     if (_Data)
         ::free(_Data);
 }
 
-bool P86DRV::Initialize(uint32_t sampleRate, bool useInterpolation)
+bool P86Driver::Initialize(uint32_t sampleRate, bool useInterpolation)
 {
     InitializeInternal();
 
@@ -33,7 +33,7 @@ bool P86DRV::Initialize(uint32_t sampleRate, bool useInterpolation)
     return true;
 }
 
-void P86DRV::InitializeInternal()
+void P86Driver::InitializeInternal()
 {
     ::memset(_FilePath, 0, sizeof(_FilePath));
     ::memset(&_Header, 0, sizeof(_Header));
@@ -83,7 +83,7 @@ void P86DRV::InitializeInternal()
 /// <summary>
 /// Loads a P86 file (Professional Music Driver P86 Samples Pack file)
 /// </summary>
-int P86DRV::Load(const WCHAR * filePath)
+int P86Driver::Load(const WCHAR * filePath)
 {
     Stop();
 
@@ -162,7 +162,7 @@ int P86DRV::Load(const WCHAR * filePath)
 }
 
 // Playback frequency, primary complement setting
-void P86DRV::SetSampleRate(uint32_t synthesisRate, bool useInterpolation)
+void P86Driver::SetSampleRate(uint32_t synthesisRate, bool useInterpolation)
 {
     _SampleRate = (int) synthesisRate;
     _UseInterpolation = useInterpolation;
@@ -173,19 +173,19 @@ void P86DRV::SetSampleRate(uint32_t synthesisRate, bool useInterpolation)
     addsize1 = (int) ( Pitch           >> 16);
 }
 
-void P86DRV::SetVolume(int volume)
+void P86Driver::SetVolume(int volume)
 {
     CreateVolumeTable(volume);
 }
 
-bool P86DRV::SetVol(int volume)
+bool P86Driver::SetVol(int volume)
 {
     _Volume = volume;
 
     return true;
 }
 
-bool P86DRV::SelectSample(int index)
+bool P86Driver::SelectSample(int index)
 {
     _start_ofs = (_Data) ? _Data + _Header.P86Item[index].Offset : nullptr;
     _size = _Header.P86Item[index].Size;
@@ -197,7 +197,7 @@ bool P86DRV::SelectSample(int index)
 }
 
 //  PAN 設定
-bool P86DRV::SetPan(int flag, int data)
+bool P86Driver::SetPan(int flag, int data)
 {
     _PanFlag = flag;
     _PanData = data;
@@ -205,7 +205,7 @@ bool P86DRV::SetPan(int flag, int data)
     return true;
 }
 
-bool P86DRV::SetPitch(int sampleRateIndex, uint32_t pitch)
+bool P86Driver::SetPitch(int sampleRateIndex, uint32_t pitch)
 {
     if (sampleRateIndex < 0 || sampleRateIndex >= _countof(SampleRates))
         return false;
@@ -225,7 +225,7 @@ bool P86DRV::SetPitch(int sampleRateIndex, uint32_t pitch)
 }
 
 //  リピート設定
-bool P86DRV::SetLoop(int loop_start, int loop_end, int release_start, bool adpcm)
+bool P86Driver::SetLoop(int loop_start, int loop_end, int release_start, bool adpcm)
 {
     repeat_flag = true;
     release_flag1 = false;
@@ -335,7 +335,7 @@ bool P86DRV::SetLoop(int loop_start, int loop_end, int release_start, bool adpcm
     return true;
 }
 
-void P86DRV::Play()
+void P86Driver::Play()
 {
     start_ofs = _start_ofs;
     start_ofs_x = 0;
@@ -346,14 +346,14 @@ void P86DRV::Play()
 }
 
 //  P86 停止
-bool P86DRV::Stop(void)
+bool P86Driver::Stop(void)
 {
     _Enabled = false;
     return true;
 }
 
 //  P86 KeyOff
-bool P86DRV::Keyoff(void)
+bool P86Driver::Keyoff(void)
 {
     if (release_flag1 == true)
     {    // リリースが設定されているか?
@@ -369,7 +369,7 @@ bool P86DRV::Keyoff(void)
 }
 
 //  合成
-void P86DRV::Mix(Sample * sampleData, size_t sampleCount) noexcept
+void P86Driver::Mix(Sample * sampleData, size_t sampleCount) noexcept
 {
     if (!_Enabled)
         return;
@@ -413,7 +413,7 @@ void P86DRV::Mix(Sample * sampleData, size_t sampleCount) noexcept
 }
 
 //  真ん中（一次補間あり）
-void P86DRV::double_trans_i(Sample * sampleData, size_t sampleCount)
+void P86Driver::double_trans_i(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -431,7 +431,7 @@ void P86DRV::double_trans_i(Sample * sampleData, size_t sampleCount)
 }
 
 //  真ん中（逆相、一次補間あり）
-void P86DRV::double_trans_g_i(Sample * sampleData, size_t sampleCount)
+void P86Driver::double_trans_g_i(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -449,7 +449,7 @@ void P86DRV::double_trans_g_i(Sample * sampleData, size_t sampleCount)
 }
 
 //  左寄り（一次補間あり）
-void P86DRV::left_trans_i(Sample * sampleData, size_t sampleCount)
+void P86Driver::left_trans_i(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -470,7 +470,7 @@ void P86DRV::left_trans_i(Sample * sampleData, size_t sampleCount)
 }
 
 //  左寄り（逆相、一次補間あり）
-void P86DRV::left_trans_g_i(Sample * sampleData, size_t sampleCount)
+void P86Driver::left_trans_g_i(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -491,7 +491,7 @@ void P86DRV::left_trans_g_i(Sample * sampleData, size_t sampleCount)
 }
 
 //  右寄り（一次補間あり）
-void P86DRV::right_trans_i(Sample * sampleData, size_t sampleCount)
+void P86Driver::right_trans_i(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -510,7 +510,7 @@ void P86DRV::right_trans_i(Sample * sampleData, size_t sampleCount)
 }
 
 //  右寄り（逆相、一次補間あり）
-void P86DRV::right_trans_g_i(Sample * sampleData, size_t sampleCount)
+void P86Driver::right_trans_g_i(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -529,7 +529,7 @@ void P86DRV::right_trans_g_i(Sample * sampleData, size_t sampleCount)
 }
 
 //  真ん中（一次補間なし）
-void P86DRV::double_trans(Sample * sampleData, size_t sampleCount)
+void P86Driver::double_trans(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -547,7 +547,7 @@ void P86DRV::double_trans(Sample * sampleData, size_t sampleCount)
 }
 
 //  真ん中（逆相、一次補間なし）
-void P86DRV::double_trans_g(Sample * sampleData, size_t sampleCount)
+void P86Driver::double_trans_g(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -565,7 +565,7 @@ void P86DRV::double_trans_g(Sample * sampleData, size_t sampleCount)
 }
 
 //  左寄り（一次補間なし）
-void P86DRV::left_trans(Sample * sampleData, size_t sampleCount)
+void P86Driver::left_trans(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -586,7 +586,7 @@ void P86DRV::left_trans(Sample * sampleData, size_t sampleCount)
 }
 
 //  左寄り（逆相、一次補間なし）
-void P86DRV::left_trans_g(Sample * sampleData, size_t sampleCount)
+void P86Driver::left_trans_g(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -607,7 +607,7 @@ void P86DRV::left_trans_g(Sample * sampleData, size_t sampleCount)
 }
 
 //  右寄り（一次補間なし）
-void P86DRV::right_trans(Sample * sampleData, size_t sampleCount)
+void P86Driver::right_trans(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -626,7 +626,7 @@ void P86DRV::right_trans(Sample * sampleData, size_t sampleCount)
 }
 
 //  右寄り（逆相、一次補間なし）
-void P86DRV::right_trans_g(Sample * sampleData, size_t sampleCount)
+void P86Driver::right_trans_g(Sample * sampleData, size_t sampleCount)
 {
     for (size_t i = 0; i < sampleCount; i++)
     {
@@ -647,7 +647,7 @@ void P86DRV::right_trans_g(Sample * sampleData, size_t sampleCount)
 /// <summary>
 /// Adds an address.
 /// </summary>
-bool P86DRV::AddAddress()
+bool P86Driver::AddAddress()
 {
     start_ofs_x += addsize2;
 
@@ -673,7 +673,7 @@ bool P86DRV::AddAddress()
     return false;
 }
 
-void P86DRV::CreateVolumeTable(int volume)
+void P86Driver::CreateVolumeTable(int volume)
 {
     int NewAVolume = (int) (0x1000 * ::pow(10.0, volume / 40.0));
 
@@ -691,7 +691,7 @@ void P86DRV::CreateVolumeTable(int volume)
     }
 }
 
-void P86DRV::ReadHeader(File * file, P86FILEHEADER & header)
+void P86Driver::ReadHeader(File * file, P86FILEHEADER & header)
 {
     uint8_t Data[1552];
 

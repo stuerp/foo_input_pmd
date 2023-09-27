@@ -51,7 +51,7 @@ OPNA::~OPNA()
 /// <summary>
 /// Initializes the module.
 /// </summary>
-bool OPNA::Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath)
+bool OPNA::Initialize(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath)
 {
     if (!SetRate(clock, synthesisRate, useInterpolation))
         return false;
@@ -110,7 +110,7 @@ void OPNA::SetFMVolume(int dB)
 }
 
 /// <summary>
-/// Sets the SSG Sound Source (PSG, Programmable Sound Generator) volume, in dB.
+/// Sets the SSG Sound Source (Software-Controlled Sound Generator) volume, in dB.
 /// </summary>
 void OPNA::SetSSGVolume(int dB)
 {
@@ -241,6 +241,7 @@ uint32_t OPNA::GetReg(uint32_t addr)
 }
 #pragma endregion
 
+#pragma region(Timer)
 /// <summary>
 /// Timer processing
 /// </summary>
@@ -297,6 +298,7 @@ uint32_t OPNA::GetNextEvent()
 
     return (uint32_t) ((result + ((emulated_time) 1 << 48) / 1000000) * (1000000 >> 6) >> (48 - 6));
 }
+#pragma endregion
 
 #pragma region(Sample Mixing)
 /// <summary>

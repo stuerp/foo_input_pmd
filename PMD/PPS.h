@@ -1,5 +1,5 @@
 ﻿
-// SSG (Software-controlled Sound Generator) PCM Driver / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
+// PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
 
 #pragma once
 
@@ -37,16 +37,16 @@ struct PPSHEADER
 const size_t PPSHEADERSIZE = (sizeof(uint16_t) * 2 + sizeof(uint8_t) * 2) * MAX_PPS;
 
 /// <summary>
-/// Implements a SSG Sound Source module, a complete internal implementation of the Yamaha YM2149/SSG,
-/// a variant of the popular AY-3-8910/PSG for producing three channels of square wave synthesis or noise.
+/// PCM driver for the SSG (Software-controlled Sound Generator)
+/// 4-bit 16000Hz PCM playback on the SSG Channel 3. It can also play 2 samples simultanelously, but at a lower quality.
 /// </summary>
-class PPSDRV
+class PPSDriver
 {
 public:
-    PPSDRV(File * file);
-    virtual ~PPSDRV();
+    PPSDriver(File * file);
+    virtual ~PPSDriver();
 
-    bool Init(uint32_t r, bool ip);
+    bool Initialize(uint32_t r, bool ip);
     bool Stop(void);
     bool Play(int num, int shift, int volshift);
 

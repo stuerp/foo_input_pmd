@@ -91,7 +91,7 @@ public:
     WCHAR * GetPPZFileName(WCHAR * dest, int bufnum);
 
     void UsePPS(bool value) noexcept;
-    void UseSSG(bool value) noexcept;
+    void UseRhythmSoundSource(bool value) noexcept;
 
     bool HasADPCMROM() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasADPCMROM(); }
     bool HasPercussionSamples() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasPercussionSamples(); }
@@ -137,9 +137,9 @@ private:
 
     OPNAW * _OPNAW;
 
-    PPZ8 * _PPZ8; 
-    PPSDRV * _PPS;
-    P86DRV * _P86;
+    PPZ8Driver * _PPZ8; 
+    PPSDriver * _PPS;
+    P86Driver * _P86;
 
     State _State;
     DriverState _DriverState;
@@ -193,14 +193,14 @@ protected:
     void IncreaseBarCounter();
 
     void FMMain(Track * track);
-    void PSGMain(Track * track);
+    void SSGMain(Track * track);
     void RhythmMain(Track * track);
     void ADPCMMain(Track * track);
     void PCM86Main(Track * track);
     void PPZ8Main(Track * track);
 
     uint8_t * ExecuteFMCommand(Track * track, uint8_t * si);
-    uint8_t * ExecutePSGCommand(Track * track, uint8_t * si);
+    uint8_t * ExecuteSSGCommand(Track * track, uint8_t * si);
     uint8_t * ExecuteRhythmCommand(Track * track, uint8_t * si);
     uint8_t * ExecuteADPCMCommand(Track * track, uint8_t * si);
     uint8_t * ExecutePCM86Command(Track * track, uint8_t * si);
@@ -275,7 +275,7 @@ protected:
     int oshift(Track * track, int al);
     int oshiftp(Track * track, int al);
     void fnumset(Track * track, int al);
-    void SetPSGTune(Track * track, int al);
+    void SetSSGTune(Track * track, int al);
     void fnumsetm(Track * track, int al);
     void fnumset8(Track * track, int al);
     void fnumsetz(Track * track, int al);
@@ -344,8 +344,8 @@ protected:
     uint8_t * pcm_mml_part_mask8(Track * track, uint8_t * si);
     uint8_t * ppz_mml_part_mask(Track * track, uint8_t * si);
 
-    void pcmstore(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf);
-    void pcmread(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf);
+    void WritePCMData(uint16_t pcmstart, uint16_t pcmstop, const uint8_t * pcmData);
+    void ReadPCMData(uint16_t pcmstart, uint16_t pcmstop, uint8_t * pcmData);
 
     uint8_t * hlfo_set(Track * track, uint8_t * si);
     uint8_t * vol_one_up_fm(Track * track, uint8_t * si);

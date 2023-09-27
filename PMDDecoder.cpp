@@ -158,7 +158,7 @@ void PMDDecoder::Initialize() const noexcept
         return;
 
     _PMD->UsePPS(CfgUsePPS);
-    _PMD->UseSSG(CfgUseSSG);
+    _PMD->UseRhythmSoundSource(CfgUseRhythmSoundSource);
     _PMD->Start();
 
     console::printf("PMDDecoder: ADPCM ROM %s.", (_PMD->HasADPCMROM() ? "available" : "missing"));
@@ -232,7 +232,7 @@ bool PMDDecoder::IsBusy() const noexcept
 {
     State * State = _PMD->GetState();
 
-    return State->_IsPlaying;
+    return State->IsPlaying;
 }
 
 /// <summary>
