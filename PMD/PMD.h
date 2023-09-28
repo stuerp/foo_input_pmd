@@ -91,7 +91,7 @@ public:
     WCHAR * GetPPZFileName(WCHAR * dest, int bufnum);
 
     void UsePPS(bool value) noexcept;
-    void UseRhythmSoundSource(bool value) noexcept;
+    void UseRhythm(bool value) noexcept;
 
     bool HasADPCMROM() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasADPCMROM(); }
     bool HasPercussionSamples() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasPercussionSamples(); }
@@ -175,7 +175,7 @@ private:
 protected:
     void Reset();
     void StartOPNInterrupt();
-    void InitializeDataArea();
+    void InitializeState();
     void InitializeOPN();
 
     void DriverStart();
@@ -206,7 +206,7 @@ protected:
     uint8_t * ExecutePCM86Command(Track * track, uint8_t * si);
     uint8_t * ExecutePPZ8Command(Track * track, uint8_t * si);
 
-    uint8_t * rhythmon(Track * track, uint8_t * bx, int al, int * result);
+    uint8_t * RhythmOn(Track * track, uint8_t * bx, int al, int * result);
 
     void effgo(Track * track, int al);
     void eff_on2(Track * track, int al);
@@ -243,9 +243,9 @@ protected:
     uint8_t * comatm(Track * track, uint8_t * si);
     uint8_t * comat8(Track * track, uint8_t * si);
     uint8_t * comatz(Track * track, uint8_t * si);
-    uint8_t * comstloop(Track * track, uint8_t * si);
-    uint8_t * comedloop(Track * track, uint8_t * si);
-    uint8_t * comexloop(Track * track, uint8_t * si);
+    uint8_t * CommandSetStartOfLoop(Track * track, uint8_t * si);
+    uint8_t * CommandSetEndOfLoop(Track * track, uint8_t * si);
+    uint8_t * CommandExitLoop(Track * track, uint8_t * si);
     uint8_t * extend_psgenvset(Track * track, uint8_t * si);
 
     int lfoinit(Track * track, int al);

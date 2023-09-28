@@ -59,14 +59,15 @@ PPZ8Driver::~PPZ8Driver()
         ::free(XMS_FRAME_ADR[1]);
 }
 
-bool PPZ8Driver::Initialize(uint32_t rate, bool ip)
+//  00H Initialize
+bool PPZ8Driver::Initialize(uint32_t sampleRate, bool useInterpolation)
 {
     InitializeInternal();
 
-    return SetRate(rate, ip);
+    return SetRate(sampleRate, useInterpolation);
 }
 
-void PPZ8Driver::InitializeInternal(void)
+void PPZ8Driver::InitializeInternal()
 {
     ::memset(PCME_WORK, 0, sizeof(PCME_WORK));
 
@@ -83,7 +84,7 @@ void PPZ8Driver::InitializeInternal(void)
     // 一旦開放する
     if (XMS_FRAME_ADR[0] != NULL)
     {
-        free(XMS_FRAME_ADR[0]);
+        ::free(XMS_FRAME_ADR[0]);
         XMS_FRAME_ADR[0] = NULL;
     }
 
@@ -91,20 +92,21 @@ void PPZ8Driver::InitializeInternal(void)
 
     if (XMS_FRAME_ADR[1] != NULL)
     {
-        free(XMS_FRAME_ADR[1]);
+        ::free(XMS_FRAME_ADR[1]);
         XMS_FRAME_ADR[1] = NULL;
     }
 
     XMS_FRAME_SIZE[1] = 0;
 
-    PCM_VOLUME = 0;
+    _PCMVolume = 0;
     _Volume = 0;
-    SetAllVolume(VNUM_DEF);    // 全体ボリューム(DEF=12)
 
-    DIST_F = RATE_DEF;       // 再生周波数
+    SetAllVolume(DefaultVolume);
+
+    _SampleRate = DefaultSampleRate;
 }
 
-//  01H PCM 発音
+// 01H Start PCM
 bool PPZ8Driver::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
 {
     if ((ch >= _countof(_Channel)) || (XMS_FRAME_ADR[bufnum] == NULL) || (XMS_FRAME_SIZE[bufnum] == 0))
@@ -149,12 +151,14 @@ bool PPZ8Driver::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop
     return true;
 }
 
-//  02H PCM 停止
+// 02H Stop PCM
 bool PPZ8Driver::Stop(int ch)
 {
-    if (ch >= PCM_CNL_MAX) return false;
+    if (ch >= MaxPPZChannels)
+        return false;
 
-    _Channel[ch].PCM_FLG = 0;  // 再生停止
+    _Channel[ch].PCM_FLG = 0; // Stop playing
+
     return true;
 }
 
@@ -381,7 +385,7 @@ int PPZ8Driver::Load(const WCHAR * filePath, int bufnum)
 // 07H Volume
 bool PPZ8Driver::SetVolume(int ch, int vol)
 {
-    if (ch >= PCM_CNL_MAX)
+    if (ch >= MaxPPZChannels)
         return false;
 
     if (ch != 7 || !_EmulateADPCM)
@@ -404,7 +408,7 @@ bool PPZ8Driver::SetPitch(int channelNumber, uint32_t pitch)
     _Channel[channelNumber].PCM_ADDS_L = (int) (pitch & 0xffff);
     _Channel[channelNumber].PCM_ADDS_H = (int) (pitch >> 16);
 
-    _Channel[channelNumber].PCM_ADD_H = (int) ((((int64_t) (_Channel[channelNumber].PCM_ADDS_H) << 16) + _Channel[channelNumber].PCM_ADDS_L) * 2 * _Channel[channelNumber].PCM_SORC_F / DIST_F);
+    _Channel[channelNumber].PCM_ADD_H = (int) ((((int64_t) (_Channel[channelNumber].PCM_ADDS_H) << 16) + _Channel[channelNumber].PCM_ADDS_L) * 2 * _Channel[channelNumber].PCM_SORC_F / _SampleRate);
     _Channel[channelNumber].PCM_ADD_L = _Channel[channelNumber].PCM_ADD_H & 0xffff;
     _Channel[channelNumber].PCM_ADD_H = _Channel[channelNumber].PCM_ADD_H >> 16;
 
@@ -414,7 +418,7 @@ bool PPZ8Driver::SetPitch(int channelNumber, uint32_t pitch)
 // 0EH Set loop pointer
 bool PPZ8Driver::SetLoop(int ch, uint32_t loop_start, uint32_t loop_end)
 {
-    if (ch >= PCM_CNL_MAX) return false;
+    if (ch >= MaxPPZChannels) return false;
 
     if (loop_start != 0xffff && loop_end > loop_start)
     {
@@ -435,69 +439,65 @@ bool PPZ8Driver::SetLoop(int ch, uint32_t loop_start, uint32_t loop_end)
     return true;
 }
 
-//  12H (PPZ8)全停止
-void PPZ8Driver::AllStop(void)
+// 12H Stop all channels.
+void PPZ8Driver::AllStop()
 {
-    int    i;
-
-    // とりあえず各パート停止で対応
-    for (i = 0; i < PCM_CNL_MAX; i++)
-    {
+    for (int i = 0; i < MaxPPZChannels; i++)
         Stop(i);
-    }
 }
 
-//  13H (PPZ8)PAN指定
+// 13H Set the pan state.
 bool PPZ8Driver::SetPan(int ch, int pan)
 {
-    if (ch >= PCM_CNL_MAX) return false;
+    if (ch >= MaxPPZChannels)
+        return false;
 
     if (ch != 7 || !_EmulateADPCM)
-    {
         _Channel[ch].PCM_PAN = pan;
-    }
     else
-    {
         _Channel[ch].PCM_PAN = ADPCM_EM_PAN[pan & 3];
-    }
+
     return true;
 }
 
-//  14H (PPZ8)ﾚｰﾄ設定
-bool PPZ8Driver::SetRate(uint32_t rate, bool ip)
+// 14H Set the sample rate
+bool PPZ8Driver::SetRate(uint32_t sampleRate, bool useInterpolation)
 {
-    DIST_F = (int) rate;
-    _UseInterpolation = ip;
+    _SampleRate = (int) sampleRate;
+    _UseInterpolation = useInterpolation;
 
     return true;
 }
 
-//  15H (PPZ8)元ﾃﾞｰﾀ周波数設定
+// 15H Set the original data frequency.
 bool PPZ8Driver::SetSourceRate(int ch, int rate)
 {
-    if (ch >= PCM_CNL_MAX) return false;
+    if (ch >= MaxPPZChannels)
+        return false;
 
     _Channel[ch].PCM_SORC_F = rate;
+
     return true;
 }
 
-//  16H (PPZ8)全体ﾎﾞﾘﾕｰﾑの設定（86B Mixer)
-void PPZ8Driver::SetAllVolume(int vol)
+// 16H Set the overal volume（86B Mixer)
+void PPZ8Driver::SetAllVolume(int volume)
 {
-    if (vol < 16 && vol != PCM_VOLUME)
+    if (volume < 16 && volume != _PCMVolume)
     {
-        PCM_VOLUME = vol;
+        _PCMVolume = volume;
         CreateVolumeTable(_Volume);
     }
 }
 
+// 17H PCM Volume (PCMTMP_SET)
 void PPZ8Driver::SetVolume(int volume)
 {
     if (volume != _Volume)
         CreateVolumeTable(volume);
 }
 
-//  ADPCM Emulation settings
+// 18H ADPCM Emulation
 void PPZ8Driver::ADPCM_EM_SET(bool flag)
 {
     _EmulateADPCM = flag;
@@ -563,7 +563,7 @@ void PPZ8Driver::CreateVolumeTable(int volume)
 
     for (int i = 0; i < 16; i++)
     {
-        double Value = ::pow(2.0, ((double) (i) + PCM_VOLUME) / 2.0) * AVolume / 0x18000;
+        double Value = ::pow(2.0, ((double) (i) + _PCMVolume) / 2.0) * AVolume / 0x18000;
 
         for (int j = 0; j < 256; j++)
             _VolumeTable[i][j] = (Sample) ((j - 128) * Value);
@@ -588,15 +588,15 @@ void PPZ8Driver::Reset()
     // MOV  PCME_WORK0 + PVI_NUM_MAX, 0  ; @ PVIのMAXを０にする
 }
 
-//  合成、出力
+// Output
 void PPZ8Driver::Mix(Sample * sampleData, size_t sampleCount) noexcept
 {
     Sample * di;
     Sample  bx;
 
-    for (int i = 0; i < PCM_CNL_MAX; i++)
+    for (int i = 0; i < MaxPPZChannels; i++)
     {
-        if (PCM_VOLUME == 0)
+        if (_PCMVolume == 0)
             break;
 
         if (_Channel[i].PCM_FLG == 0)

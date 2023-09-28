@@ -158,7 +158,7 @@ void PMDDecoder::Initialize() const noexcept
         return;
 
     _PMD->UsePPS(CfgUsePPS);
-    _PMD->UseRhythmSoundSource(CfgUseRhythmSoundSource);
+    _PMD->UseRhythm(CfgUseRhythm);
     _PMD->Start();
 
     console::printf("PMDDecoder: ADPCM ROM %s.", (_PMD->HasADPCMROM() ? "available" : "missing"));

@@ -87,7 +87,7 @@ public:
         CfgFadeOutDuration = _FadeOutDuration;
         CfgSynthesisRate = _SynthesisRate;
         CfgUsePPS = _UsePPS;
-        CfgUseRhythmSoundSource = _UseRhythmSoundSource;
+        CfgUseRhythm = _UseRhythmSoundSource;
 
         OnChanged();
     }
@@ -106,7 +106,7 @@ public:
         _SynthesisRate = DefaultSynthesisRate;
 
         _UsePPS = DefaultUsePPS;
-        _UseRhythmSoundSource = DefaultUseRhythmSoundSource;
+        _UseRhythmSoundSource = DefaultUseRhythm;
 
         UpdateDialog();
 
@@ -145,7 +145,7 @@ private:
         _FadeOutDuration = (uint32_t) CfgFadeOutDuration;
         _SynthesisRate = (uint32_t) CfgSynthesisRate;
         _UsePPS = CfgUsePPS;
-        _UseRhythmSoundSource = CfgUseRhythmSoundSource;
+        _UseRhythmSoundSource = CfgUseRhythm;
 
         {
             auto cb = (CComboBox) GetDlgItem(IDC_PLAYBACK_MODE);
@@ -312,7 +312,7 @@ private:
         if (_UsePPS != CfgUsePPS)
             return true;
 
-        if (_UseRhythmSoundSource != CfgUseRhythmSoundSource)
+        if (_UseRhythmSoundSource != CfgUseRhythm)
             return true;
 
 //      if (_SynthesisRate != CfgSynthesisRate)

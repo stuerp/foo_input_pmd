@@ -14,13 +14,14 @@
 
 #define PPZ_OUT_OF_MEMORY   99
 
-#define SOUND_44K   44100
+#define SOUND_44K           44100
 
-#define RATE_DEF    SOUND_44K
-#define VNUM_DEF    12
-#define PCM_CNL_MAX 8
-#define X_N0        0x80
-#define DELTA_N0    127
+#define DefaultSampleRate   SOUND_44K
+#define DefaultVolume       12
+#define MaxPPZChannels      8
+
+#define X_N0                0x80
+#define DELTA_N0            0x7F
 
 typedef int32_t Sample;
 
@@ -85,23 +86,23 @@ struct PVIHEADER
 class PPZ8Driver
 {
 public:
-    PPZ8Driver(File * fileio);
+    PPZ8Driver(File * file);
     virtual ~PPZ8Driver();
 
-    bool Initialize(uint32_t rate, bool ip);            // 00H 初期化
-    bool Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop); // 01H PCM 発音
-    bool Stop(int ch);                            // 02H PCM 停止
+    bool Initialize(uint32_t sampleRate, bool useInterpolation);
+    bool Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop);
+    bool Stop(int ch);
     int  Load(const WCHAR * filePath, int bufnum);
-    bool SetVolume(int ch, int vol);                // 07H ﾎﾞﾘｭｰﾑ設定
-    bool SetPitch(int channelNumber, uint32_t pitch);        // 0BH 音程周波数の設定
-    bool SetLoop(int ch, uint32_t loop_start, uint32_t loop_end); // 0EH ﾙｰﾌﾟﾎﾟｲﾝﾀの設定
-    void AllStop(void);                            // 12H (PPZ8)全停止
-    bool SetPan(int ch, int pan);                // 13H (PPZ8)PAN指定
-    bool SetRate(uint32_t rate, bool ip);        // 14H (PPZ8)ﾚｰﾄ設定
-    bool SetSourceRate(int ch, int rate);        // 15H (PPZ8)元ﾃﾞｰﾀ周波数設定
-    void SetAllVolume(int vol);                    // 16H (PPZ8)全体ﾎﾞﾘﾕｰﾑの設定（86B Mixer)
-    void SetVolume(int vol); //PCMTMP_SET        ;17H PCMﾃﾝﾎﾟﾗﾘ設定
-    void ADPCM_EM_SET(bool flag);                // 18H (PPZ8)ADPCMエミュレート
+    bool SetVolume(int ch, int volume);
+    bool SetPitch(int channelNumber, uint32_t pitch);
+    bool SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);
+    void AllStop();
+    bool SetPan(int ch, int pan);
+    bool SetRate(uint32_t sampleRate, bool useInterpolation);
+    bool SetSourceRate(int ch, int sampleRate);
+    void SetAllVolume(int volume);
+    void SetVolume(int volume);
+    void ADPCM_EM_SET(bool flag);
 //  REMOVE_FSET; // 19H (PPZ8)常駐解除ﾌﾗｸﾞ設定
 //  FIFOBUFF_SET; // 1AH (PPZ8)FIFOﾊﾞｯﾌｧの変更
 //  RATE_SET; // 1BH (PPZ8)WSS詳細ﾚｰﾄ設定
@@ -132,12 +133,12 @@ private:
     bool _EmulateADPCM; // Should channel 8 emulate ADPCM?
     bool _UseInterpolation;
 
-    PPZChannel _Channel[PCM_CNL_MAX];
+    PPZChannel _Channel[MaxPPZChannels];
     uint8_t * XMS_FRAME_ADR[2]; // Memory allocated by XMS
     int XMS_FRAME_SIZE[2]; // PZI or PVI internal state
-    int PCM_VOLUME; // Overall 86B Mixer volume
+    int _PCMVolume; // Overall 86B Mixer volume
     int _Volume;
-    int DIST_F; // Playback frequency
+    int _SampleRate; // Playback frequency
 
-    Sample _VolumeTable[16][256];                // 音量テーブル
+    Sample _VolumeTable[16][256];
 };

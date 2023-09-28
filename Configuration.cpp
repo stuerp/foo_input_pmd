@@ -31,4 +31,4 @@ cfg_uint CfgFadeOutDuration(CfgFadeOutDurationGUID, DefaultFadeOutDuration);
 cfg_uint CfgSynthesisRate(CfgSynthesisRateGUID, DefaultSynthesisRate);
 
 cfg_bool CfgUsePPS(CfgUsePPSGUID, DefaultUsePPS);
-cfg_bool CfgUseRhythmSoundSource(CfgUseSSGGUID, DefaultUseRhythmSoundSource);
+cfg_bool CfgUseRhythm(CfgUseSSGGUID, DefaultUseRhythm);

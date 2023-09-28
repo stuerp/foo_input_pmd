@@ -55,7 +55,7 @@ struct DriverState
     int CurrentChannel;
     int tieflag; // & flag (1 : tie)
     int volpush_flag;  // Flag for next one note volume down (1 : voldown)
-    int rhydmy;  // R part dummy performance data
+    int DummyRhythmData;        // Dummy rhythm data
     int fmsel;  // FM heads (=0) or tails (=0x100) flag
     int omote_key[3];  // FM keyondata table (=0)
     int ura_key[3]; // FM keyondata back (=0x100)
@@ -202,23 +202,23 @@ struct State
 {
     Track * Track[MaxTracks];
 
-    uint8_t * MData; // Address of MML data + 1
-    uint8_t * VData; // Voice data
-    uint8_t * EData; // FM Effect data
+    uint8_t * MData;            // Address of MML data + 1
+    uint8_t * VData;            // Voice data
+    uint8_t * EData;            // FM Effect data
+    uint8_t * ToneData;         // Tone data, if any
+    uint8_t * RhythmData;       // Rhythm Data
 
-    uint8_t * ToneData; // Start address of tone data in song data
+    uint16_t * RhythmDataTable; // Rhythm Data table
 
-    uint16_t * RhythmAddressTable;  // R part offset table. Start address
-    uint8_t * RhythmData;  // R part Current address
-
-    bool UseRSS;  // Play Rhythm Sound Source with K/R part flag
+    bool UseRhythm;             // Use Rhythm sound source with K/R part flag
 
     bool UseFM55kHzSynthesis;
     bool UseInterpolationPPZ8;
     bool UseInterpolationPPS;
     bool UseInterpolationP86;
 
-    int RSSMask; // Rhythm Sound Source mask. Compatible with x8c/10h bit
+    int RhythmMask;             // Rhythm sound source mask. Compatible with x8c/10h bit
+    int RhythmVolume;           // Rhythm volume
 
     int fm_voldown;
     int _fm_voldown;
@@ -238,11 +238,11 @@ struct State
     int ppz_voldown; // PPZ8 voldown numerical value
     int _ppz_voldown; // PPZ8 voldown numerical value (for storage)
 
-    int rhyvol;  // Rhythm volume
+    // MData characteristics
+    uint8_t x68_flg;    // OPM flag
+    bool HasToneData;   // True if the song data contains tone data
 
-    int prg_flg; // Whether the song data contains a tone flag
-    int x68_flg; // OPM flag
-    int status;  // status1
+    int status;
 
     int LoopCount;
 
