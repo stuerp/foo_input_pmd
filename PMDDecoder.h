@@ -90,7 +90,7 @@ private:
     uint32_t _FadeOutDuration;  // Fade out duration (in ms).
     uint32_t _SynthesisRate;    // Fade out duration (in Hz).
 
-    static const size_t BlockSize = 512; // Number of samples per block
+    static const uint32_t BlockSize = 512; // Number of samples per block
 
     static const uint32_t SampleRate = 44100;
     static const uint32_t ChannelCount = 2;

@@ -17,7 +17,7 @@
 
 #pragma hdrstop
 
-static bool ConvertShiftJIToUTF8(const char * text, pfc::string8 & utf8);
+static bool ConvertShiftJITo2UTF8(const char * text, pfc::string8 & utf8);
 
 /// <summary>
 /// Initializes a new instance.
@@ -120,19 +120,19 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
             char Note[1024] = { 0 };
 
             pmd->GetNote(data, size, 1, Note, _countof(Note));
-            ConvertShiftJIToUTF8(Note, _Title);
+            ConvertShiftJITo2UTF8(Note, _Title);
 
             Note[0] = '\0';
             pmd->GetNote(data, size, 2, Note, _countof(Note));
-            ConvertShiftJIToUTF8(Note, _Composer);
+            ConvertShiftJITo2UTF8(Note, _Composer);
 
             Note[0] = '\0';
             pmd->GetNote(data, size, 3, Note, _countof(Note));
-            ConvertShiftJIToUTF8(Note, _Arranger);
+            ConvertShiftJITo2UTF8(Note, _Arranger);
 
             Note[0] = '\0';
             pmd->GetNote(data, size, 4, Note, _countof(Note));
-            ConvertShiftJIToUTF8(Note, _Memo);
+            ConvertShiftJITo2UTF8(Note, _Memo);
         }
 
         delete pmd;
@@ -142,11 +142,23 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
 }
 
 /// <summary>
-/// Returns true if the buffer points to PMD data.
+/// Returns true if  the buffer points to PMD data.
 /// </summary>
 bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
 {
-    return PMD::IsPMD(data, size);
+    if (size < 3)
+        return false;
+
+    if (data[0] > 0x0F)
+        return false;
+
+    if (data[1] != 0x18 && data[1] != 0x1A)
+        return false;
+
+    if (data[2] != 0x00 && data[2] != 0xE6)
+        return false;
+
+    return true;
 }
 
 /// <summary>
@@ -157,40 +169,9 @@ void PMDDecoder::Initialize() const noexcept
     if (_PMD->Load(_Data, _Size) != ERR_SUCCESS)
         return;
 
-    _PMD->UsePPS(CfgUsePPS);
-    _PMD->UseRhythm(CfgUseRhythm);
+//  _PMD->UsePPS(true);
+//  _PMD->UseSSG(true);
     _PMD->Start();
-/*
-    _PMD->DisableChannel( 0); // A
-    _PMD->DisableChannel( 1); // B
-    _PMD->DisableChannel( 2); // C
-    _PMD->DisableChannel( 3); // D
-    _PMD->DisableChannel( 4); // E
-    _PMD->DisableChannel( 5); // F
-    _PMD->DisableChannel( 6); // G
-    _PMD->DisableChannel( 7); // H
-    _PMD->DisableChannel( 8); // I
-    _PMD->DisableChannel( 9); // J
-    _PMD->DisableChannel(10); // K
-
-    _PMD->DisableChannel(11); // c2
-    _PMD->DisableChannel(12); // c3
-    _PMD->DisableChannel(13); // c4
-
-    _PMD->DisableChannel(14); // Rhythm
-    _PMD->DisableChannel(15); // Effect
-
-//  _PMD->DisableChannel(16); // PPZ1
-    _PMD->DisableChannel(17); // PPZ2
-    _PMD->DisableChannel(18); // PPZ3
-    _PMD->DisableChannel(19); // PPZ4
-    _PMD->DisableChannel(20); // PPZ5
-    _PMD->DisableChannel(21); // PPZ6
-    _PMD->DisableChannel(22); // PPZ7
-    _PMD->DisableChannel(23); // PPZ8
-*/
-    console::printf("PMDDecoder: ADPCM ROM %s.", (_PMD->HasADPCMROM() ? "found" : "not found"));
-    console::printf("PMDDecoder: Percussion samples %s.", (_PMD->HasPercussionSamples() ? "found" : "not found"));
 }
 
 /// <summary>
@@ -213,9 +194,9 @@ size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
     if ((CfgPlaybackMode == PlaybackModes::LoopWithFadeOut) && (_MaxLoopNumber > 0) && (GetLoopNumber() > _MaxLoopNumber - 1))
         _PMD->SetFadeOutDurationHQ((int) _FadeOutDuration);
 
-    _PMD->Render(&_Samples[0], BlockSize);
+    _PMD->Render(&_Samples[0], (int) BlockSize);
 
-    audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * ((t_size) BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
+    audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * (t_size) (BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
 
     return sampleCount;
 }
@@ -258,36 +239,34 @@ uint32_t PMDDecoder::GetLoopNumber() const noexcept
 /// <returns></returns>
 bool PMDDecoder::IsBusy() const noexcept
 {
-    State * State = _PMD->GetState();
+    OPEN_WORK * State = _PMD->GetOpenWork();
 
-    return State->IsPlaying;
+    return State->_IsPlaying;
 }
 
 /// <summary>
 /// Converts a Shift-JIS character array to an UTF-8 string.
 /// </summary>
-static bool ConvertShiftJIToUTF8(const char * text, pfc::string8 & utf8)
+static bool ConvertShiftJITo2UTF8(const char * text, pfc::string8 & utf8)
 {
     utf8.clear();
 
-    int Size = ::MultiByteToWideChar(932, MB_PRECOMPOSED, text, -1, 0, 0);
+    int Size = ::MultiByteToWideChar(932, MB_ERR_INVALID_CHARS, text, -1, 0, 0);
 
     if (Size == 0)
         return false;
 
     WCHAR * Wide = new WCHAR[(size_t) Size];
 
-    if (::MultiByteToWideChar(932, MB_PRECOMPOSED, text, -1, Wide, Size) != 0)
+    if (::MultiByteToWideChar(932, 0, text, -1, Wide, Size) != 0)
     {
-        const CHAR DefaultChar = '_';
-
-        Size = ::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, 0, 0, &DefaultChar, 0);
+        Size = ::WideCharToMultiByte(CP_UTF8, 0, Wide, -1, 0, 0, 0, 0);
 
         if (Size != 0)
         {
             char * UTF8 = new char[(size_t) Size + 16];
 
-            if (::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, UTF8, Size, &DefaultChar, 0) != 0)
+            if (::WideCharToMultiByte(CP_UTF8, 0, Wide, -1, UTF8, Size, 0, 0) != 0)
                 utf8 = UTF8;
 
             delete[] UTF8;

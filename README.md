@@ -112,7 +112,7 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
-v0.4.0, 2023-09-xx, *""*
+v0.4.0, 2023-10-xx, *""*
 
 * Added: Checkboxes to enable or disable the use of PPS and the SSG (Software-controlled Sound Generator).
 * Improved: Tweaked the Shift JIS to UTF-8 conversion a little bit.

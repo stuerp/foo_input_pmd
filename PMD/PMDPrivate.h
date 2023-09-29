@@ -37,138 +37,92 @@
 #define MAX_PCMDIR             64
 #define MAX_MEMO             1024
 
+#define nbufsample          30000
 #define OPNAClock   (3993600 * 2)
 
-#define MaxFMTracks             6
-#define MaxSSGTracks            3
-#define MaxADPCMTracks          1
-#define MaxOPNARhythmTracks     1
-#define MaxExtTracks            3
-#define MaxRhythmTracks         1
-#define MaxEffectTracks         1
-#define MaxPPZ8Tracks           8
-#define MaxChannels               (MaxFMTracks + MaxSSGTracks + MaxADPCMTracks + MaxOPNARhythmTracks + MaxExtTracks + MaxRhythmTracks + MaxEffectTracks + MaxPPZ8Tracks)
+#define NumOfFMPart             6
+#define NumOfSSGPart            3
+#define NumOfADPCMPart          1
+#define NumOfOPNARhythmPart     1
+#define NumOfExtPart            3
+#define NumOfRhythmPart         1
+#define NumOfEffPart            1
+#define NumOfPPZ8Part           8
+#define NumOfAllPart            (NumOfFMPart+NumOfSSGPart+NumOfADPCMPart+NumOfOPNARhythmPart+NumOfExtPart+NumOfRhythmPart+NumOfEffPart+NumOfPPZ8Part)
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
-struct DriverState
+struct PMDWORK
 {
-    int CurrentChannel;
-    int tieflag;        // & flag (1 : tie)
-    int volpush_flag;   // Flag for next one note volume down (1 : voldown)
-    int FMSelector;     // Head (0x000) or tail (0x100)
-    int omote_key[3];   // FM keyondata table (=0)
-    int ura_key[3];     // FM keyondata back (=0x100)
-    int loop_work;      // Loop Work
-    bool UsePPS;
-
-    int PCMRepeat1;
-    int PCMRepeat2;
-    int PCMRelease;
-
-    int OldTimerATime;  // TimerATime value at the previous interrupt
-    int music_flag; // B0: Next MSTART 1: Next MSTOP Flag
-    int slotdetune_flag; // Are you using FM3 Slot Detune?
-    int slot3_flag; // Required sound effect mode flag for each FM3 slot
-    int fm3_alg_fb; // alg/fb of the tone defined at the end of FM3ch
-    int af_check; // Whether to set alg/fb of FM3ch flag
-    int lfo_switch; // Local LFO switch
+    int partb;  // 処理中パート番号
+    int tieflag; // &のフラグ(1 : tie)
+    int volpush_flag;  // 次の１音音量down用のflag(1 : voldown)
+    int rhydmy;  // R part ダミー演奏データ
+    int fmsel;  // FM 表(=0)か裏(=0x100)か flag
+    int omote_key[3];  // FM keyondata表(=0)
+    int ura_key[3]; // FM keyondata裏(=0x100)
+    int loop_work; // Loop Work
+    bool _UsePPS;  // ppsdrv を使用するか？flag(ユーザーが代入)
+    int pcmrepeat1; // PCMのリピートアドレス1
+    int pcmrepeat2; // PCMのリピートアドレス2
+    int pcmrelease; // PCMのRelease開始アドレス
+    int _OldTimerATime;  // 一個前の割り込み時の_TimerATime値
+    int music_flag; // B0:次でMSTART 1:次でMSTOP のFlag
+    int slotdetune_flag; // FM3 Slot Detuneを使っているか
+    int slot3_flag; // FM3 Slot毎 要効果音モードフラグ
+    int fm3_alg_fb; // FM3chの最後に定義した音色のalg/fb
+    int af_check; // FM3chのalg/fbを設定するかしないかflag
+    int lfo_switch; // 局所LFOスイッチ
 };
 #pragma warning(default: 4820)
 
 struct EffectState
 {
-    int * Address;
-
-    int ToneSweepFrequency;
-    int ToneSweepIncrement;
-    int ToneSweepCounter;
-
-    int NoiseSweepFrequency;
-    int NoiseSweepIncrement;
-    int NoiseSweepCounter;
-
-    int effon;  // Sound effect sounding
-    int EffectNumber;
-
-    int hosei_flag; // ppsdrv Whether to perform volume/pitch correction
-    int last_shot_data;  // The last PPSDRV tone played
+    int * effadr; // effect address
+    int eswthz;  // トーンスゥイープ周波数
+    int eswtst;  // トーンスゥイープ増分
+    int effcnt;  // effect count
+    int eswnhz;  // ノイズスゥイープ周波数
+    int eswnst;  // ノイズスゥイープ増分
+    int eswnct;  // ノイズスゥイープカウント
+    int effon;  // 効果音　発音中
+    int psgefcnum; // 効果音番号
+    int hosei_flag; // ppsdrv 音量/音程補正をするかどうか
+    int last_shot_data;  // 最後に発音させたPPSDRV音色
 };
 
-struct Channel
+// Data area during performance
+struct PartState
 {
-    uint8_t * Data;
-    uint8_t * LoopData;
-    int Length;
+    uint8_t * address; // 2 ｴﾝｿｳﾁｭｳ ﾉ ｱﾄﾞﾚｽ
+    uint8_t * partloop; // 2 ｴﾝｿｳ ｶﾞ ｵﾜｯﾀﾄｷ ﾉ ﾓﾄﾞﾘｻｷ
 
-    int qdat; // 1 gatetime (value calculated from q/Q value)
-
-    uint32_t fnum;  // 2 Power BLOCK/FNUM
-    int detune;  // 2 Detune
-
-    int lfoswi;  // 1. LFOSW: bit 0: tone, bit 1: vol,  bit 2: same period, bit 3: portamento
-    int extendmode; // 1. bit 1: Detune, bit 2: LFO, bit 3: Env Normal/Extend
-
-    // LFO 1
+    int leng;  // 1 ﾉｺﾘ LENGTH
+    int qdat;  // 1 gatetime (q/Q値を計算した値)
+    uint32_t fnum;  // 2 ｴﾝｿｳﾁｭｳ ﾉ BLOCK/FNUM
+    int detune;  // 2 ﾃﾞﾁｭｰﾝ
     int lfodat;  // 2 LFO DATA
-
-    int delay;  // 1 LFO [DELAY]
-    int delay2;  // 1 [DELAY_2]
-
-    int speed;  // 1 [SPEED]
-    int speed2;  // 1 [SPEED_2]
-
-    int step;  // 1 [STEP]
-    int step2;  // 1 [STEP_2]
-
-    int time;  // 1 [TIME]
-    int time2;  // 1 [TIME_2]
-
-    int mdepth;  // 1 M depth
-
-    int mdspd;  // 1 M speed
-    int mdspd2;  // 1 M speed_2
-
-    int lfo_wave; // 1 LFO waveform
-
-    int mdc;  // 1 M depth Counter (Fluctuation value)
-    int mdc2;  // 1 M depth Counter
-
-    // LFO 2
-    int _lfodat; // 2 LFO DATA
-
-    int _delay;  // 1 LFO [DELAY]
-    int _delay2; // 1  [DELAY_2]
-
-    int _speed;  // 1  [SPEED]
-    int _speed2; // 1  [SPEED_2]
-
-    int _step;  // 1  [STEP]
-    int _step2;  // 1  [STEP_2]
-
-    int _time;  // 1  [TIME]
-    int _time2;  // 1  [TIME_2]
-
-    int _mdepth; // 1 M depth
-
-    int _mdspd;  // 1 M speed
-    int _mdspd2; // 1 M speed_2
-
-    int _lfo_wave; // 1 LFO waveform
-
-    int _mdc;  // 1 M depth Counter (Fluctuation value)
-    int _mdc2;  // 1 M depth Counter
-
     int porta_num; // 2 ポルタメントの加減値（全体）
     int porta_num2; // 2 ポルタメントの加減値（一回）
     int porta_num3; // 2 ポルタメントの加減値（余り）
-
     int volume;  // 1 VOLUME
     int shift;  // 1 ｵﾝｶｲ ｼﾌﾄ ﾉ ｱﾀｲ
+    int delay;  // 1 LFO [DELAY]
+    int speed;  // 1 [SPEED]
+    int step;  // 1 [STEP]
+    int time;  // 1 [TIME]
+    int delay2;  // 1 [DELAY_2]
+    int speed2;  // 1 [SPEED_2]
+    int step2;  // 1 [STEP_2]
+    int time2;  // 1 [TIME_2]
+    int lfoswi;  // 1 LFOSW. B0/tone B1/vol B2/同期 B3/porta
 
-    // bit 4: tone / bit 5: vol / bit 6: same period
+    //          B4/tone B5/vol B6/同期
     int volpush; // 1 Volume PUSHarea
-    int envf;  // 1 SSG ENV. [START_FLAG] / -1でextend
-    int eenv_count; // 1 ExtendSSGenv/No=0 AR=1 DR=2 SR=3 RR=4
+    int mdepth;  // 1 M depth
+    int mdspd;  // 1 M speed
+    int mdspd2;  // 1 M speed_2
+    int envf;  // 1 PSG ENV. [START_FLAG] / -1でextend
+    int eenv_count; // 1 ExtendPSGenv/No=0 AR=1 DR=2 SR=3 RR=4
     int eenv_ar; // 1  /AR  /旧pat
     int eenv_dr; // 1 /DR  /旧pv2
     int eenv_sr; // 1 /SR  /旧pr1
@@ -180,115 +134,105 @@ struct Channel
     int eenv_src; // 1 /SRのカウンタ /旧pr1b
     int eenv_rrc; // 1 /RRのカウンタ /旧pr2b
     int eenv_volume;  // 1 /Volume値(0?15)/旧penv
-
+    int extendmode; // 1 B1/Detune B2/LFO B3/Env Normal/Extend
     int fmpan;  // 1 FM Panning + AMD + PMD
-    int psgpat;  // 1 SSG PATTERN [TONE/NOISE/MIX]
-    int InstrumentNumber;
-    int loopcheck; // 1 When the loop ends 1 When the loop ends 3
+    int psgpat;  // 1 PSG PATTERN [TONE/NOISE/MIX]
+    int voicenum; // 1 音色番号
+    int loopcheck; // 1 ループしたら１ 終了したら３
     int carrier; // 1 FM Carrier
     int slot1;  // 1 SLOT 1 ﾉ TL
     int slot3;  // 1 SLOT 3 ﾉ TL
     int slot2;  // 1 SLOT 2 ﾉ TL
     int slot4;  // 1 SLOT 4 ﾉ TL
+    int slotmask; // 1 FM slotmask
+    int neiromask; // 1 FM 音色定義用maskdata
+    int lfo_wave; // 1 LFOの波形
+    int partmask; // 1 PartMask b0:通常 b1:効果音 b2:NECPCM用
 
-    int SlotMask; // 1 FM slotmask
-    int ToneMask; // 1 maskdata for FM tone definition
-    int PartMask; // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
-    int VolumeMask1; // Volume LFO mask
-    int VolumeMask2; // Volume LFO mask
-
-    // bit 3: none / bit 4: For PPZ/ADE / bit 5: s0 time / bit 6: m / bit 7: temporary
-    int keyoff_flag;  // 1 Flag indicating whether keyoff has been performed
-    int qdata;  // 1 value of q
-    int qdatb;  // 1 value of q
+    //    b3:none b4:PPZ/ADE用 b5:s0時 b6:m b7:一時
+    int keyoff_flag;  // 1 KeyoffしたかどうかのFlag
+    int volmask; // 1 音量LFOのマスク
+    int qdata;  // 1 qの値
+    int qdatb;  // 1 Qの値
     int hldelay; // 1 HardLFO delay
     int hldelay_c; // 1 HardLFO delay Counter
-
-    int onkai;  // Scale data being played (0xFF = rest)
+    int _lfodat; // 2 LFO DATA
+    int _delay;  // 1 LFO [DELAY]
+    int _speed;  // 1  [SPEED]
+    int _step;  // 1  [STEP]
+    int _time;  // 1  [TIME]
+    int _delay2; // 1  [DELAY_2]
+    int _speed2; // 1  [SPEED_2]
+    int _step2;  // 1  [STEP_2]
+    int _time2;  // 1  [TIME_2]
+    int _mdepth; // 1 M depth
+    int _mdspd;  // 1 M speed
+    int _mdspd2; // 1 M speed_2
+    int _lfo_wave; // 1 LFOの波形
+    int _volmask; // 1 音量LFOのマスク
+    int mdc;  // 1 M depth Counter (変動値)
+    int mdc2;  // 1 M depth Counter
+    int _mdc;  // 1 M depth Counter (変動値)
+    int _mdc2;  // 1 M depth Counter
+    int onkai;  // 1 演奏中の音階データ (0ffh:rest)
     int sdelay;  // 1 Slot delay
     int sdelay_c; // 1 Slot delay counter
     int sdelay_m; // 1 Slot delay Mask
-    int alg_fb;  // 1 Tone alg/fb
-    int keyon_flag; // 1 After processing new scale/rest data, inc
-    int qdat2;  // 1 q minimum guaranteed value
-    int onkai_def; // 1 Scale data being played (before modulation processing / ?fh: rest)
-    int shift_def; // 1 Master modulation value
+    int alg_fb;  // 1 音色のalg/fb
+    int keyon_flag; // 1 新音階/休符データを処理したらinc
+    int qdat2;  // 1 q 最低保証値
+    int onkai_def; // 1 演奏中の音階データ (転調処理前 / ?fh:rest)
+    int shift_def; // 1 マスター転調値
     int qdat3;  // 1 q Random
 };
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
-struct State
+struct OPEN_WORK
 {
-    uint8_t * MData;            // Address of MML data + 1
+    PartState * Part[NumOfAllPart]; // パートワークのポインタ
 
-    uint8_t * VData;            // Voice data
-    uint8_t * EData;            // FM Effect data
+    uint8_t * mmlbuf;  // Musicdataのaddress+1
+    uint8_t * tondat;  // Voicedataのaddress
+    uint8_t * efcdat;  // FM Effecdataのaddress
+    uint8_t * prgdat_adr; // 曲データ中音色データ先頭番地
+    uint16_t * radtbl;  // R part offset table 先頭番地
+    uint8_t * rhyadr;  // R part 演奏中番地
 
-    uint8_t * RhythmData;
-    uint8_t * ToneData;         // Tone data, if any
+    bool _IsPlaying; // True if the driver is playing
+    bool _UseRhythmSoundSource;  // Play Rhythm sound source with K/Rpart flag
 
-    uint8_t DummyRhythmData;
+    int rhythmmask; // Rhythm音源のマスク x8c/10hのbitに対応
 
-    uint16_t * RhythmDataTable; // Rhythm Data table
+    int fm_voldown; // FM voldown 数値
+    int ssg_voldown;  // PSG voldown 数値
+    int pcm_voldown;  // ADPCM voldown 数値
+    int rhythm_voldown;  // RHYTHM voldown 数値
 
-    bool UseRhythm;             // Use Rhythm sound source with K/R part.
-    bool UseFM55kHzSynthesis;
-    bool UseInterpolationPPZ8;
-    bool UseInterpolationPPS;
-    bool UseInterpolationP86;
+    int prg_flg; // 曲データに音色が含まれているかflag
+    int x68_flg; // OPM flag
+    int status;  // status1
 
-    Channel * Channel[MaxChannels];
+    int _LoopCount;
 
-    int RhythmMask;             // Rhythm sound source mask. Compatible with x8c/10h bit
-    int RhythmVolume;           // Rhythm volume
+    int tempo_d; // tempo (TIMER-B)
+    int tempo_d_push;  // tempo (TIMER-B) / 保存用
 
-    int fm_voldown;
-    int _fm_voldown;
+    int _FadeOutSpeed;  // Fadeout速度
+    int _FadeOutVolume;  // Fadeout音量
 
-    int ssg_voldown;
-    int _ssg_voldown;
-
-    int pcm_voldown;
-    int _pcm_voldown;
-
-    int rhythm_voldown;
-    int _rhythm_voldown;
-
-    int pcm86_vol; // Should the volume of PCM86 be adjusted to SPB?
-    int _pcm86_vol; // Should the volume of PCM86 be adjusted to SPB? (For storage)
-
-    int ppz_voldown; // PPZ8 voldown numerical value
-    int _ppz_voldown; // PPZ8 voldown numerical value (for storage)
-
-    // MData characteristics
-    uint8_t x68_flg;    // OPM flag
-
-    int status;
-
-    int LoopCount;
-
-    int FadeOutSpeed;
-    int FadeOutVolume;
-
-    int BarLength;  // Bar length
-    int OpsCounter; // Shortest note counter
-
-    int SSGEffectFlag; // SSG sound effect on/off flag (substituted by user)
-    int SSGNoiseFrequency;
-    int OldSSGNoiseFrequency;
-
-    int PCMStart;
-    int PCMStop;
-
-    int tempo_d; // Tempo (TIMER-B)
-    int tempo_d_push;  // Tempo (TIMER-B) / for saving
-
-    int tempo_48; // Current tempo (value of clock = 48 t)
-    int tempo_48_push;  // Current tempo (same as above / for saving)
-
-    int kshot_dat; // SSG rhythm shot flag
-    int fade_stop_flag;  // Flag for whether to MSTOP after Fadeout
-    int pcm_gs_flag;  // ADPCM use permission flag (0 allows)
+    int syousetu_lng;  // 小節の長さ
+    int opncount; // 最短音符カウンタ
+    int effflag; // PSG効果音発声on/off flag(ユーザーが代入)
+    int psnoi;  // PSG noise周波数
+    int psnoi_last; // PSG noise周波数(最後に定義した数値)
+    int pcmstart; // PCM音色のstart値
+    int pcmstop; // PCM音色のstop値
+    int rshot_dat; // リズム音源 shot flag
+    int rdat[6]; // リズム音源 音量/パンデータ
+    int rhyvol;  // リズムトータルレベル
+    int kshot_dat; // ＳＳＧリズム shot flag
+    int fade_stop_flag;  // Fadeout後 MSTOPするかどうかのフラグ
+    int pcm_gs_flag;  // ADPCM使用 許可フラグ (0で許可)
 
     int slot_detune1;  // FM3 Slot Detune値 slot1
     int slot_detune2;  // FM3 Slot Detune値 slot2
@@ -296,42 +240,54 @@ struct State
     int slot_detune4;  // FM3 Slot Detune値 slot4
 
     int fadeout_flag;  // When calling Fade from inside 1
-    int revpan;  // PCM86 reverse phase flag
-    int BarCounter;
-    int port22h; // Last value output to OPN-PORT 22H (hlfo)
+    int revpan;  // PCM86逆相flag
+    int pcm86_vol; // PCM86の音量をSPBに合わせるか?
+    int syousetu; // 小節カウンタ
+    int port22h; // OPN-PORT 22H に最後に出力した値(hlfo)
+    int tempo_48; // 現在のテンポ(clock=48 tの値)
+    int tempo_48_push;  // 現在のテンポ(同上/保存用)
 
-    int rshot_dat; // RSS shot flag
-    int rdat[6]; // RSS volume/pan data
-    int rshot_bd; // RSS shot inc flag (BD)
-    int rshot_sd; // RSS shot inc flag (SD)
-    int rshot_sym; // RSS shot inc flag (CYM)
-    int rshot_hh; // RSS shot inc flag (HH)
-    int rshot_tom; // RSS shot inc flag (TOM)
-    int rshot_rim; // RSS shot inc flag (RIM)
-    int rdump_bd; // RSS dump inc flag (BD)
-    int rdump_sd; // RSS dump inc flag (SD)
-    int rdump_sym; // RSS dump inc flag (CYM)
-    int rdump_hh; // RSS dump inc flag (HH)
-    int rdump_tom; // RSS dump inc flag (TOM)
-    int rdump_rim; // RSS dump inc flag (RIM)
+    int _fm_voldown;  // FM voldown 数値 (保存用)
+    int _ssg_voldown;  // PSG voldown 数値 (保存用)
+    int _pcm_voldown;  // PCM voldown 数値 (保存用)
+    int _rhythm_voldown; // RHYTHM voldown 数値 (保存用)
+    int _pcm86_vol; // PCM86の音量をSPBに合わせるか? (保存用)
+
+    int rshot_bd; // リズム音源 shot inc flag (BD)
+    int rshot_sd; // リズム音源 shot inc flag (SD)
+    int rshot_sym; // リズム音源 shot inc flag (CYM)
+    int rshot_hh; // リズム音源 shot inc flag (HH)
+    int rshot_tom; // リズム音源 shot inc flag (TOM)
+    int rshot_rim; // リズム音源 shot inc flag (RIM)
+    int rdump_bd; // リズム音源 dump inc flag (BD)
+    int rdump_sd; // リズム音源 dump inc flag (SD)
+    int rdump_sym; // リズム音源 dump inc flag (CYM)
+    int rdump_hh; // リズム音源 dump inc flag (HH)
+    int rdump_tom; // リズム音源 dump inc flag (TOM)
+    int rdump_rim; // リズム音源 dump inc flag (RIM)
 
     uint32_t ch3mode; // ch3 Mode
+    int ppz_voldown;  // PPZ8 voldown 数値
+    int _ppz_voldown;  // PPZ8 voldown 数値 (保存用)
 
-    bool IsTimerABusy;
-    int TimerATime;
+    bool _IsTimerABusy;
+    int _TimerATime;
 
-    bool IsTimerBBusy;
-    int TimerBTempo;  // Current value of TimerB (= ff_tempo during ff)
+    bool _IsTimerBBusy;
+    int _TimerBSpeed;  // Current value of TimerB (= ff_tempo during ff)
 
-    uint32_t OPNARate; // PCM output frequency (11k, 22k, 44k, 55k)
-    uint32_t PPZ8Rate; // PPZ output frequency
+    uint32_t _OPNARate; // PCM output frequency (11k, 22k, 44k, 55k)
+    uint32_t _PPZ8Rate; // PPZ output frequency
 
-    bool IsPlaying; // True if the driver is playing
-    bool IsUsingP86;
+    bool fmcalc55k;   // Do 55kHz FM synthesis?
+    bool ppz8ip;    // Complement with PPZ8?
+    bool ppsip;    // Complement with PPS?
+    bool p86ip;    // Complement with PPS?
+    bool _UseP86;   // Are we using P86?
 
-    int FadeOutSpeedHQ; // Fadeout (High Sound Quality) speed (fadeout at > 0)
+    int _FadeOutSpeedHQ; // Fadeout (High Sound Quality) speed (fadeout at > 0)
 
-    WCHAR PPCFileName[MAX_PATH];
-    std::vector<std::wstring> SearchPath;
+    WCHAR _PPCFileName[MAX_PATH];
+    std::vector<std::wstring> _SearchPath;
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member

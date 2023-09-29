@@ -1,5 +1,5 @@
 ﻿
-// PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
+// SSG PCM Driver「PPSDRV」 Unit / Original Programmed  by NaoNeko / Modified by Kaja / Windows Converted by C60
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -13,18 +13,18 @@
 
 #include "PPS.h"
 
-PPSDriver::PPSDriver(File * file) : _File(file), _Samples()
+PPSDRV::PPSDRV(File * file) : _File(file), _Samples()
 {
     _Init();
 }
 
-PPSDriver::~PPSDriver()
+PPSDRV::~PPSDRV()
 {
     if (_Samples)
         ::free(_Samples);
 }
 
-bool PPSDriver::Initialize(uint32_t r, bool ip)
+bool PPSDRV::Init(uint32_t r, bool ip)
 {
     _Init();
 
@@ -33,11 +33,11 @@ bool PPSDriver::Initialize(uint32_t r, bool ip)
     return true;
 }
 
-void PPSDriver::_Init(void)
+void PPSDRV::_Init(void)
 {
     _FilePath[0] = '\0';
 
-    ::memset(&_Header, 0, sizeof(PPSHEADER));
+    ::memset(&ppsheader, 0, sizeof(PPSHEADER));
 
     _SynthesisRate = SOUND_44K;
     _UseInterpolation = false;
@@ -49,8 +49,8 @@ void PPSDriver::_Init(void)
     }
 
     _IsPlaying = false;
-    _SingleNodeMode = false;
-    _LowCPUCheck = false;
+    single_flag = false;
+    low_cpu_check_flag = false;
 
     data_offset1 = nullptr;
     data_offset2 = nullptr;
@@ -71,7 +71,7 @@ void PPSDriver::_Init(void)
 }
 
 //  00H PDR 停止
-bool PPSDriver::Stop(void)
+bool PPSDRV::Stop(void)
 {
     _IsPlaying = false;
 
@@ -82,12 +82,12 @@ bool PPSDriver::Stop(void)
 }
 
 //  01H PDR 再生
-bool PPSDriver::Play(int num, int shift, int volshift)
+bool PPSDRV::Play(int num, int shift, int volshift)
 {
-    if (_Header.pcmnum[num].Address == 0)
+    if (ppsheader.pcmnum[num].address == 0)
         return false;
 
-    int al = 225 + _Header.pcmnum[num].ToneOffset;
+    int al = 225 + ppsheader.pcmnum[num].toneofs;
 
     al = al % 256;
 
@@ -102,11 +102,11 @@ bool PPSDriver::Play(int num, int shift, int volshift)
             al = 255;
     }
 
-    if (_Header.pcmnum[num].VolumeOffset + volshift >= 15)
+    if (ppsheader.pcmnum[num].volumeofs + volshift >= 15)
         return false;
 
     // Don't play when the volume is below 0
-    if (_IsPlaying && !_SingleNodeMode)
+    if (_IsPlaying && !single_flag)
     {
         //  ２重発音処理
         volume2 = volume1;          // １音目を２音目に移動
@@ -122,12 +122,12 @@ bool PPSDriver::Play(int num, int shift, int volshift)
         data_size2 = 0;            // ２音目は停止中
     }
 
-    volume1      = _Header.pcmnum[num].VolumeOffset + volshift;
-    data_offset1 = &_Samples[(_Header.pcmnum[num].Address - PPSHEADERSIZE) * 2];
-    data_size1   = _Header.pcmnum[num].Size * 2;  // １音目を消して再生
+    volume1      = ppsheader.pcmnum[num].volumeofs + volshift;
+    data_offset1 = &_Samples[(ppsheader.pcmnum[num].address - PPSHEADERSIZE) * 2];
+    data_size1   = ppsheader.pcmnum[num].leng * 2;  // １音目を消して再生
     data_xor1    = 0;
 
-    if (_LowCPUCheck)
+    if (low_cpu_check_flag)
     {
         tick1 = ((8000 * al / 225) << 16) / _SynthesisRate;
         tick_xor1 = tick1 & 0xffff;
@@ -146,7 +146,7 @@ bool PPSDriver::Play(int num, int shift, int volshift)
 }
 
 //  PPS 読み込み
-int PPSDriver::Load(const WCHAR * filePath)
+int PPSDRV::Load(const WCHAR * filePath)
 {
     Stop();
 
@@ -162,47 +162,44 @@ int PPSDriver::Load(const WCHAR * filePath)
             ::free(_Samples);
             _Samples = nullptr;
 
-            ::memset(&_Header, 0, sizeof(_Header));
+            ::memset(&ppsheader, 0, sizeof(ppsheader));
         }
 
-        return PPS_OPEN_FAILED;
+        return PPS_OPEN_FAILED;            //  ファイルが開けない
     }
 
-    size_t Size = (size_t) _File->GetFileSize(filePath);
+    PPSHEADER  ppsheader2;
 
+    size_t size = (size_t) _File->GetFileSize(filePath);    // ファイルサイズ
+
+    ReadHeader(_File, ppsheader2);
+
+    if (::memcmp(&ppsheader, &ppsheader2, sizeof(ppsheader)) == 0)
     {
-        PPSHEADER ph;
-
-        ReadHeader(_File, ph);
-
-        if (::memcmp(&_Header, &ph, sizeof(_Header)) == 0)
-        {
-            ::wcscpy_s(_FilePath, filePath);
-            _File->Close();
-
-            return PPS_ALREADY_LOADED;
-        }
-
-        if (_Samples)
-        {
-            ::free(_Samples);
-            _Samples = nullptr;
-        }
-
-        ::memcpy(&_Header, &ph, sizeof(_Header));
-    }
-
-    Size -= PPSHEADERSIZE;
-
-    if ((_Samples = (Sample *) malloc(Size * sizeof(Sample) * 2 / sizeof(uint8_t))) == NULL)
-    {
+        ::wcscpy_s(_FilePath, filePath);
         _File->Close();
 
-        return PPZ_OUT_OF_MEMORY;
+        return PPS_ALREADY_LOADED;    // 同じファイル
+    }
+
+    if (_Samples)
+    {
+        ::free(_Samples);    // いったん開放
+        _Samples = nullptr;
+    }
+
+    ::memcpy(&ppsheader, &ppsheader2, sizeof(ppsheader));
+
+    size -= PPSHEADERSIZE;
+
+    if ((_Samples = (Sample *) malloc(size * sizeof(Sample) * 2 / sizeof(uint8_t))) == NULL)
+    {
+        _File->Close();
+        return PPZ_OUT_OF_MEMORY;      // メモリが確保できない
     }
 
     {
-        uint8_t * Data = (uint8_t *) ::malloc(Size);
+        uint8_t * Data = (uint8_t *) ::malloc(size);
 
         if (Data ==nullptr)
         {
@@ -210,13 +207,13 @@ int PPSDriver::Load(const WCHAR * filePath)
             return PPZ_OUT_OF_MEMORY;
         }
 
-        if (_File->Read(Data, (uint32_t) Size) == (int32_t) Size)
+        if (_File->Read(Data, (uint32_t) size) == (int32_t) size)
         {
             // Convert the sample format.
             uint8_t * Src = Data;
             Sample * Dst = _Samples;
 
-            for (size_t i = 0; i < Size / (int) sizeof(uint8_t); ++i)
+            for (size_t i = 0; i < size / (int) sizeof(uint8_t); i++)
             {
                 *Dst++ = ((*Src) >> 4) & 0x0F;
                 *Dst++ =  (*Src)       & 0x0F;
@@ -228,15 +225,15 @@ int PPSDriver::Load(const WCHAR * filePath)
         ::free(Data);
 
         //  PPS correction (miniature noise countermeasure) / Attenuate by 160 samples
-        uint32_t j, start_pps, end_pps;
+        uint32_t  j, start_pps, end_pps;
 
-        for (size_t i = 0; i < _countof(_Header.pcmnum); i++)
+        for (size_t i = 0; i < MAX_PPS; i++)
         {
-            end_pps   = (uint32_t) (_Header.pcmnum[i].Address - PPSHEADERSIZE * 2) + (uint32_t) (_Header.pcmnum[i].Size * 2);
+            end_pps   = (uint32_t) (ppsheader.pcmnum[i].address - PPSHEADERSIZE * 2) + (uint32_t) (ppsheader.pcmnum[i].leng * 2);
             start_pps = end_pps - 160;
 
-            if (start_pps < _Header.pcmnum[i].Address - PPSHEADERSIZE * 2)
-                start_pps = _Header.pcmnum[i].Address - PPSHEADERSIZE * 2;
+            if (start_pps < ppsheader.pcmnum[i].address - PPSHEADERSIZE * 2)
+                start_pps = ppsheader.pcmnum[i].address - PPSHEADERSIZE * 2;
 
             for (j = start_pps; j < end_pps; j++)
             {
@@ -258,34 +255,34 @@ int PPSDriver::Load(const WCHAR * filePath)
 /// <summary>
 /// Reads  the header.
 /// </summary>
-void PPSDriver::ReadHeader(File * file, PPSHEADER & header)
+void PPSDRV::ReadHeader(File * file, PPSHEADER & header)
 {
     uint8_t Data[84];
 
     file->Read(Data, sizeof(Data));
 
-    for (size_t i = 0; i < _countof(header.pcmnum); ++i)
+    for (int i = 0; i < MAX_PPS; i++)
     {
-        header.pcmnum[i].Address      = (uint16_t) (Data[i * 6]     | (Data[i * 6 + 1] << 8));
-        header.pcmnum[i].Size         = (uint16_t) (Data[i * 6 + 2] | (Data[i * 6 + 3] << 8));
-        header.pcmnum[i].ToneOffset   =             Data[i * 6 + 4];
-        header.pcmnum[i].VolumeOffset =             Data[i * 6 + 5];
+        header.pcmnum[i].address   = (uint16_t) (Data[i * 6]     | (Data[i * 6 + 1] << 8));
+        header.pcmnum[i].leng      = (uint16_t) (Data[i * 6 + 2] | (Data[i * 6 + 3] << 8));
+        header.pcmnum[i].toneofs   =             Data[i * 6 + 4];
+        header.pcmnum[i].volumeofs =             Data[i * 6 + 5];
     }
 }
 
 /// <summary>
 /// Sets a parameter.
 /// </summary>
-bool PPSDriver::SetParam(int index, bool value)
+bool PPSDRV::SetParam(int index, bool value)
 {
     switch (index)
     {
         case 0:
-            _SingleNodeMode = value;
+            single_flag = value;
             return true;
 
         case 1:
-            _LowCPUCheck = value;
+            low_cpu_check_flag = value;
             return true;
 
         default:
@@ -296,7 +293,7 @@ bool PPSDriver::SetParam(int index, bool value)
 /// <summary>
 /// Sets the synthesis rate.
 /// </summary>
-bool PPSDriver::SetRate(uint32_t rate, bool useInterpolation)
+bool PPSDRV::SetRate(uint32_t rate, bool useInterpolation)
 {
     _SynthesisRate = (int) rate;
     _UseInterpolation = useInterpolation;
@@ -307,7 +304,7 @@ bool PPSDriver::SetRate(uint32_t rate, bool useInterpolation)
 /// <summary>
 /// Sets the volume.
 /// </summary>
-void PPSDriver::SetVolume(int vol)
+void PPSDRV::SetVolume(int vol)
 {
     double Base = 0x4000 * 2 / 3.0 * ::pow(10.0, vol / 40.0);
 
@@ -320,7 +317,7 @@ void PPSDriver::SetVolume(int vol)
     _EmitTable[0] = 0;
 }
 
-void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
+void PPSDRV::Mix(Sample * sampleData, int sampleCount)  // 合成
 {
 /*
     static const int table[16*16] = {
@@ -345,7 +342,7 @@ void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
     if (!_IsPlaying && (_KeyOffVolume == 0))
         return;
 
-    for (size_t i = 0; i < sampleCount; i++)
+    for (int i = 0; i < sampleCount; i++)
     {
         int al1, al2, ah1, ah2;
 
@@ -415,7 +412,7 @@ void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
             data_size2 -= tick2;
             data_offset2 += tick2;
 
-            if (_LowCPUCheck)
+            if (low_cpu_check_flag)
             {
                 data_xor2 += tick_xor2;
 
@@ -443,7 +440,7 @@ void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
         data_size1 -= tick1;
         data_offset1 += tick1;
 
-        if (_LowCPUCheck)
+        if (low_cpu_check_flag)
         {
             data_xor1 += tick_xor1;
             if (data_xor1 >= 0x10000)

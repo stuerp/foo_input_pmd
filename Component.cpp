@@ -1,5 +1,5 @@
 
-/** $VER: Component.cpp (2023.08.30) P. Stuer **/
+/** $VER: Component.cpp (2023.07.15) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -27,7 +27,7 @@ namespace
             STR_COMPONENT_DESCRIPTION "\n"
             "\n"
             "Built with foobar2000 SDK " TOSTRING(FOOBAR2000_SDK_VERSION) "\n"
-            "on " __DATE__ " " __TIME__ "."
+            "on " __DATE__ " " __TIME__ ".\n"
     )
     VALIDATE_COMPONENT_FILENAME(STR_COMPONENT_FILENAME)
 }

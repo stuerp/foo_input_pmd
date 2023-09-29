@@ -1,5 +1,5 @@
 ﻿
-// OPNA emulator (Based on PMDWin code by C60)
+// Based on PMDWin code by C60
 
 #pragma once
 
@@ -9,27 +9,27 @@
 #include <ymfm_opn.h>
 
 typedef int32_t Sample;
+typedef int32_t ISample;
 typedef int64_t emulated_time; // We use an int64_t as emulated time, as a 16.48 fixed point value
   
-struct Stereo32bit
+struct StereoSample
 {
-    int32_t Left;
-    int32_t Right;
+    Sample left;
+    Sample right;
 };
 
 #pragma pack(push)
 #pragma pack(2)
 struct Stereo16bit
 {
-    int16_t Left;
-    int16_t Right;
+    int16_t left;
+    int16_t right;
 } ;
 #pragma pack(pop)
 
 #pragma warning(disable: 4265)
 /// <summary>
-/// Implements a YM2608, aka OPNA, is a sixteen-channel sound chip developed by Yamaha.
-/// It's a member of Yamaha's OPN family of FM synthesis chips, and the successor to the YM2203. It was notably used in NEC's PC-8801/PC-9801 series computers.
+/// Implements a FM Sound Source module, a six-channel FM synthesis sound system, based on the YM2203.
 /// </summary>
 class OPNA : public ymfm::ymfm_interface
 {
@@ -37,19 +37,16 @@ public:
     OPNA(File * file);
     ~OPNA();
     
-    bool Initialize(uint32_t clock, uint32_t synthesisRate, bool useInterpolation = false, const WCHAR * directoryPath = nullptr);
-    bool SetRate(uint32_t synthesisRate);
-    bool SetRate(uint32_t clock, uint32_t synthesisRate, bool = false);
-
+    bool Init(uint32_t c, uint32_t r, bool ip = false, const WCHAR * directoryPath = nullptr);
+    bool SetRate(uint32_t r);
+    bool SetRate(uint32_t c, uint32_t r, bool = false);
     bool LoadInstruments(const WCHAR *);
-    bool HasADPCMROM() const noexcept { return _HasADPCMROM; }
-    bool HasPercussionSamples() const noexcept { return _InstrumentCounter == _countof(_Instrument); }
 
     void SetFMVolume(int dB);
-    void SetSSGVolume(int dB);
+    void SetPSGVolume(int dB);
     void SetADPCMVolume(int dB);
-    void SetRSSVolume(int dB);
-    void SetInstrumentVolume(int index, int dB);
+    void SetRhythmMasterVolume(int dB);
+    void SetRhythmVolume(int index, int dB);
     
     void SetReg(uint32_t addr, uint32_t value);
     uint32_t GetReg(uint32_t addr);
@@ -61,13 +58,13 @@ public:
     bool Count(uint32_t us);
     uint32_t GetNextEvent();
     
-    void Mix(Sample * sampleData, size_t sampleCount) noexcept;
+    void Mix(Sample * sampleData, int sampleCount);
     
     static constexpr uint32_t DEFAULT_CLOCK = 3993600 * 2;
 
-private:
-    void MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept;
-    void StoreSample(Sample & sample, int32_t data);
+protected:
+    void RhythmMix(Sample * sampleData, uint32_t sampleCount);
+    void StoreSample(Sample & dest, ISample data);
 
     uint32_t GetSampleRate() const { return _Chip.sample_rate(_ClockSpeed); }
 
@@ -107,7 +104,6 @@ protected:
     };
     
     Instrument _Instrument[6];
-    uint32_t _InstrumentCounter;
 
     int32_t _MasterVolume;
 
@@ -143,12 +139,9 @@ protected:
 
     uint8_t reg27;
     #pragma endregion
-
-private:
-    void DeleteInstruments() noexcept;
 };
 
-inline int Limit(int value, int max, int min)
+inline int Limit(int v, int max, int min)
 {
-    return ymfm::clamp(value, min, max);
+    return ymfm::clamp(v, min, max);
 }
