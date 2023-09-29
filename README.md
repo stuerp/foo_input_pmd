@@ -115,6 +115,7 @@ branch. Pull requests are warmly welcome.
 v0.4.0, 2023-09-xx, *""*
 
 * Added: Checkboxes to enable or disable the use of PPS and the SSG (Software-controlled Sound Generator).
+* Improved: Tweaked the Shift JIS to UTF-8 conversion a little bit.
 * Fixed: Some settings weren't reset by the Reset button.
 * Builds with foobar2000 SDK 2023-09-06.
 

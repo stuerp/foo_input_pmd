@@ -6,14 +6,14 @@
 #include "OPNA.h"
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
-struct EFFTBL
+struct SSGEffect
 {
-    int priority;
-    const int * table;
+    int Priority;
+    const int * Data;
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member
 
-extern const int TrackTable[][3];
+extern const int ChannelTable[][3];
 extern const int fnum_data[];
 extern const int psg_tune_data[];
 extern const int pcm_tune_data[];
@@ -23,4 +23,4 @@ extern const int carrier_table[];
 extern const int rhydat[][3];
 extern const int ppzpandata[];
 
-extern const EFFTBL efftbl[];
+extern const SSGEffect SSGEffects[];

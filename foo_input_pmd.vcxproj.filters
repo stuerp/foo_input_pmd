@@ -44,6 +44,14 @@
     <ClCompile Include="PMD\PPZ8.cpp" />
     <ClCompile Include="PMD\Table.cpp" />
     <ClCompile Include="PMD\Utility.cpp" />
+    <ClCompile Include="PMD\PMDEffect.cpp" />
+    <ClCompile Include="PMD\PMDRhythm.cpp" />
+    <ClCompile Include="PMD\PMDFM.cpp" />
+    <ClCompile Include="PMD\PMDSSG.cpp" />
+    <ClCompile Include="PMD\PMDADPCM.cpp" />
+    <ClCompile Include="PMD\PDMPCM86.cpp" />
+    <ClCompile Include="PMD\PMDPPZ.cpp" />
+    <ClCompile Include="PMD\PMDLFO.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Build-FB2KComponent.ps1" />
