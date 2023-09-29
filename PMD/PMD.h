@@ -33,8 +33,7 @@ struct PCMEnds
 #define	PVIHeader   "PVI2"
 #define	PPCHeader   "ADPCM DATA for  PMD ver.4.4-  "
 
-#define max_part1       22 // Number of parts to be cleared to 0 (for PDPPZ)
-#define max_part2       11 // Number of parts to initialize (for PMDPPZ)
+#define MaxParts    12
 
 #define MAX_MDATA_SIZE  64 // KB
 #define MAX_VDATA_SIZE   8 // KB
@@ -201,12 +200,13 @@ protected:
 
     uint8_t * ExecuteFMCommand(Track * track, uint8_t * si);
     uint8_t * ExecuteSSGCommand(Track * track, uint8_t * si);
-    uint8_t * ExecuteRhythmCommand(Track * track, uint8_t * si);
     uint8_t * ExecuteADPCMCommand(Track * track, uint8_t * si);
+    uint8_t * ExecuteRhythmCommand(Track * track, uint8_t * si);
+
     uint8_t * ExecutePCM86Command(Track * track, uint8_t * si);
     uint8_t * ExecutePPZ8Command(Track * track, uint8_t * si);
 
-    uint8_t * RhythmOn(Track * track, uint8_t * bx, int al, int * result);
+    uint8_t * RhythmOn(Track * track, int al, uint8_t * bx, bool * success);
 
     void effgo(Track * track, int al);
     void eff_on2(Track * track, int al);
@@ -238,8 +238,8 @@ protected:
     uint8_t * _vd_rhythm(Track * track, uint8_t * si);
     uint8_t * _vd_ppz(Track * track, uint8_t * si);
 
-    uint8_t * comt(uint8_t * si);
-    uint8_t * ProgramChange(Track * track, uint8_t * si);
+    uint8_t * ChangeTempoCommand(uint8_t * si);
+    uint8_t * ChangeProgramCommand(Track * track, uint8_t * si);
     uint8_t * comatm(Track * track, uint8_t * si);
     uint8_t * comat8(Track * track, uint8_t * si);
     uint8_t * comatz(Track * track, uint8_t * si);
@@ -268,7 +268,7 @@ protected:
     uint8_t * portaz(Track * track, uint8_t * si);
     uint8_t * psgnoise_move(uint8_t * si);
     uint8_t * mdepth_count(Track * track, uint8_t * si);
-    uint8_t * toneadr_calc(Track * track, int dl);
+    uint8_t * GetToneData(Track * track, int dl);
 
     void SetTone(Track * track, int dl);
 
@@ -321,7 +321,7 @@ protected:
     void SwapLFO(Track * track);
     void lfo_exit(Track * track);
     void lfin1(Track * track);
-    void lfo_main(Track * track);
+    void LFOMain(Track * track);
 
     int rnd(int ax);
 

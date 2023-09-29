@@ -55,7 +55,6 @@ struct DriverState
     int CurrentChannel;
     int tieflag; // & flag (1 : tie)
     int volpush_flag;  // Flag for next one note volume down (1 : voldown)
-    int DummyRhythmData;        // Dummy rhythm data
     int fmsel;  // FM heads (=0) or tails (=0x100) flag
     int omote_key[3];  // FM keyondata table (=0)
     int ura_key[3]; // FM keyondata back (=0x100)
@@ -107,35 +106,51 @@ struct Track
 
     // LFO 1
     int lfodat;  // 2 LFO DATA
+
     int delay;  // 1 LFO [DELAY]
-    int speed;  // 1 [SPEED]
-    int step;  // 1 [STEP]
-    int time;  // 1 [TIME]
     int delay2;  // 1 [DELAY_2]
+
+    int speed;  // 1 [SPEED]
     int speed2;  // 1 [SPEED_2]
+
+    int step;  // 1 [STEP]
     int step2;  // 1 [STEP_2]
+
+    int time;  // 1 [TIME]
     int time2;  // 1 [TIME_2]
+
     int mdepth;  // 1 M depth
+
     int mdspd;  // 1 M speed
     int mdspd2;  // 1 M speed_2
+
     int lfo_wave; // 1 LFO waveform
+
     int mdc;  // 1 M depth Counter (Fluctuation value)
     int mdc2;  // 1 M depth Counter
 
     // LFO 2
     int _lfodat; // 2 LFO DATA
+
     int _delay;  // 1 LFO [DELAY]
-    int _speed;  // 1  [SPEED]
-    int _step;  // 1  [STEP]
-    int _time;  // 1  [TIME]
     int _delay2; // 1  [DELAY_2]
+
+    int _speed;  // 1  [SPEED]
     int _speed2; // 1  [SPEED_2]
+
+    int _step;  // 1  [STEP]
     int _step2;  // 1  [STEP_2]
+
+    int _time;  // 1  [TIME]
     int _time2;  // 1  [TIME_2]
+
     int _mdepth; // 1 M depth
+
     int _mdspd;  // 1 M speed
     int _mdspd2; // 1 M speed_2
+
     int _lfo_wave; // 1 LFO waveform
+
     int _mdc;  // 1 M depth Counter (Fluctuation value)
     int _mdc2;  // 1 M depth Counter
 
@@ -164,7 +179,7 @@ struct Track
 
     int fmpan;  // 1 FM Panning + AMD + PMD
     int psgpat;  // 1 SSG PATTERN [TONE/NOISE/MIX]
-    int SampleNumber; // 1 Tone number
+    int InstrumentNumber;
     int loopcheck; // 1 When the loop ends 1 When the loop ends 3
     int carrier; // 1 FM Carrier
     int slot1;  // 1 SLOT 1 ﾉ TL
@@ -203,10 +218,14 @@ struct State
     Track * Track[MaxTracks];
 
     uint8_t * MData;            // Address of MML data + 1
+
     uint8_t * VData;            // Voice data
     uint8_t * EData;            // FM Effect data
+
+    uint8_t * RhythmData;
     uint8_t * ToneData;         // Tone data, if any
-    uint8_t * RhythmData;       // Rhythm Data
+
+    uint8_t DummyRhythmData;
 
     uint16_t * RhythmDataTable; // Rhythm Data table
 
@@ -240,14 +259,10 @@ struct State
 
     // MData characteristics
     uint8_t x68_flg;    // OPM flag
-    bool HasToneData;   // True if the song data contains tone data
 
     int status;
 
     int LoopCount;
-
-    int tempo_d; // Tempo (TIMER-B)
-    int tempo_d_push;  // Tempo (TIMER-B) / for saving
 
     int FadeOutSpeed;
     int FadeOutVolume;
@@ -262,6 +277,12 @@ struct State
     int PCMStart;
     int PCMStop;
 
+    int tempo_d; // Tempo (TIMER-B)
+    int tempo_d_push;  // Tempo (TIMER-B) / for saving
+
+    int tempo_48; // Current tempo (value of clock = 48 t)
+    int tempo_48_push;  // Current tempo (same as above / for saving)
+
     int kshot_dat; // SSG rhythm shot flag
     int fade_stop_flag;  // Flag for whether to MSTOP after Fadeout
     int pcm_gs_flag;  // ADPCM use permission flag (0 allows)
@@ -275,9 +296,6 @@ struct State
     int revpan;  // PCM86 reverse phase flag
     int BarCounter;
     int port22h; // Last value output to OPN-PORT 22H (hlfo)
-
-    int tempo_48; // Current tempo (value of clock = 48 t)
-    int tempo_48_push;  // Current tempo (same as above / for saving)
 
     int rshot_dat; // RSS shot flag
     int rdat[6]; // RSS volume/pan data
