@@ -40,18 +40,19 @@
 #define nbufsample          30000
 #define OPNAClock   (3993600 * 2)
 
-#define NumOfFMPart             6
-#define NumOfSSGPart            3
-#define NumOfADPCMPart          1
-#define NumOfOPNARhythmPart     1
-#define NumOfExtPart            3
-#define NumOfRhythmPart         1
-#define NumOfEffPart            1
-#define NumOfPPZ8Part           8
-#define NumOfAllPart            (NumOfFMPart+NumOfSSGPart+NumOfADPCMPart+NumOfOPNARhythmPart+NumOfExtPart+NumOfRhythmPart+NumOfEffPart+NumOfPPZ8Part)
+#define MaxFMChannels           6
+#define MaxSSGChannels          3
+#define MaxADPCMChannels        1
+#define MaxRhythmChannels       1
+#define MaxExtensionChannels    3
+#define MaxRhythmChannels2      1
+#define MaxEffectChannels       1
+#define MaxPPZChannels          8
+
+#define MaxChannels             (MaxFMChannels + MaxSSGChannels + MaxADPCMChannels + MaxRhythmChannels + MaxExtensionChannels + MaxRhythmChannels2 + MaxEffectChannels + MaxPPZChannels)
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
-struct PMDWORK
+struct PMDWork
 {
     int partb;  // 処理中パート番号
     int tieflag; // &のフラグ(1 : tie)
@@ -90,8 +91,7 @@ struct EffectState
     int last_shot_data;  // 最後に発音させたPPSDRV音色
 };
 
-// Data area during performance
-struct PartState
+struct Channel
 {
     uint8_t * address; // 2 ｴﾝｿｳﾁｭｳ ﾉ ｱﾄﾞﾚｽ
     uint8_t * partloop; // 2 ｴﾝｿｳ ｶﾞ ｵﾜｯﾀﾄｷ ﾉ ﾓﾄﾞﾘｻｷ
@@ -187,9 +187,9 @@ struct PartState
 };
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
-struct OPEN_WORK
+struct Work
 {
-    PartState * Part[NumOfAllPart]; // パートワークのポインタ
+    Channel * Channel[MaxChannels];
 
     uint8_t * mmlbuf;  // Musicdataのaddress+1
     uint8_t * tondat;  // Voicedataのaddress

@@ -17,7 +17,7 @@
 
 #pragma hdrstop
 
-static bool ConvertShiftJITo2UTF8(const char * text, pfc::string8 & utf8);
+static bool ConvertShiftJIToUTF8(const char * text, pfc::string8 & utf8);
 
 /// <summary>
 /// Initializes a new instance.
@@ -120,19 +120,19 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
             char Note[1024] = { 0 };
 
             pmd->GetNote(data, size, 1, Note, _countof(Note));
-            ConvertShiftJITo2UTF8(Note, _Title);
+            ConvertShiftJIToUTF8(Note, _Title);
 
             Note[0] = '\0';
             pmd->GetNote(data, size, 2, Note, _countof(Note));
-            ConvertShiftJITo2UTF8(Note, _Composer);
+            ConvertShiftJIToUTF8(Note, _Composer);
 
             Note[0] = '\0';
             pmd->GetNote(data, size, 3, Note, _countof(Note));
-            ConvertShiftJITo2UTF8(Note, _Arranger);
+            ConvertShiftJIToUTF8(Note, _Arranger);
 
             Note[0] = '\0';
             pmd->GetNote(data, size, 4, Note, _countof(Note));
-            ConvertShiftJITo2UTF8(Note, _Memo);
+            ConvertShiftJIToUTF8(Note, _Memo);
         }
 
         delete pmd;
@@ -239,7 +239,7 @@ uint32_t PMDDecoder::GetLoopNumber() const noexcept
 /// <returns></returns>
 bool PMDDecoder::IsBusy() const noexcept
 {
-    OPEN_WORK * State = _PMD->GetOpenWork();
+    Work * State = _PMD->GetOpenWork();
 
     return State->_IsPlaying;
 }
@@ -247,27 +247,29 @@ bool PMDDecoder::IsBusy() const noexcept
 /// <summary>
 /// Converts a Shift-JIS character array to an UTF-8 string.
 /// </summary>
-static bool ConvertShiftJITo2UTF8(const char * text, pfc::string8 & utf8)
+static bool ConvertShiftJIToUTF8(const char * text, pfc::string8 & textDst)
 {
-    utf8.clear();
+    textDst.clear();
 
-    int Size = ::MultiByteToWideChar(932, MB_ERR_INVALID_CHARS, text, -1, 0, 0);
+    int Size = ::MultiByteToWideChar(932, MB_PRECOMPOSED, text, -1, 0, 0);
 
     if (Size == 0)
         return false;
 
     WCHAR * Wide = new WCHAR[(size_t) Size];
 
-    if (::MultiByteToWideChar(932, 0, text, -1, Wide, Size) != 0)
+    if (::MultiByteToWideChar(932, MB_PRECOMPOSED, text, -1, Wide, Size) != 0)
     {
-        Size = ::WideCharToMultiByte(CP_UTF8, 0, Wide, -1, 0, 0, 0, 0);
+        const CHAR DefaultChar = '·';
+
+        Size = ::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, 0, 0, &DefaultChar, 0);
 
         if (Size != 0)
         {
             char * UTF8 = new char[(size_t) Size + 16];
 
-            if (::WideCharToMultiByte(CP_UTF8, 0, Wide, -1, UTF8, Size, 0, 0) != 0)
-                utf8 = UTF8;
+            if (::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, UTF8, Size, &DefaultChar, 0) != 0)
+                textDst = UTF8;
 
             delete[] UTF8;
         }

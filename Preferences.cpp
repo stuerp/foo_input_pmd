@@ -126,10 +126,10 @@ private:
         _DarkModeHooks.AddDialogWithControls(*this);
 
         _SamplesPath = CfgSamplesPath;
-        _PlaybackMode = CfgPlaybackMode;
-        _LoopCount = CfgLoopCount;
-        _FadeOutDuration = CfgFadeOutDuration;
-        _SynthesisRate = CfgSynthesisRate;
+        _PlaybackMode = (uint32_t) CfgPlaybackMode;
+        _LoopCount = (uint32_t) CfgLoopCount;
+        _FadeOutDuration = (uint32_t) CfgFadeOutDuration;
+        _SynthesisRate = (uint32_t) CfgSynthesisRate;
 
         ::uSetDlgItemText(m_hWnd, IDC_SAMPLES_PATH, _SamplesPath);
 
