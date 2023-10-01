@@ -55,7 +55,6 @@ struct DriverState
     int CurrentChannel;
     int tieflag; // & flag (1 : tie)
     int volpush_flag;  // Flag for next one note volume down (1 : voldown)
-    int DummyRhythmData;        // Dummy rhythm data
     int fmsel;  // FM heads (=0) or tails (=0x100) flag
     int omote_key[3];  // FM keyondata table (=0)
     int ura_key[3]; // FM keyondata back (=0x100)
@@ -219,10 +218,12 @@ struct State
     Track * Track[MaxTracks];
 
     uint8_t * MData;            // Address of MML data + 1
+
     uint8_t * VData;            // Voice data
     uint8_t * EData;            // FM Effect data
+
+    const uint8_t * RhythmData;
     uint8_t * ToneData;         // Tone data, if any
-    uint8_t * RhythmData;       // Rhythm Data
 
     uint16_t * RhythmDataTable; // Rhythm Data table
 
@@ -256,7 +257,6 @@ struct State
 
     // MData characteristics
     uint8_t x68_flg;    // OPM flag
-    bool HasToneData;   // True if the song data contains tone data
 
     int status;
 

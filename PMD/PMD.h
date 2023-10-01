@@ -33,8 +33,7 @@ struct PCMEnds
 #define	PVIHeader   "PVI2"
 #define	PPCHeader   "ADPCM DATA for  PMD ver.4.4-  "
 
-#define max_part1       22 // Number of parts to be cleared to 0 (for PDPPZ)
-#define max_part2       11 // Number of parts to initialize (for PMDPPZ)
+#define MaxParts    12
 
 #define MAX_MDATA_SIZE  64 // KB
 #define MAX_VDATA_SIZE   8 // KB
@@ -206,7 +205,7 @@ protected:
     uint8_t * ExecutePCM86Command(Track * track, uint8_t * si);
     uint8_t * ExecutePPZ8Command(Track * track, uint8_t * si);
 
-    uint8_t * RhythmOn(Track * track, uint8_t * bx, int al, int * result);
+    const uint8_t * RhythmOn(Track * track, int al, const uint8_t * bx, bool * success);
 
     void effgo(Track * track, int al);
     void eff_on2(Track * track, int al);

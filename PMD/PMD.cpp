@@ -15,6 +15,8 @@
 #include "PPS.h"
 #include "P86.h"
 
+static const uint8_t DummyRhythmData[] = { 0xFF };
+
 /// <summary>
 /// Initializes an instance.
 /// </summary>
@@ -2531,29 +2533,29 @@ void PMD::RhythmMain(Track * track)
     if (track->Data == nullptr)
         return;
 
-    uint8_t * si = track->Data;
+    const uint8_t * si = track->Data;
 
     if (--track->Length == 0)
     {
-        uint8_t * bx = _State.RhythmData;
+        const uint8_t * bx = _State.RhythmData;
 
+        bool Success = false;
         int al;
-        int result = 0;
 
     rhyms00:
         do
         {
-            result = 1;
+            Success = 1;
 
             al = *bx++;
 
-            if (al != 0xff)
+            if (al != 0xFF)
             {
                 if (al & 0x80)
                 {
-                    bx = RhythmOn(track, bx, al, &result);
+                    bx = RhythmOn(track, al, bx, &Success);
 
-                    if (result == 0)
+                    if (!Success)
                         continue;
                 }
                 else
@@ -2573,7 +2575,7 @@ void PMD::RhythmMain(Track * track)
                 return;
             }
         }
-        while (result == 0);
+        while (!Success);
 
         while (1)
         {
@@ -2581,24 +2583,31 @@ void PMD::RhythmMain(Track * track)
             {
                 if (al < 0x80)
                 {
-                    track->Data = si;
+                    track->Data = (uint8_t *) si;
 
                     bx = _State.RhythmData = &_State.MData[_State.RhythmDataTable[al]];
                     goto rhyms00;
                 }
 
                 // al > 0x80
-                si = ExecuteRhythmCommand(track, si - 1);
+                si = ExecuteRhythmCommand(track, (uint8_t *) si - 1);
             }
 
-            track->Data = --si;
+            track->Data = (uint8_t *) --si;
             track->loopcheck = 3;
 
             bx = track->LoopData;
 
-            if (bx == nullptr)
+            // Command "L"
+            if (bx != nullptr)
             {
-                _State.RhythmData = (uint8_t *) &_DriverState.DummyRhythmData;
+                si = bx;
+
+                track->loopcheck = 1;
+            }
+            else
+            {
+                _State.RhythmData = DummyRhythmData;
 
                 _DriverState.tieflag = 0;
                 _DriverState.volpush_flag = 0;
@@ -2606,30 +2615,23 @@ void PMD::RhythmMain(Track * track)
 
                 return;
             }
-            else
-            {
-                // If there's an "L"
-                si = bx;
-
-                track->loopcheck = 1;
-            }
         }
     }
 
     _DriverState.loop_work &= track->loopcheck;
 }
 
-uint8_t * PMD::RhythmOn(Track * track, uint8_t * bx, int al, int * result)
+const uint8_t * PMD::RhythmOn(Track * track, int al, const uint8_t * bx, bool * success)
 {
     if (al & 0x40)
     {
-        bx = ExecuteRhythmCommand(track, bx - 1);
-        *result = 0;
+        bx = ExecuteRhythmCommand(track, (uint8_t *) bx - 1);
+        *success = false;
 
         return bx;
     }
 
-    *result = 1;
+    *success = true;
 
     if (track->PartMask)
     {
@@ -5608,7 +5610,7 @@ int PMD::MuteFMPart(Track * track)
 /// <returns></returns>
 uint8_t * PMD::GetToneData(Track * track, int dl)
 {
-    if (!_State.HasToneData && (track != &_EffectTrack))
+    if ((_State.ToneData == nullptr) && (track != &_EffectTrack))
         return _State.VData + ((size_t) dl << 5);
 
     uint8_t * bx = _State.ToneData;
@@ -7991,7 +7993,6 @@ void PMD::StartOPNInterrupt()
     ::memset(_PPZ8Track, 0, sizeof(_PPZ8Track));
 
     _State.RhythmMask = 255;
-    _DriverState.DummyRhythmData = 255;
 
     InitializeState();
     InitializeOPN();
@@ -8337,26 +8338,14 @@ void PMD::InitializeTracks()
 {
     _State.x68_flg = _State.MData[-1];
 
-    {
-        const size_t Offset = 2 * (max_part2 + 1);
-
-        if (_State.MData[0] != Offset)
-        {
-            _State.ToneData = _State.MData + *(uint16_t *) (&_State.MData[Offset]);
-            _State.HasToneData = true;
-        }
-        else
-            _State.HasToneData = false;
-    }
-
-    uint16_t * p = (uint16_t *) _State.MData;
+    const uint16_t * Offsets = (const uint16_t *) _State.MData;
 
     for (size_t i = 0; i < _countof(_FMTrack); ++i)
     {
-        if (_State.MData[*p] == 0x80) // Do not play.
+        if (_State.MData[*Offsets] == 0x80) // Do not play.
             _FMTrack[i].Data = nullptr;
         else
-            _FMTrack[i].Data = &_State.MData[*p];
+            _FMTrack[i].Data = &_State.MData[*Offsets];
 
         _FMTrack[i].Length = 1;
         _FMTrack[i].keyoff_flag = -1;    // 現在KeyOff中
@@ -8371,15 +8360,15 @@ void PMD::InitializeTracks()
         _FMTrack[i].SlotMask = 0xf0;    // FM SLOT MASK
         _FMTrack[i].ToneMask = 0xff;    // FM Neiro MASK
 
-        p++;
+        Offsets++;
     }
 
     for (size_t i = 0; i < _countof(_SSGTrack); ++i)
     {
-        if (_State.MData[*p] == 0x80) // Do not play.
+        if (_State.MData[*Offsets] == 0x80) // Do not play.
             _SSGTrack[i].Data = nullptr;
         else
-            _SSGTrack[i].Data = &_State.MData[*p];
+            _SSGTrack[i].Data = &_State.MData[*Offsets];
 
         _SSGTrack[i].Length = 1;
         _SSGTrack[i].keyoff_flag = -1;  // 現在KeyOff中
@@ -8393,13 +8382,13 @@ void PMD::InitializeTracks()
         _SSGTrack[i].psgpat = 7;      // SSG = TONE
         _SSGTrack[i].envf = 3;      // SSG ENV = NONE/normal
 
-        p++;
+        Offsets++;
     }
 
-    if (_State.MData[*p] == 0x80) // Do not play
+    if (_State.MData[*Offsets] == 0x80) // Do not play
         _ADPCMTrack.Data = nullptr;
     else
-        _ADPCMTrack.Data = &_State.MData[*p];
+        _ADPCMTrack.Data = &_State.MData[*Offsets];
 
     _ADPCMTrack.Length = 1;
     _ADPCMTrack.keyoff_flag = -1;    // 現在KeyOff中
@@ -8411,12 +8400,12 @@ void PMD::InitializeTracks()
     _ADPCMTrack.onkai_def = 255;    // rest
     _ADPCMTrack.volume = 128;      // PCM VOLUME DEFAULT= 128
     _ADPCMTrack.fmpan = 0xc0;      // PCM PAN = Middle
-    p++;
+    Offsets++;
 
-    if (_State.MData[*p] == 0x80) // Do not play
+    if (_State.MData[*Offsets] == 0x80) // Do not play
         _RhythmTrack.Data = nullptr;
     else
-        _RhythmTrack.Data = &_State.MData[*p];
+        _RhythmTrack.Data = &_State.MData[*Offsets];
 
     _RhythmTrack.Length = 1;
     _RhythmTrack.keyoff_flag = -1;  // 現在KeyOff中
@@ -8427,11 +8416,17 @@ void PMD::InitializeTracks()
     _RhythmTrack.onkai = 255;      // rest
     _RhythmTrack.onkai_def = 255;    // rest
     _RhythmTrack.volume = 15;      // PPSDRV volume
-    p++;
+    Offsets++;
 
-    _State.RhythmDataTable = (uint16_t *) &_State.MData[*p];
+    _State.RhythmDataTable = (uint16_t *) &_State.MData[*Offsets];
+    _State.RhythmData = DummyRhythmData;
 
-    _State.RhythmData = (uint8_t *) &_DriverState.DummyRhythmData;
+    {
+        Offsets = (const uint16_t *) _State.MData;
+
+        if (*Offsets != sizeof(uint16_t) * MaxParts) // 0x0018
+            _State.ToneData = _State.MData + Offsets[12];
+    }
 }
 
 //  Interrupt settings. FM tone generator only
