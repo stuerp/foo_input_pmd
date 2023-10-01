@@ -200,12 +200,13 @@ protected:
 
     uint8_t * ExecuteFMCommand(Track * track, uint8_t * si);
     uint8_t * ExecuteSSGCommand(Track * track, uint8_t * si);
-    uint8_t * ExecuteRhythmCommand(Track * track, uint8_t * si);
     uint8_t * ExecuteADPCMCommand(Track * track, uint8_t * si);
+    uint8_t * ExecuteRhythmCommand(Track * track, uint8_t * si);
+
     uint8_t * ExecutePCM86Command(Track * track, uint8_t * si);
     uint8_t * ExecutePPZ8Command(Track * track, uint8_t * si);
 
-    const uint8_t * RhythmOn(Track * track, int al, const uint8_t * bx, bool * success);
+    uint8_t * RhythmOn(Track * track, int al, uint8_t * bx, bool * success);
 
     void effgo(Track * track, int al);
     void eff_on2(Track * track, int al);
@@ -237,8 +238,8 @@ protected:
     uint8_t * _vd_rhythm(Track * track, uint8_t * si);
     uint8_t * _vd_ppz(Track * track, uint8_t * si);
 
-    uint8_t * comt(uint8_t * si);
-    uint8_t * ProgramChange(Track * track, uint8_t * si);
+    uint8_t * ChangeTempoCommand(uint8_t * si);
+    uint8_t * ChangeProgramCommand(Track * track, uint8_t * si);
     uint8_t * comatm(Track * track, uint8_t * si);
     uint8_t * comat8(Track * track, uint8_t * si);
     uint8_t * comatz(Track * track, uint8_t * si);

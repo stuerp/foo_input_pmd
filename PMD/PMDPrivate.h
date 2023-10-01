@@ -179,7 +179,7 @@ struct Track
 
     int fmpan;  // 1 FM Panning + AMD + PMD
     int psgpat;  // 1 SSG PATTERN [TONE/NOISE/MIX]
-    int SampleNumber; // 1 Tone number
+    int InstrumentNumber;
     int loopcheck; // 1 When the loop ends 1 When the loop ends 3
     int carrier; // 1 FM Carrier
     int slot1;  // 1 SLOT 1 ﾉ TL
@@ -222,8 +222,10 @@ struct State
     uint8_t * VData;            // Voice data
     uint8_t * EData;            // FM Effect data
 
-    const uint8_t * RhythmData;
+    uint8_t * RhythmData;
     uint8_t * ToneData;         // Tone data, if any
+
+    uint8_t DummyRhythmData;
 
     uint16_t * RhythmDataTable; // Rhythm Data table
 
