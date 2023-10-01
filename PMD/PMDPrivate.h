@@ -215,7 +215,7 @@ struct Channel
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 struct State
 {
-    Channel * Track[MaxChannels];
+    Channel * Channel[MaxChannels];
 
     uint8_t * MData;            // Address of MML data + 1
 

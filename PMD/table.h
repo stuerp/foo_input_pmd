@@ -23,4 +23,4 @@ extern const int carrier_table[];
 extern const int rhydat[][3];
 extern const int ppzpandata[];
 
-extern const EFFTBL efftbl[];
+extern const EFFTBL SSGEffects[];

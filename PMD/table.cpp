@@ -1191,7 +1191,7 @@ const int ND_039[] = { // BISYU                    1992-01-27 17:31:52
     -1
 };
 
-const EFFTBL efftbl[] =
+const EFFTBL SSGEffects[] =
 {
     { 1, D_000  }, //   0  BDRM
     { 1, D_001  }, //   1  SIMONDS

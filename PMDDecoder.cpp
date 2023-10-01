@@ -191,9 +191,9 @@ size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
     if ((CfgPlaybackMode == PlaybackModes::LoopWithFadeOut) && (_MaxLoopNumber > 0) && (GetLoopNumber() > _MaxLoopNumber - 1))
         _PMD->SetFadeOutDurationHQ((int) _FadeOutDuration);
 
-    _PMD->Render(&_Samples[0], (int) BlockSize);
+    _PMD->Render(&_Samples[0], BlockSize);
 
-    audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * (t_size) (BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
+    audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * ((t_size) BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
 
     return sampleCount;
 }
