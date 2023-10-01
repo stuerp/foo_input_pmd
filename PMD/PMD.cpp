@@ -1876,19 +1876,6 @@ void PMD::fmlfo_sub(Channel *, int al, int bl, uint8_t * vol_tbl)
     if (bl & 0x10) vol_tbl[3] = (uint8_t) Limit(vol_tbl[3] - al, 255, 0);
 }
 
-void PMD::keyoffp(Channel * qq)
-{
-    if (qq->Tone == 255) return;    // ｷｭｳﾌ ﾉ ﾄｷ
-    if (qq->envf != -1)
-    {
-        qq->envf = 2;
-    }
-    else
-    {
-        qq->eenv_count = 4;
-    }
-}
-
 uint8_t * PMD::PDRSwitchCommand(Channel *, uint8_t * si)
 {
     if (!_Driver.UsePPS)
@@ -2239,8 +2226,7 @@ void PMD::keyoffm(Channel * qq)
         _OPNAW->SetReg(0x100, 0xa0);
     }
 
-    keyoffp(qq);
-    return;
+    SetSSGKeyOff(qq);
 }
 
 void PMD::keyoff8(Channel * qq)
@@ -2251,16 +2237,14 @@ void PMD::keyoff8(Channel * qq)
     {
         if (qq->envf != 2)
         {
-            keyoffp(qq);
+            SetSSGKeyOff(qq);
         }
+
         return;
     }
 
     if (qq->eenv_count != 4)
-    {
-        keyoffp(qq);
-    }
-    return;
+        SetSSGKeyOff(qq);
 }
 
 //  ppz KEYOFF
@@ -2268,15 +2252,16 @@ void PMD::keyoffz(Channel * qq)
 {
     if (qq->envf != -1)
     {
-        if (qq->envf == 2) return;
+        if (qq->envf == 2)
+            return;
     }
     else
     {
-        if (qq->eenv_count == 4) return;
+        if (qq->eenv_count == 4)
+            return;
     }
 
-    keyoffp(qq);
-    return;
+    SetSSGKeyOff(qq);
 }
 
 //  Pan setting Extend
@@ -3978,26 +3963,22 @@ uint8_t * PMD::CalculateQ(Channel * channel, uint8_t * si)
     return si;
 }
 
-//  ＰＳＧ　ＫＥＹＯＮ
-void PMD::keyonp(Channel * qq)
+void PMD::CalculatePortamento(Channel * channel)
 {
-    if (qq->Tone == 255)
-        return;    // ｷｭｳﾌ ﾉ ﾄｷ
+    channel->porta_num += channel->porta_num2;
 
-    int ah = (1 << (_Driver.CurrentChannel - 1)) | (1 << (_Driver.CurrentChannel + 2));
-    int al = ((int32_t) _OPNAW->GetReg(0x07) | ah);
+    if (channel->porta_num3 == 0)
+        return;
 
-    ah = ~(ah & qq->psgpat);
-    al &= ah;
-
-    _OPNAW->SetReg(7, (uint32_t) al);
-
-    // Set the SSG noise frequency.
-    if ((_State.SSGNoiseFrequency != _State.OldSSGNoiseFrequency) && (_Effect.Priority == 0))
+    if (channel->porta_num3 > 0)
     {
-        _OPNAW->SetReg(6, (uint32_t) _State.SSGNoiseFrequency);
-
-        _State.OldSSGNoiseFrequency = _State.SSGNoiseFrequency;
+        channel->porta_num3--;
+        channel->porta_num++;
+    }
+    else
+    {
+        channel->porta_num3++;
+        channel->porta_num--;
     }
 }
 
@@ -4072,26 +4053,6 @@ void PMD::SwapLFO(Channel * track)
     Swap(&track->lfo_wave, &track->_lfo_wave);
     Swap(&track->mdc, &track->_mdc);
     Swap(&track->mdc2, &track->_mdc2);
-}
-
-// Portamento calculation
-void PMD::porta_calc(Channel * track)
-{
-    track->porta_num += track->porta_num2;
-
-    if (track->porta_num3 == 0)
-        return;
-
-    if (track->porta_num3 > 0)
-    {
-        track->porta_num3--;
-        track->porta_num++;
-    }
-    else
-    {
-        track->porta_num3++;
-        track->porta_num--;
-    }
 }
 
 // Tempo setting

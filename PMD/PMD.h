@@ -224,7 +224,7 @@ protected:
     int MuteFMPart(Channel * track);
     void SetFMKeyOff(Channel * track);
     void SetFMKeyOffEx(Channel * track);
-    void keyoffp(Channel * track);
+    void SetSSGKeyOff(Channel * track);
     void keyoffm(Channel * track);
     void keyoff8(Channel * track);
     void keyoffz(Channel * track);
@@ -276,7 +276,7 @@ protected:
     int oshift(Channel * track, int al);
     int oshiftp(Channel * track, int al);
     void SetFMTone(Channel * track, int al);
-    void SetSSGTune(Channel * track, int al);
+    void SetSSGTone(Channel * track, int al);
     void fnumsetm(Channel * track, int al);
     void fnumset8(Channel * track, int al);
     void fnumsetz(Channel * track, int al);
@@ -310,13 +310,13 @@ protected:
     void SetPPZPitch(Channel * track);
 
     void SetFMKeyOn(Channel * track);
-    void keyonp(Channel * track);
+    void SetSSGKeyOn(Channel * track);
     void keyonm(Channel * track);
     void keyon8(Channel * track);
     void keyonz(Channel * track);
 
     int lfo(Channel * track);
-    int lfop(Channel * track);
+    int SetSSGLFO(Channel * track);
     uint8_t * lfoswitch(Channel * track, uint8_t * si);
     void lfoinit_main(Channel * track);
     void SwapLFO(Channel * track);
@@ -328,7 +328,7 @@ protected:
 
     void fmlfo_sub(Channel * track, int al, int bl, uint8_t * vol_tbl);
     void volset_slot(int dh, int dl, int al);
-    void porta_calc(Channel * track);
+    void CalculatePortamento(Channel * track);
     int SSGPCMSoftwareEnvelope(Channel * track);
     int SSGPCMSoftwareEnvelopeMain(Channel * track);
     int SSGPCMSoftwareEnvelopeSub(Channel * track);

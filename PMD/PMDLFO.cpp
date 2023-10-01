@@ -298,10 +298,10 @@ void PMD::lfoinit_main(Channel * track)
 //    output    cy=1  変化があった
 int PMD::lfo(Channel * track)
 {
-    return lfop(track);
+    return SetSSGLFO(track);
 }
 
-int PMD::lfop(Channel * track)
+int PMD::SetSSGLFO(Channel * track)
 {
     if (track->delay)
     {

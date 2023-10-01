@@ -28,7 +28,7 @@ void PMD::SSGMain(Channel * channel)
     if (_Driver.UsePPS && (channel == &_SSGTrack[2]) && (_State.kshot_dat != 0) && (channel->Length <= channel->qdat))
     {
         // When using PPS & SSG 3ch & when playing SSG sound effects.
-        keyoffp(channel);
+        SetSSGKeyOff(channel);
 
         _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0U);   // Force the soundto sto.
 
@@ -42,7 +42,7 @@ void PMD::SSGMain(Channel * channel)
     {
         if (channel->Length <= channel->qdat)
         {
-            keyoffp(channel);
+            SetSSGKeyOff(channel);
             channel->keyoff_flag = -1;
         }
     }
@@ -80,9 +80,7 @@ void PMD::SSGMain(Channel * channel)
                         return;
                     }
                     else
-                    {
                         break;
-                    }
                 }
 
                 // In case there was an "L" command.
@@ -94,7 +92,9 @@ void PMD::SSGMain(Channel * channel)
                 if (*si == 0xda)
                 {
                     si = SetSSGPortamento(channel, ++si);
+
                     _Driver.loop_work &= channel->loopcheck;
+
                     return;
                 }
                 else
@@ -120,7 +120,7 @@ void PMD::SSGMain(Channel * channel)
                 }
 
                 //  TONE SET
-                SetSSGTune(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
+                SetSSGTone(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
                 si = CalculateQ(channel, si);
@@ -136,7 +136,7 @@ void PMD::SSGMain(Channel * channel)
 
                 SetSSGVolume2(channel);
                 SetSSGPitch(channel);
-                keyonp(channel);
+                SetSSGKeyOn(channel);
 
                 channel->keyon_flag++;
                 channel->Data = si;
@@ -161,7 +161,7 @@ void PMD::SSGMain(Channel * channel)
     {
         if (channel->lfoswi & 3)
         {
-            if (lfop(channel))
+            if (SetSSGLFO(channel))
             {
                 _Driver.lfo_switch |= (channel->lfoswi & 3);
             }
@@ -171,7 +171,7 @@ void PMD::SSGMain(Channel * channel)
         {
             SwapLFO(channel);
 
-            if (lfop(channel))
+            if (SetSSGLFO(channel))
             {
                 SwapLFO(channel);
 
@@ -184,7 +184,7 @@ void PMD::SSGMain(Channel * channel)
         if (_Driver.lfo_switch & 0x19)
         {
             if (_Driver.lfo_switch & 0x08)
-                porta_calc(channel);
+                CalculatePortamento(channel);
 
             // Do not operate while resting on SSG channel 3 and SSG drum is sounding.
             if (!(!_Driver.UsePPS && (channel == &_SSGTrack[2]) && (channel->Tone == 255) && (_State.kshot_dat != 0)))
@@ -415,12 +415,12 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
         return si + 3; // Skip when masking
     }
 
-    SetSSGTune(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
+    SetSSGTone(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
 
     int bx_ = (int) channel->fnum;
     int al_ = channel->Tone;
 
-    SetSSGTune(channel, oshiftp(channel, *si++));
+    SetSSGTone(channel, oshiftp(channel, *si++));
 
     int ax = (int) channel->fnum;   // ax = portamento destination psg_tune value
 
@@ -448,7 +448,7 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
 
     SetSSGVolume2(channel);
     SetSSGPitch(channel);
-    keyonp(channel);
+    SetSSGKeyOn(channel);
 
     channel->keyon_flag++;
     channel->Data = si;
@@ -463,38 +463,6 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
     _Driver.loop_work &= channel->loopcheck;
 
     return si;
-}
-
-void PMD::SetSSGTune(Channel * channel, int al)
-{
-    if ((al & 0x0f) == 0x0f)
-    {
-        channel->Tone = 255; // Kyufu Nara FNUM Ni 0 Set
-
-        if (channel->lfoswi & 0x11)
-            return;
-
-        channel->fnum = 0;  // Pitch LFO not used
-
-        return;
-    }
-
-    channel->Tone = al;
-
-    int cl = (al >> 4) & 0x0f;  // cl=oct
-    int bx = al & 0x0f;      // bx=onkai
-    int ax = psg_tune_data[bx];
-
-    if (cl > 0)
-    {
-        ax >>= cl - 1;
-
-        int carry = ax & 1;
-
-        ax = (ax >> 1) + carry;
-    }
-
-    channel->fnum = (uint32_t) ax;
 }
 
 //  SSG Envelope Speed (Extend)
@@ -575,6 +543,38 @@ bool PMD::CheckSSGDrum(Channel * channel, int al)
     channel->PartMask &= 0xFD;
 
     return (channel->PartMask == 0x00);
+}
+
+void PMD::SetSSGTone(Channel * channel, int al)
+{
+    if ((al & 0x0f) == 0x0f)
+    {
+        channel->Tone = 255; // Kyufu Nara FNUM Ni 0 Set
+
+        if (channel->lfoswi & 0x11)
+            return;
+
+        channel->fnum = 0;  // Pitch LFO not used
+
+        return;
+    }
+
+    channel->Tone = al;
+
+    int cl = (al >> 4) & 0x0f;  // cl=oct
+    int bx = al & 0x0f;      // bx=onkai
+    int ax = psg_tune_data[bx];
+
+    if (cl > 0)
+    {
+        ax >>= cl - 1;
+
+        int carry = ax & 1;
+
+        ax = (ax >> 1) + carry;
+    }
+
+    channel->fnum = (uint32_t) ax;
 }
 
 void PMD::SetSSGVolume2(Channel * channel)
@@ -723,4 +723,37 @@ void PMD::SetSSGPitch(Channel * channel)
 
     _OPNAW->SetReg((uint32_t) ((_Driver.CurrentChannel - 1) * 2),     (uint32_t) LOBYTE(ax));
     _OPNAW->SetReg((uint32_t) ((_Driver.CurrentChannel - 1) * 2 + 1), (uint32_t) HIBYTE(ax));
+}
+
+void PMD::SetSSGKeyOn(Channel * channel)
+{
+    if (channel->Tone == 255)
+        return;
+
+    int ah = (1 << (_Driver.CurrentChannel - 1)) | (1 << (_Driver.CurrentChannel + 2));
+    int al = ((int32_t) _OPNAW->GetReg(0x07) | ah);
+
+    ah = ~(ah & channel->psgpat);
+    al &= ah;
+
+    _OPNAW->SetReg(7, (uint32_t) al);
+
+    // Set the SSG noise frequency.
+    if ((_State.SSGNoiseFrequency != _State.OldSSGNoiseFrequency) && (_Effect.Priority == 0))
+    {
+        _OPNAW->SetReg(6, (uint32_t) _State.SSGNoiseFrequency);
+
+        _State.OldSSGNoiseFrequency = _State.SSGNoiseFrequency;
+    }
+}
+
+void PMD::SetSSGKeyOff(Channel * channel)
+{
+    if (channel->Tone == 255)
+        return;
+
+    if (channel->envf != -1)
+        channel->envf = 2;
+    else
+        channel->eenv_count = 4;
 }

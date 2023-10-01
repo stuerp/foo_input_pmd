@@ -164,7 +164,7 @@ void PMD::PPZ8Main(Channel * channel)
         if (channel->lfoswi & 0x30)
         {
             SwapLFO(channel);
-            if (lfop(channel))
+            if (SetSSGLFO(channel))
             {
                 SwapLFO(channel);
                 _Driver.lfo_switch |= (channel->lfoswi & 0x30);
@@ -179,7 +179,7 @@ void PMD::PPZ8Main(Channel * channel)
         {
             if (_Driver.lfo_switch & 0x08)
             {
-                porta_calc(channel);
+                CalculatePortamento(channel);
             }
             SetPPZPitch(channel);
         }

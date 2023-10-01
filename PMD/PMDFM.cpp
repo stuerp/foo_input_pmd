@@ -187,7 +187,7 @@ void PMD::FMMain(Channel * channel)
             if (_Driver.lfo_switch & 0x19)
             {
                 if (_Driver.lfo_switch & 8)
-                    porta_calc(channel);
+                    CalculatePortamento(channel);
 
                 SetFMPitch(channel);
             }
@@ -708,4 +708,3 @@ void PMD::SetFMKeyOffEx(Channel * track)
         _OPNAW->SetReg(0x28, (uint32_t) (((_Driver.CurrentChannel - 1) | _Driver.ura_key[_Driver.CurrentChannel - 1]) | 4));
     }
 }
-
