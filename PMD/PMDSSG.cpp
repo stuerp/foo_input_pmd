@@ -212,7 +212,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
     {
         case 0xff: si++; break;
         case 0xfe: channel->qdata = *si++; channel->qdat3 = 0; break;
-        case 0xfd: channel->volume = *si++; break;
+        case 0xfd: channel->Volume = *si++; break;
         case 0xfc: si = ChangeTempoCommand(si); break;
 
         case 0xfb:
@@ -225,8 +225,8 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
         case 0xf7: si = ExitLoopCommand(channel, si); break;
         case 0xf6: channel->LoopData = si; break;
         case 0xf5: channel->shift = *(int8_t *) si++; break;
-        case 0xf4: if (channel->volume < 15) channel->volume++; break;
-        case 0xf3: if (channel->volume > 0) channel->volume--; break;
+        case 0xf4: if (channel->Volume < 15) channel->Volume++; break;
+        case 0xf3: if (channel->Volume > 0) channel->Volume--; break;
         case 0xf2: si = SetLFOParameter(channel, si); break;
         case 0xf1: si = lfoswitch(channel, si); break;
         case 0xf0: si = psgenvset(channel, si); break;
@@ -247,8 +247,8 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
 
         case 0xe4: si++; break;
 
-        case 0xe3: channel->volume += *si++; if (channel->volume > 15) channel->volume = 15; break;
-        case 0xe2: channel->volume -= *si++; if (channel->volume < 0) channel->volume = 0; break;
+        case 0xe3: channel->Volume += *si++; if (channel->Volume > 15) channel->Volume = 15; break;
+        case 0xe2: channel->Volume -= *si++; if (channel->Volume < 0) channel->Volume = 0; break;
 
 
         case 0xe1: si++; break;
@@ -418,7 +418,7 @@ void PMD::SetSSGVolume2(Channel * channel)
     if (channel->envf == 3 || (channel->envf == -1 && channel->eenv_count == 0))
         return;
 
-    int dl = (channel->volpush) ? channel->volpush - 1 : channel->volume;
+    int dl = (channel->volpush) ? channel->volpush - 1 : channel->Volume;
 
     //  音量down計算
     dl = ((256 - _State.ssg_voldown) * dl) >> 8;
@@ -597,7 +597,7 @@ void PMD::SetSSGKeyOff(Channel * channel)
 // Command "v": Sets the SSG volume.
 uint8_t * PMD::SetSSGVolumeCommand(Channel * channel, uint8_t * si)
 {
-    int al = channel->volume + *si++;
+    int al = channel->Volume + *si++;
 
     if (al > 15)
         al = 15;

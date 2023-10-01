@@ -153,7 +153,7 @@ private:
     Channel _ExtensionTrack[MaxExtTracks];
     Channel _DummyTrack;
     Channel _EffectTrack;
-    Channel _PPZ8Track[MaxPPZ8Tracks];
+    Channel _PPZChannel[MaxPPZ8Tracks];
 
     static const size_t MaxSamples = 30000;
 
@@ -264,8 +264,8 @@ protected:
     uint8_t * vol_one_up_pcm(Channel * track, uint8_t * si);
     uint8_t * DecreaseSoundSourceVolumeCommand(Channel * track, uint8_t * si);
     uint8_t * SetSSGPortamento(Channel * track, uint8_t * si);
-    uint8_t * portam(Channel * track, uint8_t * si);
-    uint8_t * portaz(Channel * track, uint8_t * si);
+    uint8_t * SetADPCMPortamento(Channel * track, uint8_t * si);
+    uint8_t * SetPPZPortamento(Channel * track, uint8_t * si);
     uint8_t * SetSSGPseudoEchoCommand(uint8_t * si);
     uint8_t * mdepth_count(Channel * track, uint8_t * si);
     uint8_t * GetToneData(Channel * track, int dl);
@@ -280,20 +280,20 @@ protected:
     void SetP86Tone(Channel * track, int al);
     void SetPPZTone(Channel * track, int al);
 
-    uint8_t * panset(Channel * track, uint8_t * si);
-    uint8_t * panset_ex(Channel * track, uint8_t * si);
-    uint8_t * pansetm(Channel * track, uint8_t * si);
-    uint8_t * panset8(Channel * track, uint8_t * si);
-    uint8_t * pansetz(Channel * track, uint8_t * si);
+    uint8_t * SetFMPanning(Channel * track, uint8_t * si);
+    uint8_t * SetFMPanningExtend(Channel * track, uint8_t * si);
+    uint8_t * SetADPCMPanning(Channel * track, uint8_t * si);
+    uint8_t * SetP86Panning(Channel * track, uint8_t * si);
+    uint8_t * SetPPZPanning(Channel * track, uint8_t * si);
     uint8_t * pansetz_ex(Channel * track, uint8_t * si);
-    void panset_main(Channel * track, int al);
+    void SetFMPanningMain(Channel * track, int al);
 
     uint8_t calc_panout(Channel * track);
     uint8_t * CalculateQ(Channel * track, uint8_t * si);
     void fm_block_calc(int * cx, int * ax);
-    int ch3_setting(Channel * track);
+    int SetFMChannel3Mode(Channel * track);
     void cm_clear(int * ah, int * al);
-    void ch3mode_set(Channel * track);
+    void SetFMChannel3Mode2(Channel * track);
     void ch3_special(Channel * track, int ax, int cx);
 
     void SetFMVolumeCommand(Channel * track);
@@ -338,8 +338,8 @@ protected:
     uint8_t * pcmrepeat_set(Channel * track, uint8_t * si);
     uint8_t * pcmrepeat_set8(Channel * track, uint8_t * si);
     uint8_t * ppzrepeat_set(Channel * track, uint8_t * si);
-    uint8_t * pansetm_ex(Channel * track, uint8_t * si);
-    uint8_t * panset8_ex(Channel * track, uint8_t * si);
+    uint8_t * SetADPCMPanningExtend(Channel * track, uint8_t * si);
+    uint8_t * SetP86PanningExtend(Channel * track, uint8_t * si);
     uint8_t * pcm_mml_part_mask(Channel * track, uint8_t * si);
     uint8_t * pcm_mml_part_mask8(Channel * track, uint8_t * si);
     uint8_t * ppz_mml_part_mask(Channel * track, uint8_t * si);
@@ -353,9 +353,9 @@ protected:
     uint8_t * SetSlotMask(Channel * track, uint8_t * si);
     uint8_t * slotdetune_set(Channel * track, uint8_t * si);
     uint8_t * slotdetune_set2(Channel * track, uint8_t * si);
-    void fm3_partinit(Channel * track, uint8_t * ax);
-    uint8_t * fm3_extpartset(Channel * track, uint8_t * si);
-    uint8_t * ppz_extpartset(Channel * track, uint8_t * si);
+    void InitializeFMChannel3(Channel * track, uint8_t * ax);
+    uint8_t * SetFMChannel3ModeEx(Channel * track, uint8_t * si);
+    uint8_t * InitializePPZ(Channel * track, uint8_t * si);
     uint8_t * volmask_set(Channel * track, uint8_t * si);
     uint8_t * fm_mml_part_mask(Channel * track, uint8_t * si);
     uint8_t * ssg_mml_part_mask(Channel * track, uint8_t * si);

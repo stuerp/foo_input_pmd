@@ -117,7 +117,7 @@ struct Channel
     int porta_num2; // 2 ポルタメントの加減値（一回）
     int porta_num3; // 2 ポルタメントの加減値（余り）
 
-    int volume;  // 1 VOLUME
+    int Volume;  // 1 VOLUME
     int shift;  // 1 ｵﾝｶｲ ｼﾌﾄ ﾉ ｱﾀｲ
 
     // bit 4: tone / bit 5: vol / bit 6: same period
@@ -136,7 +136,7 @@ struct Channel
     int eenv_rrc; // 1 /RRのカウンタ /旧pr2b
     int eenv_volume;  // 1 /Volume値(0?15)/旧penv
 
-    int fmpan;  // 1 FM Panning + AMD + PMD
+    int Panning;  // 1 FM Panning + AMD + PMD
     int psgpat;  // 1 SSG PATTERN [TONE/NOISE/MIX]
     int InstrumentNumber;
     int loopcheck; // 1 When the loop ends 1 When the loop ends 3
@@ -166,7 +166,7 @@ struct Channel
     int alg_fb;  // 1 Tone alg/fb
     int keyon_flag; // 1 After processing new scale/rest data, inc
     int qdat2;  // 1 q minimum guaranteed value
-    int onkai_def; // 1 Scale data being played (before modulation processing / ?fh: rest)
+    int DefaultTone; // 1 Scale data being played (before modulation processing / ?fh: rest)
     int shift_def; // 1 Master modulation value
     int qdat3;  // 1 q Random
 };

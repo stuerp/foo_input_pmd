@@ -124,11 +124,11 @@ int PMD::StartLFO(Channel * channel, int al)
 
     if (ah == 0x0C)
     {
-        al = channel->onkai_def;
+        al = channel->DefaultTone;
         ah = al & 0x0F;
     }
 
-    channel->onkai_def = al;
+    channel->DefaultTone = al;
 
     if (ah == 0x0F)
     {
@@ -154,11 +154,11 @@ int PMD::StartPCMLFO(Channel * channel, int al)
 
     if (ah == 0x0C)
     {
-        al = channel->onkai_def;
+        al = channel->DefaultTone;
         ah = al & 0x0F;
     }
 
-    channel->onkai_def = al;
+    channel->DefaultTone = al;
 
     if (ah == 0x0F)
     {
@@ -245,7 +245,7 @@ void PMD::lfin1(Channel * track)
     track->hldelay_c = track->hldelay;
 
     if (track->hldelay)
-        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), (uint32_t) (track->fmpan & 0xc0));
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), (uint32_t) (track->Panning & 0xc0));
 
     track->sdelay_c = track->sdelay;
 

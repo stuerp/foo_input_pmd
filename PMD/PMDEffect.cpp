@@ -38,8 +38,8 @@ void PMD::EffectMain(Channel * channel, int al)
 
         if (ah & 0x02)
         {
-            if (channel->volume < 15)
-                bl = channel->volume;
+            if (channel->Volume < 15)
+                bl = channel->Volume;
 
             if (_State.FadeOutVolume)
                 bl = (bl * (256 - _State.FadeOutVolume)) >> 8;

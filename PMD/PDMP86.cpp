@@ -85,7 +85,7 @@ void PMD::PCM86Main(Channel * channel)
                     si++;
                     channel->fnum = 0;    //休符に設定
                     channel->Tone = 255;
-                    //          qq->onkai_def = 255;
+                    //          qq->DefaultTone = 255;
                     channel->Length = *si++;
                     channel->keyon_flag++;
                     channel->Data = si;
@@ -187,7 +187,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
     {
         case 0xff: si = comat8(channel, si); break;
         case 0xfe: channel->qdata = *si++; break;
-        case 0xfd: channel->volume = *si++; break;
+        case 0xfd: channel->Volume = *si++; break;
         case 0xfc: si = ChangeTempoCommand(si); break;
         case 0xfb:
             _Driver.TieMode |= 1;
@@ -200,13 +200,13 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xf6: channel->LoopData = si; break;
         case 0xf5: channel->shift = *(int8_t *) si++; break;
         case 0xf4:
-            if (channel->volume < (255 - 16))
-                channel->volume += 16;
+            if (channel->Volume < (255 - 16))
+                channel->Volume += 16;
             else
-                channel->volume = 255;
+                channel->Volume = 255;
             break;
 
-        case 0xf3: if (channel->volume < 16) channel->volume = 0; else channel->volume -= 16; break;
+        case 0xf3: if (channel->Volume < 16) channel->Volume = 0; else channel->Volume -= 16; break;
         case 0xf2: si = SetLFOParameter(channel, si); break;
         case 0xf1: si = lfoswitch(channel, si); break;
         case 0xf0: si = psgenvset(channel, si); break;
@@ -215,7 +215,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xee: si++; break;
         case 0xed: si++; break;
 
-        case 0xec: si = panset8(channel, si); break;        // FOR SB2
+        case 0xec: si = SetP86Panning(channel, si); break;        // FOR SB2
         case 0xeb: si = RhythmInstrumentCommand(si); break;
         case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
         case 0xe9: si = SetRhythmOutputPosition(si); break;
@@ -228,13 +228,13 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xe4: si++; break;
 
         case 0xe3:
-            if (channel->volume < (255 - (*si))) channel->volume += (*si);
-            else channel->volume = 255;
+            if (channel->Volume < (255 - (*si))) channel->Volume += (*si);
+            else channel->Volume = 255;
             si++;
             break;
 
         case 0xe2:
-            if (channel->volume < *si) channel->volume = 0; else channel->volume -= *si;
+            if (channel->Volume < *si) channel->Volume = 0; else channel->Volume -= *si;
             si++;
             break;
 
@@ -287,7 +287,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
         case 0xc4: channel->qdatb = *si++; break;
-        case 0xc3: si = panset8_ex(channel, si); break;
+        case 0xc3: si = SetP86PanningExtend(channel, si); break;
         case 0xc2:
             channel->delay = channel->delay2 = *si++;
             lfoinit_main(channel);
@@ -309,7 +309,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xb7: si = mdepth_count(channel, si); break;
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
-        case 0xb4: si = ppz_extpartset(channel, si); break;
+        case 0xb4: si = InitializePPZ(channel, si); break;
 
         case 0xb3: channel->qdat2 = *si++; break;
         case 0xb2: channel->shift_def = *(int8_t *) si++; break;
@@ -361,7 +361,7 @@ void PMD::SetP86Tone(Channel * channel, int al)
 
 void PMD::SetPCM86Volume(Channel * channel)
 {
-    int al = channel->volpush ? channel->volpush : channel->volume;
+    int al = channel->volpush ? channel->volpush : channel->Volume;
 
     //  音量down計算
     al = ((256 - _State.pcm_voldown) * al) >> 8;
@@ -476,3 +476,71 @@ void PMD::SetP86KeyOff(Channel * channel)
         SetSSGKeyOff(channel);
 }
 
+// Command "p"
+uint8_t * PMD::SetP86Panning(Channel *, uint8_t * si)
+{
+    int    flag, data;
+
+    data = 0;
+
+    switch (*si++)
+    {
+        case 1:          // Right
+            flag = 2;
+            data = 1;
+            break;
+
+        case 2:          // Left
+            flag = 1;
+            data = 0;
+            break;
+
+        case 3:          // Center
+            flag = 3;
+            data = 0;
+            break;
+
+        default:          // 逆相
+            flag = 3 | 4;
+            data = 0;
+
+    }
+
+    _P86->SetPan(flag, data);
+
+    return si;
+}
+
+uint8_t * PMD::SetP86PanningExtend(Channel * track, uint8_t * si)
+{
+    int    flag, data;
+
+    track->Panning = (int8_t) *si++;
+    _State.revpan = *si++;
+
+    if (track->Panning == 0)
+    {
+        flag = 3;        // Center
+        data = 0;
+    }
+    else
+    if (track->Panning > 0)
+    {
+        flag = 2;        // Right
+        data = 128 - track->Panning;
+    }
+    else
+    {
+        flag = 1;        // Left
+        data = 128 + track->Panning;
+    }
+
+    if (_State.revpan != 1)
+    {
+        flag |= 4;        // 逆相
+    }
+
+    _P86->SetPan(flag, data);
+
+    return si;
+}

@@ -115,7 +115,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
     {
         case 0xff: si++; break;
         case 0xfe: si++; break;
-        case 0xfd: channel->volume = *si++; break;
+        case 0xfd: channel->Volume = *si++; break;
         case 0xfc: si = ChangeTempoCommand(si); break;
 
         case 0xfb:
@@ -128,8 +128,8 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xf7: si = ExitLoopCommand(channel, si); break;
         case 0xf6: channel->LoopData = si; break;
         case 0xf5: si++; break;
-        case 0xf4: if (channel->volume < 15) channel->volume++; break;
-        case 0xf3: if (channel->volume > 0) channel->volume--; break;
+        case 0xf4: if (channel->Volume < 15) channel->Volume++; break;
+        case 0xf3: if (channel->Volume > 0) channel->Volume--; break;
         case 0xf2: si += 4; break;
         case 0xf1: si = PDRSwitchCommand(channel, si); break;
         case 0xf0: si += 4; break;
@@ -150,8 +150,8 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
 
         case 0xe4: si++; break;
 
-        case 0xe3: if ((channel->volume + *si) < 16) channel->volume += *si; si++; break;
-        case 0xe2: if ((channel->volume - *si) >= 0) channel->volume -= *si; si++; break;
+        case 0xe3: if ((channel->Volume + *si) < 16) channel->Volume += *si; si++; break;
+        case 0xe2: if ((channel->Volume - *si) >= 0) channel->Volume -= *si; si++; break;
 
         case 0xe1: si++; break;
         case 0xe0: si++; break;

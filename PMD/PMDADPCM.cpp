@@ -81,7 +81,7 @@ void PMD::ADPCMMain(Channel * channel)
             {
                 if (*si == 0xda)
                 {        // ポルタメント
-                    si = portam(channel, ++si);
+                    si = SetADPCMPortamento(channel, ++si);
 
                     _Driver.loop_work &= channel->loopcheck;
 
@@ -93,7 +93,7 @@ void PMD::ADPCMMain(Channel * channel)
                     si++;
                     channel->fnum = 0;    //休符に設定
                     channel->Tone = 255;
-                    //          qq->onkai_def = 255;
+                    //          qq->DefaultTone = 255;
                     channel->Length = *si++;
                     channel->keyon_flag++;
                     channel->Data = si;
@@ -197,7 +197,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
     {
         case 0xff: si = comatm(channel, si); break;
         case 0xfe: channel->qdata = *si++; break;
-        case 0xfd: channel->volume = *si++; break;
+        case 0xfd: channel->Volume = *si++; break;
         case 0xfc: si = ChangeTempoCommand(si); break;
         case 0xfb:
             _Driver.TieMode |= 1;
@@ -210,11 +210,11 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
         case 0xf6: channel->LoopData = si; break;
         case 0xf5: channel->shift = *(int8_t *) si++; break;
         case 0xf4:
-            if (channel->volume < (255 - 16)) channel->volume += 16;
-            else channel->volume = 255;
+            if (channel->Volume < (255 - 16)) channel->Volume += 16;
+            else channel->Volume = 255;
             break;
 
-        case 0xf3: if (channel->volume < 16) channel->volume = 0; else channel->volume -= 16; break;
+        case 0xf3: if (channel->Volume < 16) channel->Volume = 0; else channel->Volume -= 16; break;
         case 0xf2: si = SetLFOParameter(channel, si); break;
         case 0xf1: si = lfoswitch(channel, si); break;
         case 0xf0: si = psgenvset(channel, si); break;
@@ -223,7 +223,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
         case 0xee: si++; break;
         case 0xed: si++; break;
 
-        case 0xec: si = pansetm(channel, si); break;        // FOR SB2
+        case 0xec: si = SetADPCMPanning(channel, si); break;        // FOR SB2
         case 0xeb: si = RhythmInstrumentCommand(si); break;
         case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
         case 0xe9: si = SetRhythmOutputPosition(si); break;
@@ -236,13 +236,13 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
         case 0xe4: si++; break;
 
         case 0xe3:
-            if (channel->volume < (255 - (*si))) channel->volume += (*si);
-            else channel->volume = 255;
+            if (channel->Volume < (255 - (*si))) channel->Volume += (*si);
+            else channel->Volume = 255;
             si++;
             break;
 
         case 0xe2:
-            if (channel->volume < *si) channel->volume = 0; else channel->volume -= *si;
+            if (channel->Volume < *si) channel->Volume = 0; else channel->Volume -= *si;
             si++;
             break;
 
@@ -257,7 +257,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
 
-        case 0xda: si = portam(channel, si); break;
+        case 0xda: si = SetADPCMPortamento(channel, si); break;
 
         case 0xd9: si++; break;
         case 0xd8: si++; break;
@@ -294,7 +294,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
         case 0xc4: channel->qdatb = *si++; break;
-        case 0xc3: si = pansetm_ex(channel, si); break;
+        case 0xc3: si = SetADPCMPanningExtend(channel, si); break;
         case 0xc2: channel->delay = channel->delay2 = *si++; lfoinit_main(channel); break;
         case 0xc1: break;
         case 0xc0: si = pcm_mml_part_mask(channel, si); break;
@@ -340,7 +340,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
         case 0xb7: si = mdepth_count(channel, si); break;
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
-        case 0xb4: si = ppz_extpartset(channel, si); break;
+        case 0xb4: si = InitializePPZ(channel, si); break;
         case 0xb3: channel->qdat2 = *si++; break;
         case 0xb2: channel->shift_def = *(int8_t *) si++; break;
         case 0xb1: channel->qdat3 = *si++; break;
@@ -400,7 +400,7 @@ void PMD::SetADPCMTone(Channel * channel, int al)
 
 void PMD::SetADPCMVolumeCommand(Channel * channel)
 {
-    int al = channel->volpush ? channel->volpush : channel->volume;
+    int al = channel->volpush ? channel->volpush : channel->Volume;
 
     //  音量down計算
     al = ((256 - _State.pcm_voldown) * al) >> 8;
@@ -538,12 +538,12 @@ void PMD::SetADPCMKeyOn(Channel * channel)
     if ((_Driver.PCMRepeat1 | _Driver.PCMRepeat2) == 0)
     {
         _OPNAW->SetReg(0x100, 0xa0);  // PCM PLAY (non_repeat)
-        _OPNAW->SetReg(0x101, (uint32_t) (channel->fmpan | 2));  // PAN SET / x8 bit mode
+        _OPNAW->SetReg(0x101, (uint32_t) (channel->Panning | 2));  // PAN SET / x8 bit mode
     }
     else
     {
         _OPNAW->SetReg(0x100, 0xb0);  // PCM PLAY (repeat)
-        _OPNAW->SetReg(0x101, (uint32_t) (channel->fmpan | 2));  // PAN SET / x8 bit mode
+        _OPNAW->SetReg(0x101, (uint32_t) (channel->Panning | 2));  // PAN SET / x8 bit mode
 
         _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver.PCMRepeat1));
         _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver.PCMRepeat1));
@@ -581,3 +581,105 @@ void PMD::SetADPCMKeyOff(Channel * channel)
 
     SetSSGKeyOff(channel);
 }
+
+// Command "p"
+uint8_t * PMD::SetADPCMPanning(Channel * channel, uint8_t * si)
+{
+    channel->Panning = (*si << 6) & 0xc0;
+
+    return si + 1;  // Skip the Reverse Running flag
+}
+
+uint8_t * PMD::SetADPCMPanningExtend(Channel * channel, uint8_t * si)
+{
+    if (*si == 0)
+    {
+        channel->Panning = 0xc0;
+    }
+    else
+    if (*si < 0x80)
+    {
+        channel->Panning = 0x80;
+    }
+    else
+    {
+        channel->Panning = 0x40;
+    }
+
+    return si + 2;  // Skip the Reverse Running flag
+}
+
+uint8_t * PMD::SetADPCMPortamento(Channel * channel, uint8_t * si)
+{
+    int    ax, al_, bx_;
+
+    if (channel->PartMask)
+    {
+        channel->fnum = 0;    //休符に設定
+        channel->Tone = 255;
+        channel->Length = *(si + 2);
+        channel->keyon_flag++;
+        channel->Data = si + 3;
+
+        if (--_Driver.volpush_flag)
+        {
+            channel->volpush = 0;
+        }
+
+        _Driver.TieMode = 0;
+        _Driver.volpush_flag = 0;
+        _Driver.loop_work &= channel->loopcheck;
+        return si + 3;    // 読み飛ばす  (Mask時)
+    }
+
+    SetADPCMTone(channel, oshift(channel, StartPCMLFO(channel, *si++)));
+
+    bx_ = (int) channel->fnum;
+    al_ = (int) channel->Tone;
+
+    SetADPCMTone(channel, oshift(channel, *si++));
+
+    ax = (int) channel->fnum;       // ax = ポルタメント先のdelta_n値
+
+    channel->Tone = al_;
+    channel->fnum = (uint32_t) bx_;      // bx = ポルタメント元のdekta_n値
+    ax -= bx_;        // ax = delta_n差
+
+    channel->Length = *si++;
+    si = CalculateQ(channel, si);
+
+    channel->porta_num2 = ax / channel->Length;    // 商
+    channel->porta_num3 = ax % channel->Length;    // 余り
+    channel->lfoswi |= 8;        // Porta ON
+
+    if (channel->volpush && channel->Tone != 255)
+    {
+        if (--_Driver.volpush_flag)
+        {
+            _Driver.volpush_flag = 0;
+            channel->volpush = 0;
+        }
+    }
+
+    SetADPCMVolumeCommand(channel);
+    SetADPCMPitch(channel);
+
+    if (channel->keyoff_flag & 1)
+        SetADPCMKeyOn(channel);
+
+    channel->keyon_flag++;
+    channel->Data = si;
+
+    _Driver.TieMode = 0;
+    _Driver.volpush_flag = 0;
+    channel->keyoff_flag = 0;
+
+    if (*si == 0xfb)
+    {      // '&'が直後にあったらSetFMKeyOffしない
+        channel->keyoff_flag = 2;
+    }
+
+    _Driver.loop_work &= channel->loopcheck;
+    return si;
+}
+

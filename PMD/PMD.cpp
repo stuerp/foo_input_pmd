@@ -128,7 +128,7 @@ void PMD::Reset()
     ::memset(_ExtensionTrack, 0, sizeof(_ExtensionTrack));
     ::memset(&_DummyTrack, 0, sizeof(_DummyTrack));
     ::memset(&_EffectTrack, 0, sizeof(_EffectTrack));
-    ::memset(_PPZ8Track, 0, sizeof(_PPZ8Track));
+    ::memset(_PPZChannel, 0, sizeof(_PPZChannel));
 
     ::memset(&pcmends, 0, sizeof(pcmends));
 
@@ -188,14 +188,14 @@ void PMD::Reset()
     _State.Channel[14] = &_DummyTrack; // Unused
     _State.Channel[15] = &_EffectTrack;
 
-    _State.Channel[16] = &_PPZ8Track[0];
-    _State.Channel[17] = &_PPZ8Track[1];
-    _State.Channel[18] = &_PPZ8Track[2];
-    _State.Channel[19] = &_PPZ8Track[3];
-    _State.Channel[20] = &_PPZ8Track[4];
-    _State.Channel[21] = &_PPZ8Track[5];
-    _State.Channel[22] = &_PPZ8Track[6];
-    _State.Channel[23] = &_PPZ8Track[7];
+    _State.Channel[16] = &_PPZChannel[0];
+    _State.Channel[17] = &_PPZChannel[1];
+    _State.Channel[18] = &_PPZChannel[2];
+    _State.Channel[19] = &_PPZChannel[3];
+    _State.Channel[20] = &_PPZChannel[4];
+    _State.Channel[21] = &_PPZChannel[5];
+    _State.Channel[22] = &_PPZChannel[6];
+    _State.Channel[23] = &_PPZChannel[7];
 
     _State.fm_voldown = fmvd_init;   // FM_VOLDOWN
     _State._fm_voldown = fmvd_init;  // FM_VOLDOWN
@@ -1433,7 +1433,7 @@ void PMD::DriverMain()
         for (i = 0; i < 8; ++i)
         {
             _Driver.CurrentChannel = i;
-            PPZMain(&_PPZ8Track[i]);
+            PPZMain(&_PPZChannel[i]);
         }
     }
 
@@ -1466,8 +1466,8 @@ void PMD::DriverMain()
 
     for (i = 0; i < MaxPPZChannels; ++i)
     {
-        if (_PPZ8Track[i].loopcheck != 3)
-            _PPZ8Track[i].loopcheck = 0;
+        if (_PPZChannel[i].loopcheck != 3)
+            _PPZChannel[i].loopcheck = 0;
     }
 
     if (_Driver.loop_work != 3)
@@ -1523,19 +1523,6 @@ void PMD::fm_block_calc(int * cx, int * ax)
     }
 }
 
-// Determine the part and set mode if ch3
-int PMD::ch3_setting(Channel * qq)
-{
-    if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
-    {
-        ch3mode_set(qq);
-
-        return 1;
-    }
-
-    return 0;
-}
-
 void PMD::cm_clear(int * ah, int * al)
 {
     *al ^= 0xff;
@@ -1555,90 +1542,6 @@ void PMD::cm_clear(int * ah, int * al)
     {
         *ah = 0x7f;
     }
-}
-
-//  Setting FM3 mode
-void PMD::ch3mode_set(Channel * track)
-{
-    int al;
-
-    if (track == &_FMTrack[3 - 1])
-        al = 1;
-    else
-    if (track == &_ExtensionTrack[0])
-        al = 2;
-    else
-    if (track == &_ExtensionTrack[1])
-        al = 4;
-    else
-        al = 8;
-
-    int ah;
-
-    if ((track->SlotMask & 0xF0) == 0)
-    {
-        cm_clear(&ah, &al); // s0
-    }
-    else
-    if (track->SlotMask != 0xF0)
-    {
-        _Driver.slot3_flag |= al;
-        ah = 0x7f;
-    }
-    else
-
-    if ((track->VolumeMask1 & 0x0F) == 0)
-    {
-        cm_clear(&ah, &al);
-    }
-    else
-    if ((track->lfoswi & 1) != 0)
-    {
-        _Driver.slot3_flag |= al;
-        ah = 0x7f;
-    }
-    else
-
-    if ((track->VolumeMask2 & 0x0F) == 0)
-    {
-        cm_clear(&ah, &al);
-    }
-    else
-    if (track->lfoswi & 0x10)
-    {
-        _Driver.slot3_flag |= al;
-        ah = 0x7f;
-    }
-    else
-    {
-        cm_clear(&ah, &al);
-    }
-
-    if ((uint32_t) ah == _State.ch3mode)
-        return;
-
-    _State.ch3mode = (uint32_t) ah;
-
-    _OPNAW->SetReg(0x27, (uint32_t) (ah & 0xCF)); // Don't reset.
-
-    // When moving to sound effect mode, the pitch is rewritten with the previous FM3 part
-    if (ah == 0x3F || track == &_FMTrack[2])
-        return;
-
-    if (_FMTrack[2].PartMask == 0x00)
-        SetFMPitch(&_FMTrack[2]);
-
-    if (track == &_ExtensionTrack[0])
-        return;
-
-    if (_ExtensionTrack[0].PartMask == 0x00)
-        SetFMPitch(&_ExtensionTrack[0]);
-
-    if (track == &_ExtensionTrack[1])
-        return;
-
-    if (_ExtensionTrack[1].PartMask == 0x00)
-        SetFMPitch(&_ExtensionTrack[1]);
 }
 
 //  Pitch setting when using ch3=sound effect mode (input CX:block AX:fnum)
@@ -1751,105 +1654,17 @@ void PMD::ch3_special(Channel * track, int ax, int cx)
     }
 }
 
-//  'p' COMMAND [FM PANNING SET]
-uint8_t * PMD::panset(Channel * qq, uint8_t * si)
-{
-    panset_main(qq, *si++);
-    return si;
-}
-
-void PMD::panset_main(Channel * qq, int al)
-{
-    qq->fmpan = (qq->fmpan & 0x3f) | ((al << 6) & 0xc0);
-
-    if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
-    {
-        //  FM3の場合は 4つのパート総て設定
-        _FMTrack[2].fmpan = qq->fmpan;
-        _ExtensionTrack[0].fmpan = qq->fmpan;
-        _ExtensionTrack[1].fmpan = qq->fmpan;
-        _ExtensionTrack[2].fmpan = qq->fmpan;
-    }
-
-    if (qq->PartMask == 0x00)
-    {    // パートマスクされているか？
-// dl = al;
-        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), calc_panout(qq));
-    }
-}
-
 //  0b4h?に設定するデータを取得 out.dl
 uint8_t PMD::calc_panout(Channel * qq)
 {
     int  dl;
 
-    dl = qq->fmpan;
+    dl = qq->Panning;
 
     if (qq->hldelay_c)
         dl &= 0xc0;  // HLFO Delayが残ってる場合はパンのみ設定
 
     return (uint8_t) dl;
-}
-
-//  Pan setting Extend
-uint8_t * PMD::panset_ex(Channel * qq, uint8_t * si)
-{
-    int    al;
-
-    al = *(int8_t *) si++;
-    si++;    // 逆走flagは読み飛ばす
-
-    if (al > 0)
-    {
-        al = 2;
-        panset_main(qq, al);
-    }
-    else if (al == 0)
-    {
-        al = 3;
-        panset_main(qq, al);
-    }
-    else
-    {
-        al = 1;
-        panset_main(qq, al);
-    }
-    return si;
-}
-
-//  Pan setting Extend
-uint8_t * PMD::panset8_ex(Channel * qq, uint8_t * si)
-{
-    int    flag, data;
-
-    qq->fmpan = (int8_t) *si++;
-    _State.revpan = *si++;
-
-
-    if (qq->fmpan == 0)
-    {
-        flag = 3;        // Center
-        data = 0;
-    }
-    else if (qq->fmpan > 0)
-    {
-        flag = 2;        // Right
-        data = 128 - qq->fmpan;
-    }
-    else
-    {
-        flag = 1;        // Left
-        data = 128 + qq->fmpan;
-    }
-
-    if (_State.revpan != 1)
-    {
-        flag |= 4;        // 逆相
-    }
-
-    _P86->SetPan(flag, data);
-
-    return si;
 }
 
 //  スロット毎の計算 & 出力 マクロ
@@ -1885,175 +1700,6 @@ uint8_t * PMD::PDRSwitchCommand(Channel *, uint8_t * si)
     si++;
 
     return si;
-}
-
-//  ポルタメント(PCM)
-uint8_t * PMD::portam(Channel * qq, uint8_t * si)
-{
-    int    ax, al_, bx_;
-
-    if (qq->PartMask)
-    {
-        qq->fnum = 0;    //休符に設定
-        qq->Tone = 255;
-        qq->Length = *(si + 2);
-        qq->keyon_flag++;
-        qq->Data = si + 3;
-
-        if (--_Driver.volpush_flag)
-        {
-            qq->volpush = 0;
-        }
-
-        _Driver.TieMode = 0;
-        _Driver.volpush_flag = 0;
-        _Driver.loop_work &= qq->loopcheck;
-        return si + 3;    // 読み飛ばす  (Mask時)
-    }
-
-    SetADPCMTone(qq, oshift(qq, StartPCMLFO(qq, *si++)));
-
-    bx_ = (int) qq->fnum;
-    al_ = (int) qq->Tone;
-
-    SetADPCMTone(qq, oshift(qq, *si++));
-
-    ax = (int) qq->fnum;       // ax = ポルタメント先のdelta_n値
-
-    qq->Tone = al_;
-    qq->fnum = (uint32_t) bx_;      // bx = ポルタメント元のdekta_n値
-    ax -= bx_;        // ax = delta_n差
-
-    qq->Length = *si++;
-    si = CalculateQ(qq, si);
-
-    qq->porta_num2 = ax / qq->Length;    // 商
-    qq->porta_num3 = ax % qq->Length;    // 余り
-    qq->lfoswi |= 8;        // Porta ON
-
-    if (qq->volpush && qq->Tone != 255)
-    {
-        if (--_Driver.volpush_flag)
-        {
-            _Driver.volpush_flag = 0;
-            qq->volpush = 0;
-        }
-    }
-
-    SetADPCMVolumeCommand(qq);
-    SetADPCMPitch(qq);
-
-    if (qq->keyoff_flag & 1)
-        SetADPCMKeyOn(qq);
-
-    qq->keyon_flag++;
-    qq->Data = si;
-
-    _Driver.TieMode = 0;
-    _Driver.volpush_flag = 0;
-    qq->keyoff_flag = 0;
-
-    if (*si == 0xfb)
-    {      // '&'が直後にあったらSetFMKeyOffしない
-        qq->keyoff_flag = 2;
-    }
-
-    _Driver.loop_work &= qq->loopcheck;
-    return si;
-}
-
-//  ポルタメント(PPZ)
-uint8_t * PMD::portaz(Channel * qq, uint8_t * si)
-{
-    int    ax, al_, bx_;
-
-    if (qq->PartMask)
-    {
-        qq->fnum = 0;    //休符に設定
-        qq->Tone = 255;
-        qq->Length = *(si + 2);
-        qq->keyon_flag++;
-        qq->Data = si + 3;
-
-        if (--_Driver.volpush_flag)
-        {
-            qq->volpush = 0;
-        }
-
-        _Driver.TieMode = 0;
-        _Driver.volpush_flag = 0;
-        _Driver.loop_work &= qq->loopcheck;
-        return si + 3;    // 読み飛ばす  (Mask時)
-    }
-
-    SetPPZTone(qq, oshift(qq, StartPCMLFO(qq, *si++)));
-
-    bx_ = (int) qq->fnum;
-    al_ = qq->Tone;
-    SetPPZTone(qq, oshift(qq, *si++));
-    ax = (int) qq->fnum;       // ax = ポルタメント先のdelta_n値
-
-    qq->Tone = al_;
-    qq->fnum = (uint32_t) bx_;      // bx = ポルタメント元のdekta_n値
-    ax -= bx_;        // ax = delta_n差
-    ax /= 16;
-
-    qq->Length = *si++;
-    si = CalculateQ(qq, si);
-
-    qq->porta_num2 = ax / qq->Length;    // 商
-    qq->porta_num3 = ax % qq->Length;    // 余り
-    qq->lfoswi |= 8;        // Porta ON
-
-    if (qq->volpush && qq->Tone != 255)
-    {
-        if (--_Driver.volpush_flag)
-        {
-            _Driver.volpush_flag = 0;
-            qq->volpush = 0;
-        }
-    }
-
-    SetPPZVolume(qq);
-    SetPPZPitch(qq);
-    if (qq->keyoff_flag & 1)
-    {
-        SetPPZKeyOn(qq);
-    }
-
-    qq->keyon_flag++;
-    qq->Data = si;
-
-    _Driver.TieMode = 0;
-    _Driver.volpush_flag = 0;
-    qq->keyoff_flag = 0;
-
-    if (*si == 0xfb)
-    {      // '&'が直後にあったらSetFMKeyOffしない
-        qq->keyoff_flag = 2;
-    }
-
-    _Driver.loop_work &= qq->loopcheck;
-    return si;
-}
-
-//  Pan setting Extend
-uint8_t * PMD::pansetm_ex(Channel * qq, uint8_t * si)
-{
-    if (*si == 0)
-    {
-        qq->fmpan = 0xc0;
-    }
-    else if (*si < 0x80)
-    {
-        qq->fmpan = 0x80;
-    }
-    else
-    {
-        qq->fmpan = 0x40;
-    }
-
-    return si + 2;  // 逆走flagは読み飛ばす
 }
 
 /// <summary>
@@ -2163,69 +1809,11 @@ uint8_t * PMD::vol_one_up_pcm(Channel * qq, uint8_t * si)
 {
     int    al;
 
-    al = (int) *si++ + qq->volume;
+    al = (int) *si++ + qq->Volume;
     if (al > 254) al = 254;
     al++;
     qq->volpush = al;
     _Driver.volpush_flag = 1;
-    return si;
-}
-
-//  COMMAND 'p' [Panning Set]
-uint8_t * PMD::pansetm(Channel * qq, uint8_t * si)
-{
-    qq->fmpan = (*si << 6) & 0xc0;
-    return si + 1;
-}
-
-//  COMMAND 'p' [Panning Set]
-//  p0    逆相
-//  p1    右
-//  p2    左
-//  p3    中
-uint8_t * PMD::panset8(Channel *, uint8_t * si)
-{
-    int    flag, data;
-
-    data = 0;
-
-    switch (*si++)
-    {
-        case 1:          // Right
-            flag = 2;
-            data = 1;
-            break;
-
-        case 2:          // Left
-            flag = 1;
-            data = 0;
-            break;
-
-        case 3:          // Center
-            flag = 3;
-            data = 0;
-            break;
-
-        default:          // 逆相
-            flag = 3 | 4;
-            data = 0;
-
-    }
-
-    _P86->SetPan(flag, data);
-
-    return si;
-}
-
-//  COMMAND 'p' [Panning Set]
-//    0=0  無音
-//    1=9  右
-//    2=1  左
-//    3=5  中央
-uint8_t * PMD::pansetz(Channel * qq, uint8_t * si)
-{
-    qq->fmpan = ppzpandata[*si++];
-    _PPZ8->SetPan(_Driver.CurrentChannel, qq->fmpan);
     return si;
 }
 
@@ -2247,8 +1835,8 @@ uint8_t * PMD::pansetz_ex(Channel * qq, uint8_t * si)
         al = -4;
     }
 
-    qq->fmpan = al + 5;
-    _PPZ8->SetPan(_Driver.CurrentChannel, qq->fmpan);
+    qq->Panning = al + 5;
+    _PPZ8->SetPan(_Driver.CurrentChannel, qq->Panning);
     return si;
 }
 
@@ -2632,7 +2220,7 @@ uint8_t * PMD::SetSlotMask(Channel * track, uint8_t * si)
         else
             track->PartMask &= 0xDF;  // Unmask part when other than s0
 
-        if (ch3_setting(track))
+        if (SetFMChannel3Mode(track))
         {
             // Change process of ch3mode only for FM3ch. If it is ch3, keyon processing in the previous FM3 part
             if (track != &_FMTrack[2])
@@ -2711,7 +2299,7 @@ uint8_t * PMD::slotdetune_set(Channel * qq, uint8_t * si)
         _Driver.slotdetune_flag = 0;
         _State.slot_detune1 = 0;
     }
-    ch3mode_set(qq);
+    SetFMChannel3Mode2(qq);
     return si;
 }
 
@@ -2759,33 +2347,7 @@ uint8_t * PMD::slotdetune_set2(Channel * qq, uint8_t * si)
         _Driver.slotdetune_flag = 0;
         _State.slot_detune1 = 0;
     }
-    ch3mode_set(qq);
-    return si;
-}
-
-//  ppz 拡張パートセット
-uint8_t * PMD::ppz_extpartset(Channel *, uint8_t * si)
-{
-    for (size_t i = 0; i < _countof(_PPZ8Track); ++i)
-    {
-        int16_t ax = *(int16_t *) si;
-        si += 2;
-
-        if (ax)
-        {
-            _PPZ8Track[i].Data = &_State.MData[ax];
-            _PPZ8Track[i].Length = 1;          // ｱﾄ 1ｶｳﾝﾄ ﾃﾞ ｴﾝｿｳ ｶｲｼ
-            _PPZ8Track[i].keyoff_flag = -1;      // 現在SetFMKeyOff中
-            _PPZ8Track[i].mdc = -1;          // MDepth Counter (無限)
-            _PPZ8Track[i].mdc2 = -1;          //
-            _PPZ8Track[i]._mdc = -1;          //
-            _PPZ8Track[i]._mdc2 = -1;          //
-            _PPZ8Track[i].Tone = 255;        // rest
-            _PPZ8Track[i].onkai_def = 255;      // rest
-            _PPZ8Track[i].volume = 128;        // PCM VOLUME DEFAULT= 128
-            _PPZ8Track[i].fmpan = 5;          // PAN=Middle
-        }
-    }
+    SetFMChannel3Mode2(qq);
     return si;
 }
 
@@ -2804,7 +2366,7 @@ uint8_t * PMD::volmask_set(Channel * qq, uint8_t * si)
     {
         qq->VolumeMask1 = qq->carrier;
     }
-    ch3_setting(qq);
+    SetFMChannel3Mode(qq);
     return si;
 }
 
@@ -3094,7 +2656,7 @@ uint8_t * PMD::_volmask_set(Channel * qq, uint8_t * si)
         qq->VolumeMask2 = qq->carrier;
     }
 
-    ch3_setting(qq);
+    SetFMChannel3Mode(qq);
 
     return si;
 }
@@ -3587,7 +3149,7 @@ uint8_t * PMD::rmsvs_sft(uint8_t * si)
 /// <returns></returns>
 uint8_t * PMD::DecreaseSoundSourceVolumeCommand(Channel * channel, uint8_t * si)
 {
-    int al = channel->volume - *si++;
+    int al = channel->Volume - *si++;
 
     if (al < 0)
         al = 0;
@@ -3865,7 +3427,7 @@ void PMD::StartOPNInterrupt()
     ::memset(&_DummyTrack, 0, sizeof(_DummyTrack));
     ::memset(_ExtensionTrack, 0, sizeof(_ExtensionTrack));
     ::memset(&_EffectTrack, 0, sizeof(_EffectTrack));
-    ::memset(_PPZ8Track, 0, sizeof(_PPZ8Track));
+    ::memset(_PPZChannel, 0, sizeof(_PPZChannel));
 
     _State.RhythmMask = 255;
 
@@ -4110,7 +3672,7 @@ void PMD::InitializeState()
         _FMTrack[i].PartMask = PartMask & 0x0f;
         _FMTrack[i].keyon_flag = keyon_flag;
         _FMTrack[i].Tone = 255;
-        _FMTrack[i].onkai_def = 255;
+        _FMTrack[i].DefaultTone = 255;
     }
 
     for (int i = 0; i < 3; ++i)
@@ -4123,7 +3685,7 @@ void PMD::InitializeState()
         _SSGTrack[i].PartMask = PartMask & 0x0f;
         _SSGTrack[i].keyon_flag = keyon_flag;
         _SSGTrack[i].Tone = 255;
-        _SSGTrack[i].onkai_def = 255;
+        _SSGTrack[i].DefaultTone = 255;
     }
 
     {
@@ -4135,7 +3697,7 @@ void PMD::InitializeState()
         _ADPCMTrack.PartMask = partmask & 0x0f;
         _ADPCMTrack.keyon_flag = keyon_flag;
         _ADPCMTrack.Tone = 255;
-        _ADPCMTrack.onkai_def = 255;
+        _ADPCMTrack.DefaultTone = 255;
     }
 
     {
@@ -4147,7 +3709,7 @@ void PMD::InitializeState()
         _RhythmTrack.PartMask = partmask & 0x0f;
         _RhythmTrack.keyon_flag = keyon_flag;
         _RhythmTrack.Tone = 255;
-        _RhythmTrack.onkai_def = 255;
+        _RhythmTrack.DefaultTone = 255;
     }
 
     for (int i = 0; i < 3; ++i)
@@ -4160,20 +3722,20 @@ void PMD::InitializeState()
         _ExtensionTrack[i].PartMask = partmask & 0x0f;
         _ExtensionTrack[i].keyon_flag = keyon_flag;
         _ExtensionTrack[i].Tone = 255;
-        _ExtensionTrack[i].onkai_def = 255;
+        _ExtensionTrack[i].DefaultTone = 255;
     }
 
     for (int i = 0; i < 8; ++i)
     {
-        int partmask = _PPZ8Track[i].PartMask;
-        int keyon_flag = _PPZ8Track[i].keyon_flag;
+        int partmask = _PPZChannel[i].PartMask;
+        int keyon_flag = _PPZChannel[i].keyon_flag;
 
-        ::memset(&_PPZ8Track[i], 0, sizeof(Channel));
+        ::memset(&_PPZChannel[i], 0, sizeof(Channel));
 
-        _PPZ8Track[i].PartMask = partmask & 0x0f;
-        _PPZ8Track[i].keyon_flag = keyon_flag;
-        _PPZ8Track[i].Tone = 255;
-        _PPZ8Track[i].onkai_def = 255;
+        _PPZChannel[i].PartMask = partmask & 0x0f;
+        _PPZChannel[i].keyon_flag = keyon_flag;
+        _PPZChannel[i].Tone = 255;
+        _PPZChannel[i].DefaultTone = 255;
     }
 
     _Driver.TieMode = 0;
@@ -4224,9 +3786,9 @@ void PMD::InitializeTracks()
         _FMTrack[i]._mdc = -1;      // 同上
         _FMTrack[i]._mdc2 = -1;      // 同上
         _FMTrack[i].Tone = 255;      // rest
-        _FMTrack[i].onkai_def = 255;    // rest
-        _FMTrack[i].volume = 108;      // FM  VOLUME DEFAULT= 108
-        _FMTrack[i].fmpan = 0xc0;      // FM PAN = Middle
+        _FMTrack[i].DefaultTone = 255;    // rest
+        _FMTrack[i].Volume = 108;      // FM  VOLUME DEFAULT= 108
+        _FMTrack[i].Panning = 0xc0;      // FM PAN = Middle
         _FMTrack[i].SlotMask = 0xf0;    // FM SLOT MASK
         _FMTrack[i].ToneMask = 0xff;    // FM Neiro MASK
 
@@ -4247,8 +3809,8 @@ void PMD::InitializeTracks()
         _SSGTrack[i]._mdc = -1;      // 同上
         _SSGTrack[i]._mdc2 = -1;      // 同上
         _SSGTrack[i].Tone = 255;      // rest
-        _SSGTrack[i].onkai_def = 255;    // rest
-        _SSGTrack[i].volume = 8;      // SSG VOLUME DEFAULT= 8
+        _SSGTrack[i].DefaultTone = 255;    // rest
+        _SSGTrack[i].Volume = 8;      // SSG VOLUME DEFAULT= 8
         _SSGTrack[i].psgpat = 7;      // SSG = TONE
         _SSGTrack[i].envf = 3;      // SSG ENV = NONE/normal
 
@@ -4268,9 +3830,9 @@ void PMD::InitializeTracks()
         _ADPCMTrack._mdc = -1;      // 同上
         _ADPCMTrack._mdc2 = -1;      // 同上
         _ADPCMTrack.Tone = 255;      // rest
-        _ADPCMTrack.onkai_def = 255;    // rest
-        _ADPCMTrack.volume = 128;      // PCM VOLUME DEFAULT= 128
-        _ADPCMTrack.fmpan = 0xc0;      // PCM PAN = Middle
+        _ADPCMTrack.DefaultTone = 255;    // rest
+        _ADPCMTrack.Volume = 128;      // PCM VOLUME DEFAULT= 128
+        _ADPCMTrack.Panning = 0xc0;      // PCM PAN = Middle
 
         Offsets++;
     }
@@ -4288,8 +3850,8 @@ void PMD::InitializeTracks()
         _RhythmTrack._mdc = -1;      // 同上
         _RhythmTrack._mdc2 = -1;      // 同上
         _RhythmTrack.Tone = 255;      // rest
-        _RhythmTrack.onkai_def = 255;    // rest
-        _RhythmTrack.volume = 15;      // PPSDRV volume
+        _RhythmTrack.DefaultTone = 255;    // rest
+        _RhythmTrack.Volume = 15;      // PPSDRV volume
 
         Offsets++;
     }

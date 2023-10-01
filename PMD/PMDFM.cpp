@@ -126,7 +126,7 @@ void PMD::FMMain(Channel * channel)
 
                     channel->fnum = 0; // Set to rest
                     channel->Tone = 0xFF;
-                    channel->onkai_def = 0xFF;
+                    channel->DefaultTone = 0xFF;
                     channel->Length = *si++;
                     channel->keyon_flag++;
                     channel->Data = si;
@@ -148,7 +148,7 @@ void PMD::FMMain(Channel * channel)
         if (channel->hldelay_c)
         {
             if (--channel->hldelay_c == 0)
-                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + (_Driver.CurrentChannel - 1 + 0xb4)), (uint32_t) channel->fmpan);
+                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + (_Driver.CurrentChannel - 1 + 0xb4)), (uint32_t) channel->Panning);
         }
 
         if (channel->sdelay_c)
@@ -216,7 +216,7 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
     {
         case 0xff: si = ChangeProgramCommand(channel, si); break;
         case 0xfe: channel->qdata = *si++; channel->qdat3 = 0; break;
-        case 0xfd: channel->volume = *si++; break;
+        case 0xfd: channel->Volume = *si++; break;
         case 0xfc: si = ChangeTempoCommand(si); break;
 
         case 0xfb:
@@ -229,10 +229,10 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
         case 0xf7: si = ExitLoopCommand(channel, si); break;
         case 0xf6: channel->LoopData = si; break;
         case 0xf5: channel->shift = *(int8_t *) si++; break;
-        case 0xf4: if ((channel->volume += 4) > 127) channel->volume = 127; break;
-        case 0xf3: if (channel->volume < 4) channel->volume = 0; else channel->volume -= 4; break;
+        case 0xf4: if ((channel->Volume += 4) > 127) channel->Volume = 127; break;
+        case 0xf3: if (channel->Volume < 4) channel->Volume = 0; else channel->Volume -= 4; break;
         case 0xf2: si = SetLFOParameter(channel, si); break;
-        case 0xf1: si = lfoswitch(channel, si); ch3_setting(channel); break;
+        case 0xf1: si = lfoswitch(channel, si); SetFMChannel3Mode(channel); break;
         case 0xf0: si += 4; break;
 
         case 0xef:
@@ -243,7 +243,7 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
         case 0xee: si++; break;
         case 0xed: si++; break;
 
-        case 0xec: si = panset(channel, si); break;        // FOR SB2
+        case 0xec: si = SetFMPanning(channel, si); break;        // FOR SB2
 
         case 0xeb: si = RhythmInstrumentCommand(si); break;
         case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
@@ -257,15 +257,15 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
         case 0xe4: channel->hldelay = *si++; break;
 
         case 0xe3:
-            if ((channel->volume += *si++) > 127)
-                channel->volume = 127;
+            if ((channel->Volume += *si++) > 127)
+                channel->Volume = 127;
             break;
 
         case 0xe2:
-            if (channel->volume < *si)
-                channel->volume = 0;
+            if (channel->Volume < *si)
+                channel->Volume = 0;
             else
-                channel->volume -= *si;
+                channel->Volume -= *si;
             si++;
             break;
 
@@ -318,15 +318,15 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
         case 0xc9: si++; break;
         case 0xc8: si = slotdetune_set(channel, si); break;
         case 0xc7: si = slotdetune_set2(channel, si); break;
-        case 0xc6: si = fm3_extpartset(channel, si); break;
+        case 0xc6: si = SetFMChannel3ModeEx(channel, si); break;
         case 0xc5: si = volmask_set(channel, si); break;
         case 0xc4: channel->qdatb = *si++; break;
-        case 0xc3: si = panset_ex(channel, si); break;
+        case 0xc3: si = SetFMPanningExtend(channel, si); break;
         case 0xc2: channel->delay = channel->delay2 = *si++; lfoinit_main(channel); break;
         case 0xc1: break;
         case 0xc0: si = fm_mml_part_mask(channel, si); break;
         case 0xbf: SwapLFO(channel); si = SetLFOParameter(channel, si); SwapLFO(channel); break;
-        case 0xbe: si = _lfoswitch(channel, si); ch3_setting(channel); break;
+        case 0xbe: si = _lfoswitch(channel, si); SetFMChannel3Mode(channel); break;
         case 0xbd:
             SwapLFO(channel);
 
@@ -403,7 +403,7 @@ void PMD::SetFMVolumeCommand(Channel * channel)
     if (channel->SlotMask == 0)
         return;
 
-    int cl = (channel->volpush) ? channel->volpush - 1 : channel->volume;
+    int cl = (channel->volpush) ? channel->volpush - 1 : channel->Volume;
 
     if (channel != &_EffectTrack)
     {  // 効果音の場合はvoldown/fadeout影響無し
@@ -542,9 +542,64 @@ void PMD::SetFMKeyOff(Channel * channel)
     }
 }
 
+// Command "p"
+uint8_t * PMD::SetFMPanning(Channel * channel, uint8_t * si)
+{
+    SetFMPanningMain(channel, *si++);
+
+    return si;
+}
+
+uint8_t * PMD::SetFMPanningExtend(Channel * channel, uint8_t * si)
+{
+    int al = *(int8_t *) si++;
+
+    si++; // Skip the Reverse Running flag
+
+    if (al > 0)
+    {
+        al = 2;
+        SetFMPanningMain(channel, al);
+    }
+    else
+    if (al == 0)
+    {
+        al = 3;
+        SetFMPanningMain(channel, al);
+    }
+    else
+    {
+        al = 1;
+        SetFMPanningMain(channel, al);
+    }
+
+    return si;
+}
+
+void PMD::SetFMPanningMain(Channel * channel, int al)
+{
+    channel->Panning = (channel->Panning & 0x3f) | ((al << 6) & 0xc0);
+
+    if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
+    {
+        // For FM3, set all 4 parts.
+        _FMTrack[2].Panning = channel->Panning;
+
+        _ExtensionTrack[0].Panning = channel->Panning;
+        _ExtensionTrack[1].Panning = channel->Panning;
+        _ExtensionTrack[2].Panning = channel->Panning;
+    }
+
+    if (channel->PartMask == 0x00)
+    {    // パートマスクされているか？
+// dl = al;
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), calc_panout(channel));
+    }
+}
+
 uint8_t * PMD::IncreaseFMVolumeCommand(Channel * channel, uint8_t * si)
 {
-    int al = (int) channel->volume + 1 + *si++;
+    int al = (int) channel->Volume + 1 + *si++;
 
     if (al > 128)
         al = 128;
@@ -644,31 +699,125 @@ uint8_t * PMD::SetFMEffect(Channel *, uint8_t * si)
     return si + 1;
 }
 
-//  FM3ch 拡張パートセット
-uint8_t * PMD::fm3_extpartset(Channel *, uint8_t * si)
+int PMD::SetFMChannel3Mode(Channel * channel)
+{
+    if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
+    {
+        SetFMChannel3Mode2(channel);
+
+        return 1;
+    }
+
+    return 0;
+}
+
+void PMD::SetFMChannel3Mode2(Channel * channel)
+{
+    int al;
+
+    if (channel == &_FMTrack[2])
+        al = 1;
+    else
+    if (channel == &_ExtensionTrack[0])
+        al = 2;
+    else
+    if (channel == &_ExtensionTrack[1])
+        al = 4;
+    else
+        al = 8;
+
+    int ah;
+
+    if ((channel->SlotMask & 0xF0) == 0)
+    {
+        cm_clear(&ah, &al); // s0
+    }
+    else
+    if (channel->SlotMask != 0xF0)
+    {
+        _Driver.slot3_flag |= al;
+        ah = 0x7f;
+    }
+    else
+
+    if ((channel->VolumeMask1 & 0x0F) == 0)
+    {
+        cm_clear(&ah, &al);
+    }
+    else
+    if ((channel->lfoswi & 1) != 0)
+    {
+        _Driver.slot3_flag |= al;
+        ah = 0x7f;
+    }
+    else
+
+    if ((channel->VolumeMask2 & 0x0F) == 0)
+    {
+        cm_clear(&ah, &al);
+    }
+    else
+    if (channel->lfoswi & 0x10)
+    {
+        _Driver.slot3_flag |= al;
+        ah = 0x7f;
+    }
+    else
+    {
+        cm_clear(&ah, &al);
+    }
+
+    if ((uint32_t) ah == _State.ch3mode)
+        return;
+
+    _State.ch3mode = (uint32_t) ah;
+
+    _OPNAW->SetReg(0x27, (uint32_t) (ah & 0xCF)); // Don't reset.
+
+    // When moving to sound effect mode, the pitch is rewritten with the previous FM3 part
+    if (ah == 0x3F || channel == &_FMTrack[2])
+        return;
+
+    if (_FMTrack[2].PartMask == 0x00)
+        SetFMPitch(&_FMTrack[2]);
+
+    if (channel == &_ExtensionTrack[0])
+        return;
+
+    if (_ExtensionTrack[0].PartMask == 0x00)
+        SetFMPitch(&_ExtensionTrack[0]);
+
+    if (channel == &_ExtensionTrack[1])
+        return;
+
+    if (_ExtensionTrack[1].PartMask == 0x00)
+        SetFMPitch(&_ExtensionTrack[1]);
+}
+
+uint8_t * PMD::SetFMChannel3ModeEx(Channel *, uint8_t * si)
 {
     int16_t ax = *(int16_t *) si;
     si += 2;
 
     if (ax)
-        fm3_partinit(&_ExtensionTrack[0], &_State.MData[ax]);
+        InitializeFMChannel3(&_ExtensionTrack[0], &_State.MData[ax]);
 
     ax = *(int16_t *) si;
     si += 2;
 
     if (ax)
-         fm3_partinit(&_ExtensionTrack[1], &_State.MData[ax]);
+         InitializeFMChannel3(&_ExtensionTrack[1], &_State.MData[ax]);
 
     ax = *(int16_t *) si;
     si += 2;
 
     if (ax)
-        fm3_partinit(&_ExtensionTrack[2], &_State.MData[ax]);
+        InitializeFMChannel3(&_ExtensionTrack[2], &_State.MData[ax]);
 
     return si;
 }
 
-void PMD::fm3_partinit(Channel * channel, uint8_t * ax)
+void PMD::InitializeFMChannel3(Channel * channel, uint8_t * ax)
 {
     channel->Data = ax;
     channel->Length = 1;          // ｱﾄ 1ｶｳﾝﾄ ﾃﾞ ｴﾝｿｳ ｶｲｼ
@@ -678,24 +827,24 @@ void PMD::fm3_partinit(Channel * channel, uint8_t * ax)
     channel->_mdc = -1;          //
     channel->_mdc2 = -1;          //
     channel->Tone = 255;        // rest
-    channel->onkai_def = 255;      // rest
-    channel->volume = 108;        // FM  VOLUME DEFAULT= 108
-    channel->fmpan = _FMTrack[2].fmpan;  // FM PAN = CH3と同じ
+    channel->DefaultTone = 255;      // rest
+    channel->Volume = 108;        // FM  VOLUME DEFAULT= 108
+    channel->Panning = _FMTrack[2].Panning;  // FM PAN = CH3と同じ
     channel->PartMask |= 0x20;      // s0用 partmask
 }
 
 // FM tone generator hard LFO setting.
 uint8_t * PMD::hlfo_set(Channel * channel, uint8_t * si)
 {
-    channel->fmpan = (channel->fmpan & 0xc0) | *si++;
+    channel->Panning = (channel->Panning & 0xc0) | *si++;
 
-    if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
+    if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
     {
         // Part_e is impossible because it is only for 2608. For FM3, set all four parts
-        _FMTrack[2].fmpan = channel->fmpan;
-        _ExtensionTrack[0].fmpan = channel->fmpan;
-        _ExtensionTrack[1].fmpan = channel->fmpan;
-        _ExtensionTrack[2].fmpan = channel->fmpan;
+        _FMTrack[2].Panning = channel->Panning;
+        _ExtensionTrack[0].Panning = channel->Panning;
+        _ExtensionTrack[1].Panning = channel->Panning;
+        _ExtensionTrack[2].Panning = channel->Panning;
     }
 
     if (channel->PartMask == 0x00)
