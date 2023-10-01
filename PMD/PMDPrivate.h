@@ -77,15 +77,19 @@ struct DriverState
 
 struct EffectState
 {
-    int * effadr; // effect address
-    int eswthz;  // Tone sweep frequency
-    int eswtst;  // Tone sweep increment
-    int effcnt;  // Effect count
-    int eswnhz;  // Noise sweep frequency
-    int eswnst;  // Noise sweep increment
-    int eswnct;  // Noise sweep count
+    int * Address;
+
+    int ToneSweepFrequency;
+    int ToneSweepIncrement;
+    int ToneSweepCounter;
+
+    int NoiseSweepFrequency;
+    int NoiseSweepIncrement;
+    int NoiseSweepCounter;
+
     int effon;  // Sound effect sounding
-    int psgefcnum; // Sound effect number
+    int EffectNumber;
+
     int hosei_flag; // ppsdrv Whether to perform volume/pitch correction
     int last_shot_data;  // The last PPSDRV tone played
 };
@@ -215,8 +219,6 @@ struct Channel
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 struct State
 {
-    Channel * Channel[MaxChannels];
-
     uint8_t * MData;            // Address of MML data + 1
 
     uint8_t * VData;            // Voice data
@@ -229,12 +231,13 @@ struct State
 
     uint16_t * RhythmDataTable; // Rhythm Data table
 
-    bool UseRhythm;             // Use Rhythm sound source with K/R part flag
-
+    bool UseRhythm;             // Use Rhythm sound source with K/R part.
     bool UseFM55kHzSynthesis;
     bool UseInterpolationPPZ8;
     bool UseInterpolationPPS;
     bool UseInterpolationP86;
+
+    Channel * Channel[MaxChannels];
 
     int RhythmMask;             // Rhythm sound source mask. Compatible with x8c/10h bit
     int RhythmVolume;           // Rhythm volume
@@ -271,8 +274,8 @@ struct State
     int OpsCounter; // Shortest note counter
 
     int SSGEffectFlag; // SSG sound effect on/off flag (substituted by user)
-    int SSGNoiseFrequency;  // SSG noise frequency
-    int SSGNoiseFrequencyLast; // SSG noise frequency (last defined value)
+    int SSGNoiseFrequency;
+    int OldSSGNoiseFrequency;
 
     int PCMStart;
     int PCMStop;

@@ -210,6 +210,10 @@
     <ClCompile Include="PMD\OPNAW.cpp" />
     <ClCompile Include="PMD\P86.cpp" />
     <ClCompile Include="PMD\PMD.cpp" />
+    <ClCompile Include="PMD\PMDEffect.cpp" />
+    <ClCompile Include="PMD\PMDFM.cpp" />
+    <ClCompile Include="PMD\PMDRhythm.cpp" />
+    <ClCompile Include="PMD\PMDSSG.cpp" />
     <ClCompile Include="PMD\PPS.cpp" />
     <ClCompile Include="PMD\PPZ.cpp" />
     <ClCompile Include="PMD\Table.cpp" />

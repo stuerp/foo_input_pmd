@@ -6,10 +6,10 @@
 #include "OPNA.h"
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
-struct EFFTBL
+struct SSGEffect
 {
-    int priority;
-    const int * table;
+    int Priority;
+    const int * Data;
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member
 
@@ -23,4 +23,4 @@ extern const int carrier_table[];
 extern const int rhydat[][3];
 extern const int ppzpandata[];
 
-extern const EFFTBL SSGEffects[];
+extern const SSGEffect SSGEffects[];

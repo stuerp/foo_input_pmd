@@ -101,8 +101,8 @@ public:
     void SetPPSInterpolation(bool ip);
     void SetP86Interpolation(bool ip);
 
-    int EnableChannel(int ch);
     int DisableChannel(int ch);
+    int EnableChannel(int ch);
 
     void setfmvoldown(int voldown);
     void setssgvoldown(int voldown);
@@ -210,11 +210,11 @@ protected:
 
     void effgo(Channel * track, int al);
     void eff_on2(Channel * track, int al);
-    void eff_main(Channel * track, int al);
+    void EffectMain(Channel * track, int al);
     void effplay();
     void efffor(const int * si);
-    void effend();
-    void effsweep();
+    void EffectStop();
+    void EffectSweep();
 
     uint8_t * pdrswitch(Channel * track, uint8_t * si);
 
@@ -243,9 +243,9 @@ protected:
     uint8_t * comatm(Channel * track, uint8_t * si);
     uint8_t * comat8(Channel * track, uint8_t * si);
     uint8_t * comatz(Channel * track, uint8_t * si);
-    uint8_t * CommandSetStartOfLoop(Channel * track, uint8_t * si);
-    uint8_t * CommandSetEndOfLoop(Channel * track, uint8_t * si);
-    uint8_t * CommandExitLoop(Channel * track, uint8_t * si);
+    uint8_t * SetStartOfLoopCommand(Channel * track, uint8_t * si);
+    uint8_t * SetEndOfLoopCommand(Channel * track, uint8_t * si);
+    uint8_t * ExitLoopCommand(Channel * track, uint8_t * si);
     uint8_t * extend_psgenvset(Channel * track, uint8_t * si);
 
     int lfoinit(Channel * track, int al);
@@ -253,16 +253,16 @@ protected:
 
     uint8_t * lfoset(Channel * track, uint8_t * si);
     uint8_t * psgenvset(Channel * track, uint8_t * si);
-    uint8_t * rhykey(uint8_t * si);
-    uint8_t * rhyvs(uint8_t * si);
+    uint8_t * RhythmInstrumentCommand(uint8_t * si);
+    uint8_t * SetRhythmInstrumentVolumeCommand(uint8_t * si);
     uint8_t * rpnset(uint8_t * si);
-    uint8_t * rmsvs(uint8_t * si);
+    uint8_t * SetRhythmMasterVolumeCommand(uint8_t * si);
     uint8_t * rmsvs_sft(uint8_t * si);
     uint8_t * rhyvs_sft(uint8_t * si);
 
     uint8_t * vol_one_up_psg(Channel * track, uint8_t * si);
     uint8_t * vol_one_up_pcm(Channel * track, uint8_t * si);
-    uint8_t * vol_one_down(Channel * track, uint8_t * si);
+    uint8_t * DecreaseSoundSourceVolumeCommand(Channel * track, uint8_t * si);
     uint8_t * portap(Channel * track, uint8_t * si);
     uint8_t * portam(Channel * track, uint8_t * si);
     uint8_t * portaz(Channel * track, uint8_t * si);
@@ -296,9 +296,9 @@ protected:
     void ch3mode_set(Channel * track);
     void ch3_special(Channel * track, int ax, int cx);
 
-    void volset(Channel * track);
+    void SetFMVolumeCommand(Channel * track);
     void volsetp(Channel * track);
-    void volsetm(Channel * track);
+    void SetPCMVolumeCommand(Channel * track);
     void volset8(Channel * track);
     void volsetz(Channel * track);
 

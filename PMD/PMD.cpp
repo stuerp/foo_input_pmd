@@ -253,7 +253,7 @@ void PMD::Reset()
 
     // Initialize sound effects FMINT/EFCINT.
     _EffectState.effon = 0;
-    _EffectState.psgefcnum = 0xff;
+    _EffectState.EffectNumber = 0xFF;
 }
 
 bool PMD::IsPMD(const uint8_t * data, size_t size) noexcept
@@ -962,14 +962,14 @@ bool PMD::GetPMDB2CompatibilityMode()
 }
 
 /// <summary>
-/// Enables the specified channel.
+/// Disables the specified channel.
 /// </summary>
-int PMD::EnableChannel(int ch)
+int PMD::DisableChannel(int channel)
 {
-    if (ch >= MaxChannels)
+    if (channel >= MaxChannels)
         return ERR_WRONG_PARTNO;
 
-    if (ChannelTable[ch][0] < 0)
+    if (ChannelTable[channel][0] < 0)
     {
         _State.RhythmMask = 0;      // Mask the Rhythm sound source.
 
@@ -980,27 +980,27 @@ int PMD::EnableChannel(int ch)
 
     int OldFMSelector = _DriverState.FMSelector;
 
-    if ((_State.Channel[ch]->PartMask == 0x00) && _State.IsPlaying)
+    if ((_State.Channel[channel]->PartMask == 0x00) && _State.IsPlaying)
     {
-        if (ChannelTable[ch][2] == 0)
+        if (ChannelTable[channel][2] == 0)
         {
-            _DriverState.CurrentChannel = ChannelTable[ch][1];
+            _DriverState.CurrentChannel = ChannelTable[channel][1];
             _DriverState.FMSelector = 0;
 
-            MuteFMPart(_State.Channel[ch]);
+            MuteFMPart(_State.Channel[channel]);
         }
         else
-        if (ChannelTable[ch][2] == 1)
+        if (ChannelTable[channel][2] == 1)
         {
-            _DriverState.CurrentChannel = ChannelTable[ch][1];
+            _DriverState.CurrentChannel = ChannelTable[channel][1];
             _DriverState.FMSelector = 0x100;
 
-            MuteFMPart(_State.Channel[ch]);
+            MuteFMPart(_State.Channel[channel]);
         }
         else
-        if (ChannelTable[ch][2] == 2)
+        if (ChannelTable[channel][2] == 2)
         {
-            _DriverState.CurrentChannel = ChannelTable[ch][1];
+            _DriverState.CurrentChannel = ChannelTable[channel][1];
 
             int ah = 1 << (_DriverState.CurrentChannel - 1);
 
@@ -1010,23 +1010,23 @@ int PMD::EnableChannel(int ch)
             _OPNAW->SetReg(0x07, ah | _OPNAW->GetReg(0x07));
         }
         else
-        if (ChannelTable[ch][2] == 3)
+        if (ChannelTable[channel][2] == 3)
         {
             _OPNAW->SetReg(0x101, 0x02);    // PAN=0 / x8 bit mode
             _OPNAW->SetReg(0x100, 0x01);    // PCM RESET
         }
         else
-        if (ChannelTable[ch][2] == 4)
+        if (ChannelTable[channel][2] == 4)
         {
-            if (_EffectState.psgefcnum < 11)
-                effend();
+            if (_EffectState.EffectNumber < 11)
+                EffectStop();
         }
         else
-        if (ChannelTable[ch][2] == 5)
-            _PPZ8->Stop(ChannelTable[ch][1]);
+        if (ChannelTable[channel][2] == 5)
+            _PPZ8->Stop(ChannelTable[channel][1]);
     }
 
-    _State.Channel[ch]->PartMask |= 0x01;
+    _State.Channel[channel]->PartMask |= 0x01;
 
     _DriverState.FMSelector = OldFMSelector;
 
@@ -1034,24 +1034,24 @@ int PMD::EnableChannel(int ch)
 }
 
 /// <summary>
-/// Disables the specified channel.
+/// Enables the specified channel.
 /// </summary>
-int PMD::DisableChannel(int ch)
+int PMD::EnableChannel(int channel)
 {
-    if (ch >= MaxChannels)
+    if (channel >= MaxChannels)
         return ERR_WRONG_PARTNO;
 
-    if (ChannelTable[ch][0] < 0)
+    if (ChannelTable[channel][0] < 0)
     {
         _State.RhythmMask = 0xFF;
 
         return ERR_SUCCESS;
     }
 
-    if (_State.Channel[ch]->PartMask == 0x00)
+    if (_State.Channel[channel]->PartMask == 0x00)
         return ERR_NOT_MASKED;
 
-    if ((_State.Channel[ch]->PartMask &= 0xFE) != 0)
+    if ((_State.Channel[channel]->PartMask &= 0xFE) != 0)
         return ERR_EFFECT_USED;
 
     if (!_State.IsPlaying)
@@ -1059,22 +1059,22 @@ int PMD::DisableChannel(int ch)
 
     int OldFMSelector = _DriverState.FMSelector;
 
-    if (_State.Channel[ch]->Data)
+    if (_State.Channel[channel]->Data)
     {
-        if (ChannelTable[ch][2] == 0)
+        if (ChannelTable[channel][2] == 0)
         {   // FM sound source (Front)
             _DriverState.FMSelector = 0;
-            _DriverState.CurrentChannel = ChannelTable[ch][1];
+            _DriverState.CurrentChannel = ChannelTable[channel][1];
 
-            ResetTone(_State.Channel[ch]);
+            ResetTone(_State.Channel[channel]);
         }
         else
-        if (ChannelTable[ch][2] == 1)
+        if (ChannelTable[channel][2] == 1)
         {   // FM sound source (Back)
             _DriverState.FMSelector = 0x100;
-            _DriverState.CurrentChannel = ChannelTable[ch][1];
+            _DriverState.CurrentChannel = ChannelTable[channel][1];
 
-            ResetTone(_State.Channel[ch]);
+            ResetTone(_State.Channel[channel]);
         }
     }
 
@@ -1356,7 +1356,7 @@ void PMD::HandleTimerA()
     if ((_State.TimerATime & 7) == 0)
         Fade();
 
-    if (_EffectState.effon && (!_DriverState.UsePPS || _EffectState.psgefcnum == 0x80))
+    if (_EffectState.effon && (!_DriverState.UsePPS || _EffectState.EffectNumber == 0x80))
         effplay(); // SSG Sound Source effect processing
 
     _State.IsTimerABusy = false;
@@ -1579,7 +1579,7 @@ void PMD::FMMain(Channel * track)
                         }
                     }
 
-                    volset(track);
+                    SetFMVolumeCommand(track);
                     Otodasi(track);
                     KeyOn(track);
 
@@ -1672,7 +1672,7 @@ void PMD::FMMain(Channel * track)
 
             if (_DriverState.lfo_switch & 0x22)
             {
-                volset(track);
+                SetFMVolumeCommand(track);
                 _DriverState.loop_work &= track->loopcheck;
 
                 return;
@@ -1680,7 +1680,7 @@ void PMD::FMMain(Channel * track)
         }
 
         if (_State.FadeOutSpeed != 0)
-            volset(track);
+            SetFMVolumeCommand(track);
     }
 
     _DriverState.loop_work &= track->loopcheck;
@@ -2203,15 +2203,14 @@ void PMD::fnumset(Channel * qq, int al)
     }
 }
 
-//  FM volume setting main
-void PMD::volset(Channel * track)
+void PMD::SetFMVolumeCommand(Channel * channel)
 {
-    if (track->SlotMask == 0)
+    if (channel->SlotMask == 0)
         return;
 
-    int cl = (track->volpush) ? track->volpush - 1 : track->volume;
+    int cl = (channel->volpush) ? channel->volpush - 1 : channel->volume;
 
-    if (track != &_EffectTrack)
+    if (channel != &_EffectTrack)
     {  // 効果音の場合はvoldown/fadeout影響無し
 //--------------------------------------------------------------------
 //  音量down計算
@@ -2230,12 +2229,12 @@ void PMD::volset(Channel * track)
     //    input  cl to Volume[0-127]
     //      bl to SlotMask
     int bh = 0;          // Vol Slot Mask
-    int bl = track->SlotMask;    // ch=SlotMask Push
+    int bl = channel->SlotMask;    // ch=SlotMask Push
 
     uint8_t vol_tbl[4] = { 0x80, 0x80, 0x80, 0x80 };
 
     cl = 255 - cl;      // cl=carrierに設定する音量+80H(add)
-    bl &= track->carrier;    // bl=音量を設定するSLOT xxxx0000b
+    bl &= channel->carrier;    // bl=音量を設定するSLOT xxxx0000b
     bh |= bl;
 
     if (bl & 0x80) vol_tbl[0] = (uint8_t) cl;
@@ -2245,31 +2244,31 @@ void PMD::volset(Channel * track)
 
     if (cl != 255)
     {
-        if (track->lfoswi & 2)
+        if (channel->lfoswi & 2)
         {
-            bl = track->VolumeMask1;
-            bl &= track->SlotMask;    // bl=音量LFOを設定するSLOT xxxx0000b
+            bl = channel->VolumeMask1;
+            bl &= channel->SlotMask;    // bl=音量LFOを設定するSLOT xxxx0000b
             bh |= bl;
 
-            fmlfo_sub(track, track->lfodat, bl, vol_tbl);
+            fmlfo_sub(channel, channel->lfodat, bl, vol_tbl);
         }
 
-        if (track->lfoswi & 0x20)
+        if (channel->lfoswi & 0x20)
         {
-            bl = track->VolumeMask2;
-            bl &= track->SlotMask;
+            bl = channel->VolumeMask2;
+            bl &= channel->SlotMask;
             bh |= bl;
 
-            fmlfo_sub(track, track->_lfodat, bl, vol_tbl);
+            fmlfo_sub(channel, channel->_lfodat, bl, vol_tbl);
         }
     }
 
     int dh = 0x4c - 1 + _DriverState.CurrentChannel;    // dh=FM Port Address
 
-    if (bh & 0x80) volset_slot(dh,      track->slot4, vol_tbl[0]);
-    if (bh & 0x40) volset_slot(dh -  8, track->slot3, vol_tbl[1]);
-    if (bh & 0x20) volset_slot(dh -  4, track->slot2, vol_tbl[2]);
-    if (bh & 0x10) volset_slot(dh - 12, track->slot1, vol_tbl[3]);
+    if (bh & 0x80) volset_slot(dh,      channel->slot4, vol_tbl[0]);
+    if (bh & 0x40) volset_slot(dh -  8, channel->slot3, vol_tbl[1]);
+    if (bh & 0x20) volset_slot(dh -  4, channel->slot2, vol_tbl[2]);
+    if (bh & 0x10) volset_slot(dh - 12, channel->slot1, vol_tbl[3]);
 }
 
 //  スロット毎の計算 & 出力 マクロ
@@ -2697,184 +2696,6 @@ uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
     return _State.RhythmData;
 }
 
-//  SSG Drums & Sound Effects Routine (From WT298)
-//  AL to sound effect No. Enter and CALL
-//  If you have ppsdrv, run it
-void PMD::effgo(Channel * track, int al)
-{
-    if (_DriverState.UsePPS)
-    {
-        al |= 0x80;
-
-        if (_EffectState.last_shot_data == al)
-            _PPS->Stop();
-        else
-            _EffectState.last_shot_data = al;
-    }
-
-    _EffectState.hosei_flag = 3; // With pitch/volume correction (K part)
-
-    eff_main(track, al);
-}
-
-void PMD::eff_on2(Channel * qq, int al)
-{
-    _EffectState.hosei_flag = 1;        //  音程のみ補正あり (n command)
-    eff_main(qq, al);
-}
-
-void PMD::eff_main(Channel * qq, int al)
-{
-    int    ah, bh, bl;
-
-    if (_State.SSGEffectFlag)
-        return;    //  効果音を使用しないモード
-
-    if (_DriverState.UsePPS && (al & 0x80))
-    {  // PPS を鳴らす
-        if (_EffectState.effon >= 2)
-            return;  // 通常効果音発音時は発声させない
-
-        _SSGTrack[2].PartMask |= 0x02;
-
-        _EffectState.effon = 1;        // 優先度１(ppsdrv)
-        _EffectState.psgefcnum = al;      // 音色番号設定 (80H?)
-
-        bh = 0;
-        bl = 15;
-        ah = _EffectState.hosei_flag;
-
-        if (ah & 1)
-            bh = qq->detune % 256;    // BH = Detuneの下位 8bit
-
-        if (ah & 2)
-        {
-            if (qq->volume < 15)
-                bl = qq->volume;    // BL = volume値 (0?15)
-
-            if (_State.FadeOutVolume)
-                bl = (bl * (256 - _State.FadeOutVolume)) >> 8;
-        }
-
-        if (bl)
-        {
-            bl ^= 0x0f;
-            ah = 1;
-            al &= 0x7f;
-
-            _PPS->Play(al, bh, bl);
-        }
-    }
-    else
-    {
-        _EffectState.psgefcnum = al;
-
-        if (_EffectState.effon <= SSGEffects[al].priority)
-        {
-            if (_DriverState.UsePPS)
-                _PPS->Stop();
-
-            _SSGTrack[2].PartMask |= 0x02;
-
-            efffor(SSGEffects[al].table);    // First effect
-
-            _EffectState.effon = SSGEffects[al].priority; // Set priority
-        }
-    }
-}
-
-//  こーかおん　えんそう　めいん
-//   Ｆｒｏｍ　ＶＲＴＣ
-void PMD::effplay()
-{
-    if (--_EffectState.effcnt)
-        effsweep();
-    else
-        efffor(_EffectState.effadr);
-}
-
-void PMD::efffor(const int * si)
-{
-    int al = *si++;
-
-    if (al == -1)
-    {
-        effend();
-    }
-    else
-    {
-        _EffectState.effcnt = al; // Effect count
-
-        int cl = *si;
-
-        _OPNAW->SetReg(4, (uint32_t) (*si++)); // Set frequency
-
-        int ch = *si;
-
-        _OPNAW->SetReg(5, (uint32_t) (*si++)); // Set frequency
-
-        _EffectState.eswthz = (ch << 8) + cl;
-
-        _State.SSGNoiseFrequencyLast = _EffectState.eswnhz = *si;
-
-        _OPNAW->SetReg(6, (uint32_t) *si++); // ノイズ
-
-        _OPNAW->SetReg(7, ((*si++ << 2) & 0x24) | (_OPNAW->GetReg(0x07) & 0xdb));
-
-        _OPNAW->SetReg(10, (uint32_t) *si++); // ボリューム
-        _OPNAW->SetReg(11, (uint32_t) *si++); // エンベロープ周波数
-        _OPNAW->SetReg(12, (uint32_t) *si++);
-        _OPNAW->SetReg(13, (uint32_t) *si++); // エンベロープPATTERN
-
-        _EffectState.eswtst = *si++; // スイープ増分 (TONE)
-        _EffectState.eswnst = *si++; // スイープ増分 (NOISE)
-
-        _EffectState.eswnct = _EffectState.eswnst & 15;    // スイープカウント (NOISE)
-
-        _EffectState.effadr = (int *) si;
-    }
-}
-
-void PMD::effend()
-{
-    if (_DriverState.UsePPS)
-        _PPS->Stop();
-
-    _OPNAW->SetReg(0x0a, 0x00);
-    _OPNAW->SetReg(0x07, ((_OPNAW->GetReg(0x07)) & 0xdb) | 0x24);
-
-    _EffectState.effon = 0;
-    _EffectState.psgefcnum = -1;
-}
-
-// 普段の処理
-void PMD::effsweep()
-{
-    int    dl;
-
-    _EffectState.eswthz += _EffectState.eswtst;
-    _OPNAW->SetReg(4, (uint32_t) LOBYTE(_EffectState.eswthz));
-    _OPNAW->SetReg(5, (uint32_t) HIBYTE(_EffectState.eswthz));
-
-    if (_EffectState.eswnst == 0) return;    // ノイズスイープ無し
-    if (--_EffectState.eswnct) return;
-
-    dl = _EffectState.eswnst;
-    _EffectState.eswnct = dl & 15;
-
-    // used to be "dl / 16"
-    // with negative value division is different from shifting right
-    // division: usually truncated towards zero (mandatory since c99)
-    //   same as x86 idiv
-    // shift: usually arithmetic shift
-    //   same as x86 sar
-
-    _EffectState.eswnhz += dl >> 4;
-
-    _OPNAW->SetReg(6, (uint32_t) _EffectState.eswnhz);
-    _State.SSGNoiseFrequencyLast = _EffectState.eswnhz;
-}
-
 //  PDRのswitch
 uint8_t * PMD::pdrswitch(Channel *, uint8_t * si)
 {
@@ -2996,7 +2817,7 @@ void PMD::ADPCMMain(Channel * track)
                     }
                 }
 
-                volsetm(track);
+                SetPCMVolumeCommand(track);
                 OtodasiM(track);
 
                 if (track->keyoff_flag & 1)
@@ -3059,7 +2880,7 @@ void PMD::ADPCMMain(Channel * track)
     int temp = soft_env(track);
 
     if ((temp != 0) || _DriverState.lfo_switch & 0x22 || (_State.FadeOutSpeed != 0))
-        volsetm(track);
+        SetPCMVolumeCommand(track);
 
     _DriverState.loop_work &= track->loopcheck;
 }
@@ -3547,10 +3368,9 @@ void PMD::OtodasiZ(Channel * track)
     _PPZ8->SetPitch(_DriverState.CurrentChannel, cx);
 }
 
-//  PCM VOLUME SET
-void PMD::volsetm(Channel * qq)
+void PMD::SetPCMVolumeCommand(Channel * channel)
 {
-    int al = qq->volpush ? qq->volpush : qq->volume;
+    int al = channel->volpush ? channel->volpush : channel->volume;
 
     //------------------------------------------------------------------------
     //  音量down計算
@@ -3572,22 +3392,22 @@ void PMD::volsetm(Channel * qq)
         return;
     }
 
-    if (qq->envf == -1)
+    if (channel->envf == -1)
     {
         //  拡張版 音量=al*(eenv_vol+1)/16
-        if (qq->eenv_volume == 0)
+        if (channel->eenv_volume == 0)
         {
             _OPNAW->SetReg(0x10b, 0);
             return;
         }
 
-        al = ((((al * (qq->eenv_volume + 1))) >> 3) + 1) >> 1;
+        al = ((((al * (channel->eenv_volume + 1))) >> 3) + 1) >> 1;
     }
     else
     {
-        if (qq->eenv_volume < 0)
+        if (channel->eenv_volume < 0)
         {
-            int ah = -qq->eenv_volume * 16;
+            int ah = -channel->eenv_volume * 16;
 
             if (al < ah)
             {
@@ -3599,7 +3419,7 @@ void PMD::volsetm(Channel * qq)
         }
         else
         {
-            int ah = qq->eenv_volume * 16;
+            int ah = channel->eenv_volume * 16;
 
             if (al + ah > 255)
                 al = 255;
@@ -3612,16 +3432,16 @@ void PMD::volsetm(Channel * qq)
     //  音量LFO計算
     //--------------------------------------------------------------------
 
-    if ((qq->lfoswi & 0x22) == 0)
+    if ((channel->lfoswi & 0x22) == 0)
     {
         _OPNAW->SetReg(0x10b, (uint32_t) al);
         return;
     }
 
-    int dx = (qq->lfoswi & 2) ? qq->lfodat : 0;
+    int dx = (channel->lfoswi & 2) ? channel->lfodat : 0;
 
-    if (qq->lfoswi & 0x20)
-        dx += qq->_lfodat;
+    if (channel->lfoswi & 0x20)
+        dx += channel->_lfodat;
 
     if (dx >= 0)
     {
@@ -3825,11 +3645,11 @@ void PMD::volsetz(Channel * qq)
 }
 
 //  ADPCM FNUM SET
-void PMD::fnumsetm(Channel * qq, int al)
+void PMD::fnumsetm(Channel * channel, int al)
 {
     if ((al & 0x0f) != 0x0f)
     {      // 音符の場合
-        qq->onkai = al;
+        channel->onkai = al;
 
         int bx = al & 0x0f;          // bx=onkai
         int ch = (al >> 4) & 0x0f;    // cl = octarb
@@ -3852,19 +3672,19 @@ void PMD::fnumsetm(Channel * qq, int al)
                 ch = 0x60;
             }
 
-            qq->onkai = (qq->onkai & 0x0f) | ch;  // onkai値修正
+            channel->onkai = (channel->onkai & 0x0f) | ch;  // onkai値修正
         }
         else
             ax >>= cl;          // ax=ax/[2^OCTARB]
 
-        qq->fnum = (uint32_t) ax;
+        channel->fnum = (uint32_t) ax;
     }
     else
     {            // 休符の場合
-        qq->onkai = 255;
+        channel->onkai = 255;
 
-        if ((qq->lfoswi & 0x11) == 0)
-            qq->fnum = 0;      // 音程LFO未使用
+        if ((channel->lfoswi & 0x11) == 0)
+            channel->fnum = 0;      // 音程LFO未使用
     }
 }
 
@@ -3987,7 +3807,7 @@ uint8_t * PMD::portam(Channel * qq, uint8_t * si)
         }
     }
 
-    volsetm(qq);
+    SetPCMVolumeCommand(qq);
     OtodasiM(qq);
     if (qq->keyoff_flag & 1)
     {
@@ -4426,7 +4246,7 @@ bool PMD::ssgdrum_check(Channel * channel, int al)
 
     // Is the SSG drum still playing?
     if (_EffectState.effon == 1)
-        effend(); // Turn off the SSG drum.
+        EffectStop(); // Turn off the SSG drum.
 
     channel->PartMask &= 0xFD;
 
@@ -4446,9 +4266,9 @@ uint8_t * PMD::ExecuteFMCommand(Channel * track, uint8_t * si)
 
         case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: track->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = CommandSetStartOfLoop(track, si); break;
-        case 0xf8: si = CommandSetEndOfLoop(track, si); break;
-        case 0xf7: si = CommandExitLoop(track, si); break;
+        case 0xf9: si = SetStartOfLoopCommand(track, si); break;
+        case 0xf8: si = SetEndOfLoopCommand(track, si); break;
+        case 0xf7: si = ExitLoopCommand(track, si); break;
         case 0xf6: track->LoopData = si; break;
         case 0xf5: track->shift = *(int8_t *) si++; break;
         case 0xf4: if ((track->volume += 4) > 127) track->volume = 127; break;
@@ -4464,18 +4284,19 @@ uint8_t * PMD::ExecuteFMCommand(Channel * track, uint8_t * si)
 
         case 0xee: si++; break;
         case 0xed: si++; break;
+
         case 0xec: si = panset(track, si); break;        // FOR SB2
-        case 0xeb: si = rhykey(si); break;
-        case 0xea: si = rhyvs(si); break;
+        case 0xeb: si = RhythmInstrumentCommand(si); break;
+        case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
         case 0xe9: si = rpnset(si); break;
-        case 0xe8: si = rmsvs(si); break;
-            //
+        case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
+
         case 0xe7: track->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
         case 0xe5: si = rhyvs_sft(si); break;
-            //
+
         case 0xe4: track->hldelay = *si++; break;
-            //追加 for V2.3
+
         case 0xe3:
             if ((track->volume += *si++) > 127)
                 track->volume = 127;
@@ -4491,38 +4312,38 @@ uint8_t * PMD::ExecuteFMCommand(Channel * track, uint8_t * si)
 
         case 0xe1: si = hlfo_set(track, si); break;
         case 0xe0: _State.port22h = *si; _OPNAW->SetReg(0x22, *si++); break;
-            //
+
         case 0xdf: _State.BarLength = *si++; break;
-            //
+
         case 0xde: si = vol_one_up_fm(track, si); break;
-        case 0xdd: si = vol_one_down(track, si); break;
-            //
+        case 0xdd: si = DecreaseSoundSourceVolumeCommand(track, si); break;
+
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
-            //
+
         case 0xda: si = porta(track, si); break;
-            //
+
         case 0xd9: si++; break;
         case 0xd8: si++; break;
         case 0xd7: si++; break;
-            //
+
         case 0xd6:
             track->mdspd = track->mdspd2 = *si++;
             track->mdepth = *(int8_t *) si++;
             break;
 
         case 0xd5: track->detune += *(int16_t *) si; si += 2; break;
-            //
+
         case 0xd4: si = ssg_efct_set(track, si); break;
         case 0xd3: si = fm_efct_set(track, si); break;
         case 0xd2:
             _State.fadeout_flag = 1;
             _State.FadeOutSpeed = *si++;
             break;
-            //
+
         case 0xd1: si++; break;
         case 0xd0: si++; break;
-            //
+
         case 0xcf:
             si = SetSlotMask(track, si);
             break;
@@ -4606,9 +4427,9 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * track, uint8_t * si)
 
         case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: track->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = CommandSetStartOfLoop(track, si); break;
-        case 0xf8: si = CommandSetEndOfLoop(track, si); break;
-        case 0xf7: si = CommandExitLoop(track, si); break;
+        case 0xf9: si = SetStartOfLoopCommand(track, si); break;
+        case 0xf8: si = SetEndOfLoopCommand(track, si); break;
+        case 0xf7: si = ExitLoopCommand(track, si); break;
         case 0xf6: track->LoopData = si; break;
         case 0xf5: track->shift = *(int8_t *) si++; break;
         case 0xf4: if (track->volume < 15) track->volume++; break;
@@ -4622,10 +4443,10 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * track, uint8_t * si)
         case 0xed: track->psgpat = *si++; break;
 
         case 0xec: si++; break;
-        case 0xeb: si = rhykey(si); break;
-        case 0xea: si = rhyvs(si); break;
+        case 0xeb: si = RhythmInstrumentCommand(si); break;
+        case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
         case 0xe9: si = rpnset(si); break;
-        case 0xe8: si = rmsvs(si); break;
+        case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
         case 0xe7: track->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
@@ -4643,7 +4464,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * track, uint8_t * si)
         case 0xdf: _State.BarLength = *si++; break;
 
         case 0xde: si = vol_one_up_psg(track, si); break;
-        case 0xdd: si = vol_one_down(track, si); break;
+        case 0xdd: si = DecreaseSoundSourceVolumeCommand(track, si); break;
 
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -4766,9 +4587,9 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * track, uint8_t * si)
 
         case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: track->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = CommandSetStartOfLoop(track, si); break;
-        case 0xf8: si = CommandSetEndOfLoop(track, si); break;
-        case 0xf7: si = CommandExitLoop(track, si); break;
+        case 0xf9: si = SetStartOfLoopCommand(track, si); break;
+        case 0xf8: si = SetEndOfLoopCommand(track, si); break;
+        case 0xf7: si = ExitLoopCommand(track, si); break;
         case 0xf6: track->LoopData = si; break;
         case 0xf5: si++; break;
         case 0xf4: if (track->volume < 15) track->volume++; break;
@@ -4782,10 +4603,10 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * track, uint8_t * si)
         case 0xed: si++; break;
 
         case 0xec: si++; break;
-        case 0xeb: si = rhykey(si); break;
-        case 0xea: si = rhyvs(si); break;
+        case 0xeb: si = RhythmInstrumentCommand(si); break;
+        case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
         case 0xe9: si = rpnset(si); break;
-        case 0xe8: si = rmsvs(si); break;
+        case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
         case 0xe7: si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
@@ -4802,7 +4623,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * track, uint8_t * si)
         case 0xdf: _State.BarLength = *si++; break;
 
         case 0xde: si = vol_one_up_psg(track, si); break;
-        case 0xdd: si = vol_one_down(track, si); break;
+        case 0xdd: si = DecreaseSoundSourceVolumeCommand(track, si); break;
 
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -4878,9 +4699,9 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * track, uint8_t * si)
         case 0xfc: si = ChangeTempoCommand(si); break;
         case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: track->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = CommandSetStartOfLoop(track, si); break;
-        case 0xf8: si = CommandSetEndOfLoop(track, si); break;
-        case 0xf7: si = CommandExitLoop(track, si); break;
+        case 0xf9: si = SetStartOfLoopCommand(track, si); break;
+        case 0xf8: si = SetEndOfLoopCommand(track, si); break;
+        case 0xf7: si = ExitLoopCommand(track, si); break;
         case 0xf6: track->LoopData = si; break;
         case 0xf5: track->shift = *(int8_t *) si++; break;
         case 0xf4:
@@ -4896,11 +4717,12 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * track, uint8_t * si)
         case 0xef: _OPNAW->SetReg((uint32_t) (0x100 + *si), (uint32_t) (*(si + 1))); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
+
         case 0xec: si = pansetm(track, si); break;        // FOR SB2
-        case 0xeb: si = rhykey(si); break;
-        case 0xea: si = rhyvs(si); break;
+        case 0xeb: si = RhythmInstrumentCommand(si); break;
+        case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
         case 0xe9: si = rpnset(si); break;
-        case 0xe8: si = rmsvs(si); break;
+        case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
         case 0xe7: track->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
@@ -4925,7 +4747,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * track, uint8_t * si)
         case 0xdf: _State.BarLength = *si++; break;
 
         case 0xde: si = vol_one_up_pcm(track, si); break;
-        case 0xdd: si = vol_one_down(track, si); break;
+        case 0xdd: si = DecreaseSoundSourceVolumeCommand(track, si); break;
 
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -5038,9 +4860,9 @@ uint8_t * PMD::ExecutePCM86Command(Channel * track, uint8_t * si)
         case 0xfc: si = ChangeTempoCommand(si); break;
         case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: track->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = CommandSetStartOfLoop(track, si); break;
-        case 0xf8: si = CommandSetEndOfLoop(track, si); break;
-        case 0xf7: si = CommandExitLoop(track, si); break;
+        case 0xf9: si = SetStartOfLoopCommand(track, si); break;
+        case 0xf8: si = SetEndOfLoopCommand(track, si); break;
+        case 0xf7: si = ExitLoopCommand(track, si); break;
         case 0xf6: track->LoopData = si; break;
         case 0xf5: track->shift = *(int8_t *) si++; break;
         case 0xf4:
@@ -5056,11 +4878,12 @@ uint8_t * PMD::ExecutePCM86Command(Channel * track, uint8_t * si)
         case 0xef: _OPNAW->SetReg((uint32_t) (0x100 + *si), (uint32_t) (*(si + 1))); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
+
         case 0xec: si = panset8(track, si); break;        // FOR SB2
-        case 0xeb: si = rhykey(si); break;
-        case 0xea: si = rhyvs(si); break;
+        case 0xeb: si = RhythmInstrumentCommand(si); break;
+        case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
         case 0xe9: si = rpnset(si); break;
-        case 0xe8: si = rmsvs(si); break;
+        case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
         case 0xe7: track->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
@@ -5085,7 +4908,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * track, uint8_t * si)
         case 0xdf: _State.BarLength = *si++; break;
 
         case 0xde: si = vol_one_up_pcm(track, si); break;
-        case 0xdd: si = vol_one_down(track, si); break;
+        case 0xdd: si = DecreaseSoundSourceVolumeCommand(track, si); break;
 
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -5168,9 +4991,9 @@ uint8_t * PMD::ExecutePPZ8Command(Channel * track, uint8_t * si)
 
         case 0xfb: _DriverState.tieflag |= 1; break;
         case 0xfa: track->detune = *(int16_t *) si; si += 2; break;
-        case 0xf9: si = CommandSetStartOfLoop(track, si); break;
-        case 0xf8: si = CommandSetEndOfLoop(track, si); break;
-        case 0xf7: si = CommandExitLoop(track, si); break;
+        case 0xf9: si = SetStartOfLoopCommand(track, si); break;
+        case 0xf8: si = SetEndOfLoopCommand(track, si); break;
+        case 0xf7: si = ExitLoopCommand(track, si); break;
         case 0xf6: track->LoopData = si; break;
         case 0xf5: track->shift = *(int8_t *) si++; break;
         case 0xf4:
@@ -5188,11 +5011,12 @@ uint8_t * PMD::ExecutePPZ8Command(Channel * track, uint8_t * si)
         case 0xef: _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + *si), (uint32_t) *(si + 1)); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
+
         case 0xec: si = pansetz(track, si); break;        // FOR SB2
-        case 0xeb: si = rhykey(si); break;
-        case 0xea: si = rhyvs(si); break;
+        case 0xeb: si = RhythmInstrumentCommand(si); break;
+        case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
         case 0xe9: si = rpnset(si); break;
-        case 0xe8: si = rmsvs(si); break;
+        case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
         case 0xe7: track->shift += *(int8_t *) si++; break;
         case 0xe6: si = rmsvs_sft(si); break;
@@ -5217,7 +5041,7 @@ uint8_t * PMD::ExecutePPZ8Command(Channel * track, uint8_t * si)
         case 0xdf: _State.BarLength = *si++; break;
 
         case 0xde: si = vol_one_up_pcm(track, si); break;
-        case 0xdd: si = vol_one_down(track, si); break;
+        case 0xdd: si = DecreaseSoundSourceVolumeCommand(track, si); break;
 
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -5710,7 +5534,7 @@ uint8_t * PMD::porta(Channel * track, uint8_t * si)
         }
     }
 
-    volset(track);
+    SetFMVolumeCommand(track);
     Otodasi(track);
     KeyOn(track);
 
@@ -6515,10 +6339,7 @@ uint8_t * PMD::fb_set(Channel * qq, uint8_t * si)
     }
 }
 
-//  COMMAND 't' [TEMPO CHANGE1]
-//  COMMAND 'T' [TEMPO CHANGE2]
-//  COMMAND 't±' [TEMPO CHANGE 相対1]
-//  COMMAND 'T±' [TEMPO CHANGE 相対2]
+// Command 't' [TEMPO CHANGE1] / COMMAND 'T' [TEMPO CHANGE2] / COMMAND 't±' [TEMPO CHANGE 相対1] / COMMAND 'T±' [TEMPO CHANGE 相対2]
 uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
 {
     int al = *si++;
@@ -6595,7 +6416,7 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
 }
 
 // Command '[': Set start of loop
-uint8_t * PMD::CommandSetStartOfLoop(Channel * track, uint8_t * si)
+uint8_t * PMD::SetStartOfLoopCommand(Channel * track, uint8_t * si)
 {
     uint8_t * ax = (track == &_EffectTrack) ? _State.EData : _State.MData;
 
@@ -6607,7 +6428,7 @@ uint8_t * PMD::CommandSetStartOfLoop(Channel * track, uint8_t * si)
 }
 
 // Command ']': Set end of loop
-uint8_t * PMD::CommandSetEndOfLoop(Channel * track, uint8_t * si)
+uint8_t * PMD::SetEndOfLoopCommand(Channel * track, uint8_t * si)
 {
     int ah = *si++;
 
@@ -6640,7 +6461,7 @@ uint8_t * PMD::CommandSetEndOfLoop(Channel * track, uint8_t * si)
 }
 
 // Command ':': Loop dash
-uint8_t * PMD::CommandExitLoop(Channel * track, uint8_t * si)
+uint8_t * PMD::ExitLoopCommand(Channel * track, uint8_t * si)
 {
     uint8_t * bx = (track == &_EffectTrack) ? _State.EData : _State.MData;
 
@@ -6706,8 +6527,51 @@ uint8_t * PMD::psgenvset(Channel * qq, uint8_t * si)
     return si;
 }
 
-//  "\?" COMMAND [ OPNA Rhythm Keyon/Dump ]
-uint8_t * PMD::rhykey(uint8_t * si)
+uint8_t * PMD::rhyvs_sft(uint8_t * si)
+{
+    int * bx = &_State.rdat[*si - 1];
+    int dh = *si++ + 0x18 - 1;
+    int dl = *bx & 0x1f;
+    int al = (*(int8_t *) si++ + dl);
+
+    if (al >= 32)
+    {
+        al = 31;
+    }
+    else
+    if (al < 0)
+    {
+        al = 0;
+    }
+
+    dl = (al &= 0x1f);
+    dl = *bx = ((*bx & 0xe0) | dl);
+
+    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
+
+    return si;
+}
+
+// Command "\p?"
+uint8_t * PMD::rpnset(uint8_t * si)
+{
+    int dl = (*si & 3) << 6;
+    int dh = (*si++ >> 5) & 0x07;
+
+    int * bx = &_State.rdat[dh - 1];
+
+    dh += 0x18 - 1;
+    dl |= (*bx & 0x1f);
+
+    *bx = dl;
+
+    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
+
+    return si;
+}
+
+//  Command "\?" / "\?p"
+uint8_t * PMD::RhythmInstrumentCommand(uint8_t * si)
 {
     int dl = *si++ & _State.RhythmMask;
 
@@ -6759,68 +6623,8 @@ uint8_t * PMD::rhykey(uint8_t * si)
     return si;
 }
 
-//  "\v?n" COMMAND
-uint8_t * PMD::rhyvs(uint8_t * si)
-{
-    int dl = *si & 0x1f;
-    int dh = *si++ >> 5;
-    int * bx = &_State.rdat[dh - 1];
-
-    dh = 0x18 - 1 + dh;
-    dl |= (*bx & 0xc0);
-    *bx = dl;
-
-    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
-
-    return si;
-}
-
-uint8_t * PMD::rhyvs_sft(uint8_t * si)
-{
-    int * bx = &_State.rdat[*si - 1];
-    int dh = *si++ + 0x18 - 1;
-    int dl = *bx & 0x1f;
-    int al = (*(int8_t *) si++ + dl);
-
-    if (al >= 32)
-    {
-        al = 31;
-    }
-    else
-    if (al < 0)
-    {
-        al = 0;
-    }
-
-    dl = (al &= 0x1f);
-    dl = *bx = ((*bx & 0xe0) | dl);
-
-    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
-
-    return si;
-}
-
-//  "\p?" COMMAND
-uint8_t * PMD::rpnset(uint8_t * si)
-{
-    int * bx;
-    int    dh, dl;
-
-    dl = (*si & 3) << 6;
-
-    dh = (*si++ >> 5) & 0x07;
-    bx = &_State.rdat[dh - 1];
-
-    dh += 0x18 - 1;
-    dl |= (*bx & 0x1f);
-    *bx = dl;
-    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
-
-    return si;
-}
-
-//  "\Vn" COMMAND
-uint8_t * PMD::rmsvs(uint8_t * si)
+// Command "\V"
+uint8_t * PMD::SetRhythmMasterVolumeCommand(uint8_t * si)
 {
     int dl = *si++;
 
@@ -6833,6 +6637,22 @@ uint8_t * PMD::rmsvs(uint8_t * si)
         dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
 
     _OPNAW->SetReg(0x11, (uint32_t) dl);
+
+    return si;
+}
+
+// Command "\v?"
+uint8_t * PMD::SetRhythmInstrumentVolumeCommand(uint8_t * si)
+{
+    int dl = *si & 0x1f;
+    int dh = *si++ >> 5;
+    int * bx = &_State.rdat[dh - 1];
+
+    dh = 0x18 - 1 + dh;
+    dl |= (*bx & 0xc0);
+    *bx = dl;
+
+    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
 
     return si;
 }
@@ -6859,7 +6679,7 @@ uint8_t * PMD::rmsvs_sft(uint8_t * si)
     return si;
 }
 
-// Change only one volume (V2.7 expansion)
+// Change only one volume
 uint8_t * PMD::vol_one_up_psg(Channel * track, uint8_t * si)
 {
     int al = track->volume + *si++;
@@ -6873,9 +6693,9 @@ uint8_t * PMD::vol_one_up_psg(Channel * track, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::vol_one_down(Channel * track, uint8_t * si)
+uint8_t * PMD::DecreaseSoundSourceVolumeCommand(Channel * channel, uint8_t * si)
 {
-    int al = track->volume - *si++;
+    int al = channel->volume - *si++;
 
     if (al < 0)
         al = 0;
@@ -6883,7 +6703,7 @@ uint8_t * PMD::vol_one_down(Channel * track, uint8_t * si)
     if (al >= 255)
         al = 254;
 
-    track->volpush = ++al;
+    channel->volpush = ++al;
     _DriverState.volpush_flag = 1;
 
     return si;
@@ -7487,10 +7307,10 @@ void PMD::keyonp(Channel * qq)
 
     // SSG ﾉｲｽﾞ ｼｭｳﾊｽｳ ﾉ ｾｯﾄ
 
-    if (_State.SSGNoiseFrequency != _State.SSGNoiseFrequencyLast && _EffectState.effon == 0)
+    if (_State.SSGNoiseFrequency != _State.OldSSGNoiseFrequency && _EffectState.effon == 0)
     {
         _OPNAW->SetReg(6, (uint32_t) _State.SSGNoiseFrequency);
-        _State.SSGNoiseFrequencyLast = _State.SSGNoiseFrequency;
+        _State.OldSSGNoiseFrequency = _State.SSGNoiseFrequency;
     }
 }
 
@@ -8007,7 +7827,7 @@ void PMD::InitializeOPN()
 
     _OPNAW->SetReg(0x06, 0x00);
 
-    _State.SSGNoiseFrequencyLast = 0;
+    _State.OldSSGNoiseFrequency = 0;
 
     // Reset SSG-Type Envelope Control (4.8s)
     for (uint32_t i = 0x090; i < 0x09F; ++i)
@@ -8093,15 +7913,10 @@ void PMD::Silence()
     _P86->Stop();
     _P86->SetPan(3, 0);
 
-    // 2003.11.30 For small noise measures
-//@  if(effwork.effon == 0) {
     _OPNAW->SetReg(0x07, 0xBF);
     _OPNAW->SetReg(0x08, 0x00);
     _OPNAW->SetReg(0x09, 0x00);
     _OPNAW->SetReg(0x0a, 0x00);
-//@  } else {
-//@ opna->SetReg(0x07, (opna->GetReg(0x07) & 0x3f) | 0x9b);
-//@  }
 
     _OPNAW->SetReg(0x10, 0xff);   // Rhythm dump
 
@@ -8742,7 +8557,7 @@ uint8_t * PMD::ssg_efct_set(Channel * qq, uint8_t * si)
     if (al)
         eff_on2(qq, al);
     else
-        effend();
+        EffectStop();
 
     return si;
 }
