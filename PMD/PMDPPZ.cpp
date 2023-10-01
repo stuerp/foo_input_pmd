@@ -34,7 +34,7 @@ void PMD::PPZ8Main(Channel * channel)
     {
         // KEYOFF CHECK
         if ((channel->keyoff_flag & 3) == 0)
-        {    // 既にKeyOffしたか？
+        {    // 既にSetFMKeyOffしたか？
             if (channel->Length <= channel->qdat)
             {
                 keyoffz(channel);
@@ -58,7 +58,7 @@ void PMD::PPZ8Main(Channel * channel)
             {
                 channel->Data = si;
                 channel->loopcheck = 3;
-                channel->onkai = 255;
+                channel->Tone = 255;
 
                 if (channel->LoopData == nullptr)
                 {
@@ -91,7 +91,7 @@ void PMD::PPZ8Main(Channel * channel)
                 {
                     si++;
                     channel->fnum = 0;    //休符に設定
-                    channel->onkai = 255;
+                    channel->Tone = 255;
                     //          qq->onkai_def = 255;
                     channel->Length = *si++;
                     channel->keyon_flag++;
@@ -111,9 +111,9 @@ void PMD::PPZ8Main(Channel * channel)
                 fnumsetz(channel, oshift(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
-                si = calc_q(channel, si);
+                si = CalculateQ(channel, si);
 
-                if (channel->volpush && channel->onkai != 255)
+                if (channel->volpush && channel->Tone != 255)
                 {
                     if (--_Driver.volpush_flag)
                     {
@@ -136,7 +136,7 @@ void PMD::PPZ8Main(Channel * channel)
                 _Driver.volpush_flag = 0;
 
                 if (*si == 0xfb)
-                {    // '&'が直後にあったらKeyOffしない
+                {    // '&'が直後にあったらSetFMKeyOffしない
                     channel->keyoff_flag = 2;
                 }
                 else

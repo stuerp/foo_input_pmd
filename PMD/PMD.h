@@ -222,8 +222,8 @@ protected:
     void GetText(const uint8_t * data, size_t size, int al, char * text) const noexcept;
 
     int MuteFMPart(Channel * track);
-    void KeyOff(Channel * track);
-    void KeyOffEx(Channel * track);
+    void SetFMKeyOff(Channel * track);
+    void SetFMKeyOffEx(Channel * track);
     void keyoffp(Channel * track);
     void keyoffm(Channel * track);
     void keyoff8(Channel * track);
@@ -275,7 +275,7 @@ protected:
 
     int oshift(Channel * track, int al);
     int oshiftp(Channel * track, int al);
-    void fnumset(Channel * track, int al);
+    void SetFMTone(Channel * track, int al);
     void SetSSGTune(Channel * track, int al);
     void fnumsetm(Channel * track, int al);
     void fnumset8(Channel * track, int al);
@@ -290,7 +290,7 @@ protected:
     void panset_main(Channel * track, int al);
 
     uint8_t calc_panout(Channel * track);
-    uint8_t * calc_q(Channel * track, uint8_t * si);
+    uint8_t * CalculateQ(Channel * track, uint8_t * si);
     void fm_block_calc(int * cx, int * ax);
     int ch3_setting(Channel * track);
     void cm_clear(int * ah, int * al);
@@ -298,7 +298,7 @@ protected:
     void ch3_special(Channel * track, int ax, int cx);
 
     void SetFMVolumeCommand(Channel * track);
-    void volsetp(Channel * track);
+    void SetSSGVolume2(Channel * track);
     void SetADPCMVolumeCommand(Channel * track);
     void SetPCM86Volume(Channel * track);
     void SetPPZVolume(Channel * track);
@@ -309,7 +309,7 @@ protected:
     void SetPCM86Pitch(Channel * track);
     void SetPPZPitch(Channel * track);
 
-    void KeyOn(Channel * track);
+    void SetFMKeyOn(Channel * track);
     void keyonp(Channel * track);
     void keyonm(Channel * track);
     void keyon8(Channel * track);

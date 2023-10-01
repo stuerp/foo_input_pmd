@@ -1000,7 +1000,7 @@ int PMD::DisableChannel(int channel)
 
             ah |= (ah << 3);
 
-            // SSG KeyOff
+            // SSG SetFMKeyOff
             _OPNAW->SetReg(0x07, ah | _OPNAW->GetReg(0x07));
         }
         else
@@ -1481,57 +1481,6 @@ void PMD::DriverMain()
         _State.LoopCount = -1;
 }
 
-void PMD::KeyOff(Channel * track)
-{
-    if (track->onkai == 0xFF)
-        return;
-
-    KeyOffEx(track);
-}
-
-void PMD::KeyOffEx(Channel * track)
-{
-    if (_Driver.FMSelector == 0)
-    {
-        _Driver.omote_key[_Driver.CurrentChannel - 1] = (~track->SlotMask) & (_Driver.omote_key[_Driver.CurrentChannel - 1]);
-        _OPNAW->SetReg(0x28, (uint32_t) ((_Driver.CurrentChannel - 1) | _Driver.omote_key[_Driver.CurrentChannel - 1]));
-    }
-    else
-    {
-        _Driver.ura_key[_Driver.CurrentChannel - 1] = (~track->SlotMask) & (_Driver.ura_key[_Driver.CurrentChannel - 1]);
-        _OPNAW->SetReg(0x28, (uint32_t) (((_Driver.CurrentChannel - 1) | _Driver.ura_key[_Driver.CurrentChannel - 1]) | 4));
-    }
-}
-
-void PMD::KeyOn(Channel * track)
-{
-    int  al;
-
-    if (track->onkai == 0xFF)
-        return; // ｷｭｳﾌ ﾉ ﾄｷ
-
-    if (_Driver.FMSelector == 0)
-    {
-        al = _Driver.omote_key[_Driver.CurrentChannel - 1] | track->SlotMask;
-
-        if (track->sdelay_c)
-            al &= track->sdelay_m;
-
-        _Driver.omote_key[_Driver.CurrentChannel - 1] = al;
-        _OPNAW->SetReg(0x28, (uint32_t) ((_Driver.CurrentChannel - 1) | al));
-    }
-    else
-    {
-        al = _Driver.ura_key[_Driver.CurrentChannel - 1] | track->SlotMask;
-
-        if (track->sdelay_c)
-            al &= track->sdelay_m;
-
-        _Driver.ura_key[_Driver.CurrentChannel - 1] = al;
-        _OPNAW->SetReg(0x28, (uint32_t) (((_Driver.CurrentChannel - 1) | al) | 4));
-    }
-}
-
 //  FM音源のdetuneでオクターブが変わる時の修正
 //    input  CX:block / AX:fnum+detune
 //    output  CX:block / AX:fnum
@@ -1903,103 +1852,6 @@ uint8_t * PMD::panset8_ex(Channel * qq, uint8_t * si)
     return si;
 }
 
-//  ＦＭ　BLOCK,F-NUMBER SET
-//    INPUTS  -- AL [KEY#,0-7F]
-void PMD::fnumset(Channel * qq, int al)
-{
-    int    ax, bx;
-
-    if ((al & 0x0f) != 0x0f)
-    {    // 音符の場合
-        qq->onkai = al;
-
-        // BLOCK/FNUM CALICULATE
-        bx = al & 0x0f;    // bx=onkai
-        ax = fnum_data[bx];
-
-        // BLOCK SET
-        ax |= (((al >> 1) & 0x38) << 8);
-        qq->fnum = (uint32_t) ax;
-    }
-    else
-    {            // 休符の場合
-        qq->onkai = 0xFF;
-
-        if ((qq->lfoswi & 0x11) == 0)
-        {
-            qq->fnum = 0;      // 音程LFO未使用
-        }
-    }
-}
-
-void PMD::SetFMVolumeCommand(Channel * channel)
-{
-    if (channel->SlotMask == 0)
-        return;
-
-    int cl = (channel->volpush) ? channel->volpush - 1 : channel->volume;
-
-    if (channel != &_EffectTrack)
-    {  // 効果音の場合はvoldown/fadeout影響無し
-//--------------------------------------------------------------------
-//  音量down計算
-//--------------------------------------------------------------------
-        if (_State.fm_voldown)
-            cl = ((256 - _State.fm_voldown) * cl) >> 8;
-
-        //--------------------------------------------------------------------
-        //  Fadeout計算
-        //--------------------------------------------------------------------
-        if (_State.FadeOutVolume >= 2)
-            cl = ((256 - (_State.FadeOutVolume >> 1)) * cl) >> 8;
-    }
-
-    //  音量をcarrierに設定 & 音量LFO処理
-    //    input  cl to Volume[0-127]
-    //      bl to SlotMask
-    int bh = 0;          // Vol Slot Mask
-    int bl = channel->SlotMask;    // ch=SlotMask Push
-
-    uint8_t vol_tbl[4] = { 0x80, 0x80, 0x80, 0x80 };
-
-    cl = 255 - cl;      // cl=carrierに設定する音量+80H(add)
-    bl &= channel->carrier;    // bl=音量を設定するSLOT xxxx0000b
-    bh |= bl;
-
-    if (bl & 0x80) vol_tbl[0] = (uint8_t) cl;
-    if (bl & 0x40) vol_tbl[1] = (uint8_t) cl;
-    if (bl & 0x20) vol_tbl[2] = (uint8_t) cl;
-    if (bl & 0x10) vol_tbl[3] = (uint8_t) cl;
-
-    if (cl != 255)
-    {
-        if (channel->lfoswi & 2)
-        {
-            bl = channel->VolumeMask1;
-            bl &= channel->SlotMask;    // bl=音量LFOを設定するSLOT xxxx0000b
-            bh |= bl;
-
-            fmlfo_sub(channel, channel->lfodat, bl, vol_tbl);
-        }
-
-        if (channel->lfoswi & 0x20)
-        {
-            bl = channel->VolumeMask2;
-            bl &= channel->SlotMask;
-            bh |= bl;
-
-            fmlfo_sub(channel, channel->_lfodat, bl, vol_tbl);
-        }
-    }
-
-    int dh = 0x4c - 1 + _Driver.CurrentChannel;    // dh=FM Port Address
-
-    if (bh & 0x80) volset_slot(dh,      channel->slot4, vol_tbl[0]);
-    if (bh & 0x40) volset_slot(dh -  8, channel->slot3, vol_tbl[1]);
-    if (bh & 0x20) volset_slot(dh -  4, channel->slot2, vol_tbl[2]);
-    if (bh & 0x10) volset_slot(dh - 12, channel->slot1, vol_tbl[3]);
-}
-
 //  スロット毎の計算 & 出力 マクロ
 //      in.  dl  元のTL値
 //        dh  Outするレジスタ
@@ -2026,7 +1878,7 @@ void PMD::fmlfo_sub(Channel *, int al, int bl, uint8_t * vol_tbl)
 
 void PMD::keyoffp(Channel * qq)
 {
-    if (qq->onkai == 255) return;    // ｷｭｳﾌ ﾉ ﾄｷ
+    if (qq->Tone == 255) return;    // ｷｭｳﾌ ﾉ ﾄｷ
     if (qq->envf != -1)
     {
         qq->envf = 2;
@@ -2051,7 +1903,7 @@ uint8_t * PMD::PDRSwitchCommand(Channel *, uint8_t * si)
 //  PCM KEYON
 void PMD::keyonm(Channel * track)
 {
-    if (track->onkai == 255)
+    if (track->Tone == 255)
         return;
 
     _OPNAW->SetReg(0x101, 0x02);  // PAN=0 / x8 bit mode
@@ -2082,7 +1934,7 @@ void PMD::keyonm(Channel * track)
 //  PCM KEYON (PMD86)
 void PMD::keyon8(Channel * qq)
 {
-    if (qq->onkai == 255)
+    if (qq->Tone == 255)
         return;
 
     _P86->Play();
@@ -2091,7 +1943,7 @@ void PMD::keyon8(Channel * qq)
 //  PPZ KEYON
 void PMD::keyonz(Channel * track)
 {
-    if (track->onkai == 0xFF)
+    if (track->Tone == 0xFF)
         return;
 
     if ((track->InstrumentNumber & 0x80) == 0)
@@ -2104,8 +1956,8 @@ void PMD::keyonz(Channel * track)
 void PMD::fnumsetm(Channel * channel, int al)
 {
     if ((al & 0x0f) != 0x0f)
-    {      // 音符の場合
-        channel->onkai = al;
+    {      // Music Note
+        channel->Tone = al;
 
         int bx = al & 0x0f;          // bx=onkai
         int ch = (al >> 4) & 0x0f;    // cl = octarb
@@ -2128,7 +1980,7 @@ void PMD::fnumsetm(Channel * channel, int al)
                 ch = 0x60;
             }
 
-            channel->onkai = (channel->onkai & 0x0f) | ch;  // onkai値修正
+            channel->Tone = (channel->Tone & 0x0f) | ch;  // onkai値修正
         }
         else
             ax >>= cl;          // ax=ax/[2^OCTARB]
@@ -2136,8 +1988,8 @@ void PMD::fnumsetm(Channel * channel, int al)
         channel->fnum = (uint32_t) ax;
     }
     else
-    {            // 休符の場合
-        channel->onkai = 255;
+    {            // Rest
+        channel->Tone = 255;
 
         if ((channel->lfoswi & 0x11) == 0)
             channel->fnum = 0;      // 音程LFO未使用
@@ -2151,7 +2003,7 @@ void PMD::fnumset8(Channel * qq, int al)
 
     ah = al & 0x0f;
     if (ah != 0x0f)
-    {      // 音符の場合
+    {      // Music Note
         if (_State.pcm86_vol && al >= 0x65)
         {    // o7e?
             if (ah < 5)
@@ -2165,13 +2017,13 @@ void PMD::fnumset8(Channel * qq, int al)
             al |= ah;
         }
 
-        qq->onkai = al;
+        qq->Tone = al;
         bl = ((al & 0xf0) >> 4) * 12 + ah;
         qq->fnum = p86_tune_data[bl];
     }
     else
-    {            // 休符の場合
-        qq->onkai = 255;
+    {            // Rest
+        qq->Tone = 255;
         if ((qq->lfoswi & 0x11) == 0)
         {
             qq->fnum = 0;      // 音程LFO未使用
@@ -2183,8 +2035,8 @@ void PMD::fnumset8(Channel * qq, int al)
 void PMD::fnumsetz(Channel * qq, int al)
 {
     if ((al & 0x0f) != 0x0f)
-    {      // 音符の場合
-        qq->onkai = al;
+    {      // Music Note
+        qq->Tone = al;
 
         int bx = al & 0x0f;          // bx=onkai
         int cl = (al >> 4) & 0x0f;    // cl = octarb
@@ -2202,8 +2054,8 @@ void PMD::fnumsetz(Channel * qq, int al)
         qq->fnum = ax;
     }
     else
-    {            // 休符の場合
-        qq->onkai = 255;
+    {            // Rest
+        qq->Tone = 255;
 
         if ((qq->lfoswi & 0x11) == 0)
             qq->fnum = 0;      // 音程LFO未使用
@@ -2218,7 +2070,7 @@ uint8_t * PMD::portam(Channel * qq, uint8_t * si)
     if (qq->PartMask)
     {
         qq->fnum = 0;    //休符に設定
-        qq->onkai = 255;
+        qq->Tone = 255;
         qq->Length = *(si + 2);
         qq->keyon_flag++;
         qq->Data = si + 3;
@@ -2237,24 +2089,24 @@ uint8_t * PMD::portam(Channel * qq, uint8_t * si)
     fnumsetm(qq, oshift(qq, StartPCMLFO(qq, *si++)));
 
     bx_ = (int) qq->fnum;
-    al_ = (int) qq->onkai;
+    al_ = (int) qq->Tone;
 
     fnumsetm(qq, oshift(qq, *si++));
 
     ax = (int) qq->fnum;       // ax = ポルタメント先のdelta_n値
 
-    qq->onkai = al_;
+    qq->Tone = al_;
     qq->fnum = (uint32_t) bx_;      // bx = ポルタメント元のdekta_n値
     ax -= bx_;        // ax = delta_n差
 
     qq->Length = *si++;
-    si = calc_q(qq, si);
+    si = CalculateQ(qq, si);
 
     qq->porta_num2 = ax / qq->Length;    // 商
     qq->porta_num3 = ax % qq->Length;    // 余り
     qq->lfoswi |= 8;        // Porta ON
 
-    if (qq->volpush && qq->onkai != 255)
+    if (qq->volpush && qq->Tone != 255)
     {
         if (--_Driver.volpush_flag)
         {
@@ -2277,7 +2129,7 @@ uint8_t * PMD::portam(Channel * qq, uint8_t * si)
     qq->keyoff_flag = 0;
 
     if (*si == 0xfb)
-    {      // '&'が直後にあったらKeyOffしない
+    {      // '&'が直後にあったらSetFMKeyOffしない
         qq->keyoff_flag = 2;
     }
 
@@ -2293,7 +2145,7 @@ uint8_t * PMD::portaz(Channel * qq, uint8_t * si)
     if (qq->PartMask)
     {
         qq->fnum = 0;    //休符に設定
-        qq->onkai = 255;
+        qq->Tone = 255;
         qq->Length = *(si + 2);
         qq->keyon_flag++;
         qq->Data = si + 3;
@@ -2312,23 +2164,23 @@ uint8_t * PMD::portaz(Channel * qq, uint8_t * si)
     fnumsetz(qq, oshift(qq, StartPCMLFO(qq, *si++)));
 
     bx_ = (int) qq->fnum;
-    al_ = qq->onkai;
+    al_ = qq->Tone;
     fnumsetz(qq, oshift(qq, *si++));
     ax = (int) qq->fnum;       // ax = ポルタメント先のdelta_n値
 
-    qq->onkai = al_;
+    qq->Tone = al_;
     qq->fnum = (uint32_t) bx_;      // bx = ポルタメント元のdekta_n値
     ax -= bx_;        // ax = delta_n差
     ax /= 16;
 
     qq->Length = *si++;
-    si = calc_q(qq, si);
+    si = CalculateQ(qq, si);
 
     qq->porta_num2 = ax / qq->Length;    // 商
     qq->porta_num3 = ax % qq->Length;    // 余り
     qq->lfoswi |= 8;        // Porta ON
 
-    if (qq->volpush && qq->onkai != 255)
+    if (qq->volpush && qq->Tone != 255)
     {
         if (--_Driver.volpush_flag)
         {
@@ -2352,7 +2204,7 @@ uint8_t * PMD::portaz(Channel * qq, uint8_t * si)
     qq->keyoff_flag = 0;
 
     if (*si == 0xfb)
-    {      // '&'が直後にあったらKeyOffしない
+    {      // '&'が直後にあったらSetFMKeyOffしない
         qq->keyoff_flag = 2;
     }
 
@@ -2949,7 +2801,7 @@ int PMD::MuteFMPart(Channel * channel)
         _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
     }
 
-    KeyOffEx(channel);
+    SetFMKeyOffEx(channel);
 
     return 0;
 }
@@ -3028,17 +2880,17 @@ uint8_t * PMD::SetSlotMask(Channel * track, uint8_t * si)
             if (track != &_FMTrack[2])
             {
                 if (_FMTrack[2].PartMask == 0x00 && (_FMTrack[2].keyoff_flag & 1) == 0)
-                    KeyOn(&_FMTrack[2]);
+                    SetFMKeyOn(&_FMTrack[2]);
 
                 if (track != &_ExtensionTrack[0])
                 {
                     if (_ExtensionTrack[0].PartMask == 0x00 && (_ExtensionTrack[0].keyoff_flag & 1) == 0)
-                        KeyOn(&_ExtensionTrack[0]);
+                        SetFMKeyOn(&_ExtensionTrack[0]);
 
                     if (track != &_ExtensionTrack[1])
                     {
                         if (_ExtensionTrack[1].PartMask == 0x00 && (_ExtensionTrack[1].keyoff_flag & 1) == 0)
-                            KeyOn(&_ExtensionTrack[1]);
+                            SetFMKeyOn(&_ExtensionTrack[1]);
                     }
                 }
             }
@@ -3165,12 +3017,12 @@ uint8_t * PMD::ppz_extpartset(Channel *, uint8_t * si)
         {
             _PPZ8Track[i].Data = &_State.MData[ax];
             _PPZ8Track[i].Length = 1;          // ｱﾄ 1ｶｳﾝﾄ ﾃﾞ ｴﾝｿｳ ｶｲｼ
-            _PPZ8Track[i].keyoff_flag = -1;      // 現在KeyOff中
+            _PPZ8Track[i].keyoff_flag = -1;      // 現在SetFMKeyOff中
             _PPZ8Track[i].mdc = -1;          // MDepth Counter (無限)
             _PPZ8Track[i].mdc2 = -1;          //
             _PPZ8Track[i]._mdc = -1;          //
             _PPZ8Track[i]._mdc2 = -1;          //
-            _PPZ8Track[i].onkai = 255;        // rest
+            _PPZ8Track[i].Tone = 255;        // rest
             _PPZ8Track[i].onkai_def = 255;      // rest
             _PPZ8Track[i].volume = 128;        // PCM VOLUME DEFAULT= 128
             _PPZ8Track[i].fmpan = 5;          // PAN=Middle
@@ -3321,7 +3173,7 @@ uint8_t * PMD::ssg_mml_part_mask(Channel * qq, uint8_t * si)
             int ah = ((1 << (_Driver.CurrentChannel - 1)) | (4 << _Driver.CurrentChannel));
             uint32_t al = _OPNAW->GetReg(0x07);
 
-            _OPNAW->SetReg(0x07, ah | al);    // SSG KeyOff
+            _OPNAW->SetReg(0x07, ah | al);    // SSG SetFMKeyOff
         }
     }
     else
@@ -4072,28 +3924,26 @@ int PMD::oshift(Channel * track, int al)
     }
 }
 
-//  Q値の計算
-//    break  dx
-uint8_t * PMD::calc_q(Channel * track, uint8_t * si)
+uint8_t * PMD::CalculateQ(Channel * channel, uint8_t * si)
 {
     if (*si == 0xc1)
     {
         si++; // &&
-        track->qdat = 0;
+        channel->qdat = 0;
 
         return si;
     }
 
-    int dl = track->qdata;
+    int dl = channel->qdata;
 
-    if (track->qdatb)
-        dl += (track->Length * track->qdatb) >> 8;
+    if (channel->qdatb)
+        dl += (channel->Length * channel->qdatb) >> 8;
 
-    if (track->qdat3)
+    if (channel->qdat3)
     {
-        int ax = rnd((track->qdat3 & 0x7f) + 1); // Random-Q
+        int ax = rnd((channel->qdat3 & 0x7f) + 1); // Random-Q
 
-        if ((track->qdat3 & 0x80) == 0)
+        if ((channel->qdat3 & 0x80) == 0)
         {
             dl += ax;
         }
@@ -4106,114 +3956,32 @@ uint8_t * PMD::calc_q(Channel * track, uint8_t * si)
         }
     }
 
-    if (track->qdat2)
+    if (channel->qdat2)
     {
-        int dh = track->Length - track->qdat2;
+        int dh = channel->Length - channel->qdat2;
 
         if (dh < 0)
         {
-            track->qdat = 0;
+            channel->qdat = 0;
 
             return si;
         }
 
         if (dl < dh)
-            track->qdat = dl;
+            channel->qdat = dl;
         else
-            track->qdat = dh;
+            channel->qdat = dh;
     }
     else
-        track->qdat = dl;
+        channel->qdat = dl;
 
     return si;
-}
-
-// Set SSG volume.
-void PMD::volsetp(Channel * track)
-{
-    if (track->envf == 3 || (track->envf == -1 && track->eenv_count == 0))
-        return;
-
-    int dl = (track->volpush) ? track->volpush - 1 : track->volume;
-
-    //------------------------------------------------------------------------
-    //  音量down計算
-    //------------------------------------------------------------------------
-    dl = ((256 - _State.ssg_voldown) * dl) >> 8;
-
-    //------------------------------------------------------------------------
-    //  Fadeout計算
-    //------------------------------------------------------------------------
-    dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
-
-    //------------------------------------------------------------------------
-    //  ENVELOPE 計算
-    //------------------------------------------------------------------------
-    if (dl <= 0)
-    {
-        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
-        return;
-    }
-
-    if (track->envf == -1)
-    {
-        if (track->eenv_volume == 0)
-        {
-            _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
-            return;
-        }
-
-        dl = ((((dl * (track->eenv_volume + 1))) >> 3) + 1) >> 1;
-    }
-    else
-    {
-        dl += track->eenv_volume;
-
-        if (dl <= 0)
-        {
-            _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
-            return;
-        }
-
-        if (dl > 15)
-            dl = 15;
-    }
-
-    //--------------------------------------------------------------------
-    //  音量LFO計算
-    //--------------------------------------------------------------------
-    if ((track->lfoswi & 0x22) == 0)
-    {
-        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), (uint32_t) dl);
-        return;
-    }
-
-    int ax = (track->lfoswi & 2) ? track->lfodat : 0;
-
-    if (track->lfoswi & 0x20)
-        ax += track->_lfodat;
-
-    dl += ax;
-
-    if (dl < 0)
-    {
-        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
-        return;
-    }
-
-    if (dl > 15)
-        dl = 15;
-
-    //------------------------------------------------------------------------
-    //  出力
-    //------------------------------------------------------------------------
-    _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), (uint32_t) dl);
 }
 
 //  ＰＳＧ　ＫＥＹＯＮ
 void PMD::keyonp(Channel * qq)
 {
-    if (qq->onkai == 255)
+    if (qq->Tone == 255)
         return;    // ｷｭｳﾌ ﾉ ﾄｷ
 
     int ah = (1 << (_Driver.CurrentChannel - 1)) | (1 << (_Driver.CurrentChannel + 2));
@@ -4607,7 +4375,7 @@ void PMD::InitializeState()
 
         _FMTrack[i].PartMask = PartMask & 0x0f;
         _FMTrack[i].keyon_flag = keyon_flag;
-        _FMTrack[i].onkai = 255;
+        _FMTrack[i].Tone = 255;
         _FMTrack[i].onkai_def = 255;
     }
 
@@ -4620,7 +4388,7 @@ void PMD::InitializeState()
 
         _SSGTrack[i].PartMask = PartMask & 0x0f;
         _SSGTrack[i].keyon_flag = keyon_flag;
-        _SSGTrack[i].onkai = 255;
+        _SSGTrack[i].Tone = 255;
         _SSGTrack[i].onkai_def = 255;
     }
 
@@ -4632,7 +4400,7 @@ void PMD::InitializeState()
 
         _ADPCMTrack.PartMask = partmask & 0x0f;
         _ADPCMTrack.keyon_flag = keyon_flag;
-        _ADPCMTrack.onkai = 255;
+        _ADPCMTrack.Tone = 255;
         _ADPCMTrack.onkai_def = 255;
     }
 
@@ -4644,7 +4412,7 @@ void PMD::InitializeState()
 
         _RhythmTrack.PartMask = partmask & 0x0f;
         _RhythmTrack.keyon_flag = keyon_flag;
-        _RhythmTrack.onkai = 255;
+        _RhythmTrack.Tone = 255;
         _RhythmTrack.onkai_def = 255;
     }
 
@@ -4657,7 +4425,7 @@ void PMD::InitializeState()
 
         _ExtensionTrack[i].PartMask = partmask & 0x0f;
         _ExtensionTrack[i].keyon_flag = keyon_flag;
-        _ExtensionTrack[i].onkai = 255;
+        _ExtensionTrack[i].Tone = 255;
         _ExtensionTrack[i].onkai_def = 255;
     }
 
@@ -4670,7 +4438,7 @@ void PMD::InitializeState()
 
         _PPZ8Track[i].PartMask = partmask & 0x0f;
         _PPZ8Track[i].keyon_flag = keyon_flag;
-        _PPZ8Track[i].onkai = 255;
+        _PPZ8Track[i].Tone = 255;
         _PPZ8Track[i].onkai_def = 255;
     }
 
@@ -4716,12 +4484,12 @@ void PMD::InitializeTracks()
             _FMTrack[i].Data = &_State.MData[*Offsets];
 
         _FMTrack[i].Length = 1;
-        _FMTrack[i].keyoff_flag = -1;    // 現在KeyOff中
+        _FMTrack[i].keyoff_flag = -1;    // 現在SetFMKeyOff中
         _FMTrack[i].mdc = -1;        // MDepth Counter (無限)
         _FMTrack[i].mdc2 = -1;      // 同上
         _FMTrack[i]._mdc = -1;      // 同上
         _FMTrack[i]._mdc2 = -1;      // 同上
-        _FMTrack[i].onkai = 255;      // rest
+        _FMTrack[i].Tone = 255;      // rest
         _FMTrack[i].onkai_def = 255;    // rest
         _FMTrack[i].volume = 108;      // FM  VOLUME DEFAULT= 108
         _FMTrack[i].fmpan = 0xc0;      // FM PAN = Middle
@@ -4739,12 +4507,12 @@ void PMD::InitializeTracks()
             _SSGTrack[i].Data = &_State.MData[*Offsets];
 
         _SSGTrack[i].Length = 1;
-        _SSGTrack[i].keyoff_flag = -1;  // 現在KeyOff中
+        _SSGTrack[i].keyoff_flag = -1;  // 現在SetFMKeyOff中
         _SSGTrack[i].mdc = -1;      // MDepth Counter (無限)
         _SSGTrack[i].mdc2 = -1;      // 同上
         _SSGTrack[i]._mdc = -1;      // 同上
         _SSGTrack[i]._mdc2 = -1;      // 同上
-        _SSGTrack[i].onkai = 255;      // rest
+        _SSGTrack[i].Tone = 255;      // rest
         _SSGTrack[i].onkai_def = 255;    // rest
         _SSGTrack[i].volume = 8;      // SSG VOLUME DEFAULT= 8
         _SSGTrack[i].psgpat = 7;      // SSG = TONE
@@ -4760,12 +4528,12 @@ void PMD::InitializeTracks()
             _ADPCMTrack.Data = &_State.MData[*Offsets];
 
         _ADPCMTrack.Length = 1;
-        _ADPCMTrack.keyoff_flag = -1;    // 現在KeyOff中
+        _ADPCMTrack.keyoff_flag = -1;    // 現在SetFMKeyOff中
         _ADPCMTrack.mdc = -1;        // MDepth Counter (無限)
         _ADPCMTrack.mdc2 = -1;      // 同上
         _ADPCMTrack._mdc = -1;      // 同上
         _ADPCMTrack._mdc2 = -1;      // 同上
-        _ADPCMTrack.onkai = 255;      // rest
+        _ADPCMTrack.Tone = 255;      // rest
         _ADPCMTrack.onkai_def = 255;    // rest
         _ADPCMTrack.volume = 128;      // PCM VOLUME DEFAULT= 128
         _ADPCMTrack.fmpan = 0xc0;      // PCM PAN = Middle
@@ -4780,12 +4548,12 @@ void PMD::InitializeTracks()
             _RhythmTrack.Data = &_State.MData[*Offsets];
 
         _RhythmTrack.Length = 1;
-        _RhythmTrack.keyoff_flag = -1;  // 現在KeyOff中
+        _RhythmTrack.keyoff_flag = -1;  // 現在SetFMKeyOff中
         _RhythmTrack.mdc = -1;      // MDepth Counter (無限)
         _RhythmTrack.mdc2 = -1;      // 同上
         _RhythmTrack._mdc = -1;      // 同上
         _RhythmTrack._mdc2 = -1;      // 同上
-        _RhythmTrack.onkai = 255;      // rest
+        _RhythmTrack.Tone = 255;      // rest
         _RhythmTrack.onkai_def = 255;    // rest
         _RhythmTrack.volume = 15;      // PPSDRV volume
 

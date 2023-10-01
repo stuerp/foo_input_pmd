@@ -159,7 +159,7 @@ struct Channel
     int hldelay; // 1 HardLFO delay
     int hldelay_c; // 1 HardLFO delay Counter
 
-    int onkai;  // Scale data being played (0xFF = rest)
+    int Tone;  // Scale data being played (0xFF = rest)
     int sdelay;  // 1 Slot delay
     int sdelay_c; // 1 Slot delay counter
     int sdelay_m; // 1 Slot delay Mask

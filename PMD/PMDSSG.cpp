@@ -68,7 +68,7 @@ void PMD::SSGMain(Channel * channel)
             {
                 channel->Data = si;
                 channel->loopcheck = 3;
-                channel->onkai = 255;
+                channel->Tone = 255;
 
                 if (channel->LoopData == nullptr)
                 {
@@ -105,7 +105,7 @@ void PMD::SSGMain(Channel * channel)
                         si++;
 
                         channel->fnum = 0;      // Set to "rest".
-                        channel->onkai = 255;
+                        channel->Tone = 255;
                         channel->Length = *si++;
                         channel->keyon_flag++;
                         channel->Data = si;
@@ -123,9 +123,9 @@ void PMD::SSGMain(Channel * channel)
                 SetSSGTune(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
-                si = calc_q(channel, si);
+                si = CalculateQ(channel, si);
 
-                if (channel->volpush && channel->onkai != 255)
+                if (channel->volpush && channel->Tone != 255)
                 {
                     if (--_Driver.volpush_flag)
                     {
@@ -134,7 +134,7 @@ void PMD::SSGMain(Channel * channel)
                     }
                 }
 
-                volsetp(channel);
+                SetSSGVolume2(channel);
                 SetSSGPitch(channel);
                 keyonp(channel);
 
@@ -146,7 +146,7 @@ void PMD::SSGMain(Channel * channel)
                 channel->keyoff_flag = 0;
 
                 if (*si == 0xfb)
-                    channel->keyoff_flag = 2; // If "&" command is immediately followed, KeyOff is not performed.
+                    channel->keyoff_flag = 2; // If "&" command is immediately followed, SetFMKeyOff is not performed.
 
                 _Driver.loop_work &= channel->loopcheck;
 
@@ -187,7 +187,7 @@ void PMD::SSGMain(Channel * channel)
                 porta_calc(channel);
 
             // Do not operate while resting on SSG channel 3 and SSG drum is sounding.
-            if (!(!_Driver.UsePPS && (channel == &_SSGTrack[2]) && (channel->onkai == 255) && (_State.kshot_dat != 0)))
+            if (!(!_Driver.UsePPS && (channel == &_SSGTrack[2]) && (channel->Tone == 255) && (_State.kshot_dat != 0)))
                 SetSSGPitch(channel);
         }
     }
@@ -197,8 +197,8 @@ void PMD::SSGMain(Channel * channel)
     if ((temp != 0) || _Driver.lfo_switch & 0x22 || (_State.FadeOutSpeed != 0))
     {
         // Do not set volume while resting on SSG channel 3 and SSG drum is sounding.
-        if (!(!_Driver.UsePPS && (channel == &_SSGTrack[2]) && (channel->onkai == 255) && (_State.kshot_dat != 0)))
-            volsetp(channel);
+        if (!(!_Driver.UsePPS && (channel == &_SSGTrack[2]) && (channel->Tone == 255) && (_State.kshot_dat != 0)))
+            SetSSGVolume2(channel);
     }
 
     _Driver.loop_work &= channel->loopcheck;
@@ -400,7 +400,7 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
     if (channel->PartMask)
     {
         channel->fnum = 0;    // Set to "rest"
-        channel->onkai = 255;
+        channel->Tone = 255;
         channel->Length = *(si + 2);
         channel->keyon_flag++;
         channel->Data = si + 3;
@@ -418,26 +418,26 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
     SetSSGTune(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
 
     int bx_ = (int) channel->fnum;
-    int al_ = channel->onkai;
+    int al_ = channel->Tone;
 
     SetSSGTune(channel, oshiftp(channel, *si++));
 
     int ax = (int) channel->fnum;   // ax = portamento destination psg_tune value
 
-    channel->onkai = al_;
+    channel->Tone = al_;
     channel->fnum = (uint32_t) bx_; // bx = portamento original psg_tune value
 
     ax -= bx_;
 
     channel->Length = *si++;
 
-    si = calc_q(channel, si);
+    si = CalculateQ(channel, si);
 
     channel->porta_num2 = ax / channel->Length;    // Quotient
     channel->porta_num3 = ax % channel->Length;    // Remainder
     channel->lfoswi |= 8;        // Porta ON
 
-    if (channel->volpush && channel->onkai != 255)
+    if (channel->volpush && channel->Tone != 255)
     {
         if (--_Driver.volpush_flag)
         {
@@ -446,7 +446,7 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
         }
     }
 
-    volsetp(channel);
+    SetSSGVolume2(channel);
     SetSSGPitch(channel);
     keyonp(channel);
 
@@ -457,7 +457,7 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
     _Driver.volpush_flag = 0;
     channel->keyoff_flag = 0;
 
-    if (*si == 0xfb) // If there is '&' immediately after, KeyOff will not be done.
+    if (*si == 0xfb) // If there is '&' immediately after, SetFMKeyOff will not be done.
         channel->keyoff_flag = 2;
 
     _Driver.loop_work &= channel->loopcheck;
@@ -469,7 +469,7 @@ void PMD::SetSSGTune(Channel * channel, int al)
 {
     if ((al & 0x0f) == 0x0f)
     {
-        channel->onkai = 255; // Kyufu Nara FNUM Ni 0 Set
+        channel->Tone = 255; // Kyufu Nara FNUM Ni 0 Set
 
         if (channel->lfoswi & 0x11)
             return;
@@ -479,7 +479,7 @@ void PMD::SetSSGTune(Channel * channel, int al)
         return;
     }
 
-    channel->onkai = al;
+    channel->Tone = al;
 
     int cl = (al >> 4) & 0x0f;  // cl=oct
     int bx = al & 0x0f;      // bx=onkai
@@ -575,6 +575,81 @@ bool PMD::CheckSSGDrum(Channel * channel, int al)
     channel->PartMask &= 0xFD;
 
     return (channel->PartMask == 0x00);
+}
+
+void PMD::SetSSGVolume2(Channel * channel)
+{
+    if (channel->envf == 3 || (channel->envf == -1 && channel->eenv_count == 0))
+        return;
+
+    int dl = (channel->volpush) ? channel->volpush - 1 : channel->volume;
+
+    //  音量down計算
+    dl = ((256 - _State.ssg_voldown) * dl) >> 8;
+
+    //  Fadeout計算
+    dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
+
+    //  ENVELOPE 計算
+    if (dl <= 0)
+    {
+        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
+
+        return;
+    }
+
+    if (channel->envf == -1)
+    {
+        if (channel->eenv_volume == 0)
+        {
+            _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
+
+            return;
+        }
+
+        dl = ((((dl * (channel->eenv_volume + 1))) >> 3) + 1) >> 1;
+    }
+    else
+    {
+        dl += channel->eenv_volume;
+
+        if (dl <= 0)
+        {
+            _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
+
+            return;
+        }
+
+        if (dl > 15)
+            dl = 15;
+    }
+
+
+    //  音量LFO計算
+    if ((channel->lfoswi & 0x22) == 0)
+    {
+        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), (uint32_t) dl);
+        return;
+    }
+
+    int ax = (channel->lfoswi & 2) ? channel->lfodat : 0;
+
+    if (channel->lfoswi & 0x20)
+        ax += channel->_lfodat;
+
+    dl += ax;
+
+    if (dl < 0)
+    {
+        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
+        return;
+    }
+
+    if (dl > 15)
+        dl = 15;
+
+    //  出力
+    _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), (uint32_t) dl);
 }
 
 void PMD::SetSSGPitch(Channel * channel)

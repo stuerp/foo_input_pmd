@@ -352,7 +352,7 @@ bool P86Driver::Stop(void)
     return true;
 }
 
-//  P86 KeyOff
+//  P86 SetFMKeyOff
 bool P86Driver::Keyoff(void)
 {
     if (release_flag1 == true)
