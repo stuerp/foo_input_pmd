@@ -216,7 +216,7 @@ protected:
     void EffectStop();
     void EffectSweep();
 
-    uint8_t * pdrswitch(Channel * track, uint8_t * si);
+    uint8_t * PDRSwitchCommand(Channel * track, uint8_t * si);
 
     void GetText(const uint8_t * data, size_t size, int al, char * text) const noexcept;
 
@@ -228,7 +228,7 @@ protected:
     void keyoff8(Channel * track);
     void keyoffz(Channel * track);
 
-    bool ssgdrum_check(Channel * track, int al);
+    bool CheckSSGDrum(Channel * track, int al);
 
     uint8_t * special_0c0h(Channel * track, uint8_t * si, uint8_t al);
 
@@ -246,27 +246,27 @@ protected:
     uint8_t * SetStartOfLoopCommand(Channel * track, uint8_t * si);
     uint8_t * SetEndOfLoopCommand(Channel * track, uint8_t * si);
     uint8_t * ExitLoopCommand(Channel * track, uint8_t * si);
-    uint8_t * extend_psgenvset(Channel * track, uint8_t * si);
+    uint8_t * SetSSGEnvelopeSpeedToExtend(Channel * track, uint8_t * si);
 
     int lfoinit(Channel * track, int al);
     int lfoinitp(Channel * track, int al);
 
-    uint8_t * lfoset(Channel * track, uint8_t * si);
+    uint8_t * SetLFOParameter(Channel * track, uint8_t * si);
     uint8_t * psgenvset(Channel * track, uint8_t * si);
     uint8_t * RhythmInstrumentCommand(uint8_t * si);
     uint8_t * SetRhythmInstrumentVolumeCommand(uint8_t * si);
-    uint8_t * rpnset(uint8_t * si);
+    uint8_t * SetRhythmOutputPosition(uint8_t * si);
     uint8_t * SetRhythmMasterVolumeCommand(uint8_t * si);
     uint8_t * rmsvs_sft(uint8_t * si);
     uint8_t * rhyvs_sft(uint8_t * si);
 
-    uint8_t * vol_one_up_psg(Channel * track, uint8_t * si);
+    uint8_t * SetSSGVolumeCommand(Channel * track, uint8_t * si);
     uint8_t * vol_one_up_pcm(Channel * track, uint8_t * si);
     uint8_t * DecreaseSoundSourceVolumeCommand(Channel * track, uint8_t * si);
-    uint8_t * portap(Channel * track, uint8_t * si);
+    uint8_t * SetSSGPortamento(Channel * track, uint8_t * si);
     uint8_t * portam(Channel * track, uint8_t * si);
     uint8_t * portaz(Channel * track, uint8_t * si);
-    uint8_t * psgnoise_move(uint8_t * si);
+    uint8_t * SetSSGPseudoEchoCommand(uint8_t * si);
     uint8_t * mdepth_count(Channel * track, uint8_t * si);
     uint8_t * GetToneData(Channel * track, int dl);
 
@@ -348,8 +348,8 @@ protected:
     void ReadPCMData(uint16_t pcmstart, uint16_t pcmstop, uint8_t * pcmData);
 
     uint8_t * hlfo_set(Channel * track, uint8_t * si);
-    uint8_t * vol_one_up_fm(Channel * track, uint8_t * si);
-    uint8_t * porta(Channel * track, uint8_t * si);
+    uint8_t * IncreaseFMVolumeCommand(Channel * track, uint8_t * si);
+    uint8_t * SetFMPortamentoCommand(Channel * track, uint8_t * si);
     uint8_t * SetSlotMask(Channel * track, uint8_t * si);
     uint8_t * slotdetune_set(Channel * track, uint8_t * si);
     uint8_t * slotdetune_set2(Channel * track, uint8_t * si);
@@ -364,8 +364,8 @@ protected:
     uint8_t * _volmask_set(Channel * track, uint8_t * si);
     uint8_t * tl_set(Channel * track, uint8_t * si);
     uint8_t * fb_set(Channel * track, uint8_t * si);
-    uint8_t * fm_efct_set(Channel * track, uint8_t * si);
-    uint8_t * ssg_efct_set(Channel * track, uint8_t * si);
+    uint8_t * SetFMEffect(Channel * track, uint8_t * si);
+    uint8_t * SetSSGEffect(Channel * track, uint8_t * si);
 
     void Fade();
     void ResetTone(Channel * track);

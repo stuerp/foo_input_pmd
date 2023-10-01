@@ -15,38 +15,8 @@
 #include "PPS.h"
 #include "P86.h"
 
-//  SSG Drums & Sound Effects Routine (From WT298)
-//  AL to sound effect No. Enter and CALL
-//  If you have ppsdrv, run it
-void PMD::effgo(Channel * track, int al)
-{
-    if (_DriverState.UsePPS)
-    {
-        al |= 0x80;
-
-        if (_EffectState.last_shot_data == al)
-            _PPS->Stop();
-        else
-            _EffectState.last_shot_data = al;
-    }
-
-    _EffectState.hosei_flag = 3; // With pitch/volume correction (K part)
-
-    EffectMain(track, al);
-}
-
-// Command "n": SSG Sound Effect Playback
-void PMD::eff_on2(Channel * channel, int al)
-{
-    _EffectState.hosei_flag = 1;        //  Only the pitch is corrected (n command)
-
-    EffectMain(channel, al);
-}
-
 void PMD::EffectMain(Channel * channel, int al)
 {
-    int bh, bl;
-
     if (_State.SSGEffectFlag)
         return;    //  効果音を使用しないモード
 
@@ -60,9 +30,8 @@ void PMD::EffectMain(Channel * channel, int al)
         _EffectState.effon = 1;        // 優先度１(ppsdrv)
         _EffectState.EffectNumber = al;      // Tone Number Setting (80H?)
 
-        bh = 0;
-        bl = 15;
-
+        int bh = 0;
+        int bl = 15;
         int ah = _EffectState.hosei_flag;
 
         if (ah & 1)
@@ -102,6 +71,34 @@ void PMD::EffectMain(Channel * channel, int al)
             _EffectState.effon = SSGEffects[al].Priority; // Set priority
         }
     }
+}
+
+//  SSG Drums & Sound Effects Routine (From WT298)
+//  AL to sound effect No. Enter and CALL
+//  If you have ppsdrv, run it
+void PMD::effgo(Channel * channel, int al)
+{
+    if (_DriverState.UsePPS)
+    {
+        al |= 0x80;
+
+        if (_EffectState.last_shot_data == al)
+            _PPS->Stop();
+        else
+            _EffectState.last_shot_data = al;
+    }
+
+    _EffectState.hosei_flag = 3; // With pitch/volume correction (K part)
+
+    EffectMain(channel, al);
+}
+
+// Command "n": SSG Sound Effect Playback
+void PMD::eff_on2(Channel * channel, int al)
+{
+    _EffectState.hosei_flag = 1;        //  Only the pitch is corrected (n command)
+
+    EffectMain(channel, al);
 }
 
 void PMD::effplay()

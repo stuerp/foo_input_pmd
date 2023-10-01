@@ -160,15 +160,15 @@ void PMDDecoder::Initialize() const noexcept
     _PMD->UsePPS(CfgUsePPS);
     _PMD->UseRhythm(CfgUseRhythm);
     _PMD->Start();
-
-    console::printf("PMDDecoder: ADPCM ROM %s.", (_PMD->HasADPCMROM() ? "available" : "missing"));
-    console::printf("PMDDecoder: Percussion samples %s.", (_PMD->HasPercussionSamples() ? "available" : "missing"));
 /*
     for (int i = 0; i < MaxChannels; ++i)
         _PMD->DisableChannel(i);
 
     _PMD->EnableChannel(16); // PPZ 1
 */
+
+    console::printf("PMDDecoder: ADPCM ROM %s.", (_PMD->HasADPCMROM() ? "found" : "not found"));
+    console::printf("PMDDecoder: Percussion samples %s.", (_PMD->HasPercussionSamples() ? "found" : "not found"));
 }
 
 /// <summary>
