@@ -146,19 +146,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
 /// </summary>
 bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
 {
-    if (size < 3)
-        return false;
-
-    if (data[0] > 0x0F)
-        return false;
-
-    if (data[1] != 0x18 && data[1] != 0x1A)
-        return false;
-
-    if (data[2] != 0x00 && data[2] != 0xE6)
-        return false;
-
-    return true;
+    return PMD::IsPMD(data, size);
 }
 
 /// <summary>
@@ -169,9 +157,18 @@ void PMDDecoder::Initialize() const noexcept
     if (_PMD->Load(_Data, _Size) != ERR_SUCCESS)
         return;
 
-//  _PMD->UsePPS(true);
-//  _PMD->UseSSG(true);
+    _PMD->UsePPS(CfgUsePPS);
+    _PMD->UseRhythm(CfgUseRhythm);
     _PMD->Start();
+
+    console::printf("PMDDecoder: ADPCM ROM %s.", (_PMD->HasADPCMROM() ? "available" : "missing"));
+    console::printf("PMDDecoder: Percussion samples %s.", (_PMD->HasPercussionSamples() ? "available" : "missing"));
+/*
+    for (int i = 0; i < MaxChannels; ++i)
+        _PMD->DisableChannel(i);
+
+    _PMD->EnableChannel(16); // PPZ 1
+*/
 }
 
 /// <summary>
@@ -239,9 +236,9 @@ uint32_t PMDDecoder::GetLoopNumber() const noexcept
 /// <returns></returns>
 bool PMDDecoder::IsBusy() const noexcept
 {
-    Work * State = _PMD->GetOpenWork();
+    State * State = _PMD->GetState();
 
-    return State->_IsPlaying;
+    return State->IsPlaying;
 }
 
 /// <summary>

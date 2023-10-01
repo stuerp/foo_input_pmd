@@ -1,5 +1,5 @@
 
-/** $VER: Component.cpp (2023.09.30) P. Stuer **/
+/** $VER: Component.cpp (2023.08.30) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 

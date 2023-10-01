@@ -1,5 +1,5 @@
 ﻿
-// SSG PCM Driver「PPSDRV Unit / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
+// PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
 
 #pragma once
 
@@ -18,7 +18,7 @@
 
 typedef int32_t Sample;
 
-#define MAX_PPS        14
+#define MAX_PPS 14
 
 #pragma pack(push)
 #pragma pack(1)
@@ -26,10 +26,10 @@ struct PPSHEADER
 {
     struct
     {
-        uint16_t address;
-        uint16_t leng;
-        uint8_t toneofs;
-        uint8_t volumeofs;
+        uint16_t Address;
+        uint16_t Size;
+        uint8_t ToneOffset;
+        uint8_t VolumeOffset;
     } pcmnum[MAX_PPS];
 };
 #pragma pack(pop)
@@ -37,16 +37,16 @@ struct PPSHEADER
 const size_t PPSHEADERSIZE = (sizeof(uint16_t) * 2 + sizeof(uint8_t) * 2) * MAX_PPS;
 
 /// <summary>
-/// Implemnts a SSG Sound Source module, a complete internal implementation of the Yamaha YM2149/SSG,
-/// a variant of the popular AY-3-8910/PSG for producing three channels of square wave synthesis or noise.
+/// PCM driver for the SSG (Software-controlled Sound Generator)
+/// 4-bit 16000Hz PCM playback on the SSG Channel 3. It can also play 2 samples simultanelously, but at a lower quality.
 /// </summary>
-class PPSDRV
+class PPSDriver
 {
 public:
-    PPSDRV(File * file);
-    virtual ~PPSDRV();
+    PPSDriver(File * file);
+    virtual ~PPSDriver();
 
-    bool Init(uint32_t r, bool ip);
+    bool Initialize(uint32_t r, bool ip);
     bool Stop(void);
     bool Play(int num, int shift, int volshift);
 
@@ -54,18 +54,18 @@ public:
     bool SetRate(uint32_t r, bool ip);
     void SetVolume(int volume);
 
-    void Mix(Sample * sampleData, int sampleCount);
+    void Mix(Sample * sampleData, size_t sampleCount);
 
     int Load(const WCHAR * filePath);
 
 private:
     void _Init(void);
-    void ReadHeader(File * file, PPSHEADER & ppsheader);
+    void ReadHeader(File * file, PPSHEADER & ph);
 
 private:
-    File * _File;              // ファイルアクセス関連のクラスライブラリ
+    File * _File;
 
-    PPSHEADER ppsheader;              // PCMの音色ヘッダー
+    PPSHEADER _Header;
     WCHAR _FilePath[_MAX_PATH];
 
     int _SynthesisRate;
@@ -77,20 +77,21 @@ private:
     Sample * data_offset1;
     Sample * data_offset2;
 
-    bool  _IsPlaying;
+    bool _IsPlaying;
 
-    bool  single_flag;              // 単音モードか？
-    bool  low_cpu_check_flag;            // 周波数半分で再生か？
+    bool _SingleNodeMode;
+    bool _LowCPUCheck;      // Play at half frequency?
 
-    int    data_xor1;                // 現在の位置(小数部)
-    int    data_xor2;                // 現在の位置(小数部)
-    int    tick1;
-    int    tick2;
-    int    tick_xor1;
-    int    tick_xor2;
-    int    data_size1;
-    int    data_size2;
-    int    volume1;
-    int    volume2;
+    int data_xor1;          // Current position (decimal part)
+    int data_xor2;          // Current position (decimal part)
+    int tick1;
+    int tick2;
+    int tick_xor1;
+    int tick_xor2;
+    int data_size1;
+    int data_size2;
+    int volume1;
+    int volume2;
+
     Sample _KeyOffVolume;
 };

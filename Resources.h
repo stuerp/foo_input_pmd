@@ -1,5 +1,5 @@
 
-/** $VER: Resources.h (2023.09.30) P. Stuer **/
+/** $VER: Resources.h (2023.08.30) P. Stuer **/
 
 #pragma once
 
@@ -12,13 +12,14 @@
 #define STR_COMPONENT_VERSION       TOSTRING(NUM_FILE_MAJOR) "." TOSTRING(NUM_FILE_MINOR) "." TOSTRING(NUM_FILE_PATCH) "." TOSTRING(NUM_FILE_PRERELEASE)
 #define STR_COMPONENT_BASENAME      "foo_input_pmd"
 #define STR_COMPONENT_FILENAME      STR_COMPONENT_BASENAME ".dll"
+#define STR_COMPONENT_COMPANY_NAME  ""
 #define STR_COMPONENT_COPYRIGHT     "Copyright (c) 2023. All rights reserved."
 #define STR_COMPONENT_COMMENTS      "Written by P. Stuer"
 #define STR_COMPONENT_DESCRIPTION   "Adds playback of Professional Music Driver (PMD) files to foobar2000"
 
 /** Generic **/
 
-#define STR_COMPANY_NAME        TEXT("")
+#define STR_COMPANY_NAME        TEXT(STR_COMPONENT_COMPANY_NAME)
 #define STR_INTERNAL_NAME       TEXT(STR_COMPONENT_NAME)
 #define STR_COMMENTS            TEXT(STR_COMPONENT_COMMENTS)
 #define STR_COPYRIGHT           TEXT(STR_COMPONENT_COPYRIGHT)
@@ -54,9 +55,12 @@
 
 #define IDC_PLAYBACK_MODE           IDC_SAMPLES_PATH_SELECT + 1
 #define IDC_LOOP_COUNT              IDC_PLAYBACK_MODE + 1
-#define IDC_FADE_OUT_DURATION         IDC_LOOP_COUNT + 1
+#define IDC_FADE_OUT_DURATION       IDC_LOOP_COUNT + 1
 
 #define IDC_SYNTHESIS_RATE          IDC_FADE_OUT_DURATION + 1
+
+#define IDC_USE_PPS                 IDC_SYNTHESIS_RATE + 1
+#define IDC_USE_RHYTHM                 IDC_USE_PPS + 1
 
 #pragma region("Layout")
 
@@ -158,5 +162,17 @@
 #define X_A14    X_A13 + W_A13 + 3
 #define Y_A14    Y_A13 + 2
 #pragma endregion
+
+// Checkbox: Use PPS
+#define X_A15    7
+#define Y_A15    Y_A04 + H_A04 + 4
+#define W_A15    W_A00 - 5 - 6
+#define H_A15    10
+
+// Checkbox: Use SSG
+#define X_A16    7
+#define Y_A16    Y_A15 + H_A15 + 4
+#define W_A16    W_A00 - 5 - 6
+#define H_A16    10
 
 #pragma endregion

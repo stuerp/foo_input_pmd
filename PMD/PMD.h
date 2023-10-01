@@ -1,5 +1,5 @@
 ﻿
-// Based on PMDWin code by C60
+// Based on PMDWin code by C60 / Masahiro Kajihara
 
 #pragma once
 
@@ -12,10 +12,9 @@
 #include <Windows.h>
 #include <tchar.h>
 
-#include "OPNA.h"
 #include "OPNAW.h"
-#include "PPZ.h"
 #include "PPS.h"
+#include "PPZ8.h"
 #include "P86.h"
 
 #include "PMDPrivate.h"
@@ -26,8 +25,8 @@ typedef int Sample;
 #pragma pack(2)
 struct PCMEnds
 {
-    uint16_t pcmends;
-    uint16_t pcmadrs[256][2];
+    uint16_t Count;
+    uint16_t Address[256][2];
 };
 #pragma pack(pop)
 
@@ -50,14 +49,16 @@ public:
     PMD();
     virtual ~PMD();
 
-    bool Initialize(const WCHAR * path);
+    bool Initialize(const WCHAR * directoryPath);
+
+    static bool IsPMD(const uint8_t * data, size_t size) noexcept;
 
     int Load(const uint8_t * data, size_t size);
 
     void Start();
     void Stop();
 
-    void Render(int16_t * sampleData, int sampleCount);
+    void Render(int16_t * sampleData, size_t sampleCount);
 
     uint32_t GetLoopNumber();
 
@@ -72,13 +73,13 @@ public:
     
     void SetSynthesisRate(uint32_t value);
     void SetPPZSynthesisRate(uint32_t value);
-    void EnableFM55kHzSynthesis(bool flag);
-    void EnablePPZInterpolation(bool flag);
+    void SetFM55kHzSynthesisMode(bool flag);
+    void SetPPZInterpolation(bool flag);
 
-    void SetFMWait(int nsec);
-    void SetSSGWait(int nsec);
-    void SetRhythmWait(int nsec);
-    void SetADPCMWait(int nsec);
+    void SetFMDelay(int nsec);
+    void SetSSGDelay(int nsec);
+    void SetADPCMDelay(int nsec);
+    void SetRSSDelay(int nsec);
 
     void SetFadeOutSpeed(int speed);
     void SetFadeOutDurationHQ(int speed);
@@ -90,21 +91,24 @@ public:
     WCHAR * GetPPZFileName(WCHAR * dest, int bufnum);
 
     void UsePPS(bool value) noexcept;
-    void UseSSG(bool value) noexcept;
+    void UseRhythm(bool value) noexcept;
+
+    bool HasADPCMROM() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasADPCMROM(); }
+    bool HasPercussionSamples() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasPercussionSamples(); }
 
     void EnablePMDB2CompatibilityMode(bool value);
     bool GetPMDB2CompatibilityMode();
 
-    void setppsinterpolation(bool ip);
-    void setp86interpolation(bool ip);
+    void SetPPSInterpolation(bool ip);
+    void SetP86Interpolation(bool ip);
 
-    int DisableChannel(int ch);
-    int EnableChannel(int ch);
+    int maskon(int ch);
+    int maskoff(int ch);
 
     void setfmvoldown(int voldown);
     void setssgvoldown(int voldown);
-    void setrhythmvoldown(int voldown);
     void setadpcmvoldown(int voldown);
+    void setrhythmvoldown(int voldown);
     void setppzvoldown(int voldown);
 
     int getfmvoldown();
@@ -125,246 +129,40 @@ public:
     int LoadP86(const WCHAR * filePath);
     int LoadPPZ(const WCHAR * filePath, int bufnum);
 
-    Work * GetOpenWork();
-    Channel * GetOpenPartWork(int ch);
-
-protected:
-    void InitializeInternal();
-    void StartOPNInterrupt();
-    void InitializeDataArea();
-    void opn_init();
-
-    void DriverStart();
-    void DriverStop();
-
-    void Silence();
-    void play_init();
-    void setint();
-    void calc_tb_tempo();
-    void calc_tempo_tb();
-    void settempo_b();
-    void HandleTimerA();
-    void HandleTimerB();
-    void DriverMain();
-    void syousetu_count();
-
-    void FMMain(Channel * ps);
-    void PSGMain(Channel * ps);
-    void RhythmMain(Channel * ps);
-    void ADPCMMain(Channel * ps);
-    void PCM86Main(Channel * ps);
-    void PPZ8Main(Channel * ps);
-
-    uint8_t * FMCommands(Channel * ps, uint8_t * si);
-    uint8_t * PSGCommands(Channel * ps, uint8_t * si);
-    uint8_t * RhythmCommands(Channel * ps, uint8_t * si);
-    uint8_t * ADPCMCommands(Channel * ps, uint8_t * si);
-    uint8_t * PCM86Commands(Channel * ps, uint8_t * si);
-    uint8_t * PPZ8Commands(Channel * ps, uint8_t * si);
-
-    uint8_t * rhythmon(Channel * ps, uint8_t * bx, int al, int * result);
-
-    void effgo(Channel * ps, int al);
-    void eff_on2(Channel * ps, int al);
-    void eff_main(Channel * ps, int al);
-    void effplay();
-    void efffor(const int * si);
-    void effend();
-    void effsweep();
-
-    uint8_t * pdrswitch(Channel * ps, uint8_t * si);
-
-    char * GetNoteInternal(const uint8_t * data, size_t size, int al, char * text);
-
-    int MuteFMPart(Channel * ps);
-    void keyoff(Channel * ps);
-    void kof1(Channel * ps);
-    void keyoffp(Channel * ps);
-    void keyoffm(Channel * ps);
-    void keyoff8(Channel * ps);
-    void keyoffz(Channel * ps);
-
-    int ssgdrum_check(Channel * ps, int al);
-
-    uint8_t * special_0c0h(Channel * ps, uint8_t * si, uint8_t al);
-
-    uint8_t * _vd_fm(Channel * ps, uint8_t * si);
-    uint8_t * _vd_ssg(Channel * ps, uint8_t * si);
-    uint8_t * _vd_pcm(Channel * ps, uint8_t * si);
-    uint8_t * _vd_rhythm(Channel * ps, uint8_t * si);
-    uint8_t * _vd_ppz(Channel * ps, uint8_t * si);
-
-    uint8_t * comt(uint8_t * si);
-    uint8_t * comat(Channel * ps, uint8_t * si);
-    uint8_t * comatm(Channel * ps, uint8_t * si);
-    uint8_t * comat8(Channel * ps, uint8_t * si);
-    uint8_t * comatz(Channel * ps, uint8_t * si);
-    uint8_t * comstloop(Channel * ps, uint8_t * si);
-    uint8_t * comedloop(Channel * ps, uint8_t * si);
-    uint8_t * comexloop(Channel * ps, uint8_t * si);
-    uint8_t * extend_psgenvset(Channel * ps, uint8_t * si);
-
-    int lfoinit(Channel * ps, int al);
-    int lfoinitp(Channel * ps, int al);
-
-    uint8_t * lfoset(Channel * ps, uint8_t * si);
-    uint8_t * psgenvset(Channel * ps, uint8_t * si);
-    uint8_t * rhykey(uint8_t * si);
-    uint8_t * rhyvs(uint8_t * si);
-    uint8_t * rpnset(uint8_t * si);
-    uint8_t * rmsvs(uint8_t * si);
-    uint8_t * rmsvs_sft(uint8_t * si);
-    uint8_t * rhyvs_sft(uint8_t * si);
-
-    uint8_t * vol_one_up_psg(Channel * ps, uint8_t * si);
-    uint8_t * vol_one_up_pcm(Channel * ps, uint8_t * si);
-    uint8_t * vol_one_down(Channel * ps, uint8_t * si);
-    uint8_t * portap(Channel * ps, uint8_t * si);
-    uint8_t * portam(Channel * ps, uint8_t * si);
-    uint8_t * portaz(Channel * ps, uint8_t * si);
-    uint8_t * psgnoise_move(uint8_t * si);
-    uint8_t * mdepth_count(Channel * ps, uint8_t * si);
-    uint8_t * toneadr_calc(Channel * ps, int dl);
-
-    void neiroset(Channel * ps, int dl);
-
-    int oshift(Channel * ps, int al);
-    int oshiftp(Channel * ps, int al);
-    void fnumset(Channel * ps, int al);
-    void fnumsetp(Channel * ps, int al);
-    void fnumsetm(Channel * ps, int al);
-    void fnumset8(Channel * ps, int al);
-    void fnumsetz(Channel * ps, int al);
-
-    uint8_t * panset(Channel * ps, uint8_t * si);
-    uint8_t * panset_ex(Channel * ps, uint8_t * si);
-    uint8_t * pansetm(Channel * ps, uint8_t * si);
-    uint8_t * panset8(Channel * ps, uint8_t * si);
-    uint8_t * pansetz(Channel * ps, uint8_t * si);
-    uint8_t * pansetz_ex(Channel * ps, uint8_t * si);
-    void panset_main(Channel * ps, int al);
-
-    uint8_t calc_panout(Channel * ps);
-    uint8_t * calc_q(Channel * ps, uint8_t * si);
-    void fm_block_calc(int * cx, int * ax);
-    int ch3_setting(Channel * ps);
-    void cm_clear(int * ah, int * al);
-    void ch3mode_set(Channel * ps);
-    void ch3_special(Channel * ps, int ax, int cx);
-
-    void volset(Channel * ps);
-    void volsetp(Channel * ps);
-    void volsetm(Channel * ps);
-    void volset8(Channel * ps);
-    void volsetz(Channel * ps);
-
-    void otodasi(Channel * ps);
-    void otodasip(Channel * ps);
-    void otodasim(Channel * ps);
-    void otodasi8(Channel * ps);
-    void otodasiz(Channel * ps);
-
-    void keyon(Channel * ps);
-    void keyonp(Channel * ps);
-    void keyonm(Channel * ps);
-    void keyon8(Channel * ps);
-    void keyonz(Channel * ps);
-
-    int lfo(Channel * ps);
-    int lfop(Channel * ps);
-    uint8_t * lfoswitch(Channel * ps, uint8_t * si);
-    void lfoinit_main(Channel * ps);
-    void lfo_change(Channel * ps);
-    void lfo_exit(Channel * ps);
-    void lfin1(Channel * ps);
-    void lfo_main(Channel * ps);
-
-    int rnd(int ax);
-
-    void fmlfo_sub(Channel * ps, int al, int bl, uint8_t * vol_tbl);
-    void volset_slot(int dh, int dl, int al);
-    void porta_calc(Channel * ps);
-    int soft_env(Channel * ps);
-    int soft_env_main(Channel * ps);
-    int soft_env_sub(Channel * ps);
-    int ext_ssgenv_main(Channel * ps);
-    void esm_sub(Channel * ps, int ah);
-    void md_inc(Channel * ps);
-
-    uint8_t * pcmrepeat_set(Channel * ps, uint8_t * si);
-    uint8_t * pcmrepeat_set8(Channel * ps, uint8_t * si);
-    uint8_t * ppzrepeat_set(Channel * ps, uint8_t * si);
-    uint8_t * pansetm_ex(Channel * ps, uint8_t * si);
-    uint8_t * panset8_ex(Channel * ps, uint8_t * si);
-    uint8_t * pcm_mml_part_mask(Channel * ps, uint8_t * si);
-    uint8_t * pcm_mml_part_mask8(Channel * ps, uint8_t * si);
-    uint8_t * ppz_mml_part_mask(Channel * ps, uint8_t * si);
-
-    void pcmstore(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf);
-    void pcmread(uint16_t pcmstart, uint16_t pcmstop, uint8_t * buf);
-
-    uint8_t * hlfo_set(Channel * ps, uint8_t * si);
-    uint8_t * vol_one_up_fm(Channel * ps, uint8_t * si);
-    uint8_t * porta(Channel * ps, uint8_t * si);
-    uint8_t * slotmask_set(Channel * ps, uint8_t * si);
-    uint8_t * slotdetune_set(Channel * ps, uint8_t * si);
-    uint8_t * slotdetune_set2(Channel * ps, uint8_t * si);
-    void fm3_partinit(Channel * ps, uint8_t * ax);
-    uint8_t * fm3_extpartset(Channel * ps, uint8_t * si);
-    uint8_t * ppz_extpartset(Channel * ps, uint8_t * si);
-    uint8_t * volmask_set(Channel * ps, uint8_t * si);
-    uint8_t * fm_mml_part_mask(Channel * ps, uint8_t * si);
-    uint8_t * ssg_mml_part_mask(Channel * ps, uint8_t * si);
-    uint8_t * rhythm_mml_part_mask(Channel * ps, uint8_t * si);
-    uint8_t * _lfoswitch(Channel * ps, uint8_t * si);
-    uint8_t * _volmask_set(Channel * ps, uint8_t * si);
-    uint8_t * tl_set(Channel * ps, uint8_t * si);
-    uint8_t * fb_set(Channel * ps, uint8_t * si);
-    uint8_t * fm_efct_set(Channel * ps, uint8_t * si);
-    uint8_t * ssg_efct_set(Channel * ps, uint8_t * si);
-
-    void Fade();
-    void neiro_reset(Channel * ps);
-
-    int LoadPPCInternal(const WCHAR * filename);
-    int LoadPPCInternal(uint8_t * pcmdata, int size);
-
-    WCHAR * FindFile(WCHAR * dest, const WCHAR * filename);
-    void swap(int * a, int * b);
-
-    inline int Limit(int v, int max, int min)
-    {
-        return v > max ? max : (v < min ? min : v);
-    }
+    State * GetState() { return &_State; }
+    Track * GetTrack(int ch);
 
 private:
     File * _File;
 
     OPNAW * _OPNAW;
-    P86DRV * _P86;
-    PPSDRV * _PPS;
-    PPZ8 * _PPZ; 
 
-    Work _Work;
+    PPZ8Driver * _PPZ8; 
+    PPSDriver * _PPS;
+    P86Driver * _P86;
 
-    Channel _FMChannel[MaxFMChannels];
-    Channel _SSGChannel[MaxSSGChannels];
-    Channel _ADPCMChannel;
-    Channel _RhythmChannel;
-    Channel _ExtensionChannel[MaxExtensionChannels];
-    Channel _DummyChannel;
-    Channel _EffectChannel;
-    Channel _PPZChannel[MaxPPZChannels];
-
-    PMDWork _PMDWork;
+    State _State;
+    DriverState _DriverState;
     EffectState _EffectState;
 
-    Stereo16bit wavbuf2[nbufsample];
-    StereoSample wavbuf[nbufsample];
-    StereoSample wavbuf_conv[nbufsample];
+    Track _FMTrack[MaxFMTracks];
+    Track _SSGTrack[MaxSSGTracks];
+    Track _ADPCMTrack;
+    Track _RhythmTrack;
+    Track _ExtensionTrack[MaxExtTracks];
+    Track _DummyTrack;
+    Track _EffectTrack;
+    Track _PPZ8Track[MaxPPZ8Tracks];
 
-    uint8_t * _PCMPtr;          // Start position of remaining samples in buf
-    int _SamplesToDo;           // Number of samples remaining in buf
+    static const size_t MaxSamples = 30000;
+
+    Stereo16bit _SampleSrc[MaxSamples];
+    Stereo32bit _SampleDst[MaxSamples];
+    Stereo32bit _SampleTmp[MaxSamples];
+
+    Stereo16bit * _SamplePtr;
+    size_t _SamplesToDo;
+
     int64_t _Position;          // Time from start of playing (in μs)
     int64_t _FadeOutPosition;   // SetFadeOutDurationHQ start time
     int _Seed;                  // Random seed
@@ -372,7 +170,222 @@ private:
     uint8_t _MData[MAX_MDATA_SIZE * 1024];
     uint8_t _VData[MAX_VDATA_SIZE * 1024];
     uint8_t _EData[MAX_EDATA_SIZE * 1024];
-
     PCMEnds pcmends;
+
+protected:
+    void Reset();
+    void StartOPNInterrupt();
+    void InitializeState();
+    void InitializeOPN();
+
+    void DriverStart();
+    void DriverStop();
+
+    void Silence();
+    void InitializeTracks();
+    void InitializeInterrupt();
+    void calc_tb_tempo();
+    void calc_tempo_tb();
+    void SetTimerBTempo();
+    void HandleTimerA();
+    void HandleTimerB();
+    void DriverMain();
+    void IncreaseBarCounter();
+
+    void FMMain(Track * track);
+    void SSGMain(Track * track);
+    void RhythmMain(Track * track);
+    void ADPCMMain(Track * track);
+    void PCM86Main(Track * track);
+    void PPZ8Main(Track * track);
+
+    uint8_t * ExecuteFMCommand(Track * track, uint8_t * si);
+    uint8_t * ExecuteSSGCommand(Track * track, uint8_t * si);
+    uint8_t * ExecuteRhythmCommand(Track * track, uint8_t * si);
+    uint8_t * ExecuteADPCMCommand(Track * track, uint8_t * si);
+    uint8_t * ExecutePCM86Command(Track * track, uint8_t * si);
+    uint8_t * ExecutePPZ8Command(Track * track, uint8_t * si);
+
+    uint8_t * RhythmOn(Track * track, uint8_t * bx, int al, int * result);
+
+    void effgo(Track * track, int al);
+    void eff_on2(Track * track, int al);
+    void eff_main(Track * track, int al);
+    void effplay();
+    void efffor(const int * si);
+    void effend();
+    void effsweep();
+
+    uint8_t * pdrswitch(Track * track, uint8_t * si);
+
+    void GetText(const uint8_t * data, size_t size, int al, char * text) const noexcept;
+
+    int MuteFMPart(Track * track);
+    void KeyOff(Track * track);
+    void KeyOffEx(Track * track);
+    void keyoffp(Track * track);
+    void keyoffm(Track * track);
+    void keyoff8(Track * track);
+    void keyoffz(Track * track);
+
+    bool ssgdrum_check(Track * track, int al);
+
+    uint8_t * special_0c0h(Track * track, uint8_t * si, uint8_t al);
+
+    uint8_t * _vd_fm(Track * track, uint8_t * si);
+    uint8_t * _vd_ssg(Track * track, uint8_t * si);
+    uint8_t * _vd_pcm(Track * track, uint8_t * si);
+    uint8_t * _vd_rhythm(Track * track, uint8_t * si);
+    uint8_t * _vd_ppz(Track * track, uint8_t * si);
+
+    uint8_t * comt(uint8_t * si);
+    uint8_t * ProgramChange(Track * track, uint8_t * si);
+    uint8_t * comatm(Track * track, uint8_t * si);
+    uint8_t * comat8(Track * track, uint8_t * si);
+    uint8_t * comatz(Track * track, uint8_t * si);
+    uint8_t * CommandSetStartOfLoop(Track * track, uint8_t * si);
+    uint8_t * CommandSetEndOfLoop(Track * track, uint8_t * si);
+    uint8_t * CommandExitLoop(Track * track, uint8_t * si);
+    uint8_t * extend_psgenvset(Track * track, uint8_t * si);
+
+    int lfoinit(Track * track, int al);
+    int lfoinitp(Track * track, int al);
+
+    uint8_t * lfoset(Track * track, uint8_t * si);
+    uint8_t * psgenvset(Track * track, uint8_t * si);
+    uint8_t * rhykey(uint8_t * si);
+    uint8_t * rhyvs(uint8_t * si);
+    uint8_t * rpnset(uint8_t * si);
+    uint8_t * rmsvs(uint8_t * si);
+    uint8_t * rmsvs_sft(uint8_t * si);
+    uint8_t * rhyvs_sft(uint8_t * si);
+
+    uint8_t * vol_one_up_psg(Track * track, uint8_t * si);
+    uint8_t * vol_one_up_pcm(Track * track, uint8_t * si);
+    uint8_t * vol_one_down(Track * track, uint8_t * si);
+    uint8_t * portap(Track * track, uint8_t * si);
+    uint8_t * portam(Track * track, uint8_t * si);
+    uint8_t * portaz(Track * track, uint8_t * si);
+    uint8_t * psgnoise_move(uint8_t * si);
+    uint8_t * mdepth_count(Track * track, uint8_t * si);
+    uint8_t * GetToneData(Track * track, int dl);
+
+    void SetTone(Track * track, int dl);
+
+    int oshift(Track * track, int al);
+    int oshiftp(Track * track, int al);
+    void fnumset(Track * track, int al);
+    void SetSSGTune(Track * track, int al);
+    void fnumsetm(Track * track, int al);
+    void fnumset8(Track * track, int al);
+    void fnumsetz(Track * track, int al);
+
+    uint8_t * panset(Track * track, uint8_t * si);
+    uint8_t * panset_ex(Track * track, uint8_t * si);
+    uint8_t * pansetm(Track * track, uint8_t * si);
+    uint8_t * panset8(Track * track, uint8_t * si);
+    uint8_t * pansetz(Track * track, uint8_t * si);
+    uint8_t * pansetz_ex(Track * track, uint8_t * si);
+    void panset_main(Track * track, int al);
+
+    uint8_t calc_panout(Track * track);
+    uint8_t * calc_q(Track * track, uint8_t * si);
+    void fm_block_calc(int * cx, int * ax);
+    int ch3_setting(Track * track);
+    void cm_clear(int * ah, int * al);
+    void ch3mode_set(Track * track);
+    void ch3_special(Track * track, int ax, int cx);
+
+    void volset(Track * track);
+    void volsetp(Track * track);
+    void volsetm(Track * track);
+    void volset8(Track * track);
+    void volsetz(Track * track);
+
+    void Otodasi(Track * track);
+    void OtodasiP(Track * track);
+    void OtodasiM(Track * track);
+    void Otodasi8(Track * track);
+    void OtodasiZ(Track * track);
+
+    void KeyOn(Track * track);
+    void keyonp(Track * track);
+    void keyonm(Track * track);
+    void keyon8(Track * track);
+    void keyonz(Track * track);
+
+    int lfo(Track * track);
+    int lfop(Track * track);
+    uint8_t * lfoswitch(Track * track, uint8_t * si);
+    void lfoinit_main(Track * track);
+    void SwapLFO(Track * track);
+    void lfo_exit(Track * track);
+    void lfin1(Track * track);
+    void LFOMain(Track * track);
+
+    int rnd(int ax);
+
+    void fmlfo_sub(Track * track, int al, int bl, uint8_t * vol_tbl);
+    void volset_slot(int dh, int dl, int al);
+    void porta_calc(Track * track);
+    int soft_env(Track * track);
+    int soft_env_main(Track * track);
+    int soft_env_sub(Track * track);
+    int ext_ssgenv_main(Track * track);
+    void esm_sub(Track * track, int ah);
+    void md_inc(Track * track);
+
+    uint8_t * pcmrepeat_set(Track * track, uint8_t * si);
+    uint8_t * pcmrepeat_set8(Track * track, uint8_t * si);
+    uint8_t * ppzrepeat_set(Track * track, uint8_t * si);
+    uint8_t * pansetm_ex(Track * track, uint8_t * si);
+    uint8_t * panset8_ex(Track * track, uint8_t * si);
+    uint8_t * pcm_mml_part_mask(Track * track, uint8_t * si);
+    uint8_t * pcm_mml_part_mask8(Track * track, uint8_t * si);
+    uint8_t * ppz_mml_part_mask(Track * track, uint8_t * si);
+
+    void WritePCMData(uint16_t pcmstart, uint16_t pcmstop, const uint8_t * pcmData);
+    void ReadPCMData(uint16_t pcmstart, uint16_t pcmstop, uint8_t * pcmData);
+
+    uint8_t * hlfo_set(Track * track, uint8_t * si);
+    uint8_t * vol_one_up_fm(Track * track, uint8_t * si);
+    uint8_t * porta(Track * track, uint8_t * si);
+    uint8_t * SetSlotMask(Track * track, uint8_t * si);
+    uint8_t * slotdetune_set(Track * track, uint8_t * si);
+    uint8_t * slotdetune_set2(Track * track, uint8_t * si);
+    void fm3_partinit(Track * track, uint8_t * ax);
+    uint8_t * fm3_extpartset(Track * track, uint8_t * si);
+    uint8_t * ppz_extpartset(Track * track, uint8_t * si);
+    uint8_t * volmask_set(Track * track, uint8_t * si);
+    uint8_t * fm_mml_part_mask(Track * track, uint8_t * si);
+    uint8_t * ssg_mml_part_mask(Track * track, uint8_t * si);
+    uint8_t * rhythm_mml_part_mask(Track * track, uint8_t * si);
+    uint8_t * _lfoswitch(Track * track, uint8_t * si);
+    uint8_t * _volmask_set(Track * track, uint8_t * si);
+    uint8_t * tl_set(Track * track, uint8_t * si);
+    uint8_t * fb_set(Track * track, uint8_t * si);
+    uint8_t * fm_efct_set(Track * track, uint8_t * si);
+    uint8_t * ssg_efct_set(Track * track, uint8_t * si);
+
+    void Fade();
+    void ResetTone(Track * track);
+
+    int LoadPPCInternal(const WCHAR * filename);
+    int LoadPPCInternal(uint8_t * pcmdata, int size);
+
+    WCHAR * FindFile(WCHAR * dest, const WCHAR * filename);
+
+    inline void Swap(int * a, int * b) const noexcept
+    {
+        int t = *a;
+
+        *a = *b;
+        *b = t;
+    }
+
+    inline int Limit(int value, int max, int min) const noexcept
+    {
+        return value > max ? max : (value < min ? min : value);
+    }
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member

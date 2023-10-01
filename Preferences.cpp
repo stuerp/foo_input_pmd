@@ -1,5 +1,5 @@
 
-/** $VER: Preferences.cpp (2023.07.21) P. Stuer **/
+/** $VER: Preferences.cpp (2023.08.30) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -50,10 +50,10 @@ class Preferences : public CDialogImpl<Preferences>, public preferences_page_ins
 public:
     Preferences(preferences_page_callback::ptr callback) : m_bMsgHandled(FALSE), _Callback(callback) { }
 
-    Preferences(const Preferences&) = delete;
-    Preferences(const Preferences&&) = delete;
-    Preferences& operator=(const Preferences&) = delete;
-    Preferences& operator=(Preferences&&) = delete;
+    Preferences(const Preferences &) = delete;
+    Preferences(const Preferences &&) = delete;
+    Preferences& operator=(const Preferences &) = delete;
+    Preferences& operator=(Preferences &&) = delete;
 
     virtual ~Preferences() { };
 
@@ -86,6 +86,8 @@ public:
         CfgLoopCount = _LoopCount;
         CfgFadeOutDuration = _FadeOutDuration;
         CfgSynthesisRate = _SynthesisRate;
+        CfgUsePPS = _UsePPS;
+        CfgUseRhythm = _UseRhythmSoundSource;
 
         OnChanged();
     }
@@ -96,6 +98,15 @@ public:
     virtual void reset() final
     {
         _SamplesPath = DefaultSamplesPath;
+
+        _PlaybackMode = DefaultPlaybackMode;
+        _LoopCount = DefaultLoopCount;
+        _FadeOutDuration = DefaultFadeOutDuration;
+
+        _SynthesisRate = DefaultSynthesisRate;
+
+        _UsePPS = DefaultUsePPS;
+        _UseRhythmSoundSource = DefaultUseRhythm;
 
         UpdateDialog();
 
@@ -115,6 +126,9 @@ public:
         COMMAND_HANDLER_EX(IDC_FADE_OUT_DURATION, EN_UPDATE, OnEditUpdate)
 
 //      COMMAND_HANDLER_EX(IDC_SYNTHESIS_RATE, CBN_SELCHANGE, OnSelectionChanged)
+
+        COMMAND_HANDLER_EX(IDC_USE_PPS, BN_CLICKED, OnButtonClicked)
+        COMMAND_HANDLER_EX(IDC_USE_RHYTHM, BN_CLICKED, OnButtonClicked)
     END_MSG_MAP()
 
 private:
@@ -130,37 +144,16 @@ private:
         _LoopCount = (uint32_t) CfgLoopCount;
         _FadeOutDuration = (uint32_t) CfgFadeOutDuration;
         _SynthesisRate = (uint32_t) CfgSynthesisRate;
-
-        ::uSetDlgItemText(m_hWnd, IDC_SAMPLES_PATH, _SamplesPath);
+        _UsePPS = CfgUsePPS;
+        _UseRhythmSoundSource = CfgUseRhythm;
 
         {
             auto cb = (CComboBox) GetDlgItem(IDC_PLAYBACK_MODE);
 
             for (int i = 0; i < _countof(PlaybackModes); ++i)
                 cb.AddString(PlaybackModes[i]);
-
-            cb.SetCurSel((int) _PlaybackMode);
         }
 
-        ::uSetDlgItemText(m_hWnd, IDC_LOOP_COUNT, pfc::format_int(_LoopCount));
-        ::uSetDlgItemText(m_hWnd, IDC_FADE_OUT_DURATION, pfc::format_int(_FadeOutDuration));
-/*
-        {
-            auto cb = (CComboBox) GetDlgItem(IDC_SYNTHESIS_RATE);
-
-            int Index = 0;
-
-            for (int i = 0; i < _countof(SynthesisRates); ++i)
-            {
-                cb.AddString(pfc::wideFromUTF8(pfc::format_int(SynthesisRates[i])));
-
-                if (_SynthesisRate == SynthesisRates[i])
-                    Index = i;
-            }
-
-            cb.SetCurSel(Index);
-        }
-*/
         UpdateDialog();
 
         return FALSE;
@@ -188,20 +181,40 @@ private:
     /// </summary>
     void OnButtonClicked(UINT, int id, CWindow) noexcept
     {
-        if (id != IDC_SAMPLES_PATH_SELECT)
-            return;
-
-        pfc::string8 DirectoryPath = _SamplesPath;
-
-        if (::uBrowseForFolder(m_hWnd, "Locate PDX samples...", DirectoryPath))
+        switch (id)
         {
-            _SamplesPath = DirectoryPath;
+            case IDC_SAMPLES_PATH_SELECT:
+            {
+                pfc::string8 DirectoryPath = _SamplesPath;
 
-            pfc::wstringLite w = pfc::wideFromUTF8(DirectoryPath);
+                if (::uBrowseForFolder(m_hWnd, "Locate PDX samples...", DirectoryPath))
+                {
+                    _SamplesPath = DirectoryPath;
 
-            SetDlgItemText(IDC_SAMPLES_PATH, w);
+                    pfc::wstringLite w = pfc::wideFromUTF8(DirectoryPath);
 
-            OnChanged();
+                    SetDlgItemText(IDC_SAMPLES_PATH, w);
+
+                    OnChanged();
+                }
+                break;
+            }
+
+            case IDC_USE_PPS:
+            {
+                _UsePPS = (bool) IsDlgButtonChecked(IDC_USE_PPS);
+
+                OnChanged();
+                break;
+            }
+
+            case IDC_USE_RHYTHM:
+            {
+                _UseRhythmSoundSource = (bool) IsDlgButtonChecked(IDC_USE_RHYTHM);
+
+                OnChanged();
+                break;
+            }
         }
     }
 
@@ -296,6 +309,12 @@ private:
         if (_FadeOutDuration != CfgFadeOutDuration)
             return true;
 
+        if (_UsePPS != CfgUsePPS)
+            return true;
+
+        if (_UseRhythmSoundSource != CfgUseRhythm)
+            return true;
+
 //      if (_SynthesisRate != CfgSynthesisRate)
 //          return true;
 
@@ -313,15 +332,50 @@ private:
     /// <summary>
     /// Updates the appearance of the dialog according to the values of the settings.
     /// </summary>
-    void UpdateDialog() const noexcept
+    void UpdateDialog() noexcept
     {
-        bool Flag = (_PlaybackMode == PlaybackModes::Loop) || (_PlaybackMode == PlaybackModes::LoopWithFadeOut);
+        ::uSetDlgItemText(m_hWnd, IDC_SAMPLES_PATH, _SamplesPath);
 
-        GetDlgItem(IDC_LOOP_COUNT).EnableWindow(Flag);
+        {
+            auto cb = (CComboBox) GetDlgItem(IDC_PLAYBACK_MODE);
 
-        Flag = (_PlaybackMode == PlaybackModes::LoopWithFadeOut);
+            cb.SetCurSel((int) _PlaybackMode);
+        }
 
-        GetDlgItem(IDC_FADE_OUT_DURATION).EnableWindow(Flag);
+        {
+            bool Flag = (_PlaybackMode == PlaybackModes::Loop) || (_PlaybackMode == PlaybackModes::LoopWithFadeOut);
+
+            GetDlgItem(IDC_LOOP_COUNT).EnableWindow(Flag);
+        }
+
+        ::uSetDlgItemText(m_hWnd, IDC_LOOP_COUNT, pfc::format_int(_LoopCount));
+
+        {
+            bool Flag = (_PlaybackMode == PlaybackModes::LoopWithFadeOut);
+
+            GetDlgItem(IDC_FADE_OUT_DURATION).EnableWindow(Flag);
+        }
+
+        ::uSetDlgItemText(m_hWnd, IDC_FADE_OUT_DURATION, pfc::format_int(_FadeOutDuration));
+/*
+        {
+            auto cb = (CComboBox) GetDlgItem(IDC_SYNTHESIS_RATE);
+
+            int Index = 0;
+
+            for (int i = 0; i < _countof(SynthesisRates); ++i)
+            {
+                cb.AddString(pfc::wideFromUTF8(pfc::format_int(SynthesisRates[i])));
+
+                if (_SynthesisRate == SynthesisRates[i])
+                    Index = i;
+            }
+
+            cb.SetCurSel(Index);
+        }
+*/
+        CheckDlgButton(IDC_USE_PPS, _UsePPS);
+        CheckDlgButton(IDC_USE_RHYTHM, _UseRhythmSoundSource);
     }
 
 private:
@@ -334,6 +388,8 @@ private:
     uint32_t _LoopCount;
     uint32_t _FadeOutDuration;
     uint32_t _SynthesisRate;
+    bool _UsePPS;
+    bool _UseRhythmSoundSource;
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member
 

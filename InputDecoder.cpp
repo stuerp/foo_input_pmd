@@ -1,5 +1,5 @@
  
-/** $VER: InputDecoder.cpp (2023.09.30) P. Stuer **/
+/** $VER: InputDecoder.cpp (2023.08.30) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -38,8 +38,8 @@ public:
     }
 
     InputDecoder(const InputDecoder &) = delete;
-    InputDecoder(const InputDecoder &&) = delete;
-    InputDecoder& operator=(InputDecoder &) = delete;
+    InputDecoder(InputDecoder &&) = delete;
+    InputDecoder& operator=(const InputDecoder &) = delete;
     InputDecoder& operator=(InputDecoder &&) = delete;
 
     ~InputDecoder() noexcept
@@ -77,7 +77,7 @@ public:
 
             Data.resize((size_t)_FileStats.m_size);
 
-            _File->read_object(&Data[0], (t_size)_FileStats.m_size, abortHandler);
+            _File->read_object(&Data[0], (t_size) _FileStats.m_size, abortHandler);
 
             {
                 _Decoder = new PMDDecoder();
@@ -220,7 +220,7 @@ public:
 
         // Fill the audio chunk.
         {
-            const uint32_t SamplesToRender = _Decoder->GetBlockSize();
+            const size_t SamplesToRender = _Decoder->GetBlockSize();
 
             size_t SamplesRendered =_Decoder->Render(audioChunk, SamplesToRender);
 
@@ -311,6 +311,6 @@ private:
 #pragma warning(default: 4820) // x bytes padding added after last data member
 
 // Declare the supported file types to make it show in "open file" dialog etc.
-DECLARE_FILE_TYPE("Professional Music Driver (PMD) files", "*.m;*.m2");
+DECLARE_FILE_TYPE("Professional Music Driver (PMD) files", "*.m;*.m2;*.mz");
 
 static input_factory_t<InputDecoder> _InputDecoderFactory;
