@@ -276,9 +276,9 @@ protected:
     int oshiftp(Channel * track, int al);
     void SetFMTone(Channel * track, int al);
     void SetSSGTone(Channel * track, int al);
-    void fnumsetm(Channel * track, int al);
-    void fnumset8(Channel * track, int al);
-    void fnumsetz(Channel * track, int al);
+    void SetADPCMTone(Channel * track, int al);
+    void SetP86Tone(Channel * track, int al);
+    void SetPPZTone(Channel * track, int al);
 
     uint8_t * panset(Channel * track, uint8_t * si);
     uint8_t * panset_ex(Channel * track, uint8_t * si);

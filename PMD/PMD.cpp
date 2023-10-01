@@ -1887,116 +1887,6 @@ uint8_t * PMD::PDRSwitchCommand(Channel *, uint8_t * si)
     return si;
 }
 
-//  ADPCM FNUM SET
-void PMD::fnumsetm(Channel * channel, int al)
-{
-    if ((al & 0x0f) != 0x0f)
-    {      // Music Note
-        channel->Tone = al;
-
-        int bx = al & 0x0f;          // bx=onkai
-        int ch = (al >> 4) & 0x0f;    // cl = octarb
-        int cl = ch;
-
-        if (cl > 5)
-            cl = 0;
-        else
-            cl = 5 - cl;        // cl=5-octarb
-
-        int ax = pcm_tune_data[bx];
-
-        if (ch >= 6)
-        {          // o7以上?
-            ch = 0x50;
-
-            if (ax < 0x8000)
-            {
-                ax *= 2;        // o7以上で2倍できる場合は2倍
-                ch = 0x60;
-            }
-
-            channel->Tone = (channel->Tone & 0x0f) | ch;  // onkai値修正
-        }
-        else
-            ax >>= cl;          // ax=ax/[2^OCTARB]
-
-        channel->fnum = (uint32_t) ax;
-    }
-    else
-    {            // Rest
-        channel->Tone = 255;
-
-        if ((channel->lfoswi & 0x11) == 0)
-            channel->fnum = 0;      // 音程LFO未使用
-    }
-}
-
-//  PCM FNUM SET(PMD86)
-void PMD::fnumset8(Channel * qq, int al)
-{
-    int    ah, bl;
-
-    ah = al & 0x0f;
-    if (ah != 0x0f)
-    {      // Music Note
-        if (_State.pcm86_vol && al >= 0x65)
-        {    // o7e?
-            if (ah < 5)
-            {
-                al = 0x60;    // o7
-            }
-            else
-            {
-                al = 0x50;    // o6
-            }
-            al |= ah;
-        }
-
-        qq->Tone = al;
-        bl = ((al & 0xf0) >> 4) * 12 + ah;
-        qq->fnum = p86_tune_data[bl];
-    }
-    else
-    {            // Rest
-        qq->Tone = 255;
-        if ((qq->lfoswi & 0x11) == 0)
-        {
-            qq->fnum = 0;      // 音程LFO未使用
-        }
-    }
-}
-
-//  PPZ FNUM SET
-void PMD::fnumsetz(Channel * qq, int al)
-{
-    if ((al & 0x0f) != 0x0f)
-    {      // Music Note
-        qq->Tone = al;
-
-        int bx = al & 0x0f;          // bx=onkai
-        int cl = (al >> 4) & 0x0f;    // cl = octarb
-
-        uint32_t ax = (uint32_t) ppz_tune_data[bx];
-
-        if ((cl -= 4) < 0)
-        {
-            cl = -cl;
-            ax >>= cl;
-        }
-        else
-            ax <<= cl;
-
-        qq->fnum = ax;
-    }
-    else
-    {            // Rest
-        qq->Tone = 255;
-
-        if ((qq->lfoswi & 0x11) == 0)
-            qq->fnum = 0;      // 音程LFO未使用
-    }
-}
-
 //  ポルタメント(PCM)
 uint8_t * PMD::portam(Channel * qq, uint8_t * si)
 {
@@ -2021,12 +1911,12 @@ uint8_t * PMD::portam(Channel * qq, uint8_t * si)
         return si + 3;    // 読み飛ばす  (Mask時)
     }
 
-    fnumsetm(qq, oshift(qq, StartPCMLFO(qq, *si++)));
+    SetADPCMTone(qq, oshift(qq, StartPCMLFO(qq, *si++)));
 
     bx_ = (int) qq->fnum;
     al_ = (int) qq->Tone;
 
-    fnumsetm(qq, oshift(qq, *si++));
+    SetADPCMTone(qq, oshift(qq, *si++));
 
     ax = (int) qq->fnum;       // ax = ポルタメント先のdelta_n値
 
@@ -2096,11 +1986,11 @@ uint8_t * PMD::portaz(Channel * qq, uint8_t * si)
         return si + 3;    // 読み飛ばす  (Mask時)
     }
 
-    fnumsetz(qq, oshift(qq, StartPCMLFO(qq, *si++)));
+    SetPPZTone(qq, oshift(qq, StartPCMLFO(qq, *si++)));
 
     bx_ = (int) qq->fnum;
     al_ = qq->Tone;
-    fnumsetz(qq, oshift(qq, *si++));
+    SetPPZTone(qq, oshift(qq, *si++));
     ax = (int) qq->fnum;       // ax = ポルタメント先のdelta_n値
 
     qq->Tone = al_;

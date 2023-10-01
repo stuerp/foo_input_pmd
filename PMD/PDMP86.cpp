@@ -99,7 +99,7 @@ void PMD::PCM86Main(Channel * channel)
                 }
 
                 //  TONE SET
-                fnumset8(channel, oshift(channel, StartPCMLFO(channel, *si++)));
+                SetP86Tone(channel, oshift(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
 
@@ -321,6 +321,42 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
     }
 
     return si;
+}
+
+void PMD::SetP86Tone(Channel * channel, int al)
+{
+    int ah = al & 0x0f;
+
+    if (ah != 0x0f)
+    {      // Music Note
+        if (_State.pcm86_vol && al >= 0x65)
+        {    // o7e?
+            if (ah < 5)
+            {
+                al = 0x60;    // o7
+            }
+            else
+            {
+                al = 0x50;    // o6
+            }
+            al |= ah;
+        }
+
+        channel->Tone = al;
+
+        int bl = ((al & 0xf0) >> 4) * 12 + ah;
+
+        channel->fnum = p86_tune_data[bl];
+    }
+    else
+    {            // Rest
+        channel->Tone = 255;
+
+        if ((channel->lfoswi & 0x11) == 0)
+        {
+            channel->fnum = 0;      // 音程LFO未使用
+        }
+    }
 }
 
 void PMD::SetPCM86Volume(Channel * channel)

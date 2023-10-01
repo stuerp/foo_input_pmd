@@ -108,7 +108,7 @@ void PMD::PPZMain(Channel * channel)
                 }
 
                 //  TONE SET
-                fnumsetz(channel, oshift(channel, StartPCMLFO(channel, *si++)));
+                SetPPZTone(channel, oshift(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
                 si = CalculateQ(channel, si);
@@ -350,6 +350,38 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
     }
 
     return si;
+}
+
+void PMD::SetPPZTone(Channel * qq, int al)
+{
+    if ((al & 0x0f) != 0x0f)
+    {
+        // Music Note
+        qq->Tone = al;
+
+        int bx = al & 0x0f;          // bx=onkai
+        int cl = (al >> 4) & 0x0f;    // cl = octarb
+
+        uint32_t ax = (uint32_t) ppz_tune_data[bx];
+
+        if ((cl -= 4) < 0)
+        {
+            cl = -cl;
+            ax >>= cl;
+        }
+        else
+            ax <<= cl;
+
+        qq->fnum = ax;
+    }
+    else
+    {
+        // Rest
+        qq->Tone = 0xFF;
+
+        if ((qq->lfoswi & 0x11) == 0)
+            qq->fnum = 0;      // 音程LFO未使用
+    }
 }
 
 void PMD::SetPPZVolume(Channel * channel)

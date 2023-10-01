@@ -107,7 +107,7 @@ void PMD::ADPCMMain(Channel * channel)
                 }
 
                 //  TONE SET
-                fnumsetm(channel, oshift(channel, StartPCMLFO(channel, *si++)));
+                SetADPCMTone(channel, oshift(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
                 si = CalculateQ(channel, si);
@@ -351,6 +351,51 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
     }
 
     return si;
+}
+
+void PMD::SetADPCMTone(Channel * channel, int al)
+{
+    if ((al & 0x0F) != 0x0F)
+    {
+        // Music Note
+        channel->Tone = al;
+
+        int bx = al & 0x0f;          // bx=onkai
+        int ch = (al >> 4) & 0x0f;    // cl = octarb
+        int cl = ch;
+
+        if (cl > 5)
+            cl = 0;
+        else
+            cl = 5 - cl;        // cl=5-octarb
+
+        int ax = pcm_tune_data[bx];
+
+        if (ch >= 6)
+        {          // o7以上?
+            ch = 0x50;
+
+            if (ax < 0x8000)
+            {
+                ax *= 2;        // o7以上で2倍できる場合は2倍
+                ch = 0x60;
+            }
+
+            channel->Tone = (channel->Tone & 0x0f) | ch;  // onkai値修正
+        }
+        else
+            ax >>= cl;          // ax=ax/[2^OCTARB]
+
+        channel->fnum = (uint32_t) ax;
+    }
+    else
+    {
+        // Rest
+        channel->Tone = 0xFF;
+
+        if ((channel->lfoswi & 0x11) == 0)
+            channel->fnum = 0;      // 音程LFO未使用
+    }
 }
 
 void PMD::SetADPCMVolumeCommand(Channel * channel)
