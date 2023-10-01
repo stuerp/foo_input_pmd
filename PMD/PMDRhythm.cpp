@@ -55,9 +55,9 @@ void PMD::RhythmMain(Channel * channel)
                 channel->Length = al;
                 channel->keyon_flag++;
 
-                _DriverState.tieflag = 0;
-                _DriverState.volpush_flag = 0;
-                _DriverState.loop_work &= channel->loopcheck;
+                _Driver.TieMode = 0;
+                _Driver.volpush_flag = 0;
+                _Driver.loop_work &= channel->loopcheck;
 
                 return;
             }
@@ -95,16 +95,16 @@ void PMD::RhythmMain(Channel * channel)
             {
                 _State.RhythmData = &_State.DummyRhythmData;
 
-                _DriverState.tieflag = 0;
-                _DriverState.volpush_flag = 0;
-                _DriverState.loop_work &= channel->loopcheck;
+                _Driver.TieMode = 0;
+                _Driver.volpush_flag = 0;
+                _Driver.loop_work &= channel->loopcheck;
 
                 return;
             }
         }
     }
 
-    _DriverState.loop_work &= channel->loopcheck;
+    _Driver.loop_work &= channel->loopcheck;
 }
 
 /// <summary>
@@ -178,27 +178,30 @@ uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
             _OPNAW->SetReg(0x11, (uint32_t) dl);
         }
 
-        if (!_DriverState.UsePPS)
+        if (!_Driver.UsePPS)
             return _State.RhythmData; // No sound during fadeout when using PPS.
     }
 
-    int bx_ = al;
-
-    al = 0;
-
-    do
     {
-        while ((bx_ & 1) == 0)
+        int bx_ = al;
+
+        al = 0;
+
+        do
         {
+            // Count the number of zero bits.
+            while ((bx_ & 1) == 0)
+            {
+                bx_ >>= 1;
+                al++;
+            }
+
+            RhythmPlayEffect(channel, al);
+
             bx_ >>= 1;
-            al++;
         }
-
-        effgo(channel, al);
-
-        bx_ >>= 1;
+        while (_Driver.UsePPS && (bx_ != 0)); // If PPS is used, try playing the second or more notes.
     }
-    while (_DriverState.UsePPS && bx_);  // If you use PPSDRV, try playing the second or more notes.
 
     return _State.RhythmData;
 }
@@ -214,7 +217,10 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xfd: channel->volume = *si++; break;
         case 0xfc: si = ChangeTempoCommand(si); break;
 
-        case 0xfb: _DriverState.tieflag |= 1; break;
+        case 0xfb:
+            _Driver.TieMode |= 1;
+            break;
+
         case 0xfa: channel->detune = *(int16_t *) si; si += 2; break;
         case 0xf9: si = SetStartOfLoopCommand(channel, si); break;
         case 0xf8: si = SetEndOfLoopCommand(channel, si); break;
@@ -401,4 +407,26 @@ uint8_t * PMD::SetRhythmInstrumentVolumeCommand(uint8_t * si)
     _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
 
     return si;
+}
+
+/// <summary>
+/// Plays an SSG drum or sound effect.
+/// </summary>
+/// <param name="channel"></param>
+/// <param name="al">Sound effect number</param>
+void PMD::RhythmPlayEffect(Channel * channel, int al)
+{
+    if (_Driver.UsePPS)
+    {
+        al |= 0x80;
+
+        if (_Effect.PreviousNumber == al)
+            _PPS->Stop();
+        else
+            _Effect.PreviousNumber = al;
+    }
+
+    _Effect.Flags = 0x03; // Correct the pitch and volume (K part).
+
+    EffectMain(channel, al);
 }

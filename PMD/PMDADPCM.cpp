@@ -63,9 +63,9 @@ void PMD::ADPCMMain(Channel * channel)
                 {
                     if (channel->PartMask)
                     {
-                        _DriverState.tieflag = 0;
-                        _DriverState.volpush_flag = 0;
-                        _DriverState.loop_work &= channel->loopcheck;
+                        _Driver.TieMode = 0;
+                        _Driver.volpush_flag = 0;
+                        _Driver.loop_work &= channel->loopcheck;
 
                         return;
                     }
@@ -83,7 +83,7 @@ void PMD::ADPCMMain(Channel * channel)
                 {        // ポルタメント
                     si = portam(channel, ++si);
 
-                    _DriverState.loop_work &= channel->loopcheck;
+                    _Driver.loop_work &= channel->loopcheck;
 
                     return;
                 }
@@ -98,31 +98,31 @@ void PMD::ADPCMMain(Channel * channel)
                     channel->keyon_flag++;
                     channel->Data = si;
 
-                    if (--_DriverState.volpush_flag)
+                    if (--_Driver.volpush_flag)
                         channel->volpush = 0;
 
-                    _DriverState.tieflag = 0;
-                    _DriverState.volpush_flag = 0;
+                    _Driver.TieMode = 0;
+                    _Driver.volpush_flag = 0;
                     break;
                 }
 
                 //  TONE SET
-                fnumsetm(channel, oshift(channel, lfoinitp(channel, *si++)));
+                fnumsetm(channel, oshift(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
                 si = calc_q(channel, si);
 
                 if (channel->volpush && channel->onkai != 255)
                 {
-                    if (--_DriverState.volpush_flag)
+                    if (--_Driver.volpush_flag)
                     {
-                        _DriverState.volpush_flag = 0;
+                        _Driver.volpush_flag = 0;
                         channel->volpush = 0;
                     }
                 }
 
-                SetPCMVolumeCommand(channel);
-                OtodasiM(channel);
+                SetADPCMVolumeCommand(channel);
+                SetADPCMPitch(channel);
 
                 if (channel->keyoff_flag & 1)
                     keyonm(channel);
@@ -130,8 +130,8 @@ void PMD::ADPCMMain(Channel * channel)
                 channel->keyon_flag++;
                 channel->Data = si;
 
-                _DriverState.tieflag = 0;
-                _DriverState.volpush_flag = 0;
+                _Driver.TieMode = 0;
+                _Driver.volpush_flag = 0;
 
                 if (*si == 0xfb)
                 {   // Do not KeyOff if '&' immediately follows
@@ -142,21 +142,21 @@ void PMD::ADPCMMain(Channel * channel)
                     channel->keyoff_flag = 0;
                 }
 
-                _DriverState.loop_work &= channel->loopcheck;
+                _Driver.loop_work &= channel->loopcheck;
 
                 return;
             }
         }
     }
 
-    _DriverState.lfo_switch = (channel->lfoswi & 8);
+    _Driver.lfo_switch = (channel->lfoswi & 8);
 
     if (channel->lfoswi)
     {
         if (channel->lfoswi & 3)
         {
             if (lfo(channel))
-                _DriverState.lfo_switch |= (channel->lfoswi & 3);
+                _Driver.lfo_switch |= (channel->lfoswi & 3);
         }
 
         if (channel->lfoswi & 0x30)
@@ -166,27 +166,27 @@ void PMD::ADPCMMain(Channel * channel)
             if (lfop(channel))
             {
                 SwapLFO(channel);
-                _DriverState.lfo_switch |= (channel->lfoswi & 0x30);
+                _Driver.lfo_switch |= (channel->lfoswi & 0x30);
             }
             else
                 SwapLFO(channel);
         }
 
-        if (_DriverState.lfo_switch & 0x19)
+        if (_Driver.lfo_switch & 0x19)
         {
-            if (_DriverState.lfo_switch & 0x08)
+            if (_Driver.lfo_switch & 0x08)
                 porta_calc(channel);
 
-            OtodasiM(channel);
+            SetADPCMPitch(channel);
         }
     }
 
-    int temp = soft_env(channel);
+    int temp = SSGPCMSoftwareEnvelope(channel);
 
-    if ((temp != 0) || _DriverState.lfo_switch & 0x22 || (_State.FadeOutSpeed != 0))
-        SetPCMVolumeCommand(channel);
+    if ((temp != 0) || _Driver.lfo_switch & 0x22 || (_State.FadeOutSpeed != 0))
+        SetADPCMVolumeCommand(channel);
 
-    _DriverState.loop_work &= channel->loopcheck;
+    _Driver.loop_work &= channel->loopcheck;
 }
 
 uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
@@ -199,7 +199,10 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
         case 0xfe: channel->qdata = *si++; break;
         case 0xfd: channel->volume = *si++; break;
         case 0xfc: si = ChangeTempoCommand(si); break;
-        case 0xfb: _DriverState.tieflag |= 1; break;
+        case 0xfb:
+            _Driver.TieMode |= 1;
+            break;
+
         case 0xfa: channel->detune = *(int16_t *) si; si += 2; break;
         case 0xf9: si = SetStartOfLoopCommand(channel, si); break;
         case 0xf8: si = SetEndOfLoopCommand(channel, si); break;
@@ -350,3 +353,126 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
+void PMD::SetADPCMVolumeCommand(Channel * channel)
+{
+    int al = channel->volpush ? channel->volpush : channel->volume;
+
+    //  音量down計算
+    al = ((256 - _State.pcm_voldown) * al) >> 8;
+
+    //  Fadeout計算
+    if (_State.FadeOutVolume)
+        al = (((256 - _State.FadeOutVolume) * (256 - _State.FadeOutVolume) >> 8) * al) >> 8;
+
+    //  ENVELOPE 計算
+    if (al == 0)
+    {
+        _OPNAW->SetReg(0x10b, 0);
+
+        return;
+    }
+
+    if (channel->envf == -1)
+    {
+        //  拡張版 音量=al*(eenv_vol+1)/16
+        if (channel->eenv_volume == 0)
+        {
+            _OPNAW->SetReg(0x10b, 0);
+            return;
+        }
+
+        al = ((((al * (channel->eenv_volume + 1))) >> 3) + 1) >> 1;
+    }
+    else
+    {
+        if (channel->eenv_volume < 0)
+        {
+            int ah = -channel->eenv_volume * 16;
+
+            if (al < ah)
+            {
+                _OPNAW->SetReg(0x10b, 0);
+                return;
+            }
+            else
+                al -= ah;
+        }
+        else
+        {
+            int ah = channel->eenv_volume * 16;
+
+            if (al + ah > 255)
+                al = 255;
+            else
+                al += ah;
+        }
+    }
+
+    //  音量LFO計算
+    if ((channel->lfoswi & 0x22) == 0)
+    {
+        _OPNAW->SetReg(0x10b, (uint32_t) al);
+
+        return;
+    }
+
+    int dx = (channel->lfoswi & 2) ? channel->lfodat : 0;
+
+    if (channel->lfoswi & 0x20)
+        dx += channel->_lfodat;
+
+    if (dx >= 0)
+    {
+        al += dx;
+
+        if (al & 0xff00)
+            _OPNAW->SetReg(0x10b, 255);
+        else
+            _OPNAW->SetReg(0x10b, (uint32_t) al);
+    }
+    else
+    {
+        al += dx;
+
+        if (al < 0)
+            _OPNAW->SetReg(0x10b, 0);
+        else
+            _OPNAW->SetReg(0x10b, (uint32_t) al);
+    }
+}
+
+void PMD::SetADPCMPitch(Channel * channel)
+{
+    if (channel->fnum == 0)
+        return;
+
+    // Portament/LFO/Detune SET
+    int bx = (int) (channel->fnum + channel->porta_num);
+    int dx = (int) (((channel->lfoswi & 0x11) && (channel->lfoswi & 1)) ? dx = channel->lfodat : 0);
+
+    if (channel->lfoswi & 0x10)
+        dx += channel->_lfodat;
+
+    dx *= 4;  // PCM ﾊ LFO ｶﾞ ｶｶﾘﾆｸｲ ﾉﾃﾞ depth ｦ 4ﾊﾞｲ ｽﾙ
+
+    dx += channel->detune;
+
+    if (dx >= 0)
+    {
+        bx += dx;
+
+        if (bx > 0xffff)
+            bx = 0xffff;
+    }
+    else
+    {
+        bx += dx;
+
+        if (bx < 0)
+            bx = 0;
+    }
+
+    // TONE SET
+    _OPNAW->SetReg(0x109, (uint32_t) LOBYTE(bx));
+    _OPNAW->SetReg(0x10a, (uint32_t) HIBYTE(bx));
+}

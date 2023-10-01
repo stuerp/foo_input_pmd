@@ -18,6 +18,8 @@
 #include "P86.h"
 
 #include "PMDPrivate.h"
+#include "Driver.h"
+#include "Effect.h"
 
 typedef int Sample;
 
@@ -141,8 +143,8 @@ private:
     P86Driver * _P86;
 
     State _State;
-    DriverState _DriverState;
-    EffectState _EffectState;
+    Driver _Driver;
+    Effect _Effect;
 
     Channel _FMTrack[MaxFMTracks];
     Channel _SSGTrack[MaxSSGTracks];
@@ -208,13 +210,12 @@ protected:
 
     uint8_t * RhythmOn(Channel * track, int al, uint8_t * bx, bool * success);
 
-    void effgo(Channel * track, int al);
-    void eff_on2(Channel * track, int al);
+    void RhythmPlayEffect(Channel * track, int al);
     void EffectMain(Channel * track, int al);
-    void effplay();
-    void efffor(const int * si);
-    void EffectStop();
-    void EffectSweep();
+    void PlayEffect();
+    void StartEffect(const int * si);
+    void StopEffect();
+    void Sweep();
 
     uint8_t * PDRSwitchCommand(Channel * track, uint8_t * si);
 
@@ -248,8 +249,8 @@ protected:
     uint8_t * ExitLoopCommand(Channel * track, uint8_t * si);
     uint8_t * SetSSGEnvelopeSpeedToExtend(Channel * track, uint8_t * si);
 
-    int lfoinit(Channel * track, int al);
-    int lfoinitp(Channel * track, int al);
+    int StartLFO(Channel * track, int al);
+    int StartPCMLFO(Channel * track, int al);
 
     uint8_t * SetLFOParameter(Channel * track, uint8_t * si);
     uint8_t * psgenvset(Channel * track, uint8_t * si);
@@ -298,15 +299,15 @@ protected:
 
     void SetFMVolumeCommand(Channel * track);
     void volsetp(Channel * track);
-    void SetPCMVolumeCommand(Channel * track);
-    void volset8(Channel * track);
-    void volsetz(Channel * track);
+    void SetADPCMVolumeCommand(Channel * track);
+    void SetPCM86Volume(Channel * track);
+    void SetPPZVolume(Channel * track);
 
-    void Otodasi(Channel * track);
-    void OtodasiP(Channel * track);
-    void OtodasiM(Channel * track);
-    void Otodasi8(Channel * track);
-    void OtodasiZ(Channel * track);
+    void SetFMPitch(Channel * track);
+    void SetSSGPitch(Channel * track);
+    void SetADPCMPitch(Channel * track);
+    void SetPCM86Pitch(Channel * track);
+    void SetPPZPitch(Channel * track);
 
     void KeyOn(Channel * track);
     void keyonp(Channel * track);
@@ -319,7 +320,7 @@ protected:
     uint8_t * lfoswitch(Channel * track, uint8_t * si);
     void lfoinit_main(Channel * track);
     void SwapLFO(Channel * track);
-    void lfo_exit(Channel * track);
+    void StopLFO(Channel * track);
     void lfin1(Channel * track);
     void LFOMain(Channel * track);
 
@@ -328,11 +329,11 @@ protected:
     void fmlfo_sub(Channel * track, int al, int bl, uint8_t * vol_tbl);
     void volset_slot(int dh, int dl, int al);
     void porta_calc(Channel * track);
-    int soft_env(Channel * track);
-    int soft_env_main(Channel * track);
-    int soft_env_sub(Channel * track);
-    int ext_ssgenv_main(Channel * track);
-    void esm_sub(Channel * track, int ah);
+    int SSGPCMSoftwareEnvelope(Channel * track);
+    int SSGPCMSoftwareEnvelopeMain(Channel * track);
+    int SSGPCMSoftwareEnvelopeSub(Channel * track);
+    int ExtendedSSGPCMSoftwareEnvelopeMain(Channel * track);
+    void ExtendedSSGPCMSoftwareEnvelopeSub(Channel * track, int ah);
     void md_inc(Channel * track);
 
     uint8_t * pcmrepeat_set(Channel * track, uint8_t * si);

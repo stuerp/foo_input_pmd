@@ -118,72 +118,67 @@ void PMD::LFOMain(Channel * channel)
     }
 }
 
-// Initialization of LFO and SSG/PCM software envelopes
-
-int PMD::lfoinit(Channel * channel, int al)
+int PMD::StartLFO(Channel * channel, int al)
 {
-    int ah = al & 0x0f;
+    int ah = al & 0x0F;
 
-    if (ah == 0x0c)
+    if (ah == 0x0C)
     {
         al = channel->onkai_def;
-        ah = al & 0x0f;
+        ah = al & 0x0F;
     }
 
     channel->onkai_def = al;
 
-    if (ah == 0x0f)
-    {        // ｷｭｰﾌ ﾉ ﾄｷ ﾊ INIT ｼﾅｲﾖ
-        lfo_exit(channel);
+    if (ah == 0x0F)
+    {
+        StopLFO(channel);
+
         return al;
     }
 
-    channel->porta_num = 0;        // ポルタメントは初期化
+    channel->porta_num = 0; // Initialize the portamento.
 
-    if ((_DriverState.tieflag & 1) == 0)
-    {
-        lfin1(channel);
-    }
+    if (_Driver.TieMode & 1)
+        StopLFO(channel);
     else
-    {
-        lfo_exit(channel);
-    }
+        lfin1(channel);
+
     return al;
 }
 
 // Entry for SSG/PCM sound source
-int PMD::lfoinitp(Channel * channel, int al)
+int PMD::StartPCMLFO(Channel * channel, int al)
 {
-    int ah = al & 0x0f;
+    int ah = al & 0x0F;
 
-    if (ah == 0x0c)
+    if (ah == 0x0C)
     {
         al = channel->onkai_def;
-        ah = al & 0x0f;
+        ah = al & 0x0F;
     }
 
     channel->onkai_def = al;
 
-    // 4.8r 修正
-    if (ah == 0x0f)
-    {      // ｷｭｰﾌ ﾉ ﾄｷ ﾊ INIT ｼﾅｲﾖ
-        soft_env(channel);
-        lfo_exit(channel);
+    if (ah == 0x0F)
+    {
+        SSGPCMSoftwareEnvelope(channel);
+        StopLFO(channel);
 
         return al;
     }
 
-    channel->porta_num = 0;      // Portamento is initialized
+    channel->porta_num = 0; // Initialize the portamento.
 
-    if (_DriverState.tieflag & 1)
-    {  // ﾏｴ ｶﾞ & ﾉ ﾄｷ ﾓ INIT ｼﾅｲ｡
-        soft_env(channel);      // If the previous is & -> SofeEnv processing once
-        lfo_exit(channel);
+    if (_Driver.TieMode & 1)
+    {
+        SSGPCMSoftwareEnvelope(channel); // Only execute the software envelope once when preceded by a "&" command (Tie).
+        StopLFO(channel);
 
         return al;
     }
 
-    //  ソフトウエアエンベロープ初期化
+    //  Initialize the software envelope.
     if (channel->envf != -1)
     {
         channel->envf = 0;
@@ -203,8 +198,7 @@ int PMD::lfoinitp(Channel * channel, int al)
     }
     else
     {
-        //  拡張ssg_envelope用
-
+        // Extended SSG envelope processing
         channel->eenv_arc = channel->eenv_ar - 16;
 
         if (channel->eenv_dr < 16)
@@ -221,7 +215,7 @@ int PMD::lfoinitp(Channel * channel, int al)
         channel->eenv_volume = channel->eenv_al;
         channel->eenv_count = 1;
 
-        ext_ssgenv_main(channel);
+        ExtendedSSGPCMSoftwareEnvelopeMain(channel);
 
         lfin1(channel);
     }
@@ -229,15 +223,18 @@ int PMD::lfoinitp(Channel * channel, int al)
     return al;
 }
 
-void PMD::lfo_exit(Channel * track)
+void PMD::StopLFO(Channel * track)
 {
     if ((track->lfoswi & 0x03) != 0)
-        lfo(track); // If the previous is & -> LFO processing once
+        lfo(track); // Only execute the LFO once when preceded by a "&" command (Tie).
 
     if ((track->lfoswi & 0x30) != 0)
-    {  // If the previous is & -> LFO processing once
+    {
+        // Only execute the LFO once when preceded by a "&" command (Tie).
         SwapLFO(track);
+
         lfo(track);
+
         SwapLFO(track);
     }
 }
@@ -248,7 +245,7 @@ void PMD::lfin1(Channel * track)
     track->hldelay_c = track->hldelay;
 
     if (track->hldelay)
-        _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + _DriverState.CurrentChannel + 0xb4 - 1), (uint32_t) (track->fmpan & 0xc0));
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), (uint32_t) (track->fmpan & 0xc0));
 
     track->sdelay_c = track->sdelay;
 
@@ -318,7 +315,7 @@ int PMD::lfop(Channel * track)
     if (track->extendmode & 2)
     {
         // Match with TimerA? If not, unconditionally process lfo
-        ch = _State.TimerATime - _DriverState.OldTimerATime;
+        ch = _State.TimerATime - _Driver.OldTimerATime;
 
         if (ch == 0)
             return 0;

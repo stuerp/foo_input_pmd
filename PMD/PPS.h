@@ -50,7 +50,7 @@ public:
     bool Stop(void);
     bool Play(int num, int shift, int volshift);
 
-    bool SetParam(int index, bool value);
+    bool SetParameter(int index, bool value);
     bool SetRate(uint32_t r, bool ip);
     void SetVolume(int volume);
 

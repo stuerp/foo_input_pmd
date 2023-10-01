@@ -25,18 +25,20 @@ void PMD::SSGMain(Channel * channel)
     channel->Length--;
 
     // KEYOFF CHECK & Keyoff
-    if ((channel == &_SSGTrack[2]) && _DriverState.UsePPS && _State.kshot_dat && (channel->Length <= channel->qdat))
+    if (_Driver.UsePPS && (channel == &_SSGTrack[2]) && (_State.kshot_dat != 0) && (channel->Length <= channel->qdat))
     {
-        // PPS 使用時 & SSG 3ch & SSG 効果音鳴らしている場合
+        // When using PPS & SSG 3ch & when playing SSG sound effects.
         keyoffp(channel);
-        _OPNAW->SetReg((uint32_t) (_DriverState.CurrentChannel + 8 - 1), 0U);    // 強制的に音を止める
+
+        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0U);   // Force the soundto sto.
+
         channel->keyoff_flag = -1;
     }
 
     if (channel->PartMask)
         channel->keyoff_flag = -1;
     else
-    if ((channel->keyoff_flag & 3) == 0) // 既にKeyOffしたか？
+    if ((channel->keyoff_flag & 3) == 0) // Already keyed-off?
     {
         if (channel->Length <= channel->qdat)
         {
@@ -72,9 +74,9 @@ void PMD::SSGMain(Channel * channel)
                 {
                     if (channel->PartMask)
                     {
-                        _DriverState.tieflag = 0;
-                        _DriverState.volpush_flag = 0;
-                        _DriverState.loop_work &= channel->loopcheck;
+                        _Driver.TieMode = 0;
+                        _Driver.volpush_flag = 0;
+                        _Driver.loop_work &= channel->loopcheck;
                         return;
                     }
                     else
@@ -82,16 +84,17 @@ void PMD::SSGMain(Channel * channel)
                         break;
                     }
                 }
-                // "L"があった時
+
+                // In case there was an "L" command.
                 si = channel->LoopData;
                 channel->loopcheck = 1;
             }
             else
             {
                 if (*si == 0xda)
-                {            // ポルタメント
+                {
                     si = SetSSGPortamento(channel, ++si);
-                    _DriverState.loop_work &= channel->loopcheck;
+                    _Driver.loop_work &= channel->loopcheck;
                     return;
                 }
                 else
@@ -101,60 +104,58 @@ void PMD::SSGMain(Channel * channel)
                     {
                         si++;
 
-                        channel->fnum = 0;    //休符に設定
+                        channel->fnum = 0;      // Set to "rest".
                         channel->onkai = 255;
                         channel->Length = *si++;
                         channel->keyon_flag++;
                         channel->Data = si;
 
-                        if (--_DriverState.volpush_flag)
+                        if (--_Driver.volpush_flag)
                             channel->volpush = 0;
 
-                        _DriverState.tieflag = 0;
-                        _DriverState.volpush_flag = 0;
+                        _Driver.TieMode = 0;
+                        _Driver.volpush_flag = 0;
                         break;
                     }
                 }
 
                 //  TONE SET
-                SetSSGTune(channel, oshiftp(channel, lfoinitp(channel, *si++)));
+                SetSSGTune(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
                 si = calc_q(channel, si);
 
                 if (channel->volpush && channel->onkai != 255)
                 {
-                    if (--_DriverState.volpush_flag)
+                    if (--_Driver.volpush_flag)
                     {
-                        _DriverState.volpush_flag = 0;
+                        _Driver.volpush_flag = 0;
                         channel->volpush = 0;
                     }
                 }
 
                 volsetp(channel);
-                OtodasiP(channel);
+                SetSSGPitch(channel);
                 keyonp(channel);
 
                 channel->keyon_flag++;
                 channel->Data = si;
 
-                _DriverState.tieflag = 0;
-                _DriverState.volpush_flag = 0;
+                _Driver.TieMode = 0;
+                _Driver.volpush_flag = 0;
                 channel->keyoff_flag = 0;
 
                 if (*si == 0xfb)
-                {    // '&'が直後にあったらKeyOffしない
-                    channel->keyoff_flag = 2;
-                }
+                    channel->keyoff_flag = 2; // If "&" command is immediately followed, KeyOff is not performed.
 
-                _DriverState.loop_work &= channel->loopcheck;
+                _Driver.loop_work &= channel->loopcheck;
 
                 return;
             }
         }
     }
 
-    _DriverState.lfo_switch = (channel->lfoswi & 8);
+    _Driver.lfo_switch = (channel->lfoswi & 8);
 
     if (channel->lfoswi)
     {
@@ -162,47 +163,45 @@ void PMD::SSGMain(Channel * channel)
         {
             if (lfop(channel))
             {
-                _DriverState.lfo_switch |= (channel->lfoswi & 3);
+                _Driver.lfo_switch |= (channel->lfoswi & 3);
             }
         }
 
         if (channel->lfoswi & 0x30)
         {
             SwapLFO(channel);
+
             if (lfop(channel))
             {
                 SwapLFO(channel);
-                _DriverState.lfo_switch |= (channel->lfoswi & 0x30);
+
+                _Driver.lfo_switch |= (channel->lfoswi & 0x30);
             }
             else
-            {
                 SwapLFO(channel);
-            }
         }
 
-        if (_DriverState.lfo_switch & 0x19)
+        if (_Driver.lfo_switch & 0x19)
         {
-            if (_DriverState.lfo_switch & 0x08)
+            if (_Driver.lfo_switch & 0x08)
                 porta_calc(channel);
 
-            // SSG 3ch で休符かつ SSG Drum 発音中は操作しない
-            if (!(channel == &_SSGTrack[2] && channel->onkai == 255 && _State.kshot_dat && !_DriverState.UsePPS))
-                OtodasiP(channel);
+            // Do not operate while resting on SSG channel 3 and SSG drum is sounding.
+            if (!(!_Driver.UsePPS && (channel == &_SSGTrack[2]) && (channel->onkai == 255) && (_State.kshot_dat != 0)))
+                SetSSGPitch(channel);
         }
     }
 
-    int temp = soft_env(channel);
+    int temp = SSGPCMSoftwareEnvelope(channel);
 
-    if (temp || _DriverState.lfo_switch & 0x22 || (_State.FadeOutSpeed != 0))
+    if ((temp != 0) || _Driver.lfo_switch & 0x22 || (_State.FadeOutSpeed != 0))
     {
-        // SSG 3ch で休符かつ SSG Drum 発音中は volume set しない
-        if (!(channel == &_SSGTrack[2] && channel->onkai == 255 && _State.kshot_dat && !_DriverState.UsePPS))
-        {
+        // Do not set volume while resting on SSG channel 3 and SSG drum is sounding.
+        if (!(!_Driver.UsePPS && (channel == &_SSGTrack[2]) && (channel->onkai == 255) && (_State.kshot_dat != 0)))
             volsetp(channel);
-        }
     }
 
-    _DriverState.loop_work &= channel->loopcheck;
+    _Driver.loop_work &= channel->loopcheck;
 }
 
 uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
@@ -216,7 +215,10 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
         case 0xfd: channel->volume = *si++; break;
         case 0xfc: si = ChangeTempoCommand(si); break;
 
-        case 0xfb: _DriverState.tieflag |= 1; break;
+        case 0xfb:
+            _Driver.TieMode |= 1;
+            break;
+
         case 0xfa: channel->detune = *(int16_t *) si; si += 2; break;
         case 0xf9: si = SetStartOfLoopCommand(channel, si); break;
         case 0xf8: si = SetEndOfLoopCommand(channel, si); break;
@@ -304,19 +306,31 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
         case 0xc2: channel->delay = channel->delay2 = *si++; lfoinit_main(channel); break;
         case 0xc1: break;
         case 0xc0: si = ssg_mml_part_mask(channel, si); break;
-        case 0xbf: SwapLFO(channel); si = SetLFOParameter(channel, si); SwapLFO(channel); break;
+
+        case 0xbf:
+            SwapLFO(channel);
+
+            si = SetLFOParameter(channel, si);
+
+            SwapLFO(channel);
+            break;
+
         case 0xbe:
             channel->lfoswi = (channel->lfoswi & 0x8f) | ((*si++ & 7) << 4);
 
             SwapLFO(channel);
+
             lfoinit_main(channel);
+
             SwapLFO(channel);
             break;
 
         case 0xbd:
             SwapLFO(channel);
+
             channel->mdspd = channel->mdspd2 = *si++;
             channel->mdepth = *(int8_t *) si++;
+
             SwapLFO(channel);
             break;
 
@@ -337,6 +351,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xba: si++; break;
+
         case 0xb9:
             SwapLFO(channel);
 
@@ -353,6 +368,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
         case 0xb4: si += 16; break;
+
         case 0xb3: channel->qdat2 = *si++; break;
         case 0xb2: channel->shift_def = *(int8_t *) si++; break;
         case 0xb1: channel->qdat3 = *si++; break;
@@ -374,7 +390,7 @@ uint8_t * PMD::SetSSGVolumeCommand(Channel * channel, uint8_t * si)
         al = 15;
 
     channel->volpush = ++al;
-    _DriverState.volpush_flag = 1;
+    _Driver.volpush_flag = 1;
 
     return si;
 }
@@ -383,66 +399,68 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
 {
     if (channel->PartMask)
     {
-        channel->fnum = 0;    //休符に設定
+        channel->fnum = 0;    // Set to "rest"
         channel->onkai = 255;
         channel->Length = *(si + 2);
         channel->keyon_flag++;
         channel->Data = si + 3;
 
-        if (--_DriverState.volpush_flag)
+        if (--_Driver.volpush_flag)
             channel->volpush = 0;
 
-        _DriverState.tieflag = 0;
-        _DriverState.volpush_flag = 0;
-        _DriverState.loop_work &= channel->loopcheck;
+        _Driver.TieMode = 0;
+        _Driver.volpush_flag = 0;
+        _Driver.loop_work &= channel->loopcheck;
 
-        return si + 3;    // 読み飛ばす  (Mask時)
+        return si + 3; // Skip when masking
     }
 
-    SetSSGTune(channel, oshiftp(channel, lfoinitp(channel, *si++)));
+    SetSSGTune(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
 
     int bx_ = (int) channel->fnum;
     int al_ = channel->onkai;
 
     SetSSGTune(channel, oshiftp(channel, *si++));
 
-    int ax = (int) channel->fnum;       // ax = ポルタメント先のpsg_tune値
+    int ax = (int) channel->fnum;   // ax = portamento destination psg_tune value
 
     channel->onkai = al_;
-    channel->fnum = (uint32_t) bx_;      // bx = ポルタメント元のpsg_tune値
+    channel->fnum = (uint32_t) bx_; // bx = portamento original psg_tune value
+
     ax -= bx_;
 
     channel->Length = *si++;
+
     si = calc_q(channel, si);
 
-    channel->porta_num2 = ax / channel->Length;    // 商
-    channel->porta_num3 = ax % channel->Length;    // 余り
+    channel->porta_num2 = ax / channel->Length;    // Quotient
+    channel->porta_num3 = ax % channel->Length;    // Remainder
     channel->lfoswi |= 8;        // Porta ON
 
     if (channel->volpush && channel->onkai != 255)
     {
-        if (--_DriverState.volpush_flag)
+        if (--_Driver.volpush_flag)
         {
-            _DriverState.volpush_flag = 0;
+            _Driver.volpush_flag = 0;
             channel->volpush = 0;
         }
     }
 
     volsetp(channel);
-    OtodasiP(channel);
+    SetSSGPitch(channel);
     keyonp(channel);
 
     channel->keyon_flag++;
     channel->Data = si;
 
-    _DriverState.tieflag = 0;
-    _DriverState.volpush_flag = 0;
+    _Driver.TieMode = 0;
+    _Driver.volpush_flag = 0;
     channel->keyoff_flag = 0;
 
     if (*si == 0xfb) // If there is '&' immediately after, KeyOff will not be done.
         channel->keyoff_flag = 2;
 
-    _DriverState.loop_work &= channel->loopcheck;
+    _Driver.loop_work &= channel->loopcheck;
 
     return si;
 }
@@ -499,6 +517,7 @@ uint8_t * PMD::SetSSGEnvelopeSpeedToExtend(Channel * channel, uint8_t * si)
     return si;
 }
 
+// Command "n": SSG Sound Effect Playback
 uint8_t * PMD::SetSSGEffect(Channel * channel, uint8_t * si)
 {
     int al = *si++;
@@ -506,10 +525,14 @@ uint8_t * PMD::SetSSGEffect(Channel * channel, uint8_t * si)
     if (channel->PartMask)
         return si;
 
-    if (al)
-        eff_on2(channel, al);
+    if (al != 0)
+    {
+        _Effect.Flags = 0x01; // Correct the pitch.
+
+        EffectMain(channel, al);
+    }
     else
-        EffectStop();
+        StopEffect();
 
     return si;
 }
@@ -538,7 +561,7 @@ bool PMD::CheckSSGDrum(Channel * channel, int al)
         return false;
 
     // Do not turn off normal sound effects.
-    if (_EffectState.effon >= 2)
+    if (_Effect.Priority >= 2)
         return false;
 
     // Don't stop the drums during rests.
@@ -546,10 +569,83 @@ bool PMD::CheckSSGDrum(Channel * channel, int al)
         return false;
 
     // Is the SSG drum still playing?
-    if (_EffectState.effon == 1)
-        EffectStop(); // Turn off the SSG drum.
+    if (_Effect.Priority == 1)
+        StopEffect(); // Turn off the SSG drum.
 
     channel->PartMask &= 0xFD;
 
     return (channel->PartMask == 0x00);
+}
+
+void PMD::SetSSGPitch(Channel * channel)
+{
+    if (channel->fnum == 0)
+        return;
+
+    // SSG Portamento set
+    int ax = (int) (channel->fnum + channel->porta_num);
+    int dx = 0;
+
+    // SSG Detune/LFO set
+    if ((channel->extendmode & 1) == 0)
+    {
+        ax -= channel->detune;
+
+        if (channel->lfoswi & 1)
+            ax -= channel->lfodat;
+
+        if (channel->lfoswi & 0x10)
+            ax -= channel->_lfodat;
+    }
+    else
+    {
+        // 拡張DETUNE(DETUNE)の計算
+        if (channel->detune)
+        {
+            dx = (ax * channel->detune) >> 12;    // dx:ax=ax * qq->detune
+
+            if (dx >= 0)
+                dx++;
+            else
+                dx--;
+
+            ax -= dx;
+        }
+
+        // 拡張DETUNE(LFO)の計算
+        if (channel->lfoswi & 0x11)
+        {
+            if (channel->lfoswi & 1)
+                dx = channel->lfodat;
+            else
+                dx = 0;
+
+            if (channel->lfoswi & 0x10)
+                dx += channel->_lfodat;
+
+            if (dx)
+            {
+                dx = (ax * dx) >> 12;
+
+                if (dx >= 0)
+                    dx++;
+                else
+                    dx--;
+            }
+
+            ax -= dx;
+        }
+    }
+
+    // TONE SET
+    if (ax >= 0x1000)
+    {
+        if (ax >= 0)
+            ax = 0xfff;
+        else
+            ax = 0;
+    }
+
+    _OPNAW->SetReg((uint32_t) ((_Driver.CurrentChannel - 1) * 2),     (uint32_t) LOBYTE(ax));
+    _OPNAW->SetReg((uint32_t) ((_Driver.CurrentChannel - 1) * 2 + 1), (uint32_t) HIBYTE(ax));
 }

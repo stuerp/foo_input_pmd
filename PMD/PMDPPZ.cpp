@@ -64,9 +64,9 @@ void PMD::PPZ8Main(Channel * channel)
                 {
                     if (channel->PartMask)
                     {
-                        _DriverState.tieflag = 0;
-                        _DriverState.volpush_flag = 0;
-                        _DriverState.loop_work &= channel->loopcheck;
+                        _Driver.TieMode = 0;
+                        _Driver.volpush_flag = 0;
+                        _Driver.loop_work &= channel->loopcheck;
                         return;
                     }
                     else
@@ -83,7 +83,7 @@ void PMD::PPZ8Main(Channel * channel)
                 if (*si == 0xda)
                 {        // ポルタメント
                     si = portaz(channel, ++si);
-                    _DriverState.loop_work &= channel->loopcheck;
+                    _Driver.loop_work &= channel->loopcheck;
                     return;
                 }
                 else
@@ -97,33 +97,33 @@ void PMD::PPZ8Main(Channel * channel)
                     channel->keyon_flag++;
                     channel->Data = si;
 
-                    if (--_DriverState.volpush_flag)
+                    if (--_Driver.volpush_flag)
                     {
                         channel->volpush = 0;
                     }
 
-                    _DriverState.tieflag = 0;
-                    _DriverState.volpush_flag = 0;
+                    _Driver.TieMode = 0;
+                    _Driver.volpush_flag = 0;
                     break;
                 }
 
                 //  TONE SET
-                fnumsetz(channel, oshift(channel, lfoinitp(channel, *si++)));
+                fnumsetz(channel, oshift(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
                 si = calc_q(channel, si);
 
                 if (channel->volpush && channel->onkai != 255)
                 {
-                    if (--_DriverState.volpush_flag)
+                    if (--_Driver.volpush_flag)
                     {
-                        _DriverState.volpush_flag = 0;
+                        _Driver.volpush_flag = 0;
                         channel->volpush = 0;
                     }
                 }
 
-                volsetz(channel);
-                OtodasiZ(channel);
+                SetPPZVolume(channel);
+                SetPPZPitch(channel);
                 if (channel->keyoff_flag & 1)
                 {
                     keyonz(channel);
@@ -132,8 +132,8 @@ void PMD::PPZ8Main(Channel * channel)
                 channel->keyon_flag++;
                 channel->Data = si;
 
-                _DriverState.tieflag = 0;
-                _DriverState.volpush_flag = 0;
+                _Driver.TieMode = 0;
+                _Driver.volpush_flag = 0;
 
                 if (*si == 0xfb)
                 {    // '&'が直後にあったらKeyOffしない
@@ -143,21 +143,21 @@ void PMD::PPZ8Main(Channel * channel)
                 {
                     channel->keyoff_flag = 0;
                 }
-                _DriverState.loop_work &= channel->loopcheck;
+                _Driver.loop_work &= channel->loopcheck;
                 return;
 
             }
         }
     }
 
-    _DriverState.lfo_switch = (channel->lfoswi & 8);
+    _Driver.lfo_switch = (channel->lfoswi & 8);
     if (channel->lfoswi)
     {
         if (channel->lfoswi & 3)
         {
             if (lfo(channel))
             {
-                _DriverState.lfo_switch |= (channel->lfoswi & 3);
+                _Driver.lfo_switch |= (channel->lfoswi & 3);
             }
         }
 
@@ -167,7 +167,7 @@ void PMD::PPZ8Main(Channel * channel)
             if (lfop(channel))
             {
                 SwapLFO(channel);
-                _DriverState.lfo_switch |= (channel->lfoswi & 0x30);
+                _Driver.lfo_switch |= (channel->lfoswi & 0x30);
             }
             else
             {
@@ -175,23 +175,23 @@ void PMD::PPZ8Main(Channel * channel)
             }
         }
 
-        if (_DriverState.lfo_switch & 0x19)
+        if (_Driver.lfo_switch & 0x19)
         {
-            if (_DriverState.lfo_switch & 0x08)
+            if (_Driver.lfo_switch & 0x08)
             {
                 porta_calc(channel);
             }
-            OtodasiZ(channel);
+            SetPPZPitch(channel);
         }
     }
 
-    temp = soft_env(channel);
-    if (temp || _DriverState.lfo_switch & 0x22 || _State.FadeOutSpeed)
+    temp = SSGPCMSoftwareEnvelope(channel);
+    if (temp || _Driver.lfo_switch & 0x22 || _State.FadeOutSpeed)
     {
-        volsetz(channel);
+        SetPPZVolume(channel);
     }
 
-    _DriverState.loop_work &= channel->loopcheck;
+    _Driver.loop_work &= channel->loopcheck;
 }
 
 uint8_t * PMD::ExecutePPZ8Command(Channel * channel, uint8_t * si)
@@ -205,8 +205,14 @@ uint8_t * PMD::ExecutePPZ8Command(Channel * channel, uint8_t * si)
         case 0xfd: channel->volume = *si++; break;
         case 0xfc: si = ChangeTempoCommand(si); break;
 
-        case 0xfb: _DriverState.tieflag |= 1; break;
-        case 0xfa: channel->detune = *(int16_t *) si; si += 2; break;
+        case 0xfb:
+            _Driver.TieMode |= 1;
+            break;
+
+        case 0xfa:
+            channel->detune = *(int16_t *) si; si += 2;
+            break;
+
         case 0xf9: si = SetStartOfLoopCommand(channel, si); break;
         case 0xf8: si = SetEndOfLoopCommand(channel, si); break;
         case 0xf7: si = ExitLoopCommand(channel, si); break;
@@ -224,7 +230,7 @@ uint8_t * PMD::ExecutePPZ8Command(Channel * channel, uint8_t * si)
         case 0xf1: si = lfoswitch(channel, si); break;
         case 0xf0: si = psgenvset(channel, si); break;
 
-        case 0xef: _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + *si), (uint32_t) *(si + 1)); si += 2; break;
+        case 0xef: _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + *si), (uint32_t) *(si + 1)); si += 2; break;
         case 0xee: si++; break;
         case 0xed: si++; break;
 
@@ -344,4 +350,118 @@ uint8_t * PMD::ExecutePPZ8Command(Channel * channel, uint8_t * si)
     }
 
     return si;
+}
+
+void PMD::SetPPZVolume(Channel * channel)
+{
+    int al = channel->volpush ? channel->volpush : channel->volume;
+
+    //  音量down計算
+    al = ((256 - _State.ppz_voldown) * al) >> 8;
+
+    //  Fadeout計算
+    if (_State.FadeOutVolume != 0)
+        al = ((256 - _State.FadeOutVolume) * al) >> 8;
+
+    //  ENVELOPE 計算
+    if (al == 0)
+    {
+        _PPZ8->SetVolume(_Driver.CurrentChannel, 0);
+        _PPZ8->Stop(_Driver.CurrentChannel);
+        return;
+    }
+
+    if (channel->envf == -1)
+    {
+        //  拡張版 音量=al*(eenv_vol+1)/16
+        if (channel->eenv_volume == 0)
+        {
+            //*@    ppz8->SetVol(pmdwork._CurrentPart, 0);
+            _PPZ8->Stop(_Driver.CurrentChannel);
+            return;
+        }
+
+        al = ((((al * (channel->eenv_volume + 1))) >> 3) + 1) >> 1;
+    }
+    else
+    {
+        if (channel->eenv_volume < 0)
+        {
+            int ah = -channel->eenv_volume * 16;
+
+            if (al < ah)
+            {
+                //*@      ppz8->SetVol(pmdwork._CurrentPart, 0);
+                _PPZ8->Stop(_Driver.CurrentChannel);
+                return;
+            }
+            else
+                al -= ah;
+        }
+        else
+        {
+            int ah = channel->eenv_volume * 16;
+
+            if (al + ah > 255)
+                al = 255;
+            else
+                al += ah;
+        }
+    }
+
+    // Calculate the LFO volume.
+    if ((channel->lfoswi & 0x22))
+    {
+        int dx = (channel->lfoswi & 2) ? channel->lfodat : 0;
+
+        if (channel->lfoswi & 0x20)
+            dx += channel->_lfodat;
+
+        al += dx;
+
+        if (dx >= 0)
+        {
+            if (al & 0xff00)
+                al = 255;
+        }
+        else
+        {
+            if (al < 0)
+                al = 0;
+        }
+    }
+
+    if (al != 0)
+        _PPZ8->SetVolume(_Driver.CurrentChannel, al >> 4);
+    else
+        _PPZ8->Stop(_Driver.CurrentChannel);
+}
+
+void PMD::SetPPZPitch(Channel * channel)
+{
+    uint32_t cx = channel->fnum;
+
+    if (cx == 0)
+        return;
+
+    cx += channel->porta_num * 16;
+
+    int ax = (channel->lfoswi & 1) ? channel->lfodat : 0;
+
+    if (channel->lfoswi & 0x10)
+        ax += channel->_lfodat;
+
+    ax += channel->detune;
+
+    int64_t cx2 = cx + ((int64_t) cx) / 256 * ax;
+
+    if (cx2 > 0xffffffff)
+        cx = 0xffffffff;
+    else
+    if (cx2 < 0)
+        cx = 0;
+    else
+        cx = (uint32_t) cx2;
+
+    _PPZ8->SetPitch(_Driver.CurrentChannel, cx);
 }

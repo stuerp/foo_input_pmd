@@ -64,9 +64,9 @@ void PMD::PCM86Main(Channel * channel)
                 {
                     if (channel->PartMask)
                     {
-                        _DriverState.tieflag = 0;
-                        _DriverState.volpush_flag = 0;
-                        _DriverState.loop_work &= channel->loopcheck;
+                        _Driver.TieMode = 0;
+                        _Driver.volpush_flag = 0;
+                        _Driver.loop_work &= channel->loopcheck;
 
                         return;
                     }
@@ -90,16 +90,16 @@ void PMD::PCM86Main(Channel * channel)
                     channel->keyon_flag++;
                     channel->Data = si;
 
-                    if (--_DriverState.volpush_flag)
+                    if (--_Driver.volpush_flag)
                         channel->volpush = 0;
 
-                    _DriverState.tieflag = 0;
-                    _DriverState.volpush_flag = 0;
+                    _Driver.TieMode = 0;
+                    _Driver.volpush_flag = 0;
                     break;
                 }
 
                 //  TONE SET
-                fnumset8(channel, oshift(channel, lfoinitp(channel, *si++)));
+                fnumset8(channel, oshift(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
 
@@ -107,15 +107,15 @@ void PMD::PCM86Main(Channel * channel)
 
                 if (channel->volpush && channel->onkai != 255)
                 {
-                    if (--_DriverState.volpush_flag)
+                    if (--_Driver.volpush_flag)
                     {
-                        _DriverState.volpush_flag = 0;
+                        _Driver.volpush_flag = 0;
                         channel->volpush = 0;
                     }
                 }
 
-                volset8(channel);
-                Otodasi8(channel);
+                SetPCM86Volume(channel);
+                SetPCM86Pitch(channel);
 
                 if (channel->keyoff_flag & 1)
                     keyon8(channel);
@@ -123,15 +123,15 @@ void PMD::PCM86Main(Channel * channel)
                 channel->keyon_flag++;
                 channel->Data = si;
 
-                _DriverState.tieflag = 0;
-                _DriverState.volpush_flag = 0;
+                _Driver.TieMode = 0;
+                _Driver.volpush_flag = 0;
 
-                if (*si == 0xfb)
-                    channel->keyoff_flag = 2; // '&'が直後にあったらKeyOffしない
+                if (*si == 0xFB)
+                    channel->keyoff_flag = 2; // If '&' command (Tie) is immediately followed, KeyOff is not performed.
                 else
                     channel->keyoff_flag = 0;
 
-                _DriverState.loop_work &= channel->loopcheck;
+                _Driver.loop_work &= channel->loopcheck;
 
                 return;
             }
@@ -140,13 +140,13 @@ void PMD::PCM86Main(Channel * channel)
 
     if (channel->lfoswi & 0x22)
     {
-        _DriverState.lfo_switch = 0;
+        _Driver.lfo_switch = 0;
 
         if (channel->lfoswi & 2)
         {
             lfo(channel);
 
-            _DriverState.lfo_switch |= (channel->lfoswi & 2);
+            _Driver.lfo_switch |= (channel->lfoswi & 2);
         }
 
         if (channel->lfoswi & 0x20)
@@ -157,26 +157,26 @@ void PMD::PCM86Main(Channel * channel)
             {
                 SwapLFO(channel);
 
-                _DriverState.lfo_switch |= (channel->lfoswi & 0x20);
+                _Driver.lfo_switch |= (channel->lfoswi & 0x20);
             }
             else
                 SwapLFO(channel);
         }
 
-        temp = soft_env(channel);
+        temp = SSGPCMSoftwareEnvelope(channel);
 
-        if (temp || _DriverState.lfo_switch & 0x22 || _State.FadeOutSpeed)
-            volset8(channel);
+        if (temp || _Driver.lfo_switch & 0x22 || _State.FadeOutSpeed)
+            SetPCM86Volume(channel);
     }
     else
     {
-        temp = soft_env(channel);
+        temp = SSGPCMSoftwareEnvelope(channel);
 
         if (temp || _State.FadeOutSpeed)
-            volset8(channel);
+            SetPCM86Volume(channel);
     }
 
-    _DriverState.loop_work &= channel->loopcheck;
+    _Driver.loop_work &= channel->loopcheck;
 }
 
 uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
@@ -189,7 +189,10 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xfe: channel->qdata = *si++; break;
         case 0xfd: channel->volume = *si++; break;
         case 0xfc: si = ChangeTempoCommand(si); break;
-        case 0xfb: _DriverState.tieflag |= 1; break;
+        case 0xfb:
+            _Driver.TieMode |= 1;
+            break;
+
         case 0xfa: channel->detune = *(int16_t *) si; si += 2; break;
         case 0xf9: si = SetStartOfLoopCommand(channel, si); break;
         case 0xf8: si = SetEndOfLoopCommand(channel, si); break;
@@ -197,8 +200,10 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xf6: channel->LoopData = si; break;
         case 0xf5: channel->shift = *(int8_t *) si++; break;
         case 0xf4:
-            if (channel->volume < (255 - 16)) channel->volume += 16;
-            else channel->volume = 255;
+            if (channel->volume < (255 - 16))
+                channel->volume += 16;
+            else
+                channel->volume = 255;
             break;
 
         case 0xf3: if (channel->volume < 16) channel->volume = 0; else channel->volume -= 16; break;
@@ -268,6 +273,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xcd: si = SetSSGEnvelopeSpeedToExtend(channel, si); break;
         case 0xcc: si++; break;
         case 0xcb: channel->lfo_wave = *si++; break;
+
         case 0xca:
             channel->extendmode = (channel->extendmode & 0xfd) | ((*si++ & 1) << 1);
             break;
@@ -282,9 +288,16 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xc5: si++; break;
         case 0xc4: channel->qdatb = *si++; break;
         case 0xc3: si = panset8_ex(channel, si); break;
-        case 0xc2: channel->delay = channel->delay2 = *si++; lfoinit_main(channel); break;
+        case 0xc2:
+            channel->delay = channel->delay2 = *si++;
+            lfoinit_main(channel);
+            break;
+
         case 0xc1: break;
-        case 0xc0: si = pcm_mml_part_mask8(channel, si); break;
+        case 0xc0:
+            si = pcm_mml_part_mask8(channel, si);
+            break;
+
         case 0xbf: si += 4; break;
         case 0xbe: si++; break;
         case 0xbd: si += 2; break;
@@ -297,6 +310,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
         case 0xb4: si = ppz_extpartset(channel, si); break;
+
         case 0xb3: channel->qdat2 = *si++; break;
         case 0xb2: channel->shift_def = *(int8_t *) si++; break;
         case 0xb1: channel->qdat3 = *si++; break;
@@ -307,4 +321,97 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
     }
 
     return si;
+}
+
+void PMD::SetPCM86Volume(Channel * channel)
+{
+    int al = channel->volpush ? channel->volpush : channel->volume;
+
+    //  音量down計算
+    al = ((256 - _State.pcm_voldown) * al) >> 8;
+
+    //  Fadeout計算
+    if (_State.FadeOutVolume != 0)
+        al = ((256 - _State.FadeOutVolume) * al) >> 8;
+
+    //  ENVELOPE 計算
+    if (al == 0)
+    {
+        _OPNAW->SetReg(0x10b, 0);
+        return;
+    }
+
+    if (channel->envf == -1)
+    {
+        //  拡張版 音量=al*(eenv_vol+1)/16
+        if (channel->eenv_volume == 0)
+        {
+            _OPNAW->SetReg(0x10b, 0);
+            return;
+        }
+
+        al = ((((al * (channel->eenv_volume + 1))) >> 3) + 1) >> 1;
+    }
+    else
+    {
+        if (channel->eenv_volume < 0)
+        {
+            int ah = -channel->eenv_volume * 16;
+
+            if (al < ah)
+            {
+                _OPNAW->SetReg(0x10b, 0);
+                return;
+            }
+            else
+                al -= ah;
+        }
+        else
+        {
+            int ah = channel->eenv_volume * 16;
+
+            if (al + ah > 255)
+                al = 255;
+            else
+                al += ah;
+        }
+    }
+
+    //  音量LFO計算
+    int dx = (channel->lfoswi & 2) ? channel->lfodat : 0;
+
+    if (channel->lfoswi & 0x20)
+        dx += channel->_lfodat;
+
+    if (dx >= 0)
+    {
+        if ((al += dx) > 255)
+            al = 255;
+    }
+    else
+    {
+        if ((al += dx) < 0)
+            al = 0;
+    }
+
+    if (_State.pcm86_vol)
+        al = (int) ::sqrt(al); //  SPBと同様の音量設定
+    else
+        al >>= 4;
+
+    _P86->SetVol(al);
+}
+
+void PMD::SetPCM86Pitch(Channel * track)
+{
+    if (track->fnum == 0)
+        return;
+
+    int bl = (int) ((track->fnum & 0x0e00000) >> (16 + 5));
+    int cx = (int) ( track->fnum & 0x01fffff);
+
+    if ((_State.pcm86_vol == 0) && track->detune)
+        cx = Limit((cx >> 5) + track->detune, 65535, 1) << 5;
+
+    _P86->SetPitch(bl, (uint32_t) cx);
 }

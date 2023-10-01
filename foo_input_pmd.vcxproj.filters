@@ -25,6 +25,8 @@
     <ClInclude Include="PMD\RIFF.h" />
     <ClInclude Include="PMD\RIFFReader.h" />
     <ClInclude Include="PMD\WAVEReader.h" />
+    <ClInclude Include="PMD\Effect.h" />
+    <ClInclude Include="PMD\Driver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
@@ -52,6 +54,7 @@
     <ClCompile Include="PMD\PMDADPCM.cpp" />
     <ClCompile Include="PMD\PMDLFO.cpp" />
     <ClCompile Include="PMD\PMDPPZ.cpp" />
+    <ClCompile Include="PMD\PMDSoftwareEnvelope.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Build-FB2KComponent.ps1" />

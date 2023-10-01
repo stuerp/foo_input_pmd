@@ -178,6 +178,8 @@
     <ClInclude Include="Configuration.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="PMDDecoder.h" />
+    <ClInclude Include="PMD\Driver.h" />
+    <ClInclude Include="PMD\Effect.h" />
     <ClInclude Include="PMD\File.h" />
     <ClInclude Include="PMD\PMDPrivate.h" />
     <ClInclude Include="PMD\OPNA.h" />
@@ -209,6 +211,7 @@
     <ClCompile Include="PMD\OPNA.cpp" />
     <ClCompile Include="PMD\OPNAW.cpp" />
     <ClCompile Include="PMD\P86.cpp" />
+    <ClCompile Include="PMD\PMDSoftwareEnvelope.cpp" />
     <ClCompile Include="PMD\PDMPCM86.cpp" />
     <ClCompile Include="PMD\PMD.cpp" />
     <ClCompile Include="PMD\PMDADPCM.cpp" />

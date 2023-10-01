@@ -120,8 +120,6 @@ bool PMD::Initialize(const WCHAR * directoryPath)
 void PMD::Reset()
 {
     ::memset(&_State, 0, sizeof(_State));
-    ::memset(&_DriverState, 0, sizeof(_DriverState));
-    ::memset(&_EffectState, 0, sizeof(_EffectState));
 
     ::memset(_FMTrack, 0, sizeof(_FMTrack));
     ::memset(_SSGTrack, 0, sizeof(_SSGTrack));
@@ -234,8 +232,8 @@ void PMD::Reset()
     _State._pcm86_vol = 0;           // PCM volume adjustment
     _State.fade_stop_flag = 1;       // MSTOP after FADEOUT FLAG
 
-    _DriverState.UsePPS = false;
-    _DriverState.music_flag = 0;
+    _Driver.UsePPS = false;
+    _Driver.music_flag = 0;
 
     _MData[0] = 0;
 
@@ -250,10 +248,6 @@ void PMD::Reset()
     _State.MData = &_MData[1];
     _State.VData = _VData;
     _State.EData = _EData;
-
-    // Initialize sound effects FMINT/EFCINT.
-    _EffectState.effon = 0;
-    _EffectState.EffectNumber = 0xFF;
 }
 
 bool PMD::IsPMD(const uint8_t * data, size_t size) noexcept
@@ -681,7 +675,7 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
             {
                 _OPNAW->Mix((Sample *) _SampleDst, _SamplesToDo);
 
-                if (_DriverState.UsePPS)
+                if (_Driver.UsePPS)
                     _PPS->Mix((Sample *) _SampleDst, _SamplesToDo);
 
                 if (_State.IsUsingP86)
@@ -703,7 +697,7 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
 
                     // Fadeout end
                     if ((_Position - _FadeOutPosition > (int64_t)_State.FadeOutSpeedHQ * 1000) && (_State.fade_stop_flag == 1))
-                        _DriverState.music_flag |= 2;
+                        _Driver.music_flag |= 2;
                 }
                 else
                 {
@@ -925,11 +919,11 @@ WCHAR * PMD::GetPPZFileName(WCHAR * filePath, int index)
 }
 
 /// <summary>
-/// Enables or disables the PPS.
+/// Enables or disables the use of the PPS.
 /// </summary>
 void PMD::UsePPS(bool value) noexcept
 {
-    _DriverState.UsePPS = value;
+    _Driver.UsePPS = value;
 }
 
 /// <summary>
@@ -978,31 +972,31 @@ int PMD::DisableChannel(int channel)
         return ERR_SUCCESS;
     }
 
-    int OldFMSelector = _DriverState.FMSelector;
+    int OldFMSelector = _Driver.FMSelector;
 
     if ((_State.Channel[channel]->PartMask == 0x00) && _State.IsPlaying)
     {
         if (ChannelTable[channel][2] == 0)
         {
-            _DriverState.CurrentChannel = ChannelTable[channel][1];
-            _DriverState.FMSelector = 0;
+            _Driver.CurrentChannel = ChannelTable[channel][1];
+            _Driver.FMSelector = 0;
 
             MuteFMPart(_State.Channel[channel]);
         }
         else
         if (ChannelTable[channel][2] == 1)
         {
-            _DriverState.CurrentChannel = ChannelTable[channel][1];
-            _DriverState.FMSelector = 0x100;
+            _Driver.CurrentChannel = ChannelTable[channel][1];
+            _Driver.FMSelector = 0x100;
 
             MuteFMPart(_State.Channel[channel]);
         }
         else
         if (ChannelTable[channel][2] == 2)
         {
-            _DriverState.CurrentChannel = ChannelTable[channel][1];
+            _Driver.CurrentChannel = ChannelTable[channel][1];
 
-            int ah = 1 << (_DriverState.CurrentChannel - 1);
+            int ah = 1 << (_Driver.CurrentChannel - 1);
 
             ah |= (ah << 3);
 
@@ -1018,8 +1012,8 @@ int PMD::DisableChannel(int channel)
         else
         if (ChannelTable[channel][2] == 4)
         {
-            if (_EffectState.EffectNumber < 11)
-                EffectStop();
+            if (_Effect.Number < 11)
+                StopEffect();
         }
         else
         if (ChannelTable[channel][2] == 5)
@@ -1028,7 +1022,7 @@ int PMD::DisableChannel(int channel)
 
     _State.Channel[channel]->PartMask |= 0x01;
 
-    _DriverState.FMSelector = OldFMSelector;
+    _Driver.FMSelector = OldFMSelector;
 
     return ERR_SUCCESS;
 }
@@ -1057,28 +1051,28 @@ int PMD::EnableChannel(int channel)
     if (!_State.IsPlaying)
         return ERR_MUSIC_STOPPED;
 
-    int OldFMSelector = _DriverState.FMSelector;
+    int OldFMSelector = _Driver.FMSelector;
 
     if (_State.Channel[channel]->Data)
     {
         if (ChannelTable[channel][2] == 0)
         {   // FM sound source (Front)
-            _DriverState.FMSelector = 0;
-            _DriverState.CurrentChannel = ChannelTable[channel][1];
+            _Driver.FMSelector = 0;
+            _Driver.CurrentChannel = ChannelTable[channel][1];
 
             ResetTone(_State.Channel[channel]);
         }
         else
         if (ChannelTable[channel][2] == 1)
         {   // FM sound source (Back)
-            _DriverState.FMSelector = 0x100;
-            _DriverState.CurrentChannel = ChannelTable[channel][1];
+            _Driver.FMSelector = 0x100;
+            _Driver.CurrentChannel = ChannelTable[channel][1];
 
             ResetTone(_State.Channel[channel]);
         }
     }
 
-    _DriverState.FMSelector = OldFMSelector;
+    _Driver.FMSelector = OldFMSelector;
 
     return ERR_SUCCESS;
 }
@@ -1356,8 +1350,8 @@ void PMD::HandleTimerA()
     if ((_State.TimerATime & 7) == 0)
         Fade();
 
-    if (_EffectState.effon && (!_DriverState.UsePPS || _EffectState.EffectNumber == 0x80))
-        effplay(); // SSG Sound Source effect processing
+    if ((_Effect.Priority != 0) && (!_Driver.UsePPS || (_Effect.Number == 0x80)))
+        PlayEffect(); // Use the SSG for effect processing.
 
     _State.IsTimerABusy = false;
 }
@@ -1366,12 +1360,12 @@ void PMD::HandleTimerB()
 {
     _State.IsTimerBBusy = true;
 
-    if (_DriverState.music_flag != 0x00)
+    if (_Driver.music_flag != 0x00)
     {
-        if (_DriverState.music_flag & 0x01)
+        if (_Driver.music_flag & 0x01)
             DriverStart();
 
-        if (_DriverState.music_flag & 0x02)
+        if (_Driver.music_flag & 0x02)
             DriverStop();
     }
 
@@ -1381,7 +1375,7 @@ void PMD::HandleTimerB()
         SetTimerBTempo();
         IncreaseBarCounter();
 
-        _DriverState.OldTimerATime = _State.TimerATime;
+        _Driver.OldTimerATime = _State.TimerATime;
     }
 
     _State.IsTimerBBusy = false;
@@ -1391,36 +1385,36 @@ void PMD::DriverMain()
 {
     int i;
 
-    _DriverState.loop_work = 3;
+    _Driver.loop_work = 3;
 
     if (_State.x68_flg == 0)
     {
         for (i = 0; i < 3; ++i)
         {
-            _DriverState.CurrentChannel = i + 1;
+            _Driver.CurrentChannel = i + 1;
             SSGMain(&_SSGTrack[i]);
         }
     }
 
-    _DriverState.FMSelector = 0x100;
+    _Driver.FMSelector = 0x100;
 
     for (i = 0; i < 3; ++i)
     {
-        _DriverState.CurrentChannel = i + 1;
+        _Driver.CurrentChannel = i + 1;
         FMMain(&_FMTrack[i + 3]);
     }
 
-    _DriverState.FMSelector = 0;
+    _Driver.FMSelector = 0;
 
     for (i = 0; i < 3; ++i)
     {
-        _DriverState.CurrentChannel = i + 1;
+        _Driver.CurrentChannel = i + 1;
         FMMain(&_FMTrack[i]);
     }
 
     for (i = 0; i < 3; ++i)
     {
-        _DriverState.CurrentChannel = 3;
+        _Driver.CurrentChannel = 3;
         FMMain(&_ExtensionTrack[i]);
     }
 
@@ -1438,12 +1432,12 @@ void PMD::DriverMain()
     {
         for (i = 0; i < 8; ++i)
         {
-            _DriverState.CurrentChannel = i;
+            _Driver.CurrentChannel = i;
             PPZ8Main(&_PPZ8Track[i]);
         }
     }
 
-    if (_DriverState.loop_work == 0)
+    if (_Driver.loop_work == 0)
         return;
 
     for (i = 0; i < 6; ++i)
@@ -1476,7 +1470,7 @@ void PMD::DriverMain()
             _PPZ8Track[i].loopcheck = 0;
     }
 
-    if (_DriverState.loop_work != 3)
+    if (_Driver.loop_work != 3)
     {
         _State.LoopCount++;
 
@@ -1497,15 +1491,15 @@ void PMD::KeyOff(Channel * track)
 
 void PMD::KeyOffEx(Channel * track)
 {
-    if (_DriverState.FMSelector == 0)
+    if (_Driver.FMSelector == 0)
     {
-        _DriverState.omote_key[_DriverState.CurrentChannel - 1] = (~track->SlotMask) & (_DriverState.omote_key[_DriverState.CurrentChannel - 1]);
-        _OPNAW->SetReg(0x28, (uint32_t) ((_DriverState.CurrentChannel - 1) | _DriverState.omote_key[_DriverState.CurrentChannel - 1]));
+        _Driver.omote_key[_Driver.CurrentChannel - 1] = (~track->SlotMask) & (_Driver.omote_key[_Driver.CurrentChannel - 1]);
+        _OPNAW->SetReg(0x28, (uint32_t) ((_Driver.CurrentChannel - 1) | _Driver.omote_key[_Driver.CurrentChannel - 1]));
     }
     else
     {
-        _DriverState.ura_key[_DriverState.CurrentChannel - 1] = (~track->SlotMask) & (_DriverState.ura_key[_DriverState.CurrentChannel - 1]);
-        _OPNAW->SetReg(0x28, (uint32_t) (((_DriverState.CurrentChannel - 1) | _DriverState.ura_key[_DriverState.CurrentChannel - 1]) | 4));
+        _Driver.ura_key[_Driver.CurrentChannel - 1] = (~track->SlotMask) & (_Driver.ura_key[_Driver.CurrentChannel - 1]);
+        _OPNAW->SetReg(0x28, (uint32_t) (((_Driver.CurrentChannel - 1) | _Driver.ura_key[_Driver.CurrentChannel - 1]) | 4));
     }
 }
 
@@ -1516,58 +1510,25 @@ void PMD::KeyOn(Channel * track)
     if (track->onkai == 0xFF)
         return; // ｷｭｳﾌ ﾉ ﾄｷ
 
-    if (_DriverState.FMSelector == 0)
+    if (_Driver.FMSelector == 0)
     {
-        al = _DriverState.omote_key[_DriverState.CurrentChannel - 1] | track->SlotMask;
+        al = _Driver.omote_key[_Driver.CurrentChannel - 1] | track->SlotMask;
 
         if (track->sdelay_c)
             al &= track->sdelay_m;
 
-        _DriverState.omote_key[_DriverState.CurrentChannel - 1] = al;
-        _OPNAW->SetReg(0x28, (uint32_t) ((_DriverState.CurrentChannel - 1) | al));
+        _Driver.omote_key[_Driver.CurrentChannel - 1] = al;
+        _OPNAW->SetReg(0x28, (uint32_t) ((_Driver.CurrentChannel - 1) | al));
     }
     else
     {
-        al = _DriverState.ura_key[_DriverState.CurrentChannel - 1] | track->SlotMask;
+        al = _Driver.ura_key[_Driver.CurrentChannel - 1] | track->SlotMask;
 
         if (track->sdelay_c)
             al &= track->sdelay_m;
 
-        _DriverState.ura_key[_DriverState.CurrentChannel - 1] = al;
-        _OPNAW->SetReg(0x28, (uint32_t) (((_DriverState.CurrentChannel - 1) | al) | 4));
-    }
-}
-
-//  Set [ FNUM/BLOCK + DETUNE + LFO ]
-void PMD::Otodasi(Channel * track)
-{
-    if ((track->fnum == 0) || (track->SlotMask == 0))
-        return;
-
-    int cx = (int) (track->fnum & 0x3800);    // cx=BLOCK
-    int ax = (int) (track->fnum) & 0x7ff;    // ax=FNUM
-
-    // Portament/LFO/Detune SET
-    ax += track->porta_num + track->detune;
-
-    if ((_DriverState.CurrentChannel == 3) && (_DriverState.FMSelector == 0) && (_State.ch3mode != 0x3f))
-        ch3_special(track, ax, cx);
-    else
-    {
-        if (track->lfoswi & 1)
-            ax += track->lfodat;
-
-        if (track->lfoswi & 0x10)
-            ax += track->_lfodat;
-
-        fm_block_calc(&cx, &ax);
-
-        // SET BLOCK/FNUM TO OPN
-
-        ax |= cx;
-
-        _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + _DriverState.CurrentChannel + 0xa4 - 1), (uint32_t) HIBYTE(ax));
-        _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + _DriverState.CurrentChannel + 0xa4 - 5), (uint32_t) LOBYTE(ax));
+        _Driver.ura_key[_Driver.CurrentChannel - 1] = al;
+        _OPNAW->SetReg(0x28, (uint32_t) (((_Driver.CurrentChannel - 1) | al) | 4));
     }
 }
 
@@ -1616,7 +1577,7 @@ void PMD::fm_block_calc(int * cx, int * ax)
 // Determine the part and set mode if ch3
 int PMD::ch3_setting(Channel * qq)
 {
-    if (_DriverState.CurrentChannel == 3 && _DriverState.FMSelector == 0)
+    if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
     {
         ch3mode_set(qq);
 
@@ -1630,9 +1591,9 @@ void PMD::cm_clear(int * ah, int * al)
 {
     *al ^= 0xff;
 
-    if ((_DriverState.slot3_flag &= *al) == 0)
+    if ((_Driver.slot3_flag &= *al) == 0)
     {
-        if (_DriverState.slotdetune_flag != 1)
+        if (_Driver.slotdetune_flag != 1)
         {
             *ah = 0x3f;
         }
@@ -1672,7 +1633,7 @@ void PMD::ch3mode_set(Channel * track)
     else
     if (track->SlotMask != 0xF0)
     {
-        _DriverState.slot3_flag |= al;
+        _Driver.slot3_flag |= al;
         ah = 0x7f;
     }
     else
@@ -1684,7 +1645,7 @@ void PMD::ch3mode_set(Channel * track)
     else
     if ((track->lfoswi & 1) != 0)
     {
-        _DriverState.slot3_flag |= al;
+        _Driver.slot3_flag |= al;
         ah = 0x7f;
     }
     else
@@ -1696,7 +1657,7 @@ void PMD::ch3mode_set(Channel * track)
     else
     if (track->lfoswi & 0x10)
     {
-        _DriverState.slot3_flag |= al;
+        _Driver.slot3_flag |= al;
         ah = 0x7f;
     }
     else
@@ -1716,19 +1677,19 @@ void PMD::ch3mode_set(Channel * track)
         return;
 
     if (_FMTrack[2].PartMask == 0x00)
-        Otodasi(&_FMTrack[2]);
+        SetFMPitch(&_FMTrack[2]);
 
     if (track == &_ExtensionTrack[0])
         return;
 
     if (_ExtensionTrack[0].PartMask == 0x00)
-        Otodasi(&_ExtensionTrack[0]);
+        SetFMPitch(&_ExtensionTrack[0]);
 
     if (track == &_ExtensionTrack[1])
         return;
 
     if (_ExtensionTrack[1].PartMask == 0x00)
-        Otodasi(&_ExtensionTrack[1]);
+        SetFMPitch(&_ExtensionTrack[1]);
 }
 
 //  Pitch setting when using ch3=sound effect mode (input CX:block AX:fnum)
@@ -1852,7 +1813,7 @@ void PMD::panset_main(Channel * qq, int al)
 {
     qq->fmpan = (qq->fmpan & 0x3f) | ((al << 6) & 0xc0);
 
-    if (_DriverState.CurrentChannel == 3 && _DriverState.FMSelector == 0)
+    if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
     {
         //  FM3の場合は 4つのパート総て設定
         _FMTrack[2].fmpan = qq->fmpan;
@@ -1864,7 +1825,7 @@ void PMD::panset_main(Channel * qq, int al)
     if (qq->PartMask == 0x00)
     {    // パートマスクされているか？
 // dl = al;
-        _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + _DriverState.CurrentChannel + 0xb4 - 1), calc_panout(qq));
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), calc_panout(qq));
     }
 }
 
@@ -2031,7 +1992,7 @@ void PMD::SetFMVolumeCommand(Channel * channel)
         }
     }
 
-    int dh = 0x4c - 1 + _DriverState.CurrentChannel;    // dh=FM Port Address
+    int dh = 0x4c - 1 + _Driver.CurrentChannel;    // dh=FM Port Address
 
     if (bh & 0x80) volset_slot(dh,      channel->slot4, vol_tbl[0]);
     if (bh & 0x40) volset_slot(dh -  8, channel->slot3, vol_tbl[1]);
@@ -2051,7 +2012,7 @@ void PMD::volset_slot(int dh, int dl, int al)
     if ((al -= 0x80) < 0)
         al = 0;
 
-    _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) al);
+    _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) al);
 }
 
 //  Sub for volume LFO
@@ -2078,10 +2039,10 @@ void PMD::keyoffp(Channel * qq)
 
 uint8_t * PMD::PDRSwitchCommand(Channel *, uint8_t * si)
 {
-    if (!_DriverState.UsePPS)
+    if (!_Driver.UsePPS)
         return si + 1;
 
-//  ppsdrv->SetParam((*si & 1) << 1, *si & 1);    @暫定
+//  ppsdrv->SetParameter((*si & 1) << 1, *si & 1); // Preliminary
     si++;
 
     return si;
@@ -2101,7 +2062,7 @@ void PMD::keyonm(Channel * track)
     _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State.PCMStop));
     _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State.PCMStop));
 
-    if ((_DriverState.PCMRepeat1 | _DriverState.PCMRepeat2) == 0)
+    if ((_Driver.PCMRepeat1 | _Driver.PCMRepeat2) == 0)
     {
         _OPNAW->SetReg(0x100, 0xa0);  // PCM PLAY (non_repeat)
         _OPNAW->SetReg(0x101, (uint32_t) (track->fmpan | 2));  // PAN SET / x8 bit mode
@@ -2111,10 +2072,10 @@ void PMD::keyonm(Channel * track)
         _OPNAW->SetReg(0x100, 0xb0);  // PCM PLAY (repeat)
         _OPNAW->SetReg(0x101, (uint32_t) (track->fmpan | 2));  // PAN SET / x8 bit mode
 
-        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_DriverState.PCMRepeat1));
-        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_DriverState.PCMRepeat1));
-        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_DriverState.PCMRepeat2));
-        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_DriverState.PCMRepeat2));
+        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver.PCMRepeat1));
+        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver.PCMRepeat1));
+        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_Driver.PCMRepeat2));
+        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_Driver.PCMRepeat2));
     }
 }
 
@@ -2134,367 +2095,9 @@ void PMD::keyonz(Channel * track)
         return;
 
     if ((track->InstrumentNumber & 0x80) == 0)
-        _PPZ8->Play(_DriverState.CurrentChannel, 0, track->InstrumentNumber,        0, 0);
+        _PPZ8->Play(_Driver.CurrentChannel, 0, track->InstrumentNumber,        0, 0);
     else
-        _PPZ8->Play(_DriverState.CurrentChannel, 1, track->InstrumentNumber & 0x7F, 0, 0);
-}
-
-//  PCM OTODASI
-void PMD::OtodasiM(Channel * track)
-{
-    if (track->fnum == 0)
-        return;
-
-    // Portament/LFO/Detune SET
-    int bx = (int) (track->fnum + track->porta_num);
-    int dx = (int) (((track->lfoswi & 0x11) && (track->lfoswi & 1)) ? dx = track->lfodat : 0);
-
-    if (track->lfoswi & 0x10)
-        dx += track->_lfodat;
-
-    dx *= 4;  // PCM ﾊ LFO ｶﾞ ｶｶﾘﾆｸｲ ﾉﾃﾞ depth ｦ 4ﾊﾞｲ ｽﾙ
-
-    dx += track->detune;
-
-    if (dx >= 0)
-    {
-        bx += dx;
-
-        if (bx > 0xffff)
-            bx = 0xffff;
-    }
-    else
-    {
-        bx += dx;
-
-        if (bx < 0)
-            bx = 0;
-    }
-
-    // TONE SET
-    _OPNAW->SetReg(0x109, (uint32_t) LOBYTE(bx));
-    _OPNAW->SetReg(0x10a, (uint32_t) HIBYTE(bx));
-}
-
-//  PCM OTODASI (PMD86)
-void PMD::Otodasi8(Channel * track)
-{
-    if (track->fnum == 0)
-        return;
-
-    int bl = (int) ((track->fnum & 0x0e00000) >> (16 + 5));
-    int cx = (int) ( track->fnum & 0x01fffff);
-
-    if ((_State.pcm86_vol == 0) && track->detune)
-        cx = Limit((cx >> 5) + track->detune, 65535, 1) << 5;
-
-    _P86->SetPitch(bl, (uint32_t) cx);
-}
-
-//  PPZ OTODASI
-void PMD::OtodasiZ(Channel * track)
-{
-    uint32_t cx = track->fnum;
-
-    if (cx == 0)
-        return;
-
-    cx += track->porta_num * 16;
-
-    int ax = (track->lfoswi & 1) ? track->lfodat : 0;
-
-    if (track->lfoswi & 0x10)
-        ax += track->_lfodat;
-
-    ax += track->detune;
-
-    int64_t cx2 = cx + ((int64_t) cx) / 256 * ax;
-
-    if (cx2 > 0xffffffff)
-        cx = 0xffffffff;
-    else
-    if (cx2 < 0)
-        cx = 0;
-    else
-        cx = (uint32_t) cx2;
-
-    _PPZ8->SetPitch(_DriverState.CurrentChannel, cx);
-}
-
-void PMD::SetPCMVolumeCommand(Channel * channel)
-{
-    int al = channel->volpush ? channel->volpush : channel->volume;
-
-    //------------------------------------------------------------------------
-    //  音量down計算
-    //------------------------------------------------------------------------
-    al = ((256 - _State.pcm_voldown) * al) >> 8;
-
-    //------------------------------------------------------------------------
-    //  Fadeout計算
-    //------------------------------------------------------------------------
-    if (_State.FadeOutVolume)
-        al = (((256 - _State.FadeOutVolume) * (256 - _State.FadeOutVolume) >> 8) * al) >> 8;
-
-    //------------------------------------------------------------------------
-    //  ENVELOPE 計算
-    //------------------------------------------------------------------------
-    if (al == 0)
-    {
-        _OPNAW->SetReg(0x10b, 0);
-        return;
-    }
-
-    if (channel->envf == -1)
-    {
-        //  拡張版 音量=al*(eenv_vol+1)/16
-        if (channel->eenv_volume == 0)
-        {
-            _OPNAW->SetReg(0x10b, 0);
-            return;
-        }
-
-        al = ((((al * (channel->eenv_volume + 1))) >> 3) + 1) >> 1;
-    }
-    else
-    {
-        if (channel->eenv_volume < 0)
-        {
-            int ah = -channel->eenv_volume * 16;
-
-            if (al < ah)
-            {
-                _OPNAW->SetReg(0x10b, 0);
-                return;
-            }
-            else
-                al -= ah;
-        }
-        else
-        {
-            int ah = channel->eenv_volume * 16;
-
-            if (al + ah > 255)
-                al = 255;
-            else
-                al += ah;
-        }
-    }
-
-    //--------------------------------------------------------------------
-    //  音量LFO計算
-    //--------------------------------------------------------------------
-
-    if ((channel->lfoswi & 0x22) == 0)
-    {
-        _OPNAW->SetReg(0x10b, (uint32_t) al);
-        return;
-    }
-
-    int dx = (channel->lfoswi & 2) ? channel->lfodat : 0;
-
-    if (channel->lfoswi & 0x20)
-        dx += channel->_lfodat;
-
-    if (dx >= 0)
-    {
-        al += dx;
-
-        if (al & 0xff00)
-            _OPNAW->SetReg(0x10b, 255);
-        else
-            _OPNAW->SetReg(0x10b, (uint32_t) al);
-    }
-    else
-    {
-        al += dx;
-
-        if (al < 0)
-            _OPNAW->SetReg(0x10b, 0);
-        else
-            _OPNAW->SetReg(0x10b, (uint32_t) al);
-    }
-}
-
-//  PCM VOLUME SET(PMD86)
-void PMD::volset8(Channel * qq)
-{
-    int al = qq->volpush ? qq->volpush : qq->volume;
-
-    //------------------------------------------------------------------------
-    //  音量down計算
-    //------------------------------------------------------------------------
-    al = ((256 - _State.pcm_voldown) * al) >> 8;
-
-    //------------------------------------------------------------------------
-    //  Fadeout計算
-    //------------------------------------------------------------------------
-    if (_State.FadeOutVolume != 0)
-        al = ((256 - _State.FadeOutVolume) * al) >> 8;
-
-    //------------------------------------------------------------------------
-    //  ENVELOPE 計算
-    //------------------------------------------------------------------------
-    if (al == 0)
-    {
-        _OPNAW->SetReg(0x10b, 0);
-        return;
-    }
-
-    if (qq->envf == -1)
-    {
-        //  拡張版 音量=al*(eenv_vol+1)/16
-        if (qq->eenv_volume == 0)
-        {
-            _OPNAW->SetReg(0x10b, 0);
-            return;
-        }
-
-        al = ((((al * (qq->eenv_volume + 1))) >> 3) + 1) >> 1;
-    }
-    else
-    {
-        if (qq->eenv_volume < 0)
-        {
-            int ah = -qq->eenv_volume * 16;
-
-            if (al < ah)
-            {
-                _OPNAW->SetReg(0x10b, 0);
-                return;
-            }
-            else
-                al -= ah;
-        }
-        else
-        {
-            int ah = qq->eenv_volume * 16;
-
-            if (al + ah > 255)
-                al = 255;
-            else
-                al += ah;
-        }
-    }
-
-    //--------------------------------------------------------------------
-    //  音量LFO計算
-    //--------------------------------------------------------------------
-
-    int dx = (qq->lfoswi & 2) ? qq->lfodat : 0;
-
-    if (qq->lfoswi & 0x20)
-        dx += qq->_lfodat;
-
-    if (dx >= 0)
-    {
-        if ((al += dx) > 255)
-            al = 255;
-    }
-    else
-    {
-        if ((al += dx) < 0)
-            al = 0;
-    }
-
-    if (_State.pcm86_vol)
-        al = (int) ::sqrt(al); //  SPBと同様の音量設定
-    else
-        al >>= 4;
-
-    _P86->SetVol(al);
-}
-
-//  PPZ VOLUME SET
-void PMD::volsetz(Channel * qq)
-{
-    int al = qq->volpush ? qq->volpush : qq->volume;
-
-    //------------------------------------------------------------------------
-    //  音量down計算
-    //------------------------------------------------------------------------
-    al = ((256 - _State.ppz_voldown) * al) >> 8;
-
-    //------------------------------------------------------------------------
-    //  Fadeout計算
-    //------------------------------------------------------------------------
-    if (_State.FadeOutVolume != 0)
-        al = ((256 - _State.FadeOutVolume) * al) >> 8;
-
-    //------------------------------------------------------------------------
-    //  ENVELOPE 計算
-    //------------------------------------------------------------------------
-    if (al == 0)
-    {
-        _PPZ8->SetVolume(_DriverState.CurrentChannel, 0);
-        _PPZ8->Stop(_DriverState.CurrentChannel);
-        return;
-    }
-
-    if (qq->envf == -1)
-    {
-        //  拡張版 音量=al*(eenv_vol+1)/16
-        if (qq->eenv_volume == 0)
-        {
-            //*@    ppz8->SetVol(pmdwork._CurrentPart, 0);
-            _PPZ8->Stop(_DriverState.CurrentChannel);
-            return;
-        }
-
-        al = ((((al * (qq->eenv_volume + 1))) >> 3) + 1) >> 1;
-    }
-    else
-    {
-        if (qq->eenv_volume < 0)
-        {
-            int ah = -qq->eenv_volume * 16;
-
-            if (al < ah)
-            {
-                //*@      ppz8->SetVol(pmdwork._CurrentPart, 0);
-                _PPZ8->Stop(_DriverState.CurrentChannel);
-                return;
-            }
-            else
-                al -= ah;
-        }
-        else
-        {
-            int ah = qq->eenv_volume * 16;
-
-            if (al + ah > 255)
-                al = 255;
-            else
-                al += ah;
-        }
-    }
-
-    // Calculate the LFO volume.
-    if ((qq->lfoswi & 0x22))
-    {
-        int dx = (qq->lfoswi & 2) ? qq->lfodat : 0;
-
-        if (qq->lfoswi & 0x20)
-            dx += qq->_lfodat;
-
-        al += dx;
-
-        if (dx >= 0)
-        {
-            if (al & 0xff00)
-                al = 255;
-        }
-        else
-        {
-            if (al < 0)
-                al = 0;
-        }
-    }
-
-    if (al != 0)
-        _PPZ8->SetVolume(_DriverState.CurrentChannel, al >> 4);
-    else
-        _PPZ8->Stop(_DriverState.CurrentChannel);
+        _PPZ8->Play(_Driver.CurrentChannel, 1, track->InstrumentNumber & 0x7F, 0, 0);
 }
 
 //  ADPCM FNUM SET
@@ -2620,18 +2223,18 @@ uint8_t * PMD::portam(Channel * qq, uint8_t * si)
         qq->keyon_flag++;
         qq->Data = si + 3;
 
-        if (--_DriverState.volpush_flag)
+        if (--_Driver.volpush_flag)
         {
             qq->volpush = 0;
         }
 
-        _DriverState.tieflag = 0;
-        _DriverState.volpush_flag = 0;
-        _DriverState.loop_work &= qq->loopcheck;
+        _Driver.TieMode = 0;
+        _Driver.volpush_flag = 0;
+        _Driver.loop_work &= qq->loopcheck;
         return si + 3;    // 読み飛ばす  (Mask時)
     }
 
-    fnumsetm(qq, oshift(qq, lfoinitp(qq, *si++)));
+    fnumsetm(qq, oshift(qq, StartPCMLFO(qq, *si++)));
 
     bx_ = (int) qq->fnum;
     al_ = (int) qq->onkai;
@@ -2653,25 +2256,24 @@ uint8_t * PMD::portam(Channel * qq, uint8_t * si)
 
     if (qq->volpush && qq->onkai != 255)
     {
-        if (--_DriverState.volpush_flag)
+        if (--_Driver.volpush_flag)
         {
-            _DriverState.volpush_flag = 0;
+            _Driver.volpush_flag = 0;
             qq->volpush = 0;
         }
     }
 
-    SetPCMVolumeCommand(qq);
-    OtodasiM(qq);
+    SetADPCMVolumeCommand(qq);
+    SetADPCMPitch(qq);
+
     if (qq->keyoff_flag & 1)
-    {
         keyonm(qq);
-    }
 
     qq->keyon_flag++;
     qq->Data = si;
 
-    _DriverState.tieflag = 0;
-    _DriverState.volpush_flag = 0;
+    _Driver.TieMode = 0;
+    _Driver.volpush_flag = 0;
     qq->keyoff_flag = 0;
 
     if (*si == 0xfb)
@@ -2679,7 +2281,7 @@ uint8_t * PMD::portam(Channel * qq, uint8_t * si)
         qq->keyoff_flag = 2;
     }
 
-    _DriverState.loop_work &= qq->loopcheck;
+    _Driver.loop_work &= qq->loopcheck;
     return si;
 }
 
@@ -2696,18 +2298,18 @@ uint8_t * PMD::portaz(Channel * qq, uint8_t * si)
         qq->keyon_flag++;
         qq->Data = si + 3;
 
-        if (--_DriverState.volpush_flag)
+        if (--_Driver.volpush_flag)
         {
             qq->volpush = 0;
         }
 
-        _DriverState.tieflag = 0;
-        _DriverState.volpush_flag = 0;
-        _DriverState.loop_work &= qq->loopcheck;
+        _Driver.TieMode = 0;
+        _Driver.volpush_flag = 0;
+        _Driver.loop_work &= qq->loopcheck;
         return si + 3;    // 読み飛ばす  (Mask時)
     }
 
-    fnumsetz(qq, oshift(qq, lfoinitp(qq, *si++)));
+    fnumsetz(qq, oshift(qq, StartPCMLFO(qq, *si++)));
 
     bx_ = (int) qq->fnum;
     al_ = qq->onkai;
@@ -2728,15 +2330,15 @@ uint8_t * PMD::portaz(Channel * qq, uint8_t * si)
 
     if (qq->volpush && qq->onkai != 255)
     {
-        if (--_DriverState.volpush_flag)
+        if (--_Driver.volpush_flag)
         {
-            _DriverState.volpush_flag = 0;
+            _Driver.volpush_flag = 0;
             qq->volpush = 0;
         }
     }
 
-    volsetz(qq);
-    OtodasiZ(qq);
+    SetPPZVolume(qq);
+    SetPPZPitch(qq);
     if (qq->keyoff_flag & 1)
     {
         keyonz(qq);
@@ -2745,8 +2347,8 @@ uint8_t * PMD::portaz(Channel * qq, uint8_t * si)
     qq->keyon_flag++;
     qq->Data = si;
 
-    _DriverState.tieflag = 0;
-    _DriverState.volpush_flag = 0;
+    _Driver.TieMode = 0;
+    _Driver.volpush_flag = 0;
     qq->keyoff_flag = 0;
 
     if (*si == 0xfb)
@@ -2754,7 +2356,7 @@ uint8_t * PMD::portaz(Channel * qq, uint8_t * si)
         qq->keyoff_flag = 2;
     }
 
-    _DriverState.loop_work &= qq->loopcheck;
+    _Driver.loop_work &= qq->loopcheck;
     return si;
 }
 
@@ -2769,13 +2371,13 @@ void PMD::keyoffm(Channel * qq)
         if (qq->eenv_count == 4) return;
     }
 
-    if (_DriverState.PCMRelease != 0x8000)
+    if (_Driver.PCMRelease != 0x8000)
     {
         // PCM RESET
         _OPNAW->SetReg(0x100, 0x21);
 
-        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_DriverState.PCMRelease));
-        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_DriverState.PCMRelease));
+        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver.PCMRelease));
+        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver.PCMRelease));
 
         // Stop ADDRESS for Release
         _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State.PCMStop));
@@ -2857,7 +2459,7 @@ uint8_t * PMD::pcmrepeat_set(Channel *, uint8_t * si)
     else
         ax += _State.PCMStop;
 
-    _DriverState.PCMRepeat1 = ax;
+    _Driver.PCMRepeat1 = ax;
 
     ax = *(int16_t *) si;
     si += 2;
@@ -2867,7 +2469,7 @@ uint8_t * PMD::pcmrepeat_set(Channel *, uint8_t * si)
     else
         ax += _State.PCMStop;
 
-    _DriverState.PCMRepeat2 = ax;
+    _Driver.PCMRepeat2 = ax;
 
     ax = *(uint16_t *) si;
     si += 2;
@@ -2878,7 +2480,7 @@ uint8_t * PMD::pcmrepeat_set(Channel *, uint8_t * si)
     if (ax > 0x8000)
         ax += _State.PCMStop;
 
-    _DriverState.PCMRelease = ax;
+    _Driver.PCMRelease = ax;
 
     return si;
 }
@@ -2942,7 +2544,7 @@ uint8_t * PMD::ppzrepeat_set(Channel * track, uint8_t * data)
             LoopEnd = (int) (_PPZ8->PCME_WORK[1].PZIItem[track->InstrumentNumber & 0x7f].Size - LoopEnd);
     }
 
-    _PPZ8->SetLoop(_DriverState.CurrentChannel, (uint32_t) LoopStart, (uint32_t) LoopEnd);
+    _PPZ8->SetLoop(_Driver.CurrentChannel, (uint32_t) LoopStart, (uint32_t) LoopEnd);
 
     return data + 2;
 }
@@ -2955,7 +2557,7 @@ uint8_t * PMD::vol_one_up_pcm(Channel * qq, uint8_t * si)
     if (al > 254) al = 254;
     al++;
     qq->volpush = al;
-    _DriverState.volpush_flag = 1;
+    _Driver.volpush_flag = 1;
     return si;
 }
 
@@ -3013,7 +2615,7 @@ uint8_t * PMD::panset8(Channel *, uint8_t * si)
 uint8_t * PMD::pansetz(Channel * qq, uint8_t * si)
 {
     qq->fmpan = ppzpandata[*si++];
-    _PPZ8->SetPan(_DriverState.CurrentChannel, qq->fmpan);
+    _PPZ8->SetPan(_Driver.CurrentChannel, qq->fmpan);
     return si;
 }
 
@@ -3036,7 +2638,7 @@ uint8_t * PMD::pansetz_ex(Channel * qq, uint8_t * si)
     }
 
     qq->fmpan = al + 5;
-    _PPZ8->SetPan(_DriverState.CurrentChannel, qq->fmpan);
+    _PPZ8->SetPan(_Driver.CurrentChannel, qq->fmpan);
     return si;
 }
 
@@ -3047,9 +2649,9 @@ uint8_t * PMD::comatm(Channel * track, uint8_t * si)
     _State.PCMStart = pcmends.Address[track->InstrumentNumber][0];
     _State.PCMStop = pcmends.Address[track->InstrumentNumber][1];
 
-    _DriverState.PCMRepeat1 = 0;
-    _DriverState.PCMRepeat2 = 0;
-    _DriverState.PCMRelease = 0x8000;
+    _Driver.PCMRepeat1 = 0;
+    _Driver.PCMRepeat2 = 0;
+    _Driver.PCMRelease = 0x8000;
 
     return si;
 }
@@ -3069,13 +2671,13 @@ uint8_t * PMD::comatz(Channel * track, uint8_t * si)
 
     if ((track->InstrumentNumber & 0x80) == 0)
     {
-        _PPZ8->SetLoop(_DriverState.CurrentChannel, _PPZ8->PCME_WORK[0].PZIItem[track->InstrumentNumber].LoopStart, _PPZ8->PCME_WORK[0].PZIItem[track->InstrumentNumber].LoopEnd);
-        _PPZ8->SetSourceRate(_DriverState.CurrentChannel, _PPZ8->PCME_WORK[0].PZIItem[track->InstrumentNumber].SampleRate);
+        _PPZ8->SetLoop(_Driver.CurrentChannel, _PPZ8->PCME_WORK[0].PZIItem[track->InstrumentNumber].LoopStart, _PPZ8->PCME_WORK[0].PZIItem[track->InstrumentNumber].LoopEnd);
+        _PPZ8->SetSourceRate(_Driver.CurrentChannel, _PPZ8->PCME_WORK[0].PZIItem[track->InstrumentNumber].SampleRate);
     }
     else
     {
-        _PPZ8->SetLoop(_DriverState.CurrentChannel, _PPZ8->PCME_WORK[1].PZIItem[track->InstrumentNumber & 0x7f].LoopStart, _PPZ8->PCME_WORK[1].PZIItem[track->InstrumentNumber & 0x7f].LoopEnd);
-        _PPZ8->SetSourceRate(_DriverState.CurrentChannel, _PPZ8->PCME_WORK[1].PZIItem[track->InstrumentNumber & 0x7f].SampleRate);
+        _PPZ8->SetLoop(_Driver.CurrentChannel, _PPZ8->PCME_WORK[1].PZIItem[track->InstrumentNumber & 0x7f].LoopStart, _PPZ8->PCME_WORK[1].PZIItem[track->InstrumentNumber & 0x7f].LoopEnd);
+        _PPZ8->SetSourceRate(_Driver.CurrentChannel, _PPZ8->PCME_WORK[1].PZIItem[track->InstrumentNumber & 0x7f].SampleRate);
     }
     return si;
 }
@@ -3108,18 +2710,18 @@ uint8_t * PMD::ChangeProgramCommand(Channel * track, uint8_t * si)
     track->slot4 = bx[3];
 
     //  Set fm3_alg_fb if masked in FM3ch
-    if ((_DriverState.CurrentChannel == 3) && track->ToneMask)
+    if ((_Driver.CurrentChannel == 3) && track->ToneMask)
     {
-        if (_DriverState.FMSelector == 0)
+        if (_Driver.FMSelector == 0)
         {
             // in. dl = alg/fb
             if ((track->SlotMask & 0x10) == 0)
             {
-                al = _DriverState.fm3_alg_fb & 0x38;    // fbは前の値を使用
+                al = _Driver.fm3_alg_fb & 0x38;    // fbは前の値を使用
                 dl = (dl & 7) | al;
             }
 
-            _DriverState.fm3_alg_fb = dl;
+            _Driver.fm3_alg_fb = dl;
             track->alg_fb = al;
         }
     }
@@ -3147,27 +2749,27 @@ void PMD::SetTone(Channel * track, int dl)
     }
 
     // Set AL/FB
-    int dh = 0xb0 - 1 + _DriverState.CurrentChannel;
+    int dh = 0xb0 - 1 + _Driver.CurrentChannel;
 
-    if (_DriverState.af_check)
+    if (_Driver.af_check)
         dl = track->alg_fb; // Is the mode not setting ALG/FB?
     else
         dl = bx[24];
 
-    if (_DriverState.CurrentChannel == 3 && _DriverState.FMSelector == 0)
+    if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
     {
-        if (_DriverState.af_check != 0)
-            dl = _DriverState.fm3_alg_fb; // Is the mode not setting ALG/FB?
+        if (_Driver.af_check != 0)
+            dl = _Driver.fm3_alg_fb; // Is the mode not setting ALG/FB?
         else
         {
             if ((track->SlotMask & 0x10) == 0)
-                dl = (_DriverState.fm3_alg_fb & 0x38) | (dl & 7); // Are you using slot1?
+                dl = (_Driver.fm3_alg_fb & 0x38) | (dl & 7); // Are you using slot1?
 
-            _DriverState.fm3_alg_fb = dl;
+            _Driver.fm3_alg_fb = dl;
         }
     }
 
-    _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
     track->alg_fb = dl;
     dl &= 7;    // dl = algo
@@ -3187,118 +2789,118 @@ void PMD::SetTone(Channel * track, int dl)
     ah &= al; // AH = mask for TL / AL = mask for others
 
     // Set each tone parameter (TL is modulator only)
-    dh = 0x30 - 1 + _DriverState.CurrentChannel;
+    dh = 0x30 - 1 + _Driver.CurrentChannel;
 
     dl = *bx++;        // DT/ML
-    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // TL
-    if (ah & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (ah & 0x80) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (ah & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh),(uint32_t) dl);
+    if (ah & 0x40) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh),(uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (ah & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (ah & 0x20) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (ah & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (ah & 0x10) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // KS/AR
-    if (al & 0x08) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x08) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x04) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x04) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x02) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x02) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x01) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x01) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // AM/DR
-    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // SR
-    if (al & 0x08) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x08) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x04) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x04) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x02) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x02) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x01) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x01) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;        // SL/RR
-    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 
     dl = *bx++;
-    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
     dh += 4;
 /*
     dl = *bx++;        // SL/RR
-    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_Driver.fmsel + dh), (uint32_t) dl);
     dh+=4;
 
     dl = *bx++;
-    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_Driver.fmsel + dh), (uint32_t) dl);
     dh+=4;
 
     dl = *bx++;
-    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_Driver.fmsel + dh), (uint32_t) dl);
     dh+=4;
 
     dl = *bx++;
-    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.fmsel + dh), (uint32_t) dl);
+    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_Driver.fmsel + dh), (uint32_t) dl);
     dh+=4;
 */
     // Save TL for each SLOT in workpiece
@@ -3315,36 +2917,36 @@ int PMD::MuteFMPart(Channel * channel)
     if (channel->ToneMask == 0)
         return 1;
 
-    int dh = _DriverState.CurrentChannel + 0x40 - 1;
+    int dh = _Driver.CurrentChannel + 0x40 - 1;
 
     if (channel->ToneMask & 0x80)
     {
-        _OPNAW->SetReg((uint32_t) ( _DriverState.FMSelector         + dh), 127);
-        _OPNAW->SetReg((uint32_t) ((_DriverState.FMSelector + 0x40) + dh), 127);
+        _OPNAW->SetReg((uint32_t) ( _Driver.FMSelector         + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
     }
 
     dh += 4;
 
     if (channel->ToneMask & 0x40)
     {
-        _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), 127);
-        _OPNAW->SetReg((uint32_t) ((_DriverState.FMSelector + 0x40) + dh), 127);
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
     }
 
     dh += 4;
 
     if (channel->ToneMask & 0x20)
     {
-        _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), 127);
-        _OPNAW->SetReg((uint32_t) ((_DriverState.FMSelector + 0x40) + dh), 127);
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
     }
 
     dh += 4;
 
     if (channel->ToneMask & 0x10)
     {
-        _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), 127);
-        _OPNAW->SetReg((uint32_t) ((_DriverState.FMSelector + 0x40) + dh), 127);
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
     }
 
     KeyOffEx(channel);
@@ -3395,9 +2997,9 @@ uint8_t * PMD::SetSlotMask(Channel * track, uint8_t * si)
     {
         int bl;
 
-        if ((_DriverState.CurrentChannel == 3) && (_DriverState.FMSelector == 0))
+        if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
         {
-            bl = _DriverState.fm3_alg_fb;
+            bl = _Driver.fm3_alg_fb;
         }
         else
         {
@@ -3460,7 +3062,7 @@ uint8_t * PMD::slotdetune_set(Channel * qq, uint8_t * si)
 {
     int    ax, bl;
 
-    if (_DriverState.CurrentChannel != 3 || _DriverState.FMSelector)
+    if (_Driver.CurrentChannel != 3 || _Driver.FMSelector)
     {
         return si + 3;
     }
@@ -3492,11 +3094,11 @@ uint8_t * PMD::slotdetune_set(Channel * qq, uint8_t * si)
     if (_State.slot_detune1 || _State.slot_detune2 ||
         _State.slot_detune3 || _State.slot_detune4)
     {
-        _DriverState.slotdetune_flag = 1;
+        _Driver.slotdetune_flag = 1;
     }
     else
     {
-        _DriverState.slotdetune_flag = 0;
+        _Driver.slotdetune_flag = 0;
         _State.slot_detune1 = 0;
     }
     ch3mode_set(qq);
@@ -3508,7 +3110,7 @@ uint8_t * PMD::slotdetune_set2(Channel * qq, uint8_t * si)
 {
     int    ax, bl;
 
-    if (_DriverState.CurrentChannel != 3 || _DriverState.FMSelector)
+    if (_Driver.CurrentChannel != 3 || _Driver.FMSelector)
     {
         return si + 3;
     }
@@ -3540,11 +3142,11 @@ uint8_t * PMD::slotdetune_set2(Channel * qq, uint8_t * si)
     if (_State.slot_detune1 || _State.slot_detune2 ||
         _State.slot_detune3 || _State.slot_detune4)
     {
-        _DriverState.slotdetune_flag = 1;
+        _Driver.slotdetune_flag = 1;
     }
     else
     {
-        _DriverState.slotdetune_flag = 0;
+        _Driver.slotdetune_flag = 0;
         _State.slot_detune1 = 0;
     }
     ch3mode_set(qq);
@@ -3716,7 +3318,7 @@ uint8_t * PMD::ssg_mml_part_mask(Channel * qq, uint8_t * si)
 
         if (qq->PartMask == 0x40)
         {
-            int ah = ((1 << (_DriverState.CurrentChannel - 1)) | (4 << _DriverState.CurrentChannel));
+            int ah = ((1 << (_Driver.CurrentChannel - 1)) | (4 << _Driver.CurrentChannel));
             uint32_t al = _OPNAW->GetReg(0x07);
 
             _OPNAW->SetReg(0x07, ah | al);    // SSG KeyOff
@@ -3798,7 +3400,7 @@ uint8_t * PMD::ppz_mml_part_mask(Channel * qq, uint8_t * si)
         qq->PartMask |= 0x40;
 
         if (qq->PartMask == 0x40)
-            _PPZ8->Stop(_DriverState.CurrentChannel);
+            _PPZ8->Stop(_Driver.CurrentChannel);
     }
     else
         qq->PartMask &= 0xbf;
@@ -3817,11 +3419,11 @@ void PMD::ResetTone(Channel * track)
     int s3 = track->slot3;
     int s4 = track->slot4;
 
-    _DriverState.af_check = 1;
+    _Driver.af_check = 1;
 
     SetTone(track, track->InstrumentNumber);
 
-    _DriverState.af_check = 0;
+    _Driver.af_check = 0;
 
     track->slot1 = s1;
     track->slot2 = s2;
@@ -3835,26 +3437,26 @@ void PMD::ResetTone(Channel * track)
     // al<- TLを再設定していいslot 4321xxxx
     if (al)
     {
-        dh = 0x4c - 1 + _DriverState.CurrentChannel;  // dh=TL FM Port Address
+        dh = 0x4c - 1 + _Driver.CurrentChannel;  // dh=TL FM Port Address
 
-        if (al & 0x80) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) s4);
+        if (al & 0x80) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) s4);
 
         dh -= 8;
 
-        if (al & 0x40) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) s3);
+        if (al & 0x40) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) s3);
 
         dh += 4;
 
-        if (al & 0x20) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) s2);
+        if (al & 0x20) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) s2);
 
         dh -= 8;
 
-        if (al & 0x10) _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) s1);
+        if (al & 0x10) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) s1);
     }
 
-    dh = _DriverState.CurrentChannel + 0xb4 - 1;
+    dh = _Driver.CurrentChannel + 0xb4 - 1;
 
-    _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), calc_panout(track));
+    _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), calc_panout(track));
 }
 
 uint8_t * PMD::_lfoswitch(Channel * track, uint8_t * si)
@@ -3890,7 +3492,7 @@ uint8_t * PMD::_volmask_set(Channel * qq, uint8_t * si)
 //  TL変化
 uint8_t * PMD::tl_set(Channel * qq, uint8_t * si)
 {
-    int dh = 0x40 - 1 + _DriverState.CurrentChannel;    // dh=TL FM Port Address
+    int dh = 0x40 - 1 + _Driver.CurrentChannel;    // dh=TL FM Port Address
     int al = *(int8_t *) si++;
     int ah = al & 0x0f;
     int ch = (qq->SlotMask >> 4) | ((qq->SlotMask << 4) & 0xf0);
@@ -3908,7 +3510,7 @@ uint8_t * PMD::tl_set(Channel * qq, uint8_t * si)
             qq->slot1 = dl;
 
             if (qq->PartMask == 0x00)
-                _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
         }
 
         dh += 8;
@@ -3918,7 +3520,7 @@ uint8_t * PMD::tl_set(Channel * qq, uint8_t * si)
             qq->slot2 = dl;
 
             if (qq->PartMask == 0x00)
-                _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
         }
 
         dh -= 4;
@@ -3928,7 +3530,7 @@ uint8_t * PMD::tl_set(Channel * qq, uint8_t * si)
             qq->slot3 = dl;
 
             if (qq->PartMask == 0x00)
-                _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
         }
 
         dh += 8;
@@ -3938,7 +3540,7 @@ uint8_t * PMD::tl_set(Channel * qq, uint8_t * si)
             qq->slot4 = dl;
 
             if (qq->PartMask == 0x00)
-                _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
         }
     }
     else
@@ -3957,7 +3559,7 @@ uint8_t * PMD::tl_set(Channel * qq, uint8_t * si)
             }
 
             if (qq->PartMask == 0x00)
-                _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
             qq->slot1 = dl;
         }
@@ -3975,7 +3577,7 @@ uint8_t * PMD::tl_set(Channel * qq, uint8_t * si)
             }
 
             if (qq->PartMask == 0x00)
-                _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
             qq->slot2 = dl;
         }
@@ -3993,7 +3595,7 @@ uint8_t * PMD::tl_set(Channel * qq, uint8_t * si)
             }
 
             if (qq->PartMask == 0x00)
-                _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
             qq->slot3 = dl;
         }
@@ -4011,7 +3613,7 @@ uint8_t * PMD::tl_set(Channel * qq, uint8_t * si)
             }
 
             if (qq->PartMask == 0x00)
-                _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
             qq->slot4 = dl;
         }
@@ -4025,7 +3627,7 @@ uint8_t * PMD::fb_set(Channel * qq, uint8_t * si)
 {
     int dl;
 
-    int dh = _DriverState.CurrentChannel + 0xb0 - 1;  // dh=ALG/FB port address
+    int dh = _Driver.CurrentChannel + 0xb0 - 1;  // dh=ALG/FB port address
     int al = *(int8_t *) si++;
 
     if (al >= 0)
@@ -4034,18 +3636,18 @@ uint8_t * PMD::fb_set(Channel * qq, uint8_t * si)
         al = ((al << 3) & 0xff) | (al >> 5);
 
         // in  al 00xxx000 設定するFB
-        if (_DriverState.CurrentChannel == 3 && _DriverState.FMSelector == 0)
+        if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
         {
             if ((qq->SlotMask & 0x10) == 0) return si;
-            dl = (_DriverState.fm3_alg_fb & 7) | al;
-            _DriverState.fm3_alg_fb = dl;
+            dl = (_Driver.fm3_alg_fb & 7) | al;
+            _Driver.fm3_alg_fb = dl;
         }
         else
         {
             dl = (qq->alg_fb & 7) | al;
         }
 
-        _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
         qq->alg_fb = dl;
 
         return si;
@@ -4055,9 +3657,9 @@ uint8_t * PMD::fb_set(Channel * qq, uint8_t * si)
         if ((al & 0x40) == 0)
             al &= 7;
 
-        if (_DriverState.CurrentChannel == 3 && _DriverState.FMSelector == 0)
+        if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
         {
-            dl = _DriverState.fm3_alg_fb;
+            dl = _Driver.fm3_alg_fb;
         }
         else
         {
@@ -4072,18 +3674,18 @@ uint8_t * PMD::fb_set(Channel * qq, uint8_t * si)
             if (al >= 8)
             {
                 al = 0x38;
-                if (_DriverState.CurrentChannel == 3 && _DriverState.FMSelector == 0)
+                if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
                 {
                     if ((qq->SlotMask & 0x10) == 0) return si;
 
-                    dl = (_DriverState.fm3_alg_fb & 7) | al;
-                    _DriverState.fm3_alg_fb = dl;
+                    dl = (_Driver.fm3_alg_fb & 7) | al;
+                    _Driver.fm3_alg_fb = dl;
                 }
                 else
                 {
                     dl = (qq->alg_fb & 7) | al;
                 }
-                _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
                 qq->alg_fb = dl;
                 return si;
             }
@@ -4093,17 +3695,17 @@ uint8_t * PMD::fb_set(Channel * qq, uint8_t * si)
                 al = ((al << 3) & 0xff) | (al >> 5);
 
                 // in  al 00xxx000 設定するFB
-                if (_DriverState.CurrentChannel == 3 && _DriverState.FMSelector == 0)
+                if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
                 {
                     if ((qq->SlotMask & 0x10) == 0) return si;
-                    dl = (_DriverState.fm3_alg_fb & 7) | al;
-                    _DriverState.fm3_alg_fb = dl;
+                    dl = (_Driver.fm3_alg_fb & 7) | al;
+                    _Driver.fm3_alg_fb = dl;
                 }
                 else
                 {
                     dl = (qq->alg_fb & 7) | al;
                 }
-                _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+                _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
                 qq->alg_fb = dl;
                 return si;
             }
@@ -4111,18 +3713,18 @@ uint8_t * PMD::fb_set(Channel * qq, uint8_t * si)
         else
         {
             al = 0;
-            if (_DriverState.CurrentChannel == 3 && _DriverState.FMSelector == 0)
+            if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
             {
                 if ((qq->SlotMask & 0x10) == 0) return si;
 
-                dl = (_DriverState.fm3_alg_fb & 7) | al;
-                _DriverState.fm3_alg_fb = dl;
+                dl = (_Driver.fm3_alg_fb & 7) | al;
+                _Driver.fm3_alg_fb = dl;
             }
             else
             {
                 dl = (qq->alg_fb & 7) | al;
             }
-            _OPNAW->SetReg((uint32_t) (_DriverState.FMSelector + dh), (uint32_t) dl);
+            _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
             qq->alg_fb = dl;
             return si;
         }
@@ -4384,7 +3986,7 @@ uint8_t * PMD::DecreaseSoundSourceVolumeCommand(Channel * channel, uint8_t * si)
         al = 254;
 
     channel->volpush = ++al;
-    _DriverState.volpush_flag = 1;
+    _Driver.volpush_flag = 1;
 
     return si;
 }
@@ -4549,7 +4151,7 @@ void PMD::volsetp(Channel * track)
     //------------------------------------------------------------------------
     if (dl <= 0)
     {
-        _OPNAW->SetReg((uint32_t) (_DriverState.CurrentChannel + 8 - 1), 0);
+        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
         return;
     }
 
@@ -4557,7 +4159,7 @@ void PMD::volsetp(Channel * track)
     {
         if (track->eenv_volume == 0)
         {
-            _OPNAW->SetReg((uint32_t) (_DriverState.CurrentChannel + 8 - 1), 0);
+            _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
             return;
         }
 
@@ -4569,7 +4171,7 @@ void PMD::volsetp(Channel * track)
 
         if (dl <= 0)
         {
-            _OPNAW->SetReg((uint32_t) (_DriverState.CurrentChannel + 8 - 1), 0);
+            _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
             return;
         }
 
@@ -4582,7 +4184,7 @@ void PMD::volsetp(Channel * track)
     //--------------------------------------------------------------------
     if ((track->lfoswi & 0x22) == 0)
     {
-        _OPNAW->SetReg((uint32_t) (_DriverState.CurrentChannel + 8 - 1), (uint32_t) dl);
+        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), (uint32_t) dl);
         return;
     }
 
@@ -4595,7 +4197,7 @@ void PMD::volsetp(Channel * track)
 
     if (dl < 0)
     {
-        _OPNAW->SetReg((uint32_t) (_DriverState.CurrentChannel + 8 - 1), 0);
+        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
         return;
     }
 
@@ -4605,82 +4207,7 @@ void PMD::volsetp(Channel * track)
     //------------------------------------------------------------------------
     //  出力
     //------------------------------------------------------------------------
-    _OPNAW->SetReg((uint32_t) (_DriverState.CurrentChannel + 8 - 1), (uint32_t) dl);
-}
-
-// Set SSG pitch.
-void PMD::OtodasiP(Channel * track)
-{
-    if (track->fnum == 0)
-        return;
-
-    // SSG Portament set
-    int ax = (int) (track->fnum + track->porta_num);
-    int dx = 0;
-
-    // SSG Detune/LFO set
-    if ((track->extendmode & 1) == 0)
-    {
-        ax -= track->detune;
-
-        if (track->lfoswi & 1)
-            ax -= track->lfodat;
-
-        if (track->lfoswi & 0x10)
-            ax -= track->_lfodat;
-    }
-    else
-    {
-        // 拡張DETUNE(DETUNE)の計算
-        if (track->detune)
-        {
-            dx = (ax * track->detune) >> 12;    // dx:ax=ax * qq->detune
-
-            if (dx >= 0)
-                dx++;
-            else
-                dx--;
-
-            ax -= dx;
-        }
-
-        // 拡張DETUNE(LFO)の計算
-        if (track->lfoswi & 0x11)
-        {
-            if (track->lfoswi & 1)
-                dx = track->lfodat;
-            else
-                dx = 0;
-
-            if (track->lfoswi & 0x10)
-                dx += track->_lfodat;
-
-            if (dx)
-            {
-                dx = (ax * dx) >> 12;
-
-                if (dx >= 0)
-                    dx++;
-                else
-                    dx--;
-            }
-
-            ax -= dx;
-        }
-    }
-
-    // TONE SET
-
-    if (ax >= 0x1000)
-    {
-        if (ax >= 0)
-            ax = 0xfff;
-        else
-            ax = 0;
-    }
-
-    _OPNAW->SetReg((uint32_t) ((_DriverState.CurrentChannel - 1) * 2),     (uint32_t) LOBYTE(ax));
-    _OPNAW->SetReg((uint32_t) ((_DriverState.CurrentChannel - 1) * 2 + 1), (uint32_t) HIBYTE(ax));
+    _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), (uint32_t) dl);
 }
 
 //  ＰＳＧ　ＫＥＹＯＮ
@@ -4689,7 +4216,7 @@ void PMD::keyonp(Channel * qq)
     if (qq->onkai == 255)
         return;    // ｷｭｳﾌ ﾉ ﾄｷ
 
-    int ah = (1 << (_DriverState.CurrentChannel - 1)) | (1 << (_DriverState.CurrentChannel + 2));
+    int ah = (1 << (_Driver.CurrentChannel - 1)) | (1 << (_Driver.CurrentChannel + 2));
     int al = ((int32_t) _OPNAW->GetReg(0x07) | ah);
 
     ah = ~(ah & qq->psgpat);
@@ -4697,11 +4224,11 @@ void PMD::keyonp(Channel * qq)
 
     _OPNAW->SetReg(7, (uint32_t) al);
 
-    // SSG ﾉｲｽﾞ ｼｭｳﾊｽｳ ﾉ ｾｯﾄ
-
-    if (_State.SSGNoiseFrequency != _State.OldSSGNoiseFrequency && _EffectState.effon == 0)
+    // Set the SSG noise frequency.
+    if ((_State.SSGNoiseFrequency != _State.OldSSGNoiseFrequency) && (_Effect.Priority == 0))
     {
         _OPNAW->SetReg(6, (uint32_t) _State.SSGNoiseFrequency);
+
         _State.OldSSGNoiseFrequency = _State.SSGNoiseFrequency;
     }
 }
@@ -4797,220 +4324,6 @@ void PMD::porta_calc(Channel * track)
         track->porta_num3++;
         track->porta_num--;
     }
-}
-
-// SSG/PCM Software Envelope
-int PMD::soft_env(Channel * track)
-{
-    if (track->extendmode & 4)
-    {
-        if (_State.TimerATime == _DriverState.OldTimerATime) return 0;
-
-        int cl = 0;
-
-        for (int i = 0; i < _State.TimerATime - _DriverState.OldTimerATime; ++i)
-        {
-            if (soft_env_main(track))
-                cl = 1;
-        }
-
-        return cl;
-    }
-    else
-        return soft_env_main(track);
-}
-
-int PMD::soft_env_main(Channel * track)
-{
-    if (track->envf == -1)
-        return ext_ssgenv_main(track);
-
-    int dl = track->eenv_volume;
-
-    soft_env_sub(track);
-
-    if (dl == track->eenv_volume)
-        return 0;
-
-    return -1;
-}
-
-int PMD::soft_env_sub(Channel * track)
-{
-    if (track->envf == 0)
-    {
-        // Attack
-        if (--track->eenv_ar != 0)
-            return 0;
-
-        track->envf = 1;
-        track->eenv_volume = track->eenv_dr;
-
-        return 1;
-    }
-
-    if (track->envf != 2)
-    {
-        // Decay
-        if (track->eenv_sr == 0) return 0;  // No attenuation when DR=0
-        if (--track->eenv_sr != 0) return 0;
-
-        track->eenv_sr = track->eenv_src;
-        track->eenv_volume--;
-
-        if (track->eenv_volume >= -15 || track->eenv_volume < 15)
-            return 0;
-
-        track->eenv_volume = -15;
-
-        return 0;
-    }
-
-    // Release
-    if (track->eenv_rr == 0)
-    {
-        track->eenv_volume = -15; // When RR = 0, immediately mute
-        return 0;
-    }
-
-    if (--track->eenv_rr != 0)
-        return 0;
-
-    track->eenv_rr = track->eenv_rrc;
-    track->eenv_volume--;
-
-    if (track->eenv_volume >= -15 && track->eenv_volume < 15)
-        return 0;
-
-    track->eenv_volume = -15;
-
-    return 0;
-}
-
-// Extended version
-int PMD::ext_ssgenv_main(Channel * track)
-{
-    if (track->eenv_count == 0)
-        return 0;
-
-    int dl = track->eenv_volume;
-
-    esm_sub(track, track->eenv_count);
-
-    if (dl == track->eenv_volume)
-        return 0;
-
-    return -1;
-}
-
-void PMD::esm_sub(Channel * track, int ah)
-{
-    if (--ah == 0)
-    {
-        // Attack Rate
-        if (track->eenv_arc > 0)
-        {
-            track->eenv_volume += track->eenv_arc;
-
-            if (track->eenv_volume < 15)
-            {
-                track->eenv_arc = track->eenv_ar - 16;
-                return;
-            }
-
-            track->eenv_volume = 15;
-            track->eenv_count++;
-
-            if (track->eenv_sl != 15)
-                return;    // If SL=0, immediately go to SR
-
-            track->eenv_count++;
-
-            return;
-        }
-        else
-        {
-            if (track->eenv_ar == 0)
-                return;
-
-            track->eenv_arc++;
-
-            return;
-        }
-    }
-
-    if (--ah == 0)
-    {
-        // Decay Rate
-        if (track->eenv_drc > 0)
-        {
-            track->eenv_volume -= track->eenv_drc; // Count CHECK if less than 0
-
-            if (track->eenv_volume < 0 || track->eenv_volume < track->eenv_sl)
-            {
-                track->eenv_volume = track->eenv_sl;
-                track->eenv_count++;
-
-                return;
-            }
-
-            if (track->eenv_dr < 16)
-                track->eenv_drc = (track->eenv_dr - 16) * 2;
-            else
-                track->eenv_drc = track->eenv_dr - 16;
-
-            return;
-        }
-
-        if (track->eenv_dr == 0)
-            return;
-
-        track->eenv_drc++;
-
-        return;
-    }
-
-    if (--ah == 0)
-    {
-        // Sustain Rate
-        if (track->eenv_src > 0)
-        {
-            // Count CHECK if less than 0
-            if ((track->eenv_volume -= track->eenv_src) < 0)
-                track->eenv_volume = 0;
-
-            if (track->eenv_sr < 16)
-                track->eenv_src = (track->eenv_sr - 16) * 2;
-            else
-                track->eenv_src = track->eenv_sr - 16;
-
-            return;
-        }
-
-        if (track->eenv_sr == 0)
-            return;  // SR=0?
-
-        track->eenv_src++;
-
-        return;
-    }
-
-    // Release Rate
-    if (track->eenv_rrc > 0)
-    {
-        // Count CHECK if less than 0
-        if ((track->eenv_volume -= track->eenv_rrc) < 0)
-            track->eenv_volume = 0;
-
-        track->eenv_rrc = (track->eenv_rr) * 2 - 16;
-
-        return;
-    }
-
-    if (track->eenv_rr == 0)
-        return;
-
-    track->eenv_rrc++;
 }
 
 // Tempo setting
@@ -5183,7 +4496,7 @@ void PMD::Start()
 {
     if (_State.IsTimerABusy || _State.IsTimerBBusy)
     {
-        _DriverState.music_flag |= 0x01; // Not executed during TA/TB processing
+        _Driver.music_flag |= 0x01; // Not executed during TA/TB processing
 
         return;
     }
@@ -5198,7 +4511,7 @@ void PMD::Stop()
 {
     if (_State.IsTimerABusy || _State.IsTimerBBusy)
     {
-        _DriverState.music_flag |= 0x02;
+        _Driver.music_flag |= 0x02;
     }
     else
     {
@@ -5219,7 +4532,7 @@ void PMD::DriverStart()
 
     _OPNAW->SetReg(0x27, 0x00); // Timer reset (both timer A and B)
 
-    _DriverState.music_flag &= 0xFE;
+    _Driver.music_flag &= 0xFE;
 
     DriverStop();
 
@@ -5238,7 +4551,7 @@ void PMD::DriverStart()
 
 void PMD::DriverStop()
 {
-    _DriverState.music_flag &= 0xFD;
+    _Driver.music_flag &= 0xFD;
 
     _State.IsPlaying = false;
     _State.LoopCount = -1;
@@ -5361,29 +4674,29 @@ void PMD::InitializeState()
         _PPZ8Track[i].onkai_def = 255;
     }
 
-    _DriverState.tieflag = 0;
-    _DriverState.OldTimerATime = 0;
+    _Driver.TieMode = 0;
+    _Driver.OldTimerATime = 0;
 
-    _DriverState.omote_key[0] = 0;
-    _DriverState.omote_key[1] = 0;
-    _DriverState.omote_key[2] = 0;
+    _Driver.omote_key[0] = 0;
+    _Driver.omote_key[1] = 0;
+    _Driver.omote_key[2] = 0;
 
-    _DriverState.ura_key[0] = 0;
-    _DriverState.ura_key[1] = 0;
-    _DriverState.ura_key[2] = 0;
+    _Driver.ura_key[0] = 0;
+    _Driver.ura_key[1] = 0;
+    _Driver.ura_key[2] = 0;
 
-    _DriverState.fm3_alg_fb = 0;
-    _DriverState.af_check = 0;
+    _Driver.fm3_alg_fb = 0;
+    _Driver.af_check = 0;
 
-    _DriverState.PCMRepeat1 = 0;
-    _DriverState.PCMRepeat2 = 0;
-    _DriverState.PCMRelease = 0x8000;
+    _Driver.PCMRepeat1 = 0;
+    _Driver.PCMRepeat2 = 0;
+    _Driver.PCMRelease = 0x8000;
 
-    _DriverState.slotdetune_flag = 0;
-    _DriverState.slot3_flag = 0;
-    _DriverState.FMSelector = 0;
+    _Driver.slotdetune_flag = 0;
+    _Driver.slot3_flag = 0;
+    _Driver.FMSelector = 0;
 
-    _EffectState.last_shot_data = 0;
+    _Effect.PreviousNumber = 0;
 }
 
 /// <summary>
@@ -5806,7 +5119,7 @@ void PMD::Fade()
             _State.FadeOutSpeed  =   0;
 
             if (_State.fade_stop_flag == 1)
-                _DriverState.music_flag |= 0x02;
+                _Driver.music_flag |= 0x02;
         }
     }
     else
