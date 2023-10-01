@@ -107,105 +107,6 @@ void PMD::RhythmMain(Channel * channel)
     _Driver.loop_work &= channel->loopcheck;
 }
 
-/// <summary>
-/// Start playing a sound using the Rhythm channel.
-/// </summary>
-uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
-{
-    if (al & 0x40)
-    {
-        bx = ExecuteRhythmCommand(channel, bx - 1);
-        *success = false;
-
-        return bx;
-    }
-
-    *success = true;
-
-    if (channel->PartMask)
-    {
-        _State.kshot_dat = 0x00;
-
-        return ++bx;
-    }
-
-    al = ((al << 8) + *bx++) & 0x3fff;
-
-    _State.kshot_dat = al;
-
-    if (al == 0)
-        return bx;
-
-    _State.RhythmData = bx;
-
-    if (_State.UseRhythm)
-    {
-        for (int cl = 0; cl < 11; cl++)
-        {
-            if (al & (1 << cl))
-            {
-                _OPNAW->SetReg((uint32_t) rhydat[cl][0], (uint32_t) rhydat[cl][1]);
-
-                int dl = rhydat[cl][2] & _State.RhythmMask;
-
-                if (dl)
-                {
-                    if (dl < 0x80)
-                        _OPNAW->SetReg(0x10, (uint32_t) dl);
-                    else
-                    {
-                        _OPNAW->SetReg(0x10, 0x84);
-
-                        dl = _State.RhythmMask & 0x08;
-
-                        if (dl)
-                            _OPNAW->SetReg(0x10, (uint32_t) dl);
-                    }
-                }
-            }
-        }
-    }
-
-    if (_State.FadeOutVolume)
-    {
-        if (_State.UseRhythm)
-        {
-            int dl = _State.RhythmVolume;
-
-            if (_State.FadeOutVolume)
-                dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
-
-            _OPNAW->SetReg(0x11, (uint32_t) dl);
-        }
-
-        if (!_Driver.UsePPS)
-            return _State.RhythmData; // No sound during fadeout when using PPS.
-    }
-
-    {
-        int bx_ = al;
-
-        al = 0;
-
-        do
-        {
-            // Count the number of zero bits.
-            while ((bx_ & 1) == 0)
-            {
-                bx_ >>= 1;
-                al++;
-            }
-
-            RhythmPlayEffect(channel, al);
-
-            bx_ >>= 1;
-        }
-        while (_Driver.UsePPS && (bx_ != 0)); // If PPS is used, try playing the second or more notes.
-    }
-
-    return _State.RhythmData;
-}
-
 uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
 {
     int al = *si++;
@@ -320,6 +221,105 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
     }
 
     return si;
+}
+
+/// <summary>
+/// Start playing a sound using the Rhythm channel.
+/// </summary>
+uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
+{
+    if (al & 0x40)
+    {
+        bx = ExecuteRhythmCommand(channel, bx - 1);
+        *success = false;
+
+        return bx;
+    }
+
+    *success = true;
+
+    if (channel->PartMask)
+    {
+        _State.kshot_dat = 0x00;
+
+        return ++bx;
+    }
+
+    al = ((al << 8) + *bx++) & 0x3fff;
+
+    _State.kshot_dat = al;
+
+    if (al == 0)
+        return bx;
+
+    _State.RhythmData = bx;
+
+    if (_State.UseRhythm)
+    {
+        for (int cl = 0; cl < 11; cl++)
+        {
+            if (al & (1 << cl))
+            {
+                _OPNAW->SetReg((uint32_t) rhydat[cl][0], (uint32_t) rhydat[cl][1]);
+
+                int dl = rhydat[cl][2] & _State.RhythmMask;
+
+                if (dl)
+                {
+                    if (dl < 0x80)
+                        _OPNAW->SetReg(0x10, (uint32_t) dl);
+                    else
+                    {
+                        _OPNAW->SetReg(0x10, 0x84);
+
+                        dl = _State.RhythmMask & 0x08;
+
+                        if (dl)
+                            _OPNAW->SetReg(0x10, (uint32_t) dl);
+                    }
+                }
+            }
+        }
+    }
+
+    if (_State.FadeOutVolume)
+    {
+        if (_State.UseRhythm)
+        {
+            int dl = _State.RhythmVolume;
+
+            if (_State.FadeOutVolume)
+                dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
+
+            _OPNAW->SetReg(0x11, (uint32_t) dl);
+        }
+
+        if (!_Driver.UsePPS)
+            return _State.RhythmData; // No sound during fadeout when using PPS.
+    }
+
+    {
+        int bx_ = al;
+
+        al = 0;
+
+        do
+        {
+            // Count the number of zero bits.
+            while ((bx_ & 1) == 0)
+            {
+                bx_ >>= 1;
+                al++;
+            }
+
+            RhythmPlayEffect(channel, al);
+
+            bx_ >>= 1;
+        }
+        while (_Driver.UsePPS && (bx_ != 0)); // If PPS is used, try playing the second or more notes.
+    }
+
+    return _State.RhythmData;
 }
 
 //  Command "\?" / "\?p"

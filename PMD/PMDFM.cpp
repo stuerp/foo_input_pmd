@@ -373,168 +373,6 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::SetFMPortamentoCommand(Channel * channel, uint8_t * si)
-{
-    if (channel->PartMask)
-    {
-        channel->fnum = 0;    //休符に設定
-        channel->Tone = 255;
-        channel->Length = *(si + 2);
-        channel->keyon_flag++;
-        channel->Data = si + 3;
-
-        if (--_Driver.volpush_flag)
-            channel->volpush = 0;
-
-        _Driver.TieMode = 0;
-        _Driver.volpush_flag = 0;
-        _Driver.loop_work &= channel->loopcheck;
-
-        return si + 3;    // 読み飛ばす  (Mask時)
-    }
-
-    SetFMTone(channel, oshift(channel, StartLFO(channel, *si++)));
-
-    int cx = (int) channel->fnum;
-    int cl = channel->Tone;
-
-    SetFMTone(channel, oshift(channel, *si++));
-
-    int bx = (int) channel->fnum;      // bx=ポルタメント先のfnum値
-
-    channel->Tone = cl;
-    channel->fnum = (uint32_t) cx;      // cx=ポルタメント元のfnum値
-
-    int bh = (int) ((bx / 256) & 0x38) - ((cx / 256) & 0x38);  // 先のoctarb - 元のoctarb
-    int ax;
-
-    if (bh)
-    {
-        bh /= 8;
-        ax = bh * 0x26a;      // ax = 26ah * octarb差
-    }
-    else
-        ax = 0;
-
-    bx = (bx & 0x7ff) - (cx & 0x7ff);
-    ax += bx;        // ax=26ah*octarb差 + 音程差
-
-    channel->Length = *si++;
-
-    si = CalculateQ(channel, si);
-
-    channel->porta_num2 = ax / channel->Length;  // 商
-    channel->porta_num3 = ax % channel->Length;  // 余り
-    channel->lfoswi |= 8;        // Porta ON
-
-    if (channel->volpush && channel->Tone != 255)
-    {
-        if (--_Driver.volpush_flag)
-        {
-            _Driver.volpush_flag = 0;
-            channel->volpush = 0;
-        }
-    }
-
-    SetFMVolumeCommand(channel);
-    SetFMPitch(channel);
-    SetFMKeyOn(channel);
-
-    channel->keyon_flag++;
-    channel->Data = si;
-
-    _Driver.TieMode = 0;
-    _Driver.volpush_flag = 0;
-
-    if (*si == 0xfb)
-        channel->keyoff_flag = 2;// '&'が直後にあったらSetFMKeyOffしない
-    else
-        channel->keyoff_flag = 0;
-
-    _Driver.loop_work &= channel->loopcheck;
-
-    return si;
-}
-
-uint8_t * PMD::IncreaseFMVolumeCommand(Channel * channel, uint8_t * si)
-{
-    int al = (int) channel->volume + 1 + *si++;
-
-    if (al > 128)
-        al = 128;
-
-    channel->volpush = al;
-
-    _Driver.volpush_flag = 1;
-
-    return si;
-}
-
-uint8_t * PMD::SetFMEffect(Channel *, uint8_t * si)
-{
-    return si + 1;
-}
-
-//  FM3ch 拡張パートセット
-uint8_t * PMD::fm3_extpartset(Channel *, uint8_t * si)
-{
-    int16_t ax = *(int16_t *) si;
-    si += 2;
-
-    if (ax)
-        fm3_partinit(&_ExtensionTrack[0], &_State.MData[ax]);
-
-    ax = *(int16_t *) si;
-    si += 2;
-
-    if (ax)
-         fm3_partinit(&_ExtensionTrack[1], &_State.MData[ax]);
-
-    ax = *(int16_t *) si;
-    si += 2;
-
-    if (ax)
-        fm3_partinit(&_ExtensionTrack[2], &_State.MData[ax]);
-
-    return si;
-}
-
-void PMD::fm3_partinit(Channel * channel, uint8_t * ax)
-{
-    channel->Data = ax;
-    channel->Length = 1;          // ｱﾄ 1ｶｳﾝﾄ ﾃﾞ ｴﾝｿｳ ｶｲｼ
-    channel->keyoff_flag = -1;      // 現在SetFMKeyOff中
-    channel->mdc = -1;          // MDepth Counter (無限)
-    channel->mdc2 = -1;          //
-    channel->_mdc = -1;          //
-    channel->_mdc2 = -1;          //
-    channel->Tone = 255;        // rest
-    channel->onkai_def = 255;      // rest
-    channel->volume = 108;        // FM  VOLUME DEFAULT= 108
-    channel->fmpan = _FMTrack[2].fmpan;  // FM PAN = CH3と同じ
-    channel->PartMask |= 0x20;      // s0用 partmask
-}
-
-// FM tone generator hard LFO setting.
-uint8_t * PMD::hlfo_set(Channel * channel, uint8_t * si)
-{
-    channel->fmpan = (channel->fmpan & 0xc0) | *si++;
-
-    if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
-    {
-        // Part_e is impossible because it is only for 2608. For FM3, set all four parts
-        _FMTrack[2].fmpan = channel->fmpan;
-        _ExtensionTrack[0].fmpan = channel->fmpan;
-        _ExtensionTrack[1].fmpan = channel->fmpan;
-        _ExtensionTrack[2].fmpan = channel->fmpan;
-    }
-
-    if (channel->PartMask == 0x00)
-        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), calc_panout(channel));
-
-    return si;
-}
-
 void PMD::SetFMTone(Channel * channel, int al)
 {
     if ((al & 0x0f) != 0x0f)
@@ -687,24 +525,181 @@ void PMD::SetFMKeyOn(Channel * channel)
     }
 }
 
-void PMD::SetFMKeyOff(Channel * track)
+void PMD::SetFMKeyOff(Channel * channel)
 {
-    if (track->Tone == 0xFF)
+    if (channel->Tone == 0xFF)
         return;
 
-    SetFMKeyOffEx(track);
-}
-
-void PMD::SetFMKeyOffEx(Channel * track)
-{
     if (_Driver.FMSelector == 0)
     {
-        _Driver.omote_key[_Driver.CurrentChannel - 1] = (~track->SlotMask) & (_Driver.omote_key[_Driver.CurrentChannel - 1]);
+        _Driver.omote_key[_Driver.CurrentChannel - 1] = (~channel->SlotMask) & (_Driver.omote_key[_Driver.CurrentChannel - 1]);
         _OPNAW->SetReg(0x28, (uint32_t) ((_Driver.CurrentChannel - 1) | _Driver.omote_key[_Driver.CurrentChannel - 1]));
     }
     else
     {
-        _Driver.ura_key[_Driver.CurrentChannel - 1] = (~track->SlotMask) & (_Driver.ura_key[_Driver.CurrentChannel - 1]);
+        _Driver.ura_key[_Driver.CurrentChannel - 1] = (~channel->SlotMask) & (_Driver.ura_key[_Driver.CurrentChannel - 1]);
         _OPNAW->SetReg(0x28, (uint32_t) (((_Driver.CurrentChannel - 1) | _Driver.ura_key[_Driver.CurrentChannel - 1]) | 4));
     }
+}
+
+uint8_t * PMD::IncreaseFMVolumeCommand(Channel * channel, uint8_t * si)
+{
+    int al = (int) channel->volume + 1 + *si++;
+
+    if (al > 128)
+        al = 128;
+
+    channel->volpush = al;
+
+    _Driver.volpush_flag = 1;
+
+    return si;
+}
+
+uint8_t * PMD::SetFMPortamentoCommand(Channel * channel, uint8_t * si)
+{
+    if (channel->PartMask)
+    {
+        channel->fnum = 0;    //休符に設定
+        channel->Tone = 255;
+        channel->Length = *(si + 2);
+        channel->keyon_flag++;
+        channel->Data = si + 3;
+
+        if (--_Driver.volpush_flag)
+            channel->volpush = 0;
+
+        _Driver.TieMode = 0;
+        _Driver.volpush_flag = 0;
+        _Driver.loop_work &= channel->loopcheck;
+
+        return si + 3;    // 読み飛ばす  (Mask時)
+    }
+
+    SetFMTone(channel, oshift(channel, StartLFO(channel, *si++)));
+
+    int cx = (int) channel->fnum;
+    int cl = channel->Tone;
+
+    SetFMTone(channel, oshift(channel, *si++));
+
+    int bx = (int) channel->fnum;      // bx=ポルタメント先のfnum値
+
+    channel->Tone = cl;
+    channel->fnum = (uint32_t) cx;      // cx=ポルタメント元のfnum値
+
+    int bh = (int) ((bx / 256) & 0x38) - ((cx / 256) & 0x38);  // 先のoctarb - 元のoctarb
+    int ax;
+
+    if (bh)
+    {
+        bh /= 8;
+        ax = bh * 0x26a;      // ax = 26ah * octarb差
+    }
+    else
+        ax = 0;
+
+    bx = (bx & 0x7ff) - (cx & 0x7ff);
+    ax += bx;        // ax=26ah*octarb差 + 音程差
+
+    channel->Length = *si++;
+
+    si = CalculateQ(channel, si);
+
+    channel->porta_num2 = ax / channel->Length;  // 商
+    channel->porta_num3 = ax % channel->Length;  // 余り
+    channel->lfoswi |= 8;        // Porta ON
+
+    if (channel->volpush && channel->Tone != 255)
+    {
+        if (--_Driver.volpush_flag)
+        {
+            _Driver.volpush_flag = 0;
+            channel->volpush = 0;
+        }
+    }
+
+    SetFMVolumeCommand(channel);
+    SetFMPitch(channel);
+    SetFMKeyOn(channel);
+
+    channel->keyon_flag++;
+    channel->Data = si;
+
+    _Driver.TieMode = 0;
+    _Driver.volpush_flag = 0;
+
+    if (*si == 0xfb)
+        channel->keyoff_flag = 2;// '&'が直後にあったらSetFMKeyOffしない
+    else
+        channel->keyoff_flag = 0;
+
+    _Driver.loop_work &= channel->loopcheck;
+
+    return si;
+}
+
+uint8_t * PMD::SetFMEffect(Channel *, uint8_t * si)
+{
+    return si + 1;
+}
+
+//  FM3ch 拡張パートセット
+uint8_t * PMD::fm3_extpartset(Channel *, uint8_t * si)
+{
+    int16_t ax = *(int16_t *) si;
+    si += 2;
+
+    if (ax)
+        fm3_partinit(&_ExtensionTrack[0], &_State.MData[ax]);
+
+    ax = *(int16_t *) si;
+    si += 2;
+
+    if (ax)
+         fm3_partinit(&_ExtensionTrack[1], &_State.MData[ax]);
+
+    ax = *(int16_t *) si;
+    si += 2;
+
+    if (ax)
+        fm3_partinit(&_ExtensionTrack[2], &_State.MData[ax]);
+
+    return si;
+}
+
+void PMD::fm3_partinit(Channel * channel, uint8_t * ax)
+{
+    channel->Data = ax;
+    channel->Length = 1;          // ｱﾄ 1ｶｳﾝﾄ ﾃﾞ ｴﾝｿｳ ｶｲｼ
+    channel->keyoff_flag = -1;      // 現在SetFMKeyOff中
+    channel->mdc = -1;          // MDepth Counter (無限)
+    channel->mdc2 = -1;          //
+    channel->_mdc = -1;          //
+    channel->_mdc2 = -1;          //
+    channel->Tone = 255;        // rest
+    channel->onkai_def = 255;      // rest
+    channel->volume = 108;        // FM  VOLUME DEFAULT= 108
+    channel->fmpan = _FMTrack[2].fmpan;  // FM PAN = CH3と同じ
+    channel->PartMask |= 0x20;      // s0用 partmask
+}
+
+// FM tone generator hard LFO setting.
+uint8_t * PMD::hlfo_set(Channel * channel, uint8_t * si)
+{
+    channel->fmpan = (channel->fmpan & 0xc0) | *si++;
+
+    if (_Driver.CurrentChannel == 3 && _Driver.FMSelector == 0)
+    {
+        // Part_e is impossible because it is only for 2608. For FM3, set all four parts
+        _FMTrack[2].fmpan = channel->fmpan;
+        _ExtensionTrack[0].fmpan = channel->fmpan;
+        _ExtensionTrack[1].fmpan = channel->fmpan;
+        _ExtensionTrack[2].fmpan = channel->fmpan;
+    }
+
+    if (channel->PartMask == 0x00)
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), calc_panout(channel));
+
+    return si;
 }

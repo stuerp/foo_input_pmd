@@ -212,7 +212,7 @@
     <ClCompile Include="PMD\OPNAW.cpp" />
     <ClCompile Include="PMD\P86.cpp" />
     <ClCompile Include="PMD\PMDSoftwareEnvelope.cpp" />
-    <ClCompile Include="PMD\PDMPCM86.cpp" />
+    <ClCompile Include="PMD\PDMP86.cpp" />
     <ClCompile Include="PMD\PMD.cpp" />
     <ClCompile Include="PMD\PMDADPCM.cpp" />
     <ClCompile Include="PMD\PMDEffect.cpp" />

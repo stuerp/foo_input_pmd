@@ -381,170 +381,6 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command "v": Sets the SSG volume.
-uint8_t * PMD::SetSSGVolumeCommand(Channel * channel, uint8_t * si)
-{
-    int al = channel->volume + *si++;
-
-    if (al > 15)
-        al = 15;
-
-    channel->volpush = ++al;
-    _Driver.volpush_flag = 1;
-
-    return si;
-}
-
-uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
-{
-    if (channel->PartMask)
-    {
-        channel->fnum = 0;    // Set to "rest"
-        channel->Tone = 255;
-        channel->Length = *(si + 2);
-        channel->keyon_flag++;
-        channel->Data = si + 3;
-
-        if (--_Driver.volpush_flag)
-            channel->volpush = 0;
-
-        _Driver.TieMode = 0;
-        _Driver.volpush_flag = 0;
-        _Driver.loop_work &= channel->loopcheck;
-
-        return si + 3; // Skip when masking
-    }
-
-    SetSSGTone(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
-
-    int bx_ = (int) channel->fnum;
-    int al_ = channel->Tone;
-
-    SetSSGTone(channel, oshiftp(channel, *si++));
-
-    int ax = (int) channel->fnum;   // ax = portamento destination psg_tune value
-
-    channel->Tone = al_;
-    channel->fnum = (uint32_t) bx_; // bx = portamento original psg_tune value
-
-    ax -= bx_;
-
-    channel->Length = *si++;
-
-    si = CalculateQ(channel, si);
-
-    channel->porta_num2 = ax / channel->Length;    // Quotient
-    channel->porta_num3 = ax % channel->Length;    // Remainder
-    channel->lfoswi |= 8;        // Porta ON
-
-    if (channel->volpush && channel->Tone != 255)
-    {
-        if (--_Driver.volpush_flag)
-        {
-            _Driver.volpush_flag = 0;
-            channel->volpush = 0;
-        }
-    }
-
-    SetSSGVolume2(channel);
-    SetSSGPitch(channel);
-    SetSSGKeyOn(channel);
-
-    channel->keyon_flag++;
-    channel->Data = si;
-
-    _Driver.TieMode = 0;
-    _Driver.volpush_flag = 0;
-    channel->keyoff_flag = 0;
-
-    if (*si == 0xfb) // If there is '&' immediately after, SetFMKeyOff will not be done.
-        channel->keyoff_flag = 2;
-
-    _Driver.loop_work &= channel->loopcheck;
-
-    return si;
-}
-
-//  SSG Envelope Speed (Extend)
-uint8_t * PMD::SetSSGEnvelopeSpeedToExtend(Channel * channel, uint8_t * si)
-{
-    channel->eenv_ar = *si++ & 0x1f;
-    channel->eenv_dr = *si++ & 0x1f;
-    channel->eenv_sr = *si++ & 0x1f;
-    channel->eenv_rr = *si & 0x0f;
-    channel->eenv_sl = ((*si++ >> 4) & 0x0f) ^ 0x0f;
-    channel->eenv_al = *si++ & 0x0f;
-
-    if (channel->envf != -1)
-    {  // Did you move from normal to expanded?
-        channel->envf = -1;
-        channel->eenv_count = 4;    // RR
-        channel->eenv_volume = 0;  // Volume
-    }
-
-    return si;
-}
-
-// Command "n": SSG Sound Effect Playback
-uint8_t * PMD::SetSSGEffect(Channel * channel, uint8_t * si)
-{
-    int al = *si++;
-
-    if (channel->PartMask)
-        return si;
-
-    if (al != 0)
-    {
-        _Effect.Flags = 0x01; // Correct the pitch.
-
-        EffectMain(channel, al);
-    }
-    else
-        StopEffect();
-
-    return si;
-}
-
-// Command "w"
-uint8_t * PMD::SetSSGPseudoEchoCommand(uint8_t * si)
-{
-    _State.SSGNoiseFrequency += *(int8_t *) si++;
-
-    if (_State.SSGNoiseFrequency < 0)
-        _State.SSGNoiseFrequency = 0;
-
-    if (_State.SSGNoiseFrequency > 31)
-        _State.SSGNoiseFrequency = 31;
-
-    return si;
-}
-
-/// <summary>
-/// Decides to stop the SSG drum and reset the SSG.
-/// </summary>
-bool PMD::CheckSSGDrum(Channel * channel, int al)
-{
-    // Do not stop the drum during the SSG mask. SSG drums are not playing.
-    if ((channel->PartMask & 0x01) || ((channel->PartMask & 0x02) == 0))
-        return false;
-
-    // Do not turn off normal sound effects.
-    if (_Effect.Priority >= 2)
-        return false;
-
-    // Don't stop the drums during rests.
-    if ((al & 0x0F) == 0x0F)
-        return false;
-
-    // Is the SSG drum still playing?
-    if (_Effect.Priority == 1)
-        StopEffect(); // Turn off the SSG drum.
-
-    channel->PartMask &= 0xFD;
-
-    return (channel->PartMask == 0x00);
-}
-
 void PMD::SetSSGTone(Channel * channel, int al)
 {
     if ((al & 0x0f) == 0x0f)
@@ -727,7 +563,7 @@ void PMD::SetSSGPitch(Channel * channel)
 
 void PMD::SetSSGKeyOn(Channel * channel)
 {
-    if (channel->Tone == 255)
+    if (channel->Tone == 0xFF)
         return;
 
     int ah = (1 << (_Driver.CurrentChannel - 1)) | (1 << (_Driver.CurrentChannel + 2));
@@ -756,4 +592,168 @@ void PMD::SetSSGKeyOff(Channel * channel)
         channel->envf = 2;
     else
         channel->eenv_count = 4;
+}
+
+// Command "v": Sets the SSG volume.
+uint8_t * PMD::SetSSGVolumeCommand(Channel * channel, uint8_t * si)
+{
+    int al = channel->volume + *si++;
+
+    if (al > 15)
+        al = 15;
+
+    channel->volpush = ++al;
+    _Driver.volpush_flag = 1;
+
+    return si;
+}
+
+uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
+{
+    if (channel->PartMask)
+    {
+        channel->fnum = 0;    // Set to "rest"
+        channel->Tone = 255;
+        channel->Length = *(si + 2);
+        channel->keyon_flag++;
+        channel->Data = si + 3;
+
+        if (--_Driver.volpush_flag)
+            channel->volpush = 0;
+
+        _Driver.TieMode = 0;
+        _Driver.volpush_flag = 0;
+        _Driver.loop_work &= channel->loopcheck;
+
+        return si + 3; // Skip when masking
+    }
+
+    SetSSGTone(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
+
+    int bx_ = (int) channel->fnum;
+    int al_ = channel->Tone;
+
+    SetSSGTone(channel, oshiftp(channel, *si++));
+
+    int ax = (int) channel->fnum;   // ax = portamento destination psg_tune value
+
+    channel->Tone = al_;
+    channel->fnum = (uint32_t) bx_; // bx = portamento original psg_tune value
+
+    ax -= bx_;
+
+    channel->Length = *si++;
+
+    si = CalculateQ(channel, si);
+
+    channel->porta_num2 = ax / channel->Length;    // Quotient
+    channel->porta_num3 = ax % channel->Length;    // Remainder
+    channel->lfoswi |= 8;        // Porta ON
+
+    if (channel->volpush && channel->Tone != 255)
+    {
+        if (--_Driver.volpush_flag)
+        {
+            _Driver.volpush_flag = 0;
+            channel->volpush = 0;
+        }
+    }
+
+    SetSSGVolume2(channel);
+    SetSSGPitch(channel);
+    SetSSGKeyOn(channel);
+
+    channel->keyon_flag++;
+    channel->Data = si;
+
+    _Driver.TieMode = 0;
+    _Driver.volpush_flag = 0;
+    channel->keyoff_flag = 0;
+
+    if (*si == 0xfb) // If there is '&' immediately after, SetFMKeyOff will not be done.
+        channel->keyoff_flag = 2;
+
+    _Driver.loop_work &= channel->loopcheck;
+
+    return si;
+}
+
+//  SSG Envelope Speed (Extend)
+uint8_t * PMD::SetSSGEnvelopeSpeedToExtend(Channel * channel, uint8_t * si)
+{
+    channel->eenv_ar = *si++ & 0x1f;
+    channel->eenv_dr = *si++ & 0x1f;
+    channel->eenv_sr = *si++ & 0x1f;
+    channel->eenv_rr = *si & 0x0f;
+    channel->eenv_sl = ((*si++ >> 4) & 0x0f) ^ 0x0f;
+    channel->eenv_al = *si++ & 0x0f;
+
+    if (channel->envf != -1)
+    {  // Did you move from normal to expanded?
+        channel->envf = -1;
+        channel->eenv_count = 4;    // RR
+        channel->eenv_volume = 0;  // Volume
+    }
+
+    return si;
+}
+
+// Command "n": SSG Sound Effect Playback
+uint8_t * PMD::SetSSGEffect(Channel * channel, uint8_t * si)
+{
+    int al = *si++;
+
+    if (channel->PartMask)
+        return si;
+
+    if (al != 0)
+    {
+        _Effect.Flags = 0x01; // Correct the pitch.
+
+        EffectMain(channel, al);
+    }
+    else
+        StopEffect();
+
+    return si;
+}
+
+// Command "w"
+uint8_t * PMD::SetSSGPseudoEchoCommand(uint8_t * si)
+{
+    _State.SSGNoiseFrequency += *(int8_t *) si++;
+
+    if (_State.SSGNoiseFrequency < 0)
+        _State.SSGNoiseFrequency = 0;
+
+    if (_State.SSGNoiseFrequency > 31)
+        _State.SSGNoiseFrequency = 31;
+
+    return si;
+}
+
+/// <summary>
+/// Decides to stop the SSG drum and reset the SSG.
+/// </summary>
+bool PMD::CheckSSGDrum(Channel * channel, int al)
+{
+    // Do not stop the drum during the SSG mask. SSG drums are not playing.
+    if ((channel->PartMask & 0x01) || ((channel->PartMask & 0x02) == 0))
+        return false;
+
+    // Do not turn off normal sound effects.
+    if (_Effect.Priority >= 2)
+        return false;
+
+    // Don't stop the drums during rests.
+    if ((al & 0x0F) == 0x0F)
+        return false;
+
+    // Is the SSG drum still playing?
+    if (_Effect.Priority == 1)
+        StopEffect(); // Turn off the SSG drum.
+
+    channel->PartMask &= 0xFD;
+
+    return (channel->PartMask == 0x00);
 }

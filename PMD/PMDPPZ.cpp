@@ -15,7 +15,7 @@
 #include "PPS.h"
 #include "P86.h"
 
-void PMD::PPZ8Main(Channel * channel)
+void PMD::PPZMain(Channel * channel)
 {
     if (channel->Data == nullptr)
         return;
@@ -37,7 +37,7 @@ void PMD::PPZ8Main(Channel * channel)
         {    // 既にSetFMKeyOffしたか？
             if (channel->Length <= channel->qdat)
             {
-                keyoffz(channel);
+                SetPPZKeyOff(channel);
                 channel->keyoff_flag = -1;
             }
         }
@@ -52,7 +52,7 @@ void PMD::PPZ8Main(Channel * channel)
         {
             if (*si > 0x80 && *si != 0xda)
             {
-                si = ExecutePPZ8Command(channel, si);
+                si = ExecutePPZCommand(channel, si);
             }
             else if (*si == 0x80)
             {
@@ -126,7 +126,7 @@ void PMD::PPZ8Main(Channel * channel)
                 SetPPZPitch(channel);
                 if (channel->keyoff_flag & 1)
                 {
-                    keyonz(channel);
+                    SetPPZKeyOn(channel);
                 }
 
                 channel->keyon_flag++;
@@ -194,7 +194,7 @@ void PMD::PPZ8Main(Channel * channel)
     _Driver.loop_work &= channel->loopcheck;
 }
 
-uint8_t * PMD::ExecutePPZ8Command(Channel * channel, uint8_t * si)
+uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
 {
     int al = *si++;
 
@@ -464,4 +464,31 @@ void PMD::SetPPZPitch(Channel * channel)
         cx = (uint32_t) cx2;
 
     _PPZ8->SetPitch(_Driver.CurrentChannel, cx);
+}
+
+void PMD::SetPPZKeyOn(Channel * channel)
+{
+    if (channel->Tone == 0xFF)
+        return;
+
+    if ((channel->InstrumentNumber & 0x80) == 0)
+        _PPZ8->Play(_Driver.CurrentChannel, 0, channel->InstrumentNumber,        0, 0);
+    else
+        _PPZ8->Play(_Driver.CurrentChannel, 1, channel->InstrumentNumber & 0x7F, 0, 0);
+}
+
+void PMD::SetPPZKeyOff(Channel * channel)
+{
+    if (channel->envf != -1)
+    {
+        if (channel->envf == 2)
+            return;
+    }
+    else
+    {
+        if (channel->eenv_count == 4)
+            return;
+    }
+
+    SetSSGKeyOff(channel);
 }

@@ -37,7 +37,7 @@ void PMD::PCM86Main(Channel * channel)
         {    // 既にSetFMKeyOffしたか？
             if (channel->Length <= channel->qdat)
             {
-                keyoff8(channel);
+                SetP86KeyOff(channel);
                 channel->keyoff_flag = -1;
             }
         }
@@ -118,7 +118,7 @@ void PMD::PCM86Main(Channel * channel)
                 SetPCM86Pitch(channel);
 
                 if (channel->keyoff_flag & 1)
-                    keyon8(channel);
+                    SetP86KeyOn(channel);
 
                 channel->keyon_flag++;
                 channel->Data = si;
@@ -415,3 +415,28 @@ void PMD::SetPCM86Pitch(Channel * track)
 
     _P86->SetPitch(bl, (uint32_t) cx);
 }
+
+void PMD::SetP86KeyOn(Channel * channel)
+{
+    if (channel->Tone == 0xFF)
+        return;
+
+    _P86->Play();
+}
+
+void PMD::SetP86KeyOff(Channel * channel)
+{
+    _P86->Keyoff();
+
+    if (channel->envf != -1)
+    {
+        if (channel->envf != 2)
+            SetSSGKeyOff(channel);
+
+        return;
+    }
+
+    if (channel->eenv_count != 4)
+        SetSSGKeyOff(channel);
+}
+

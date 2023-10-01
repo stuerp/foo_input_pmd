@@ -1433,7 +1433,7 @@ void PMD::DriverMain()
         for (i = 0; i < 8; ++i)
         {
             _Driver.CurrentChannel = i;
-            PPZ8Main(&_PPZ8Track[i]);
+            PPZMain(&_PPZ8Track[i]);
         }
     }
 
@@ -1887,58 +1887,6 @@ uint8_t * PMD::PDRSwitchCommand(Channel *, uint8_t * si)
     return si;
 }
 
-//  PCM KEYON
-void PMD::keyonm(Channel * track)
-{
-    if (track->Tone == 255)
-        return;
-
-    _OPNAW->SetReg(0x101, 0x02);  // PAN=0 / x8 bit mode
-    _OPNAW->SetReg(0x100, 0x21);  // PCM RESET
-
-    _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_State.PCMStart));
-    _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_State.PCMStart));
-    _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State.PCMStop));
-    _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State.PCMStop));
-
-    if ((_Driver.PCMRepeat1 | _Driver.PCMRepeat2) == 0)
-    {
-        _OPNAW->SetReg(0x100, 0xa0);  // PCM PLAY (non_repeat)
-        _OPNAW->SetReg(0x101, (uint32_t) (track->fmpan | 2));  // PAN SET / x8 bit mode
-    }
-    else
-    {
-        _OPNAW->SetReg(0x100, 0xb0);  // PCM PLAY (repeat)
-        _OPNAW->SetReg(0x101, (uint32_t) (track->fmpan | 2));  // PAN SET / x8 bit mode
-
-        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver.PCMRepeat1));
-        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver.PCMRepeat1));
-        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_Driver.PCMRepeat2));
-        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_Driver.PCMRepeat2));
-    }
-}
-
-//  PCM KEYON (PMD86)
-void PMD::keyon8(Channel * qq)
-{
-    if (qq->Tone == 255)
-        return;
-
-    _P86->Play();
-}
-
-//  PPZ KEYON
-void PMD::keyonz(Channel * track)
-{
-    if (track->Tone == 0xFF)
-        return;
-
-    if ((track->InstrumentNumber & 0x80) == 0)
-        _PPZ8->Play(_Driver.CurrentChannel, 0, track->InstrumentNumber,        0, 0);
-    else
-        _PPZ8->Play(_Driver.CurrentChannel, 1, track->InstrumentNumber & 0x7F, 0, 0);
-}
-
 //  ADPCM FNUM SET
 void PMD::fnumsetm(Channel * channel, int al)
 {
@@ -2106,7 +2054,7 @@ uint8_t * PMD::portam(Channel * qq, uint8_t * si)
     SetADPCMPitch(qq);
 
     if (qq->keyoff_flag & 1)
-        keyonm(qq);
+        SetADPCMKeyOn(qq);
 
     qq->keyon_flag++;
     qq->Data = si;
@@ -2180,7 +2128,7 @@ uint8_t * PMD::portaz(Channel * qq, uint8_t * si)
     SetPPZPitch(qq);
     if (qq->keyoff_flag & 1)
     {
-        keyonz(qq);
+        SetPPZKeyOn(qq);
     }
 
     qq->keyon_flag++;
@@ -2197,71 +2145,6 @@ uint8_t * PMD::portaz(Channel * qq, uint8_t * si)
 
     _Driver.loop_work &= qq->loopcheck;
     return si;
-}
-
-void PMD::keyoffm(Channel * qq)
-{
-    if (qq->envf != -1)
-    {
-        if (qq->envf == 2) return;
-    }
-    else
-    {
-        if (qq->eenv_count == 4) return;
-    }
-
-    if (_Driver.PCMRelease != 0x8000)
-    {
-        // PCM RESET
-        _OPNAW->SetReg(0x100, 0x21);
-
-        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver.PCMRelease));
-        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver.PCMRelease));
-
-        // Stop ADDRESS for Release
-        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State.PCMStop));
-        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State.PCMStop));
-
-        // PCM PLAY(non_repeat)
-        _OPNAW->SetReg(0x100, 0xa0);
-    }
-
-    SetSSGKeyOff(qq);
-}
-
-void PMD::keyoff8(Channel * qq)
-{
-    _P86->Keyoff();
-
-    if (qq->envf != -1)
-    {
-        if (qq->envf != 2)
-        {
-            SetSSGKeyOff(qq);
-        }
-
-        return;
-    }
-
-    if (qq->eenv_count != 4)
-        SetSSGKeyOff(qq);
-}
-
-//  ppz KEYOFF
-void PMD::keyoffz(Channel * qq)
-{
-    if (qq->envf != -1)
-    {
-        if (qq->envf == 2)
-            return;
-    }
-    else
-    {
-        if (qq->eenv_count == 4)
-            return;
-    }
-
-    SetSSGKeyOff(qq);
 }
 
 //  Pan setting Extend
@@ -2786,7 +2669,7 @@ int PMD::MuteFMPart(Channel * channel)
         _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
     }
 
-    SetFMKeyOffEx(channel);
+    SetFMKeyOff(channel);
 
     return 0;
 }

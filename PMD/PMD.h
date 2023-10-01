@@ -198,7 +198,7 @@ protected:
     void RhythmMain(Channel * track);
     void ADPCMMain(Channel * track);
     void PCM86Main(Channel * track);
-    void PPZ8Main(Channel * track);
+    void PPZMain(Channel * track);
 
     uint8_t * ExecuteFMCommand(Channel * track, uint8_t * si);
     uint8_t * ExecuteSSGCommand(Channel * track, uint8_t * si);
@@ -206,7 +206,7 @@ protected:
     uint8_t * ExecuteRhythmCommand(Channel * track, uint8_t * si);
 
     uint8_t * ExecutePCM86Command(Channel * track, uint8_t * si);
-    uint8_t * ExecutePPZ8Command(Channel * track, uint8_t * si);
+    uint8_t * ExecutePPZCommand(Channel * track, uint8_t * si);
 
     uint8_t * RhythmOn(Channel * track, int al, uint8_t * bx, bool * success);
 
@@ -223,11 +223,10 @@ protected:
 
     int MuteFMPart(Channel * track);
     void SetFMKeyOff(Channel * track);
-    void SetFMKeyOffEx(Channel * track);
     void SetSSGKeyOff(Channel * track);
-    void keyoffm(Channel * track);
-    void keyoff8(Channel * track);
-    void keyoffz(Channel * track);
+    void SetADPCMKeyOff(Channel * track);
+    void SetP86KeyOff(Channel * track);
+    void SetPPZKeyOff(Channel * track);
 
     bool CheckSSGDrum(Channel * track, int al);
 
@@ -311,9 +310,9 @@ protected:
 
     void SetFMKeyOn(Channel * track);
     void SetSSGKeyOn(Channel * track);
-    void keyonm(Channel * track);
-    void keyon8(Channel * track);
-    void keyonz(Channel * track);
+    void SetADPCMKeyOn(Channel * track);
+    void SetP86KeyOn(Channel * track);
+    void SetPPZKeyOn(Channel * track);
 
     int lfo(Channel * track);
     int SetSSGLFO(Channel * track);

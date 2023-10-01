@@ -35,7 +35,7 @@ void PMD::ADPCMMain(Channel * channel)
         {    // 既にSetFMKeyOffしたか？
             if (channel->Length <= channel->qdat)
             {
-                keyoffm(channel);
+                SetADPCMKeyOff(channel);
                 channel->keyoff_flag = -1;
             }
         }
@@ -125,7 +125,7 @@ void PMD::ADPCMMain(Channel * channel)
                 SetADPCMPitch(channel);
 
                 if (channel->keyoff_flag & 1)
-                    keyonm(channel);
+                    SetADPCMKeyOn(channel);
 
                 channel->keyon_flag++;
                 channel->Data = si;
@@ -475,4 +475,64 @@ void PMD::SetADPCMPitch(Channel * channel)
     // TONE SET
     _OPNAW->SetReg(0x109, (uint32_t) LOBYTE(bx));
     _OPNAW->SetReg(0x10a, (uint32_t) HIBYTE(bx));
+}
+
+void PMD::SetADPCMKeyOn(Channel * channel)
+{
+    if (channel->Tone == 0xFF)
+        return;
+
+    _OPNAW->SetReg(0x101, 0x02);  // PAN=0 / x8 bit mode
+    _OPNAW->SetReg(0x100, 0x21);  // PCM RESET
+
+    _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_State.PCMStart));
+    _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_State.PCMStart));
+    _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State.PCMStop));
+    _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State.PCMStop));
+
+    if ((_Driver.PCMRepeat1 | _Driver.PCMRepeat2) == 0)
+    {
+        _OPNAW->SetReg(0x100, 0xa0);  // PCM PLAY (non_repeat)
+        _OPNAW->SetReg(0x101, (uint32_t) (channel->fmpan | 2));  // PAN SET / x8 bit mode
+    }
+    else
+    {
+        _OPNAW->SetReg(0x100, 0xb0);  // PCM PLAY (repeat)
+        _OPNAW->SetReg(0x101, (uint32_t) (channel->fmpan | 2));  // PAN SET / x8 bit mode
+
+        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver.PCMRepeat1));
+        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver.PCMRepeat1));
+        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_Driver.PCMRepeat2));
+        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_Driver.PCMRepeat2));
+    }
+}
+
+void PMD::SetADPCMKeyOff(Channel * channel)
+{
+    if (channel->envf != -1)
+    {
+        if (channel->envf == 2) return;
+    }
+    else
+    {
+        if (channel->eenv_count == 4) return;
+    }
+
+    if (_Driver.PCMRelease != 0x8000)
+    {
+        // PCM RESET
+        _OPNAW->SetReg(0x100, 0x21);
+
+        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver.PCMRelease));
+        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver.PCMRelease));
+
+        // Stop ADDRESS for Release
+        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State.PCMStop));
+        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State.PCMStop));
+
+        // PCM PLAY(non_repeat)
+        _OPNAW->SetReg(0x100, 0xa0);
+    }
+
+    SetSSGKeyOff(channel);
 }
