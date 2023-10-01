@@ -47,18 +47,18 @@
 #define MaxRhythmTracks         1
 #define MaxEffectTracks         1
 #define MaxPPZ8Tracks           8
-#define MaxTracks               (MaxFMTracks + MaxSSGTracks + MaxADPCMTracks + MaxOPNARhythmTracks + MaxExtTracks + MaxRhythmTracks + MaxEffectTracks + MaxPPZ8Tracks)
+#define MaxChannels               (MaxFMTracks + MaxSSGTracks + MaxADPCMTracks + MaxOPNARhythmTracks + MaxExtTracks + MaxRhythmTracks + MaxEffectTracks + MaxPPZ8Tracks)
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 struct DriverState
 {
     int CurrentChannel;
-    int tieflag; // & flag (1 : tie)
-    int volpush_flag;  // Flag for next one note volume down (1 : voldown)
-    int fmsel;  // FM heads (=0) or tails (=0x100) flag
-    int omote_key[3];  // FM keyondata table (=0)
-    int ura_key[3]; // FM keyondata back (=0x100)
-    int loop_work; // Loop Work
+    int tieflag;        // & flag (1 : tie)
+    int volpush_flag;   // Flag for next one note volume down (1 : voldown)
+    int FMSelector;     // Head (0x000) or tail (0x100)
+    int omote_key[3];   // FM keyondata table (=0)
+    int ura_key[3];     // FM keyondata back (=0x100)
+    int loop_work;      // Loop Work
     bool UsePPS;
 
     int PCMRepeat1;
@@ -90,7 +90,7 @@ struct EffectState
     int last_shot_data;  // The last PPSDRV tone played
 };
 
-struct Track
+struct Channel
 {
     uint8_t * Data;
     uint8_t * LoopData;
@@ -215,7 +215,7 @@ struct Track
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 struct State
 {
-    Track * Track[MaxTracks];
+    Channel * Track[MaxChannels];
 
     uint8_t * MData;            // Address of MML data + 1
 
