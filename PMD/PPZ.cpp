@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "PPZ8.h"
+#include "PPZ.h"
 
 //  Constant table (ADPCM Volume to PPZ8 Volume)
 const int ADPCM_EM_VOL[256] =

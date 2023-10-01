@@ -11,7 +11,7 @@
 #include "Table.h"
 
 #include "OPNAW.h"
-#include "PPZ8.h"
+#include "PPZ.h"
 #include "PPS.h"
 #include "P86.h"
 

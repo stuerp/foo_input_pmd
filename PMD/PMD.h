@@ -14,7 +14,7 @@
 
 #include "OPNAW.h"
 #include "PPS.h"
-#include "PPZ8.h"
+#include "PPZ.h"
 #include "P86.h"
 
 #include "PMDPrivate.h"
