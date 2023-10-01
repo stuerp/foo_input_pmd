@@ -39,15 +39,15 @@
 
 #define OPNAClock   (3993600 * 2)
 
-#define MaxFMTracks             6
-#define MaxSSGTracks            3
+#define MaxFMChannels           6
+#define MaxSSGChannels          3
 #define MaxADPCMTracks          1
 #define MaxOPNARhythmTracks     1
-#define MaxExtTracks            3
+#define MaxFMExtensionChannels  3
 #define MaxRhythmTracks         1
 #define MaxEffectTracks         1
-#define MaxPPZ8Tracks           8
-#define MaxChannels               (MaxFMTracks + MaxSSGTracks + MaxADPCMTracks + MaxOPNARhythmTracks + MaxExtTracks + MaxRhythmTracks + MaxEffectTracks + MaxPPZ8Tracks)
+#define MaxPPZChannels          8
+#define MaxChannels             (MaxFMChannels + MaxSSGChannels + MaxADPCMTracks + MaxOPNARhythmTracks + MaxFMExtensionChannels + MaxRhythmTracks + MaxEffectTracks + MaxPPZChannels)
 
 struct Channel
 {
@@ -153,7 +153,7 @@ struct Channel
     int VolumeMask2; // Volume LFO mask
 
     // bit 3: none / bit 4: For PPZ/ADE / bit 5: s0 time / bit 6: m / bit 7: temporary
-    int keyoff_flag;  // 1 Flag indicating whether keyoff has been performed
+    int KeyOffFlag;  // 1 Flag indicating whether keyoff has been performed
     int qdata;  // 1 value of q
     int qdatb;  // 1 value of q
     int hldelay; // 1 HardLFO delay
@@ -188,7 +188,7 @@ struct State
 
     bool UseRhythm;             // Use Rhythm sound source with K/R part.
     bool UseFM55kHzSynthesis;
-    bool UseInterpolationPPZ8;
+    bool UseInterpolationPPZ;
     bool UseInterpolationPPS;
     bool UseInterpolationP86;
 
@@ -279,7 +279,7 @@ struct State
     int TimerBTempo;  // Current value of TimerB (= ff_tempo during ff)
 
     uint32_t OPNARate; // PCM output frequency (11k, 22k, 44k, 55k)
-    uint32_t PPZ8Rate; // PPZ output frequency
+    uint32_t PPZRate; // PPZ output frequency
 
     bool IsPlaying; // True if the driver is playing
     bool IsUsingP86;

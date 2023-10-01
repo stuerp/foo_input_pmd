@@ -117,22 +117,22 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
             return false;
 
         {
-            char Note[1024] = { 0 };
+            char Memo[1024] = { 0 };
 
-            pmd->GetNote(data, size, 1, Note, _countof(Note));
-            ConvertShiftJIToUTF8(Note, _Title);
+            pmd->GetMemo(data, size, 1, Memo, _countof(Memo));
+            ConvertShiftJIToUTF8(Memo, _Title);
 
-            Note[0] = '\0';
-            pmd->GetNote(data, size, 2, Note, _countof(Note));
-            ConvertShiftJIToUTF8(Note, _Composer);
+            Memo[0] = '\0';
+            pmd->GetMemo(data, size, 2, Memo, _countof(Memo));
+            ConvertShiftJIToUTF8(Memo, _Composer);
 
-            Note[0] = '\0';
-            pmd->GetNote(data, size, 3, Note, _countof(Note));
-            ConvertShiftJIToUTF8(Note, _Arranger);
+            Memo[0] = '\0';
+            pmd->GetMemo(data, size, 3, Memo, _countof(Memo));
+            ConvertShiftJIToUTF8(Memo, _Arranger);
 
-            Note[0] = '\0';
-            pmd->GetNote(data, size, 4, Note, _countof(Note));
-            ConvertShiftJIToUTF8(Note, _Memo);
+            Memo[0] = '\0';
+            pmd->GetMemo(data, size, 4, Memo, _countof(Memo));
+            ConvertShiftJIToUTF8(Memo, _Memo);
         }
 
         delete pmd;

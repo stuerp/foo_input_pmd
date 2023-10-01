@@ -28,17 +28,17 @@ void PMD::PPZMain(Channel * channel)
 
     if (channel->PartMask)
     {
-        channel->keyoff_flag = -1;
+        channel->KeyOffFlag = -1;
     }
     else
     {
         // KEYOFF CHECK
-        if ((channel->keyoff_flag & 3) == 0)
+        if ((channel->KeyOffFlag & 3) == 0)
         {    // 既にSetFMKeyOffしたか？
             if (channel->Length <= channel->qdat)
             {
                 SetPPZKeyOff(channel);
-                channel->keyoff_flag = -1;
+                channel->KeyOffFlag = -1;
             }
         }
     }
@@ -124,7 +124,7 @@ void PMD::PPZMain(Channel * channel)
 
                 SetPPZVolume(channel);
                 SetPPZPitch(channel);
-                if (channel->keyoff_flag & 1)
+                if (channel->KeyOffFlag & 1)
                 {
                     SetPPZKeyOn(channel);
                 }
@@ -136,12 +136,12 @@ void PMD::PPZMain(Channel * channel)
                 _Driver.volpush_flag = 0;
 
                 if (*si == 0xfb)
-                {    // '&'が直後にあったらSetFMKeyOffしない
-                    channel->keyoff_flag = 2;
+                {    // Don't Key Off if followed by the "&" command.
+                    channel->KeyOffFlag = 2;
                 }
                 else
                 {
-                    channel->keyoff_flag = 0;
+                    channel->KeyOffFlag = 0;
                 }
                 _Driver.loop_work &= channel->loopcheck;
                 return;
@@ -398,8 +398,8 @@ void PMD::SetPPZVolume(Channel * channel)
     //  ENVELOPE 計算
     if (al == 0)
     {
-        _PPZ8->SetVolume(_Driver.CurrentChannel, 0);
-        _PPZ8->Stop(_Driver.CurrentChannel);
+        _PPZ->SetVolume(_Driver.CurrentChannel, 0);
+        _PPZ->Stop(_Driver.CurrentChannel);
         return;
     }
 
@@ -409,7 +409,7 @@ void PMD::SetPPZVolume(Channel * channel)
         if (channel->eenv_volume == 0)
         {
             //*@    ppz8->SetVol(pmdwork._CurrentPart, 0);
-            _PPZ8->Stop(_Driver.CurrentChannel);
+            _PPZ->Stop(_Driver.CurrentChannel);
             return;
         }
 
@@ -424,7 +424,7 @@ void PMD::SetPPZVolume(Channel * channel)
             if (al < ah)
             {
                 //*@      ppz8->SetVol(pmdwork._CurrentPart, 0);
-                _PPZ8->Stop(_Driver.CurrentChannel);
+                _PPZ->Stop(_Driver.CurrentChannel);
                 return;
             }
             else
@@ -464,9 +464,9 @@ void PMD::SetPPZVolume(Channel * channel)
     }
 
     if (al != 0)
-        _PPZ8->SetVolume(_Driver.CurrentChannel, al >> 4);
+        _PPZ->SetVolume(_Driver.CurrentChannel, al >> 4);
     else
-        _PPZ8->Stop(_Driver.CurrentChannel);
+        _PPZ->Stop(_Driver.CurrentChannel);
 }
 
 void PMD::SetPPZPitch(Channel * channel)
@@ -495,7 +495,7 @@ void PMD::SetPPZPitch(Channel * channel)
     else
         cx = (uint32_t) cx2;
 
-    _PPZ8->SetPitch(_Driver.CurrentChannel, cx);
+    _PPZ->SetPitch(_Driver.CurrentChannel, cx);
 }
 
 void PMD::SetPPZKeyOn(Channel * channel)
@@ -504,9 +504,9 @@ void PMD::SetPPZKeyOn(Channel * channel)
         return;
 
     if ((channel->InstrumentNumber & 0x80) == 0)
-        _PPZ8->Play(_Driver.CurrentChannel, 0, channel->InstrumentNumber,        0, 0);
+        _PPZ->Play(_Driver.CurrentChannel, 0, channel->InstrumentNumber,        0, 0);
     else
-        _PPZ8->Play(_Driver.CurrentChannel, 1, channel->InstrumentNumber & 0x7F, 0, 0);
+        _PPZ->Play(_Driver.CurrentChannel, 1, channel->InstrumentNumber & 0x7F, 0, 0);
 }
 
 void PMD::SetPPZKeyOff(Channel * channel)
@@ -523,6 +523,21 @@ void PMD::SetPPZKeyOff(Channel * channel)
     }
 
     SetSSGKeyOff(channel);
+}
+
+void PMD::SetPPZVolumenDown(int value)
+{
+    _State.ppz_voldown = _State._ppz_voldown = value;
+}
+
+int PMD::getppzvoldown()
+{
+    return _State.ppz_voldown;
+}
+
+int PMD::getppzvoldown2()
+{
+    return _State._ppz_voldown;
 }
 
 uint8_t * PMD::SetPPZPortamento(Channel * channel, uint8_t * si)
@@ -581,7 +596,7 @@ uint8_t * PMD::SetPPZPortamento(Channel * channel, uint8_t * si)
     SetPPZVolume(channel);
     SetPPZPitch(channel);
 
-    if (channel->keyoff_flag & 1)
+    if (channel->KeyOffFlag & 1)
         SetPPZKeyOn(channel);
 
     channel->keyon_flag++;
@@ -590,12 +605,10 @@ uint8_t * PMD::SetPPZPortamento(Channel * channel, uint8_t * si)
     _Driver.TieMode = 0;
     _Driver.volpush_flag = 0;
 
-    channel->keyoff_flag = 0;
-
-    if (*si == 0xfb)
-    {      // '&'が直後にあったらSetFMKeyOffしない
-        channel->keyoff_flag = 2;
-    }
+    if (*si == 0xFB)
+        channel->KeyOffFlag = 2;  // If '&' command (Tie) is immediately followed, Key Off is not performed.
+    else
+        channel->KeyOffFlag = 0;
 
     _Driver.loop_work &= channel->loopcheck;
 
@@ -605,9 +618,9 @@ uint8_t * PMD::SetPPZPortamento(Channel * channel, uint8_t * si)
 // Command "p"
 uint8_t * PMD::SetPPZPanning(Channel * channel, uint8_t * si)
 {
-    channel->Panning = ppzpandata[*si++];
+    channel->Panning = PPZPanning[*si++];
 
-    _PPZ8->SetPan(_Driver.CurrentChannel, channel->Panning);
+    _PPZ->SetPan(_Driver.CurrentChannel, channel->Panning);
 
     return si;
 }
@@ -622,7 +635,7 @@ uint8_t * PMD::InitializePPZ(Channel *, uint8_t * si)
         {
             _PPZChannel[i].Data = &_State.MData[ax];
             _PPZChannel[i].Length = 1;
-            _PPZChannel[i].keyoff_flag = -1;
+            _PPZChannel[i].KeyOffFlag = -1;
             _PPZChannel[i].mdc = -1;            // MDepth Counter (無限)
             _PPZChannel[i].mdc2 = -1;
             _PPZChannel[i]._mdc = -1;

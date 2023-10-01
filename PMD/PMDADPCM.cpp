@@ -26,17 +26,17 @@ void PMD::ADPCMMain(Channel * channel)
 
     if (channel->PartMask)
     {
-        channel->keyoff_flag = -1;
+        channel->KeyOffFlag = -1;
     }
     else
     {
         // KEYOFF CHECK
-        if ((channel->keyoff_flag & 3) == 0)
+        if ((channel->KeyOffFlag & 3) == 0)
         {    // 既にSetFMKeyOffしたか？
             if (channel->Length <= channel->qdat)
             {
                 SetADPCMKeyOff(channel);
-                channel->keyoff_flag = -1;
+                channel->KeyOffFlag = -1;
             }
         }
     }
@@ -124,7 +124,7 @@ void PMD::ADPCMMain(Channel * channel)
                 SetADPCMVolumeCommand(channel);
                 SetADPCMPitch(channel);
 
-                if (channel->keyoff_flag & 1)
+                if (channel->KeyOffFlag & 1)
                     SetADPCMKeyOn(channel);
 
                 channel->keyon_flag++;
@@ -135,11 +135,11 @@ void PMD::ADPCMMain(Channel * channel)
 
                 if (*si == 0xfb)
                 {   // Do not SetFMKeyOff if '&' immediately follows
-                    channel->keyoff_flag = 2;
+                    channel->KeyOffFlag = 2;
                 }
                 else
                 {
-                    channel->keyoff_flag = 0;
+                    channel->KeyOffFlag = 0;
                 }
 
                 _Driver.loop_work &= channel->loopcheck;
@@ -582,6 +582,27 @@ void PMD::SetADPCMKeyOff(Channel * channel)
     SetSSGKeyOff(channel);
 }
 
+// Sets ADPCM Wait after register output.
+void PMD::SetADPCMDelay(int nsec)
+{
+    _OPNAW->SetADPCMDelay(nsec);
+}
+
+void PMD::SetADPCMVolumeDown(int value)
+{
+    _State.pcm_voldown = _State._pcm_voldown = value;
+}
+
+int PMD::getadpcmvoldown()
+{
+    return _State.pcm_voldown;
+}
+
+int PMD::getadpcmvoldown2()
+{
+    return _State._pcm_voldown;
+}
+
 // Command "p"
 uint8_t * PMD::SetADPCMPanning(Channel * channel, uint8_t * si)
 {
@@ -664,7 +685,7 @@ uint8_t * PMD::SetADPCMPortamento(Channel * channel, uint8_t * si)
     SetADPCMVolumeCommand(channel);
     SetADPCMPitch(channel);
 
-    if (channel->keyoff_flag & 1)
+    if (channel->KeyOffFlag & 1)
         SetADPCMKeyOn(channel);
 
     channel->keyon_flag++;
@@ -672,11 +693,11 @@ uint8_t * PMD::SetADPCMPortamento(Channel * channel, uint8_t * si)
 
     _Driver.TieMode = 0;
     _Driver.volpush_flag = 0;
-    channel->keyoff_flag = 0;
+    channel->KeyOffFlag = 0;
 
     if (*si == 0xfb)
     {      // '&'が直後にあったらSetFMKeyOffしない
-        channel->keyoff_flag = 2;
+        channel->KeyOffFlag = 2;
     }
 
     _Driver.loop_work &= channel->loopcheck;

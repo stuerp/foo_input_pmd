@@ -322,6 +322,30 @@ uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
     return _State.RhythmData;
 }
 
+// Sets Rhythm Wait after register output.
+void PMD::SetRhythmDelay(int nsec)
+{
+    _OPNAW->SetRSSDelay(nsec);
+}
+
+void PMD::SetRhythmVolumeDown(int value)
+{
+    _State.rhythm_voldown = _State._rhythm_voldown = value;
+    _State.RhythmVolume   = 48 * 4 * (256 - _State.rhythm_voldown) / 1024;
+
+    _OPNAW->SetReg(0x11, (uint32_t) _State.RhythmVolume);
+}
+
+int PMD::getrhythmvoldown()
+{
+    return _State.rhythm_voldown;
+}
+
+int PMD::getrhythmvoldown2()
+{
+    return _State._rhythm_voldown;
+}
+
 //  Command "\?" / "\?p"
 uint8_t * PMD::RhythmInstrumentCommand(uint8_t * si)
 {

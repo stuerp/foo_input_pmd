@@ -28,17 +28,17 @@ void PMD::PCM86Main(Channel * channel)
 
     if (channel->PartMask)
     {
-        channel->keyoff_flag = -1;
+        channel->KeyOffFlag = -1;
     }
     else
     {
         // KEYOFF CHECK
-        if ((channel->keyoff_flag & 3) == 0)
+        if ((channel->KeyOffFlag & 3) == 0)
         {    // 既にSetFMKeyOffしたか？
             if (channel->Length <= channel->qdat)
             {
                 SetP86KeyOff(channel);
-                channel->keyoff_flag = -1;
+                channel->KeyOffFlag = -1;
             }
         }
     }
@@ -117,7 +117,7 @@ void PMD::PCM86Main(Channel * channel)
                 SetPCM86Volume(channel);
                 SetPCM86Pitch(channel);
 
-                if (channel->keyoff_flag & 1)
+                if (channel->KeyOffFlag & 1)
                     SetP86KeyOn(channel);
 
                 channel->keyon_flag++;
@@ -127,9 +127,9 @@ void PMD::PCM86Main(Channel * channel)
                 _Driver.volpush_flag = 0;
 
                 if (*si == 0xFB)
-                    channel->keyoff_flag = 2; // If '&' command (Tie) is immediately followed, SetFMKeyOff is not performed.
+                    channel->KeyOffFlag = 2; // If '&' command (Tie) is immediately followed, Key Off is not performed.
                 else
-                    channel->keyoff_flag = 0;
+                    channel->KeyOffFlag = 0;
 
                 _Driver.loop_work &= channel->loopcheck;
 
@@ -479,34 +479,23 @@ void PMD::SetP86KeyOff(Channel * channel)
 // Command "p"
 uint8_t * PMD::SetP86Panning(Channel *, uint8_t * si)
 {
-    int    flag, data;
-
-    data = 0;
-
     switch (*si++)
     {
-        case 1:          // Right
-            flag = 2;
-            data = 1;
+        case 1: // Right
+            _P86->SetPan(2, 1);
             break;
 
-        case 2:          // Left
-            flag = 1;
-            data = 0;
+        case 2: // Left
+            _P86->SetPan(1, 0);
             break;
 
-        case 3:          // Center
-            flag = 3;
-            data = 0;
+        case 3: // Center
+            _P86->SetPan(3, 0);
             break;
 
-        default:          // 逆相
-            flag = 3 | 4;
-            data = 0;
-
+        default: // Reverse
+            _P86->SetPan(3 | 4, 0);
     }
-
-    _P86->SetPan(flag, data);
 
     return si;
 }

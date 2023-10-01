@@ -55,6 +55,7 @@
     <ClCompile Include="PMD\PMDLFO.cpp" />
     <ClCompile Include="PMD\PMDPPZ.cpp" />
     <ClCompile Include="PMD\PMDSoftwareEnvelope.cpp" />
+    <ClCompile Include="PMD\Driver.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Build-FB2KComponent.ps1" />
