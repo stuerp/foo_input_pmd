@@ -68,7 +68,7 @@ char * RemoveEscapeSequences(char * dst, const char * src)
     return dst;
 }
 
-// Convert 2-byte half-width zenkaku characters (JIS X 0208, 7-bit and 8-bit double byte coded Kanj) to half-width zenkaku.
+// Converts 2-byte full-width (zen-kaku) Kanji characters to half-width (han-kaku) characters.
 char * ZenToHan(char * dst, const char * src)
 {
     #pragma warning(disable: 4566)
