@@ -2,9 +2,32 @@
 
 #include "Channel.h"
 
+#define MaxFMChannels           6
+#define MaxSSGChannels          3
+#define MaxADPCMTracks          1
+#define MaxOPNARhythmTracks     1
+#define MaxFMExtensionChannels  3
+#define MaxRhythmTracks         1
+#define MaxEffectTracks         1
+#define MaxPPZChannels          8
+
+#define MaxChannels             (MaxFMChannels + MaxSSGChannels + MaxADPCMTracks + MaxOPNARhythmTracks + MaxFMExtensionChannels + MaxRhythmTracks + MaxEffectTracks + MaxPPZChannels)
+
 #pragma warning(disable: 4820) // x bytes padding added after last data member
-struct State
+class State
 {
+public:
+    State()
+    {
+        Reset();
+    }
+
+    void Reset() noexcept
+    {
+        ::memset(this, 0, sizeof(*this));
+    }
+
+public:
     uint8_t * MData;            // Address of MML data + 1
 
     uint8_t * VData;            // Voice data
@@ -40,8 +63,7 @@ struct State
     int rhythm_voldown;
     int _rhythm_voldown;
 
-    int pcm86_vol; // Should the volume of PCM86 be adjusted to SPB?
-    int _pcm86_vol; // Should the volume of PCM86 be adjusted to SPB? (For storage)
+    bool IsPMDB2Compatible, IsPMDB2CompatibleInitialValue;
 
     int ppz_voldown; // PPZ8 voldown numerical value
     int _ppz_voldown; // PPZ8 voldown numerical value (for storage)

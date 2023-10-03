@@ -325,37 +325,31 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
 
 void PMD::SetP86Tone(Channel * channel, int al)
 {
-    int ah = al & 0x0f;
+    int ah = al & 0x0F;
 
-    if (ah != 0x0f)
-    {      // Music Note
-        if (_State.pcm86_vol && al >= 0x65)
-        {    // o7e?
-            if (ah < 5)
-            {
-                al = 0x60;    // o7
-            }
-            else
-            {
-                al = 0x50;    // o6
-            }
+    if (ah != 0x0F)
+    {
+        // Music Note
+        if (_State.IsPMDB2Compatible && (al >= 0x65))
+        {
+            al = (ah < 5) ? 0x60 /* o7 */ : 0x50 /* o6 */;
+
             al |= ah;
         }
 
         channel->Tone = al;
 
-        int bl = ((al & 0xf0) >> 4) * 12 + ah;
+        int bl = ((al & 0xF0) >> 4) * 12 + ah;
 
         channel->fnum = p86_tune_data[bl];
     }
     else
-    {            // Rest
-        channel->Tone = 255;
+    {
+        // Rest
+        channel->Tone = 0xFF;
 
         if ((channel->lfoswi & 0x11) == 0)
-        {
-            channel->fnum = 0;      // 音程LFO未使用
-        }
+            channel->fnum = 0; // Don't use LFO pitch.
     }
 }
 
@@ -430,10 +424,10 @@ void PMD::SetPCM86Volume(Channel * channel)
             al = 0;
     }
 
-    if (_State.pcm86_vol)
-        al = (int) ::sqrt(al); //  SPBと同様の音量設定
-    else
+    if (!_State.IsPMDB2Compatible)
         al >>= 4;
+    else
+        al = (int) ::sqrt(al); // Make the volume Speakerboard-compatible.
 
     _P86->SetVol(al);
 }
@@ -446,7 +440,7 @@ void PMD::SetPCM86Pitch(Channel * track)
     int bl = (int) ((track->fnum & 0x0e00000) >> (16 + 5));
     int cx = (int) ( track->fnum & 0x01fffff);
 
-    if ((_State.pcm86_vol == 0) && track->detune)
+    if (!_State.IsPMDB2Compatible && track->detune)
         cx = Limit((cx >> 5) + track->detune, 65535, 1) << 5;
 
     _P86->SetPitch(bl, (uint32_t) cx);

@@ -113,7 +113,7 @@ void OPNAW::SetReg(uint32_t addr, uint32_t value)
     }
     else
     if (addr < 0x20)
-    {   // RHYTHM
+    {   // Rhythm
         if (_RSSDelayCount != 0)
             CalcWaitPCM(_RSSDelayCount);
     }

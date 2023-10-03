@@ -164,7 +164,7 @@ void OPNA::SetInstrumentVolume(int index, int dB)
 /// </summary>
 void OPNA::SetReg(uint32_t addr, uint32_t value)
 {
-    if ((addr >= 0x10) && (addr <= 0x1f) && !_HasADPCMROM)
+    if ((0x10 <= addr) && (addr <= 0x1F) && !_HasADPCMROM)
     {
         // Use PPS WAV files to play percussion.
         switch (addr)

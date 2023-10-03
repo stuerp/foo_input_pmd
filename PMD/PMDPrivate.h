@@ -39,14 +39,4 @@
 
 #define OPNAClock   (3993600 * 2)
 
-#define MaxFMChannels           6
-#define MaxSSGChannels          3
-#define MaxADPCMTracks          1
-#define MaxOPNARhythmTracks     1
-#define MaxFMExtensionChannels  3
-#define MaxRhythmTracks         1
-#define MaxEffectTracks         1
-#define MaxPPZChannels          8
-#define MaxChannels             (MaxFMChannels + MaxSSGChannels + MaxADPCMTracks + MaxOPNARhythmTracks + MaxFMExtensionChannels + MaxRhythmTracks + MaxEffectTracks + MaxPPZChannels)
-
 #include "State.h"

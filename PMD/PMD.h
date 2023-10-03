@@ -97,8 +97,21 @@ public:
     bool HasADPCMROM() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasADPCMROM(); }
     bool HasPercussionSamples() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasPercussionSamples(); }
 
-    void EnablePMDB2CompatibilityMode(bool value);
-    bool GetPMDB2CompatibilityMode();
+    /// <summary>
+    /// Enables or disables PMDB2.COM compatibility.
+    /// </summary>
+    void SetPMDB2CompatibilityMode(bool value)
+    {
+        _State.IsPMDB2Compatible = _State.IsPMDB2CompatibleInitialValue = value;
+    }
+
+    /// <summary>
+    /// Returns true if PMD86's PCM is compatible with PMDB2.COM (For songs targetting the Speakboard or compatible sound board which has a YM2608 with ADPCM functionality enabled)
+    /// </summary>
+    bool GetPMDB2CompatibilityMode() const noexcept
+    {
+        return _State.IsPMDB2Compatible;
+    }
 
     void SetPPSInterpolation(bool ip);
     void SetP86Interpolation(bool ip);
@@ -139,6 +152,7 @@ private:
     void InitializeState();
     void InitializeOPN();
 
+    void DriverMain();
     void DriverStart();
     void DriverStop();
 
@@ -150,7 +164,6 @@ private:
     void SetTimerBTempo();
     void HandleTimerA();
     void HandleTimerB();
-    void Main();
     void IncreaseBarCounter();
 
     void FMMain(Channel * channel);

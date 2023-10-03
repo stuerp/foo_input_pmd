@@ -67,13 +67,13 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     if (_OPNAW->Initialize(OPNAClock, SOUND_44K, false, DirectoryPath) == false)
         return false;
 
-    // Initialize ADPCM RAM.
-    {
-        _OPNAW->SetFMDelay(0);
-        _OPNAW->SetSSGDelay(0);
-        _OPNAW->SetRhythmDelay(0);
-        _OPNAW->SetADPCMDelay(0);
+    _OPNAW->SetFMDelay(0);
+    _OPNAW->SetSSGDelay(0);
+    _OPNAW->SetRhythmDelay(0);
+    _OPNAW->SetADPCMDelay(0);
 
+    // Initialize the ADPCM RAM.
+    {
         uint8_t Page[0x400]; // 0x400 * 0x100 = 0x40000(256K)
 
         ::memset(Page, 0x08, sizeof(Page));
@@ -96,12 +96,14 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _OPNAW->SetADPCMDelay(DEFAULT_REG_WAIT);
     _OPNAW->SetRhythmDelay(DEFAULT_REG_WAIT);
 
-    pcmends.Count = 0x26;
-
-    for (int i = 0; i < 256; ++i)
     {
-        pcmends.Address[i][0] = 0;
-        pcmends.Address[i][1] = 0;
+        pcmends.Count = 0x26;
+
+        for (int i = 0; i < 256; ++i)
+        {
+            pcmends.Address[i][0] = 0;
+            pcmends.Address[i][1] = 0;
+        }
     }
 
     _State.PPCFileName[0] = '\0';
@@ -111,7 +113,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _OPNAW->SetReg(0x24, 0x00);
     _OPNAW->SetReg(0x25, 0x00);
     _OPNAW->SetReg(0x26, 0x00);
-    _OPNAW->SetReg(0x27, 0x3f);
+    _OPNAW->SetReg(0x27, 0x3F);
 
     // Start the OPN interrupt.
     StartOPNInterrupt();
@@ -121,7 +123,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
 
 void PMD::Reset()
 {
-    ::memset(&_State, 0, sizeof(_State));
+    _State.Reset();
 
     ::memset(_FMChannel, 0, sizeof(_FMChannel));
     ::memset(_SSGChannel, 0, sizeof(_SSGChannel));
@@ -230,8 +232,8 @@ void PMD::Reset()
     _State.rdump_tom = 0;            // Rhythm Sound dump inc flag (TOM)
     _State.rdump_rim = 0;            // Rhythm Sound dump inc flag (RIM)
 
-    _State.pcm86_vol = 0;            // PCM volume adjustment
-    _State._pcm86_vol = 0;           // PCM volume adjustment
+    SetPMDB2CompatibilityMode(false);
+
     _State.fade_stop_flag = 1;       // MSTOP after FADEOUT FLAG
 
     _Driver.UsePPS = false;
@@ -912,27 +914,6 @@ void PMD::UseRhythm(bool flag) noexcept
     _State.UseRhythm = flag;
 }
 
-// Make PMD86 PCM compatible with PMDB2?
-void PMD::EnablePMDB2CompatibilityMode(bool value)
-{
-    if (value)
-    {
-        _State.pcm86_vol =
-        _State._pcm86_vol = 1;
-    }
-    else
-    {
-        _State.pcm86_vol =
-        _State._pcm86_vol = 0;
-    }
-}
-
-// Get whether PMD86's PCM is PMDB2 compatible
-bool PMD::GetPMDB2CompatibilityMode()
-{
-    return _State.pcm86_vol ? true : false;
-}
-
 /// <summary>
 /// Disables the specified channel.
 /// </summary>
@@ -1256,7 +1237,7 @@ void PMD::HandleTimerB()
 
     if (_State.IsPlaying)
     {
-        Main();
+        DriverMain();
 
         SetTimerBTempo();
         IncreaseBarCounter();
@@ -1277,6 +1258,7 @@ void PMD::fm_block_calc(int * cx, int * ax)
         if (*ax < (0x26a * 2)) return;
 
         *cx += 0x800;      // oct.up
+
         if (*cx != 0x4000)
         {
             *ax -= 0x26a;    // 4d2h-26ah
@@ -1284,8 +1266,10 @@ void PMD::fm_block_calc(int * cx, int * ax)
         else
         {        // ﾓｳ ｺﾚｲｼﾞｮｳ ｱｶﾞﾝﾅｲﾖﾝ
             *cx = 0x3800;
+
             if (*ax >= 0x800)
                 *ax = 0x7ff;  // 4d2h
+
             return;
         }
     }
@@ -1540,14 +1524,7 @@ uint8_t * PMD::pcmrepeat_set8(Channel *, uint8_t * si)
 
     release_start = *(int16_t *) si;
 
-    if (_State.pcm86_vol)
-    {
-        _P86->SetLoop(loop_start, loop_end, release_start, true);
-    }
-    else
-    {
-        _P86->SetLoop(loop_start, loop_end, release_start, false);
-    }
+    _P86->SetLoop(loop_start, loop_end, release_start, _State.IsPMDB2Compatible);
 
     return si + 2;
 }
@@ -2168,7 +2145,7 @@ uint8_t * PMD::special_0c0h(Channel * qq, uint8_t * si, uint8_t al)
         case 0xfa: si = _vd_pcm(qq, si); break;
         case 0xf9: _State.rhythm_voldown = *si++; break;
         case 0xf8: si = _vd_rhythm(qq, si); break;
-        case 0xf7: _State.pcm86_vol = (*si++ & 1); break;
+        case 0xf7: _State.IsPMDB2Compatible = ((*si++ & 0x01) == 0x01); break;
         case 0xf6: _State.ppz_voldown = *si++; break;
         case 0xf5: si = _vd_ppz(qq, si); break;
         default:
@@ -3214,14 +3191,15 @@ void PMD::StartOPNInterrupt()
     ::memset(&_EffectChannel, 0, sizeof(_EffectChannel));
     ::memset(_PPZChannel, 0, sizeof(_PPZChannel));
 
-    _State.RhythmMask = 255;
+    _State.RhythmMask = 0xFF;
 
     InitializeState();
     InitializeOPN();
 
-    _OPNAW->SetReg(0x07, 0xbf);
+    _OPNAW->SetReg(0x07, 0xBF);
 
     DriverStop();
+
     InitializeInterrupt();
 
     _OPNAW->SetReg(0x29, 0x83);
@@ -3230,6 +3208,7 @@ void PMD::StartOPNInterrupt()
 void PMD::InitializeOPN()
 {
     _OPNAW->ClearBuffer();
+
     _OPNAW->SetReg(0x29, 0x83);
 
     _State.SSGNoiseFrequency = 0;
@@ -3267,7 +3246,7 @@ void PMD::InitializeOPN()
     for (int i = 0; i < 6; ++i)
         _State.rdat[i] = 0xcf;
 
-    _OPNAW->SetReg(0x10, 0xff);
+    _OPNAW->SetReg(0x10, 0xFF);
 
     // Rhythm total level set
     _State.RhythmVolume = 48 * 4 * (256 - _State.rhythm_voldown) / 1024;
@@ -3280,6 +3259,26 @@ void PMD::InitializeOPN()
 
     for (int i = 0; i < MaxPPZChannels; ++i)
         _PPZ->SetPan(i, 5);
+}
+
+//  Interrupt settings. FM tone generator only
+void PMD::InitializeInterrupt()
+{
+    // OPN interrupt initial setting
+    _State.tempo_d = 200;
+    _State.tempo_d_push = 200;
+
+    calc_tb_tempo();
+    SetTimerBTempo();
+
+    _OPNAW->SetReg(0x25, 0x00); // Timer A Set (9216μs fixed)
+    _OPNAW->SetReg(0x24, 0x00); // The slowest and just right
+    _OPNAW->SetReg(0x27, 0x3F); // Timer Enable
+
+    //　Measure counter reset
+    _State.OpsCounter = 0;
+    _State.BarCounter = 0;
+    _State.BarLength = 96;
 }
 
 void PMD::Silence()
@@ -3372,44 +3371,6 @@ void PMD::Stop()
     _Position = 0;
 }
 
-void PMD::DriverStart()
-{
-    // Set Timer B = 0 and Timer Reset (to match the length of the song every time)
-    _State.tempo_d = 0;
-
-    SetTimerBTempo();
-
-    _OPNAW->SetReg(0x27, 0x00); // Timer reset (both timer A and B)
-
-    _Driver.music_flag &= 0xFE;
-
-    DriverStop();
-
-    _SamplePtr = _SampleSrc;
-    _SamplesToDo = 0;
-    _Position = 0;
-
-    InitializeState();
-    InitializeTracks();
-
-    InitializeOPN();
-    InitializeInterrupt();
-
-    _State.IsPlaying = true;
-}
-
-void PMD::DriverStop()
-{
-    _Driver.music_flag &= 0xFD;
-
-    _State.IsPlaying = false;
-    _State.LoopCount = -1;
-    _State.FadeOutSpeed = 0;
-    _State.FadeOutVolume = 0xFF;
-
-    Silence();
-}
-
 /// <summary>
 /// Initializes the different state machines.
 /// </summary>
@@ -3445,7 +3406,8 @@ void PMD::InitializeState()
     _State.pcm_voldown = _State._pcm_voldown;
     _State.ppz_voldown = _State._ppz_voldown;
     _State.rhythm_voldown = _State._rhythm_voldown;
-    _State.pcm86_vol = _State._pcm86_vol;
+
+    _State.IsPMDB2Compatible = _State.IsPMDB2CompatibleInitialValue;
 
     for (int i = 0; i < 6; ++i)
     {
@@ -3523,27 +3485,7 @@ void PMD::InitializeState()
         _PPZChannel[i].DefaultTone = 255;
     }
 
-    _Driver.TieMode = 0;
-    _Driver.OldTimerATime = 0;
-
-    _Driver.omote_key[0] = 0;
-    _Driver.omote_key[1] = 0;
-    _Driver.omote_key[2] = 0;
-
-    _Driver.ura_key[0] = 0;
-    _Driver.ura_key[1] = 0;
-    _Driver.ura_key[2] = 0;
-
-    _Driver.fm3_alg_fb = 0;
-    _Driver.af_check = 0;
-
-    _Driver.PCMRepeat1 = 0;
-    _Driver.PCMRepeat2 = 0;
-    _Driver.PCMRelease = 0x8000;
-
-    _Driver.slotdetune_flag = 0;
-    _Driver.slot3_flag = 0;
-    _Driver.FMSelector = 0;
+    _Driver.Initialize();
 
     _Effect.PreviousNumber = 0;
 }
@@ -3654,26 +3596,6 @@ void PMD::InitializeTracks()
         if (Offsets[0] != sizeof(uint16_t) * MaxParts) // 0x0018
             _State.ToneData = _State.MData + Offsets[12];
     }
-}
-
-//  Interrupt settings. FM tone generator only
-void PMD::InitializeInterrupt()
-{
-    // OPN interrupt initial setting
-    _State.tempo_d = 200;
-    _State.tempo_d_push = 200;
-
-    calc_tb_tempo();
-    SetTimerBTempo();
-
-    _OPNAW->SetReg(0x25, 0x00); // Timer A Set (9216μs fixed)
-    _OPNAW->SetReg(0x24, 0x00); // The slowest and just right
-    _OPNAW->SetReg(0x27, 0x3f); // Timer Enable
-
-    //　Measure counter reset
-    _State.OpsCounter = 0;
-    _State.BarCounter = 0;
-    _State.BarLength = 96;
 }
 
 /// <summary>

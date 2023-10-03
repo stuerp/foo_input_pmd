@@ -15,7 +15,7 @@
 //#include "PPS.h"
 //#include "P86.h"
 
-void PMD::Main()
+void PMD::DriverMain()
 {
     int i;
 
@@ -113,4 +113,42 @@ void PMD::Main()
     }
     else
         _State.LoopCount = -1;
+}
+
+void PMD::DriverStart()
+{
+    // Set Timer B = 0 and Timer Reset (to match the length of the song every time)
+    _State.tempo_d = 0;
+
+    SetTimerBTempo();
+
+    _OPNAW->SetReg(0x27, 0x00); // Timer reset (both timer A and B)
+
+    _Driver.music_flag &= 0xFE;
+
+    DriverStop();
+
+    _SamplePtr = _SampleSrc;
+    _SamplesToDo = 0;
+    _Position = 0;
+
+    InitializeState();
+    InitializeTracks();
+
+    InitializeOPN();
+    InitializeInterrupt();
+
+    _State.IsPlaying = true;
+}
+
+void PMD::DriverStop()
+{
+    _Driver.music_flag &= 0xFD;
+
+    _State.IsPlaying = false;
+    _State.LoopCount = -1;
+    _State.FadeOutSpeed = 0;
+    _State.FadeOutVolume = 0xFF;
+
+    Silence();
 }
