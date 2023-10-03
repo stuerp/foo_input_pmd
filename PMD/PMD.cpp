@@ -24,9 +24,9 @@ PMD::PMD()
 
     _OPNAW = new OPNAW(_File);
 
-    _PPZ = new PPZ8Driver(_File);
-    _PPS  = new PPSDriver(_File);
-    _P86  = new P86Driver(_File);
+    _PPZ = new PPZDriver(_File);
+    _PPS = new PPSDriver(_File);
+    _P86 = new P86Driver(_File);
 
     Reset();
 }
@@ -41,6 +41,8 @@ PMD::~PMD()
     delete _PPZ;
 
     delete _OPNAW;
+
+    delete _File;
 }
 
 /// <summary>
@@ -69,7 +71,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     {
         _OPNAW->SetFMDelay(0);
         _OPNAW->SetSSGDelay(0);
-        _OPNAW->SetRSSDelay(0);
+        _OPNAW->SetRhythmDelay(0);
         _OPNAW->SetADPCMDelay(0);
 
         uint8_t Page[0x400]; // 0x400 * 0x100 = 0x40000(256K)
@@ -83,7 +85,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _OPNAW->SetFMVolume(0);
     _OPNAW->SetSSGVolume(-18);
     _OPNAW->SetADPCMVolume(0);
-    _OPNAW->SetRSSVolume(0);
+    _OPNAW->SetRhythmVolume(0);
 
     _PPZ->SetVolume(0);
     _PPS->SetVolume(0);
@@ -92,7 +94,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _OPNAW->SetFMDelay(DEFAULT_REG_WAIT);
     _OPNAW->SetSSGDelay(DEFAULT_REG_WAIT);
     _OPNAW->SetADPCMDelay(DEFAULT_REG_WAIT);
-    _OPNAW->SetRSSDelay(DEFAULT_REG_WAIT);
+    _OPNAW->SetRhythmDelay(DEFAULT_REG_WAIT);
 
     pcmends.Count = 0x26;
 
@@ -415,7 +417,7 @@ bool PMD::GetLength(int * songLength, int * loopLength)
     _OPNAW->SetFMDelay(0);
     _OPNAW->SetSSGDelay(0);
     _OPNAW->SetADPCMDelay(0);
-    _OPNAW->SetRSSDelay(0);
+    _OPNAW->SetRhythmDelay(0);
 
     do
     {
@@ -426,7 +428,7 @@ bool PMD::GetLength(int * songLength, int * loopLength)
             if (_OPNAW->ReadStatus() & 0x02)
                 HandleTimerB();
 
-            _OPNAW->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+            _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
 
             uint32_t us = _OPNAW->GetNextEvent();
 
@@ -449,7 +451,7 @@ bool PMD::GetLength(int * songLength, int * loopLength)
             _OPNAW->SetFMDelay(FMDelay);
             _OPNAW->SetSSGDelay(SSGDelay);
             _OPNAW->SetADPCMDelay(ADPCMDelay);
-            _OPNAW->SetRSSDelay(RSSDelay);
+            _OPNAW->SetRhythmDelay(RSSDelay);
 
             return true;
         }
@@ -471,7 +473,7 @@ bool PMD::GetLength(int * songLength, int * loopLength)
     _OPNAW->SetFMDelay(FMDelay);
     _OPNAW->SetSSGDelay(SSGDelay);
     _OPNAW->SetADPCMDelay(ADPCMDelay);
-    _OPNAW->SetRSSDelay(RSSDelay);
+    _OPNAW->SetRhythmDelay(RSSDelay);
 
     return true;
 }
@@ -494,7 +496,7 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
     _OPNAW->SetFMDelay(0);
     _OPNAW->SetSSGDelay(0);
     _OPNAW->SetADPCMDelay(0);
-    _OPNAW->SetRSSDelay(0);
+    _OPNAW->SetRhythmDelay(0);
 
     do
     {
@@ -505,7 +507,7 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
             if (_OPNAW->ReadStatus() & 0x02)
                 HandleTimerB();
 
-            _OPNAW->SetReg(0x27, _State.ch3mode | 0x30);  // Timer Reset (Both timer A and B)
+            _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30);  // Timer Reset (Both timer A and B)
 
             uint32_t us = _OPNAW->GetNextEvent();
 
@@ -528,7 +530,7 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
             _OPNAW->SetFMDelay(FMDelay);
             _OPNAW->SetSSGDelay(SSGDelay);
             _OPNAW->SetADPCMDelay(ADPCMDelay);
-            _OPNAW->SetRSSDelay(RSSDelay);
+            _OPNAW->SetRhythmDelay(RSSDelay);
 
             return true;
         }
@@ -550,7 +552,7 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
     _OPNAW->SetFMDelay(FMDelay);
     _OPNAW->SetSSGDelay(SSGDelay);
     _OPNAW->SetADPCMDelay(ADPCMDelay);
-    _OPNAW->SetRSSDelay(RSSDelay);
+    _OPNAW->SetRhythmDelay(RSSDelay);
 
     return true;
 }
@@ -590,7 +592,7 @@ void PMD::SetPosition(uint32_t position)
         if (_OPNAW->ReadStatus() & 0x02)
             HandleTimerB();
 
-        _OPNAW->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+        _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
 
         uint32_t us = _OPNAW->GetNextEvent();
 
@@ -636,7 +638,7 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
                 if (_OPNAW->ReadStatus() & 0x02)
                     HandleTimerB();
 
-                _OPNAW->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+                _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
             }
 
             uint32_t us = _OPNAW->GetNextEvent(); // in microseconds
@@ -856,7 +858,7 @@ void PMD::SetEventNumber(int eventNumber)
         if (_OPNAW->ReadStatus() & 0x02)
             HandleTimerB();
 
-        _OPNAW->SetReg(0x27, _State.ch3mode | 0x30); // Timer Reset (Both timer A and B)
+        _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
 
         uint32_t us = _OPNAW->GetNextEvent();
 
@@ -1971,7 +1973,7 @@ uint8_t * PMD::SetSlotMask(Channel * track, uint8_t * si)
     int al = *si++;
     int ah = al;
 
-    if (al &= 0x0f)
+    if (al &= 0x0F)
     {
         track->carrier = al << 4;
     }
@@ -1993,20 +1995,19 @@ uint8_t * PMD::SetSlotMask(Channel * track, uint8_t * si)
         track->carrier = carrier_table[bl & 7];
     }
 
-    ah &= 0xf0;
+    ah &= 0xF0;
 
     if (track->SlotMask != ah)
     {
         track->SlotMask = ah;
 
-        if ((ah & 0xf0) == 0)
+        if ((ah & 0xF0) == 0)
             track->PartMask |= 0x20;  // Part mask at s0
         else
             track->PartMask &= 0xDF;  // Unmask part when other than s0
 
         if (SetFMChannel3Mode(track))
         {
-            // Change process of ch3mode only for FM3ch. If it is ch3, keyon processing in the previous FM3 part
             if (track != &_FMChannel[2])
             {
                 if (_FMChannel[2].PartMask == 0x00 && (_FMChannel[2].KeyOffFlag & 1) == 0)
@@ -3436,7 +3437,7 @@ void PMD::InitializeState()
     _State.slot_detune3 = 0;
     _State.slot_detune4 = 0;
 
-    _State.ch3mode = 0x3F;
+    _State.FMChannel3Mode = 0x3F;
     _State.BarLength = 96;
 
     _State.fm_voldown = _State._fm_voldown;

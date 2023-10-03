@@ -65,7 +65,7 @@ bool OPNA::Initialize(uint32_t clock, uint32_t synthesisRate, bool useInterpolat
     SetFMVolume(0);
     SetSSGVolume(0);
     SetADPCMVolume(0);
-    SetRSSVolume(0);
+    SetRhythmVolume(0);
 
     for (int i = 0; i < _countof(_Instrument); ++i)
         SetInstrumentVolume(i, 0);
@@ -98,7 +98,7 @@ bool OPNA::SetRate(uint32_t synthesisRate)
 
 #pragma region(Volume)
 /// <summary>
-/// Sets the FM Sound Source volume, in dB.
+/// Sets the FM sound source volume, in dB.
 /// </summary>
 void OPNA::SetFMVolume(int dB)
 {
@@ -110,7 +110,7 @@ void OPNA::SetFMVolume(int dB)
 }
 
 /// <summary>
-/// Sets the SSG Sound Source (Software-Controlled Sound Generator) volume, in dB.
+/// Sets the SSG (Software-Controlled Sound Generator) sound source volume, in dB.
 /// </summary>
 void OPNA::SetSSGVolume(int dB)
 {
@@ -122,7 +122,7 @@ void OPNA::SetSSGVolume(int dB)
 }
 
 /// <summary>
-/// Sets the ADPCM Sound Source volume, in dB.
+/// Sets the ADPCM sound source volume, in dB.
 /// </summary>
 void OPNA::SetADPCMVolume(int dB)
 {
@@ -134,9 +134,9 @@ void OPNA::SetADPCMVolume(int dB)
 }
 
 /// <summary>
-/// Sets the RSS (Rhythm Sound Source) master volume, in dB.
+/// Sets the Rhythm sound source master volume, in dB.
 /// </summary>
-void OPNA::SetRSSVolume(int dB)
+void OPNA::SetRhythmVolume(int dB)
 {
     dB = (std::min)(dB, 20);
 

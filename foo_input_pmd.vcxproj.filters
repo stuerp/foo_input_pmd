@@ -27,6 +27,8 @@
     <ClInclude Include="PMD\WAVEReader.h" />
     <ClInclude Include="PMD\Effect.h" />
     <ClInclude Include="PMD\Driver.h" />
+    <ClInclude Include="PMD\Channel.h" />
+    <ClInclude Include="PMD\State.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />

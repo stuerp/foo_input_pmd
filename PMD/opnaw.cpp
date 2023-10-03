@@ -36,7 +36,7 @@ bool OPNAW::SetRate(uint32_t clock, uint32_t synthesisRate, bool useFM55kHzSynth
 {
     SetFMDelay(_FMDelay);
     SetSSGDelay(_SSGDelay);
-    SetRSSDelay(_RSSDelay);
+    SetRhythmDelay(_RSSDelay);
     SetADPCMDelay(_ADPCMDelay);
 
     _interpolation2 = useFM55kHzSynthesis;
@@ -89,7 +89,7 @@ void OPNAW::SetADPCMDelay(int ns)
 /// <summary>
 /// Sets the Rhythm delay.
 /// </summary>
-void OPNAW::SetRSSDelay(int ns)
+void OPNAW::SetRhythmDelay(int ns)
 {
     _RSSDelay      = ns;
     _RSSDelayCount = (int) (ns * _SynthesisRate / 1000000);

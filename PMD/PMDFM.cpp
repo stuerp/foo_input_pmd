@@ -477,7 +477,7 @@ void PMD::SetFMPitch(Channel * channel)
     // Portament/LFO/Detune SET
     ax += channel->porta_num + channel->detune;
 
-    if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0) && (_State.ch3mode != 0x3f))
+    if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0) && (_State.FMChannel3Mode != 0x3F))
         ch3_special(channel, ax, cx);
     else
     {
@@ -757,7 +757,7 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
     if (channel->SlotMask != 0xF0)
     {
         _Driver.slot3_flag |= al;
-        ah = 0x7f;
+        ah = 0x7F;
     }
     else
 
@@ -769,7 +769,7 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
     if ((channel->lfoswi & 1) != 0)
     {
         _Driver.slot3_flag |= al;
-        ah = 0x7f;
+        ah = 0x7F;
     }
     else
 
@@ -781,17 +781,17 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
     if (channel->lfoswi & 0x10)
     {
         _Driver.slot3_flag |= al;
-        ah = 0x7f;
+        ah = 0x7F;
     }
     else
     {
         cm_clear(&ah, &al);
     }
 
-    if ((uint32_t) ah == _State.ch3mode)
+    if ((uint32_t) ah == _State.FMChannel3Mode)
         return;
 
-    _State.ch3mode = (uint32_t) ah;
+    _State.FMChannel3Mode = (uint32_t) ah;
 
     _OPNAW->SetReg(0x27, (uint32_t) (ah & 0xCF)); // Don't reset.
 

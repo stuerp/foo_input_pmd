@@ -83,11 +83,11 @@ struct PVIHEADER
 /// Implements a driver that synthesizes up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit aside from the user's PC98 setup.
 /// It supports 2 kinds of PCM banks: .PVI and .PZI
 /// </summary>
-class PPZ8Driver
+class PPZDriver
 {
 public:
-    PPZ8Driver(File * file);
-    virtual ~PPZ8Driver();
+    PPZDriver(File * file);
+    virtual ~PPZDriver();
 
     bool Initialize(uint32_t sampleRate, bool useInterpolation);
     bool Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop);

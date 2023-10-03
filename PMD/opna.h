@@ -48,7 +48,7 @@ public:
     void SetFMVolume(int dB);
     void SetSSGVolume(int dB);
     void SetADPCMVolume(int dB);
-    void SetRSSVolume(int dB);
+    void SetRhythmVolume(int dB);
     void SetInstrumentVolume(int index, int dB);
     
     void SetReg(uint32_t addr, uint32_t value);

@@ -361,7 +361,7 @@ private:
 
     OPNAW * _OPNAW;
 
-    PPZ8Driver * _PPZ; 
+    PPZDriver * _PPZ; 
     PPSDriver * _PPS;
     P86Driver * _P86;
 

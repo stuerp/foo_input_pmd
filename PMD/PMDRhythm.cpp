@@ -325,7 +325,7 @@ uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
 // Sets Rhythm Wait after register output.
 void PMD::SetRhythmDelay(int nsec)
 {
-    _OPNAW->SetRSSDelay(nsec);
+    _OPNAW->SetRhythmDelay(nsec);
 }
 
 void PMD::SetRhythmVolumeDown(int value)

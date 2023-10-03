@@ -38,7 +38,7 @@ public:
     void SetFMDelay(int nsec);
     void SetSSGDelay(int nsec);
     void SetADPCMDelay(int nsec);
-    void SetRSSDelay(int nsec);
+    void SetRhythmDelay(int nsec);
 
     int GetFMDelay() const { return _FMDelay; }
     int GetSSGDelay() const { return _SSGDelay; }

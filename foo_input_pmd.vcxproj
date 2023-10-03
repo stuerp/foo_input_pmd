@@ -178,6 +178,7 @@
     <ClInclude Include="Configuration.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="PMDDecoder.h" />
+    <ClInclude Include="PMD\Channel.h" />
     <ClInclude Include="PMD\Driver.h" />
     <ClInclude Include="PMD\Effect.h" />
     <ClInclude Include="PMD\File.h" />
@@ -189,6 +190,7 @@
     <ClInclude Include="PMD\PPS.h" />
     <ClInclude Include="PMD\PPZ.h" />
     <ClInclude Include="PMD\RIFF.h" />
+    <ClInclude Include="PMD\State.h" />
     <ClInclude Include="PMD\Table.h" />
     <ClInclude Include="PMD\Utility.h" />
     <ClInclude Include="PMD\ymfm\ymfm.h" />
