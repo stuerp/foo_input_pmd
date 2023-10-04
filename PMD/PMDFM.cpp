@@ -410,8 +410,8 @@ void PMD::SetFMVolumeCommand(Channel * channel)
 //--------------------------------------------------------------------
 //  音量down計算
 //--------------------------------------------------------------------
-        if (_State.fm_voldown)
-            cl = ((256 - _State.fm_voldown) * cl) >> 8;
+        if (_State.FMVolumeDown)
+            cl = ((256 - _State.FMVolumeDown) * cl) >> 8;
 
         //--------------------------------------------------------------------
         //  Fadeout計算
@@ -546,21 +546,6 @@ void PMD::SetFMKeyOff(Channel * channel)
 void PMD::SetFMDelay(int nsec)
 {
     _OPNAW->SetFMDelay(nsec);
-}
-
-void PMD::SetFMVolumeDown(int value)
-{
-    _State.fm_voldown = _State._fm_voldown = value;
-}
-
-int PMD::getfmvoldown()
-{
-    return _State.fm_voldown;
-}
-
-int PMD::getfmvoldown2()
-{
-    return _State._fm_voldown;
 }
 
 // Command "p"

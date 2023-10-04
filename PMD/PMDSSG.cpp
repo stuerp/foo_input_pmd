@@ -421,7 +421,7 @@ void PMD::SetSSGVolume2(Channel * channel)
     int dl = (channel->volpush) ? channel->volpush - 1 : channel->Volume;
 
     //  音量down計算
-    dl = ((256 - _State.ssg_voldown) * dl) >> 8;
+    dl = ((256 - _State.SSGVolumeDown) * dl) >> 8;
 
     //  Fadeout計算
     dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
@@ -598,21 +598,6 @@ void PMD::SetSSGKeyOff(Channel * channel)
 void PMD::SetSSGDelay(int nsec)
 {
     _OPNAW->SetSSGDelay(nsec);
-}
-
-void PMD::SetSSGVolumeDown(int value)
-{
-    _State.ssg_voldown = _State._ssg_voldown = value;
-}
-
-int PMD::getssgvoldown()
-{
-    return _State.ssg_voldown;
-}
-
-int PMD::getssgvoldown2()
-{
-    return _State._ssg_voldown;
 }
 
 // Command "v": Sets the SSG volume.

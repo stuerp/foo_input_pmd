@@ -282,14 +282,13 @@ uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
         }
     }
 
-    if (_State.FadeOutVolume)
+    if (_State.FadeOutVolume != 0)
     {
         if (_State.UseRhythm)
         {
             int dl = _State.RhythmVolume;
 
-            if (_State.FadeOutVolume)
-                dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
+            dl = ((256 - _State.FadeOutVolume) * _State.RhythmVolume) >> 8;
 
             _OPNAW->SetReg(0x11, (uint32_t) dl);
         }
@@ -326,24 +325,6 @@ uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
 void PMD::SetRhythmDelay(int nsec)
 {
     _OPNAW->SetRhythmDelay(nsec);
-}
-
-void PMD::SetRhythmVolumeDown(int value)
-{
-    _State.rhythm_voldown = _State._rhythm_voldown = value;
-    _State.RhythmVolume   = 48 * 4 * (256 - _State.rhythm_voldown) / 1024;
-
-    _OPNAW->SetReg(0x11, (uint32_t) _State.RhythmVolume);
-}
-
-int PMD::getrhythmvoldown()
-{
-    return _State.rhythm_voldown;
-}
-
-int PMD::getrhythmvoldown2()
-{
-    return _State._rhythm_voldown;
 }
 
 //  Command "\?" / "\?p"
@@ -404,8 +385,8 @@ uint8_t * PMD::SetRhythmMasterVolumeCommand(uint8_t * si)
 {
     int dl = *si++;
 
-    if (_State.rhythm_voldown != 0)
-        dl = ((256 - _State.rhythm_voldown) * dl) >> 8;
+    if (_State.RhythmVolumeDown != 0)
+        dl = ((256 - _State.RhythmVolumeDown) * dl) >> 8;
 
     _State.RhythmVolume = dl;
 

@@ -236,9 +236,7 @@ uint32_t PMDDecoder::GetLoopNumber() const noexcept
 /// <returns></returns>
 bool PMDDecoder::IsBusy() const noexcept
 {
-    State * State = _PMD->GetState();
-
-    return State->IsPlaying;
+    return _PMD->IsPlaying();
 }
 
 /// <summary>

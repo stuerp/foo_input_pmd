@@ -389,7 +389,7 @@ void PMD::SetPPZVolume(Channel * channel)
     int al = channel->volpush ? channel->volpush : channel->Volume;
 
     //  音量down計算
-    al = ((256 - _State.ppz_voldown) * al) >> 8;
+    al = ((256 - _State.PPZVolumeDown) * al) >> 8;
 
     //  Fadeout計算
     if (_State.FadeOutVolume != 0)
@@ -523,21 +523,6 @@ void PMD::SetPPZKeyOff(Channel * channel)
     }
 
     SetSSGKeyOff(channel);
-}
-
-void PMD::SetPPZVolumenDown(int value)
-{
-    _State.ppz_voldown = _State._ppz_voldown = value;
-}
-
-int PMD::getppzvoldown()
-{
-    return _State.ppz_voldown;
-}
-
-int PMD::getppzvoldown2()
-{
-    return _State._ppz_voldown;
 }
 
 uint8_t * PMD::SetPPZPortamento(Channel * channel, uint8_t * si)

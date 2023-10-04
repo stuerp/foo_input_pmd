@@ -155,7 +155,7 @@ void PMD::Reset()
     // Initialize OPEN_WORK.
     _State.OPNARate = SOUND_44K;
     _State.PPZRate = SOUND_44K;
-    _State.RhythmVolume = 0x3c;
+
     _State.fade_stop_flag = 0;
     _State.IsTimerBBusy = false;
 
@@ -169,53 +169,47 @@ void PMD::Reset()
     _State.UseInterpolationP86 = false;
     _State.UseInterpolationPPS = false;
 
-    // Initialize variables.
-    _State.Channel[ 0] = &_FMChannel[0];
-    _State.Channel[ 1] = &_FMChannel[1];
-    _State.Channel[ 2] = &_FMChannel[2];
-    _State.Channel[ 3] = &_FMChannel[3];
-    _State.Channel[ 4] = &_FMChannel[4];
-    _State.Channel[ 5] = &_FMChannel[5];
+    {
+        _State.Channel[ 0] = &_FMChannel[0];
+        _State.Channel[ 1] = &_FMChannel[1];
+        _State.Channel[ 2] = &_FMChannel[2];
+        _State.Channel[ 3] = &_FMChannel[3];
+        _State.Channel[ 4] = &_FMChannel[4];
+        _State.Channel[ 5] = &_FMChannel[5];
 
-    _State.Channel[ 6] = &_SSGChannel[0];
-    _State.Channel[ 7] = &_SSGChannel[1];
-    _State.Channel[ 8] = &_SSGChannel[2];
+        _State.Channel[ 6] = &_SSGChannel[0];
+        _State.Channel[ 7] = &_SSGChannel[1];
+        _State.Channel[ 8] = &_SSGChannel[2];
 
-    _State.Channel[ 9] = &_ADPCMChannel;
+        _State.Channel[ 9] = &_ADPCMChannel;
 
-    _State.Channel[10] = &_RhythmChannel;
+        _State.Channel[10] = &_RhythmChannel;
 
-    _State.Channel[11] = &_FMExtensionChannel[0];
-    _State.Channel[12] = &_FMExtensionChannel[1];
-    _State.Channel[13] = &_FMExtensionChannel[2];
+        _State.Channel[11] = &_FMExtensionChannel[0];
+        _State.Channel[12] = &_FMExtensionChannel[1];
+        _State.Channel[13] = &_FMExtensionChannel[2];
 
-    _State.Channel[14] = &_DummyChannel; // Unused
-    _State.Channel[15] = &_EffectChannel;
+        _State.Channel[14] = &_DummyChannel; // Unused
+        _State.Channel[15] = &_EffectChannel;
 
-    _State.Channel[16] = &_PPZChannel[0];
-    _State.Channel[17] = &_PPZChannel[1];
-    _State.Channel[18] = &_PPZChannel[2];
-    _State.Channel[19] = &_PPZChannel[3];
-    _State.Channel[20] = &_PPZChannel[4];
-    _State.Channel[21] = &_PPZChannel[5];
-    _State.Channel[22] = &_PPZChannel[6];
-    _State.Channel[23] = &_PPZChannel[7];
+        _State.Channel[16] = &_PPZChannel[0];
+        _State.Channel[17] = &_PPZChannel[1];
+        _State.Channel[18] = &_PPZChannel[2];
+        _State.Channel[19] = &_PPZChannel[3];
+        _State.Channel[20] = &_PPZChannel[4];
+        _State.Channel[21] = &_PPZChannel[5];
+        _State.Channel[22] = &_PPZChannel[6];
+        _State.Channel[23] = &_PPZChannel[7];
+    }
 
-    _State.fm_voldown = fmvd_init;   // FM_VOLDOWN
-    _State._fm_voldown = fmvd_init;  // FM_VOLDOWN
+    SetFMVolumeDown(fmvd_init);
+    SetSSGVolumeDown(0);
+    SetADPCMVolumeDown(0);
+    _State.RhythmVolumeDown = 0;       // RHYTHM_VOLDOWN
+    _State.DefaultRhythmVolumeDown = 0;      // RHYTHM_VOLDOWN
+    SetPPZVolumeDown(0);
 
-    _State.ssg_voldown = 0;          // SSG_VOLDOWN
-    _State._ssg_voldown = 0;         // SSG_VOLDOWN
-
-    _State.pcm_voldown = 0;          // PCM_VOLDOWN
-    _State._pcm_voldown = 0;         // PCM_VOLDOWN
-
-    _State.ppz_voldown = 0;          // PPZ_VOLDOWN
-    _State._ppz_voldown = 0;         // PPZ_VOLDOWN
-
-    _State.rhythm_voldown = 0;       // RHYTHM_VOLDOWN
-    _State._rhythm_voldown = 0;      // RHYTHM_VOLDOWN
-
+    _State.RhythmVolume = 0x3C;
     _State.UseRhythm = false;        // Use the Rhythm sound source
 
     _State.rshot_bd = 0;             // Rhythm Sound Source shot inc flag (BD)
@@ -933,7 +927,7 @@ int PMD::DisableChannel(int channel)
 
     int OldFMSelector = _Driver.FMSelector;
 
-    if ((_State.Channel[channel]->PartMask == 0x00) && _State.IsPlaying)
+    if ((_State.Channel[channel]->PartMask == 0x00) && IsPlaying())
     {
         if (ChannelTable[channel][2] == 0)
         {
@@ -1007,7 +1001,7 @@ int PMD::EnableChannel(int channel)
     if ((_State.Channel[channel]->PartMask &= 0xFE) != 0)
         return ERR_EFFECT_USED;
 
-    if (!_State.IsPlaying)
+    if (!IsPlaying())
         return ERR_MUSIC_STOPPED;
 
     int OldFMSelector = _Driver.FMSelector;
@@ -1235,7 +1229,7 @@ void PMD::HandleTimerB()
             DriverStop();
     }
 
-    if (_State.IsPlaying)
+    if (IsPlaying())
     {
         DriverMain();
 
@@ -1524,7 +1518,7 @@ uint8_t * PMD::pcmrepeat_set8(Channel *, uint8_t * si)
 
     release_start = *(int16_t *) si;
 
-    _P86->SetLoop(loop_start, loop_end, release_start, _State.IsPMDB2Compatible);
+    _P86->SetLoop(loop_start, loop_end, release_start, _State.PMDB2CompatibilityMode);
 
     return si + 2;
 }
@@ -2137,16 +2131,19 @@ uint8_t * PMD::special_0c0h(Channel * qq, uint8_t * si, uint8_t al)
 {
     switch (al)
     {
-        case 0xff: _State.fm_voldown = *si++; break;
+        case 0xff: _State.FMVolumeDown = *si++; break;
         case 0xfe: si = _vd_fm(qq, si); break;
-        case 0xfd: _State.ssg_voldown = *si++; break;
+        case 0xfd: _State.SSGVolumeDown = *si++; break;
         case 0xfc: si = _vd_ssg(qq, si); break;
-        case 0xfb: _State.pcm_voldown = *si++; break;
+        case 0xfb: _State.ADPCMVolumeDown = *si++; break;
         case 0xfa: si = _vd_pcm(qq, si); break;
-        case 0xf9: _State.rhythm_voldown = *si++; break;
+        case 0xf9: _State.RhythmVolumeDown = *si++; break;
         case 0xf8: si = _vd_rhythm(qq, si); break;
-        case 0xf7: _State.IsPMDB2Compatible = ((*si++ & 0x01) == 0x01); break;
-        case 0xf6: _State.ppz_voldown = *si++; break;
+        case 0xf7: _State.PMDB2CompatibilityMode = ((*si++ & 0x01) == 0x01); break;
+        case 0xf6:
+            _State.PPZVolumeDown = *si++;
+            break;
+
         case 0xf5: si = _vd_ppz(qq, si); break;
         default:
             si--;
@@ -2160,9 +2157,9 @@ uint8_t * PMD::_vd_fm(Channel *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _State.fm_voldown = Limit(al + _State.fm_voldown, 255, 0);
+        _State.FMVolumeDown = Limit(al + _State.FMVolumeDown, 255, 0);
     else
-        _State.fm_voldown = _State._fm_voldown;
+        _State.FMVolumeDown = _State.DefaultFMVolumeDown;
 
     return si;
 }
@@ -2172,9 +2169,9 @@ uint8_t * PMD::_vd_ssg(Channel *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _State.ssg_voldown = Limit(al + _State.ssg_voldown, 255, 0);
+        _State.SSGVolumeDown = Limit(al + _State.SSGVolumeDown, 255, 0);
     else
-        _State.ssg_voldown = _State._ssg_voldown;
+        _State.SSGVolumeDown = _State.DefaultSSGVolumeDown;
 
     return si;
 }
@@ -2183,10 +2180,10 @@ uint8_t * PMD::_vd_pcm(Channel *, uint8_t * si)
 {
     int  al = *(int8_t *) si++;
 
-    if (al)
-        _State.pcm_voldown = Limit(al + _State.pcm_voldown, 255, 0);
+    if (al != 0)
+        _State.ADPCMVolumeDown = Limit(al + _State.ADPCMVolumeDown, 255, 0);
     else
-        _State.pcm_voldown = _State._pcm_voldown;
+        _State.ADPCMVolumeDown = _State.DefaultADPCMVolumeDown;
 
     return si;
 }
@@ -2196,9 +2193,9 @@ uint8_t * PMD::_vd_rhythm(Channel *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _State.rhythm_voldown = Limit(al + _State.rhythm_voldown, 255, 0);
+        _State.RhythmVolumeDown = Limit(al + _State.RhythmVolumeDown, 255, 0);
     else
-        _State.rhythm_voldown = _State._rhythm_voldown;
+        _State.RhythmVolumeDown = _State.DefaultRhythmVolumeDown;
 
     return si;
 }
@@ -2208,9 +2205,9 @@ uint8_t * PMD::_vd_ppz(Channel *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _State.ppz_voldown = Limit(al + _State.ppz_voldown, 255, 0);
+        _State.PPZVolumeDown = Limit(al + _State.PPZVolumeDown, 255, 0);
     else
-        _State.ppz_voldown = _State._ppz_voldown;
+        _State.PPZVolumeDown = _State.DefaultPPZVolumeDown;
 
     return si;
 }
@@ -2886,12 +2883,7 @@ uint8_t * PMD::rmsvs_sft(uint8_t * si)
     int dl = _State.RhythmVolume + *(int8_t *) si++;
 
     if (dl >= 64)
-    {
-        if (dl & 0x80)
-            dl = 0;
-        else
-            dl = 63;
-    }
+        dl = (dl & 0x80) ? 0 : 63;
 
     _State.RhythmVolume = dl;
 
@@ -3248,8 +3240,8 @@ void PMD::InitializeOPN()
 
     _OPNAW->SetReg(0x10, 0xFF);
 
-    // Rhythm total level set
-    _State.RhythmVolume = 48 * 4 * (256 - _State.rhythm_voldown) / 1024;
+    // Set the Rhythm volume.
+    _State.RhythmVolume = 48 * 4 * (256 - _State.RhythmVolumeDown) / 1024;
 
     _OPNAW->SetReg(0x11, (uint32_t) _State.RhythmVolume);
 
@@ -3401,13 +3393,13 @@ void PMD::InitializeState()
     _State.FMChannel3Mode = 0x3F;
     _State.BarLength = 96;
 
-    _State.fm_voldown = _State._fm_voldown;
-    _State.ssg_voldown = _State._ssg_voldown;
-    _State.pcm_voldown = _State._pcm_voldown;
-    _State.ppz_voldown = _State._ppz_voldown;
-    _State.rhythm_voldown = _State._rhythm_voldown;
+    _State.FMVolumeDown = _State.DefaultFMVolumeDown;
+    _State.SSGVolumeDown = _State.DefaultSSGVolumeDown;
+    _State.ADPCMVolumeDown = _State.DefaultADPCMVolumeDown;
+    _State.PPZVolumeDown = _State.DefaultPPZVolumeDown;
+    _State.RhythmVolumeDown = _State.DefaultRhythmVolumeDown;
 
-    _State.IsPMDB2Compatible = _State.IsPMDB2CompatibleInitialValue;
+    _State.PMDB2CompatibilityMode = _State.DefaultPMDB2CompatibilityMode;
 
     for (int i = 0; i < 6; ++i)
     {
@@ -3880,7 +3872,7 @@ void PMD::Fade()
 
     if (_State.FadeOutSpeed > 0)
     {
-        if (_State.FadeOutSpeed + _State.FadeOutVolume < 256)
+        if ((_State.FadeOutVolume + _State.FadeOutSpeed) < 256)
         {
             _State.FadeOutVolume += _State.FadeOutSpeed;
         }
@@ -3895,14 +3887,14 @@ void PMD::Fade()
     }
     else
     {   // Fade in
-        if (_State.FadeOutSpeed + _State.FadeOutVolume > 255)
+        if ((_State.FadeOutVolume + _State.FadeOutSpeed) > 255)
         {
             _State.FadeOutVolume += _State.FadeOutSpeed;
         }
         else
         {
             _State.FadeOutVolume = 0;
-            _State.FadeOutSpeed = 0;
+            _State.FadeOutSpeed  = 0;
 
             _OPNAW->SetReg(0x11, (uint32_t) _State.RhythmVolume);
         }

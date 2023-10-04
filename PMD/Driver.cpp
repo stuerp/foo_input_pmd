@@ -138,14 +138,14 @@ void PMD::DriverStart()
     InitializeOPN();
     InitializeInterrupt();
 
-    _State.IsPlaying = true;
+    _IsPlaying = true;
 }
 
 void PMD::DriverStop()
 {
     _Driver.music_flag &= 0xFD;
 
-    _State.IsPlaying = false;
+    _IsPlaying = false;
     _State.LoopCount = -1;
     _State.FadeOutSpeed = 0;
     _State.FadeOutVolume = 0xFF;

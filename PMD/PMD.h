@@ -88,29 +88,20 @@ public:
     void SetEventNumber(int pos);
     int GetEventNumber();
 
-    WCHAR * GetPCMFileName(WCHAR * dest);
-    WCHAR * GetPPZFileName(WCHAR * dest, int bufnum);
+    WCHAR * GetPCMFileName(WCHAR * fileName);
+    WCHAR * GetPPZFileName(WCHAR * fileName, int bufnum);
 
     void UsePPS(bool value) noexcept;
     void UseRhythm(bool value) noexcept;
 
-    bool HasADPCMROM() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasADPCMROM(); }
-    bool HasPercussionSamples() const noexcept { return (_OPNAW != nullptr) && _OPNAW->HasPercussionSamples(); }
-
-    /// <summary>
-    /// Enables or disables PMDB2.COM compatibility.
-    /// </summary>
-    void SetPMDB2CompatibilityMode(bool value)
+    bool HasADPCMROM() const noexcept
     {
-        _State.IsPMDB2Compatible = _State.IsPMDB2CompatibleInitialValue = value;
+        return (_OPNAW != nullptr) && _OPNAW->HasADPCMROM();
     }
 
-    /// <summary>
-    /// Returns true if PMD86's PCM is compatible with PMDB2.COM (For songs targetting the Speakboard or compatible sound board which has a YM2608 with ADPCM functionality enabled)
-    /// </summary>
-    bool GetPMDB2CompatibilityMode() const noexcept
+    bool HasPercussionSamples() const noexcept
     {
-        return _State.IsPMDB2Compatible;
+        return (_OPNAW != nullptr) && _OPNAW->HasPercussionSamples();
     }
 
     void SetPPSInterpolation(bool ip);
@@ -119,22 +110,100 @@ public:
     int DisableChannel(int ch);
     int EnableChannel(int ch);
 
-    void SetFMVolumeDown(int voldown);
-    void SetSSGVolumeDown(int voldown);
-    void SetADPCMVolumeDown(int voldown);
-    void SetRhythmVolumeDown(int voldown);
-    void SetPPZVolumenDown(int voldown);
+    void SetFMVolumeDown(int value)
+    {
+        _State.FMVolumeDown = _State.DefaultFMVolumeDown = value;
+    }
 
-    int getfmvoldown();
-    int getfmvoldown2();
-    int getssgvoldown();
-    int getssgvoldown2();
-    int getrhythmvoldown();
-    int getrhythmvoldown2();
-    int getadpcmvoldown();
-    int getadpcmvoldown2();
-    int getppzvoldown();
-    int getppzvoldown2();
+    int GetFMVolumeDown() const noexcept
+    {
+        return _State.FMVolumeDown;
+    }
+
+    int GetDefaultFMVolumeDown() const noexcept
+    {
+        return _State.DefaultFMVolumeDown;
+    }
+
+    void SetSSGVolumeDown(int value)
+    {
+        _State.SSGVolumeDown = _State.DefaultSSGVolumeDown = value;
+    }
+
+    int GetSSGVolumeDown()
+    {
+        return _State.SSGVolumeDown;
+    }
+
+    int GetDefaultSSGVolumeDown()
+    {
+        return _State.DefaultSSGVolumeDown;
+    }
+
+    void SetADPCMVolumeDown(int value)
+    {
+        _State.ADPCMVolumeDown = _State.DefaultADPCMVolumeDown = value;
+    }
+
+    int GetADPCMVolumeDown() const noexcept
+    {
+        return _State.ADPCMVolumeDown;
+    }
+
+    int GetDefaultADPCMVolumeDown() const noexcept
+    {
+        return _State.DefaultADPCMVolumeDown;
+    }
+
+    void SetRhythmVolumeDown(int value)
+    {
+        _State.RhythmVolumeDown = _State.DefaultRhythmVolumeDown = value;
+
+        _State.RhythmVolume = 48 * 4 * (256 - _State.RhythmVolumeDown) / 1024;
+
+        _OPNAW->SetReg(0x11, (uint32_t) _State.RhythmVolume);
+    }
+
+    int GetRhythmVolumeDown() const noexcept
+    {
+        return _State.RhythmVolumeDown;
+    }
+
+    int GetDefaultRhythmVolumeDown() const noexcept
+    {
+        return _State.DefaultRhythmVolumeDown;
+    }
+
+    void SetPPZVolumeDown(int value)
+    {
+        _State.PPZVolumeDown = _State.DefaultPPZVolumeDown = value;
+    }
+
+    int GetPPZVolumeDown() const noexcept
+    {
+        return _State.PPZVolumeDown;
+    }
+
+    int GetDefaultPPZVolumeDown() const noexcept
+    {
+        return _State.DefaultPPZVolumeDown;
+    }
+
+    /// <summary>
+    /// Enables or disables PMDB2.COM compatibility.
+    /// </summary>
+    void SetPMDB2CompatibilityMode(bool value)
+    {
+        _State.PMDB2CompatibilityMode = _State.DefaultPMDB2CompatibilityMode = value;
+    }
+
+    /// <summary>
+    /// Returns true if PMD86's PCM is compatible with PMDB2.COM (For songs targetting the Speakboard or compatible sound board which has a YM2608 with ADPCM functionality enabled)
+    /// </summary>
+    bool GetPMDB2CompatibilityMode() const noexcept
+    {
+        return _State.PMDB2CompatibilityMode;
+    }
 
     bool GetMemo(const uint8_t * data, size_t size, int al, char * text, size_t textSize);
 
@@ -143,7 +212,11 @@ public:
     int LoadP86(const WCHAR * filePath);
     int LoadPPZ(const WCHAR * filePath, int bufnum);
 
-    State * GetState() { return &_State; }
+    bool IsPlaying() const noexcept
+    {
+        return _IsPlaying;
+    }
+
     Channel * GetChannel(int ch);
 
 private:
@@ -397,16 +470,21 @@ private:
     Stereo32bit _SampleDst[MaxSamples];
     Stereo32bit _SampleTmp[MaxSamples];
 
+    uint8_t _MData[MAX_MDATA_SIZE * 1024];
+    uint8_t _VData[MAX_VDATA_SIZE * 1024];
+    uint8_t _EData[MAX_EDATA_SIZE * 1024];
+    PCMEnds pcmends;
+
+    #pragma region(Dynamic Settings)
+
+    bool _IsPlaying;
+
     Stereo16bit * _SamplePtr;
     size_t _SamplesToDo;
 
     int64_t _Position;          // Time from start of playing (in μs)
     int64_t _FadeOutPosition;   // SetFadeOutDurationHQ start time
     int _Seed;                  // Random seed
-
-    uint8_t _MData[MAX_MDATA_SIZE * 1024];
-    uint8_t _VData[MAX_VDATA_SIZE * 1024];
-    uint8_t _EData[MAX_EDATA_SIZE * 1024];
-    PCMEnds pcmends;
+    #pragma endregion
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member

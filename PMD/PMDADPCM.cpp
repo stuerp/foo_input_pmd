@@ -403,7 +403,7 @@ void PMD::SetADPCMVolumeCommand(Channel * channel)
     int al = channel->volpush ? channel->volpush : channel->Volume;
 
     //  音量down計算
-    al = ((256 - _State.pcm_voldown) * al) >> 8;
+    al = ((256 - _State.ADPCMVolumeDown) * al) >> 8;
 
     //  Fadeout計算
     if (_State.FadeOutVolume)
@@ -586,21 +586,6 @@ void PMD::SetADPCMKeyOff(Channel * channel)
 void PMD::SetADPCMDelay(int nsec)
 {
     _OPNAW->SetADPCMDelay(nsec);
-}
-
-void PMD::SetADPCMVolumeDown(int value)
-{
-    _State.pcm_voldown = _State._pcm_voldown = value;
-}
-
-int PMD::getadpcmvoldown()
-{
-    return _State.pcm_voldown;
-}
-
-int PMD::getadpcmvoldown2()
-{
-    return _State._pcm_voldown;
 }
 
 // Command "p"
