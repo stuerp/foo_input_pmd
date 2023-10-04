@@ -34,7 +34,7 @@ public:
     uint8_t * EData;            // FM Effect data
 
     uint8_t * RhythmData;
-    uint8_t * ToneData;         // Tone data, if any
+    uint8_t * InstrumentDefinitions;    // Address of the FM instrument definitions, if any.
 
     uint8_t DummyRhythmData;
 

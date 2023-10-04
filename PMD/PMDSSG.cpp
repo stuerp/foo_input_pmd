@@ -107,7 +107,7 @@ void PMD::SSGMain(Channel * channel)
                         channel->fnum = 0;      // Set to "rest".
                         channel->Tone = 255;
                         channel->Length = *si++;
-                        channel->keyon_flag++;
+                        channel->KeyOnFlag++;
                         channel->Data = si;
 
                         if (--_Driver.volpush_flag)
@@ -123,6 +123,7 @@ void PMD::SSGMain(Channel * channel)
                 SetSSGTone(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
+
                 si = CalculateQ(channel, si);
 
                 if (channel->volpush && channel->Tone != 255)
@@ -138,15 +139,14 @@ void PMD::SSGMain(Channel * channel)
                 SetSSGPitch(channel);
                 SetSSGKeyOn(channel);
 
-                channel->keyon_flag++;
+                channel->KeyOnFlag++;
                 channel->Data = si;
 
                 _Driver.TieMode = 0;
                 _Driver.volpush_flag = 0;
-                channel->KeyOffFlag = 0;
 
-                if (*si == 0xfb)
-                    channel->KeyOffFlag = 2; // If "&" command is immediately followed, SetFMKeyOff is not performed.
+                // Don't perform Key Off if a "&" command (Tie) follows immediately.
+                channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
 
                 _Driver.loop_work &= channel->loopcheck;
 
@@ -211,15 +211,30 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
     switch (al)
     {
         case 0xff: si++; break;
-        case 0xfe: channel->qdata = *si++; channel->qdat3 = 0; break;
-        case 0xfd: channel->Volume = *si++; break;
-        case 0xfc: si = ChangeTempoCommand(si); break;
 
-        case 0xfb:
+        case 0xfe:
+            channel->qdata = *si++;
+            channel->qdat3 = 0;
+            break;
+
+        case 0xfd:
+            channel->Volume = *si++;
+            break;
+
+        case 0xfc:
+            si = ChangeTempoCommand(si);
+            break;
+
+        // Command "&": Tie notes together.
+        case 0xFB:
             _Driver.TieMode |= 1;
             break;
 
-        case 0xfa: channel->detune = *(int16_t *) si; si += 2; break;
+        case 0xfa:
+            channel->DetuneValue = *(int16_t *) si;
+            si += 2;
+            break;
+
         case 0xf9: si = SetStartOfLoopCommand(channel, si); break;
         case 0xf8: si = SetEndOfLoopCommand(channel, si); break;
         case 0xf7: si = ExitLoopCommand(channel, si); break;
@@ -242,8 +257,8 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
         case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
         case 0xe7: channel->shift += *(int8_t *) si++; break;
-        case 0xe6: si = rmsvs_sft(si); break;
-        case 0xe5: si = rhyvs_sft(si); break;
+        case 0xe6: si = SetRhythmVolume(si); break;
+        case 0xe5: si = SetRhythmPanValue(si); break;
 
         case 0xe4: si++; break;
 
@@ -259,7 +274,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xde: si = SetSSGVolumeCommand(channel, si); break;
-        case 0xdd: si = DecreaseSoundSourceVolumeCommand(channel, si); break;
+        case 0xdd: si = DecreaseVolumeCommand(channel, si); break;
 
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -270,8 +285,15 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
         case 0xd8: si++; break;
         case 0xd7: si++; break;
 
-        case 0xd6: channel->mdspd = channel->mdspd2 = *si++; channel->mdepth = *(int8_t *) si++; break;
-        case 0xd5: channel->detune += *(int16_t *) si; si += 2; break;
+        case 0xd6:
+            channel->MDepthSpeedA = channel->MDepthSpeedB = *si++;
+            channel->MDepth = *(int8_t *) si++;
+            break;
+
+        case 0xd5:
+            channel->DetuneValue += *(int16_t *) si;
+            si += 2;
+            break;
 
         case 0xd4: si = SetSSGEffect(channel, si); break;
         case 0xd3: si = SetFMEffect(channel, si); break;
@@ -296,7 +318,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xc9:
-            channel->extendmode = (channel->extendmode & 0xfb) | ((*si++ & 1) << 2);
+            channel->extendmode = (channel->extendmode & 0xFB) | ((*si++ & 1) << 2);
             break;
 
         case 0xc8: si += 3; break;
@@ -330,8 +352,8 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
         case 0xbd:
             SwapLFO(channel);
 
-            channel->mdspd = channel->mdspd2 = *si++;
-            channel->mdepth = *(int8_t *) si++;
+            channel->MDepthSpeedA = channel->MDepthSpeedB = *si++;
+            channel->MDepth = *(int8_t *) si++;
 
             SwapLFO(channel);
             break;
@@ -366,7 +388,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xb8: si += 2; break;
-        case 0xb7: si = mdepth_count(channel, si); break;
+        case 0xb7: si = SetMDepthCountCommand(channel, si); break;
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
         case 0xb4: si += 16; break;
@@ -458,7 +480,7 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
         channel->fnum = 0;    // Set to "rest"
         channel->Tone = 255;
         channel->Length = *(si + 2);
-        channel->keyon_flag++;
+        channel->KeyOnFlag++;
         channel->Data = si + 3;
 
         if (--_Driver.volpush_flag)
@@ -506,15 +528,14 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
     SetSSGPitch(channel);
     SetSSGKeyOn(channel);
 
-    channel->keyon_flag++;
+    channel->KeyOnFlag++;
     channel->Data = si;
 
     _Driver.TieMode = 0;
     _Driver.volpush_flag = 0;
-    channel->KeyOffFlag = 0;
 
-    if (*si == 0xfb) // If there is '&' immediately after, SetFMKeyOff will not be done.
-        channel->KeyOffFlag = 2;
+    // Don't perform Key Off if a "&" command (Tie) follows immediately.
+    channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
 
     _Driver.loop_work &= channel->loopcheck;
 
@@ -729,7 +750,7 @@ void PMD::SetSSGPitch(Channel * channel)
     // SSG Detune/LFO set
     if ((channel->extendmode & 1) == 0)
     {
-        ax -= channel->detune;
+        ax -= channel->DetuneValue;
 
         if (channel->lfoswi & 1)
             ax -= channel->lfodat;
@@ -740,9 +761,9 @@ void PMD::SetSSGPitch(Channel * channel)
     else
     {
         // 拡張DETUNE(DETUNE)の計算
-        if (channel->detune)
+        if (channel->DetuneValue)
         {
-            dx = (ax * channel->detune) >> 12;    // dx:ax=ax * qq->detune
+            dx = (ax * channel->DetuneValue) >> 12;    // dx:ax=ax * qq->detune
 
             if (dx >= 0)
                 dx++;

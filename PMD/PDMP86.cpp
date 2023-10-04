@@ -87,7 +87,7 @@ void PMD::PCM86Main(Channel * channel)
                 //  channel->DefaultTone = 0xFF;
 
                     channel->Length = *si++;
-                    channel->keyon_flag++;
+                    channel->KeyOnFlag++;
                     channel->Data = si;
 
                     if (--_Driver.volpush_flag)
@@ -119,16 +119,14 @@ void PMD::PCM86Main(Channel * channel)
                 if (channel->KeyOffFlag & 0x01)
                     SetP86KeyOn(channel);
 
-                channel->keyon_flag++;
+                channel->KeyOnFlag++;
                 channel->Data = si;
 
                 _Driver.TieMode = 0;
                 _Driver.volpush_flag = 0;
 
-                if (*si == 0xFB)
-                    channel->KeyOffFlag = 0x02; // If '&' command (Tie) is immediately followed, Key Off is not performed.
-                else
-                    channel->KeyOffFlag = 0x00;
+                // Don't perform Key Off if a "&" command (Tie) follows immediately.
+                channel->KeyOffFlag = (*si == 0xFB) ? 0x02: 0x00;
 
                 _Driver.loop_work &= channel->loopcheck;
 
@@ -184,15 +182,32 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
 
     switch (al)
     {
-        case 0xff: si = comat8(channel, si); break;
-        case 0xfe: channel->qdata = *si++; break;
-        case 0xfd: channel->Volume = *si++; break;
-        case 0xfc: si = ChangeTempoCommand(si); break;
-        case 0xfb:
+        case 0xff:
+            si = SetP86Instrument(channel, si);
+            break;
+
+        case 0xfe:
+            channel->qdata = *si++;
+            break;
+
+        case 0xfd:
+            channel->Volume = *si++;
+            break;
+
+        case 0xfc:
+            si = ChangeTempoCommand(si);
+            break;
+
+        // Command "&": Tie notes together.
+        case 0xFB:
             _Driver.TieMode |= 1;
             break;
 
-        case 0xfa: channel->detune = *(int16_t *) si; si += 2; break;
+        case 0xfa:
+            channel->DetuneValue = *(int16_t *) si;
+            si += 2;
+            break;
+
         case 0xf9: si = SetStartOfLoopCommand(channel, si); break;
         case 0xf8: si = SetEndOfLoopCommand(channel, si); break;
         case 0xf7: si = ExitLoopCommand(channel, si); break;
@@ -230,8 +245,8 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
         case 0xe7: channel->shift += *(int8_t *) si++; break;
-        case 0xe6: si = rmsvs_sft(si); break;
-        case 0xe5: si = rhyvs_sft(si); break;
+        case 0xe6: si = SetRhythmVolume(si); break;
+        case 0xe5: si = SetRhythmPanValue(si); break;
 
         case 0xe4: si++; break;
 
@@ -256,8 +271,9 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xe1: si++; break;
         case 0xe0: si++; break;
 
+        // Command "Z number"
         case 0xdf:
-            _State.BarLength = *si++; // Command "Z number"
+            _State.BarLength = *si++;
             break;
 
         case 0xde:
@@ -265,7 +281,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
             break;
 
         case 0xdd:
-            si = DecreaseSoundSourceVolumeCommand(channel, si);
+            si = DecreaseVolumeCommand(channel, si);
             break;
 
         case 0xdc: _State.status = *si++; break;
@@ -277,13 +293,14 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xd8: si++; break;
         case 0xd7: si++; break;
 
+        // Command "MD", "MDA", "MDB": Set LFO Depth Temporal Change
         case 0xd6:
-            channel->mdspd = channel->mdspd2 = *si++;
-            channel->mdepth = *(int8_t *) si++;
+            channel->MDepthSpeedA = channel->MDepthSpeedB = *si++;
+            channel->MDepth = *(int8_t *) si++;
             break;
 
         case 0xd5:
-            channel->detune += *(int16_t *) si;
+            channel->DetuneValue += *(int16_t *) si;
             si += 2;
             break;
 
@@ -308,7 +325,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
             break;
 
         case 0xc9:
-            channel->extendmode = (channel->extendmode & 0xfb) | ((*si++ & 1) << 2);
+            channel->extendmode = (channel->extendmode & 0xFB) | ((*si++ & 1) << 2);
             break;
 
         case 0xc8: si += 3; break;
@@ -343,7 +360,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xb9: si++; break;
         case 0xb8: si += 2; break;
         case 0xb7:
-            si = mdepth_count(channel, si);
+            si = SetMDepthCountCommand(channel, si);
             break;
 
         case 0xb6: si++; break;
@@ -372,6 +389,18 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
 
     return si;
 }
+
+#pragma region(Commands)
+// Command "@ number": Sets the number of the instrument to be used. Range 0-255.
+uint8_t * PMD::SetP86Instrument(Channel * channel, uint8_t * si)
+{
+    channel->InstrumentNumber = *si++;
+
+    _P86->SelectSample(channel->InstrumentNumber);
+
+    return si;
+}
+#pragma endregion
 
 void PMD::SetP86Tone(Channel * channel, int al)
 {
@@ -486,16 +515,16 @@ void PMD::SetPCM86Volume(Channel * channel)
     _P86->SelectVolume(al);
 }
 
-void PMD::SetPCM86Pitch(Channel * track)
+void PMD::SetPCM86Pitch(Channel * channel)
 {
-    if (track->fnum == 0)
+    if (channel->fnum == 0)
         return;
 
-    int bl = (int) ((track->fnum & 0x0e00000) >> (16 + 5));
-    int cx = (int) ( track->fnum & 0x01fffff);
+    int bl = (int) ((channel->fnum & 0x0e00000) >> (16 + 5));
+    int cx = (int) ( channel->fnum & 0x01fffff);
 
-    if (!_State.PMDB2CompatibilityMode && track->detune)
-        cx = Limit((cx >> 5) + track->detune, 65535, 1) << 5;
+    if (!_State.PMDB2CompatibilityMode && (channel->DetuneValue != 0))
+        cx = Limit((cx >> 5) + channel->DetuneValue, 65535, 1) << 5;
 
     _P86->SetPitch(bl, (uint32_t) cx);
 }

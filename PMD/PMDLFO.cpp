@@ -242,9 +242,9 @@ void PMD::StopLFO(Channel * track)
 //  ＬＦＯ初期化
 void PMD::lfin1(Channel * track)
 {
-    track->hldelay_c = track->hldelay;
+    track->HardwareLFODelayCounter = track->HardwareLFODelay;
 
-    if (track->hldelay)
+    if (track->HardwareLFODelay != 0)
         _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), (uint32_t) (track->PanAndVolume & 0xc0));
 
     track->sdelay_c = track->sdelay;
@@ -349,4 +349,40 @@ uint8_t * PMD::lfoswitch(Channel * channel, uint8_t * si)
     lfoinit_main(channel);
 
     return si;
+}
+
+// Change STEP value by value of MD command
+void PMD::md_inc(Channel * channel)
+{
+    if (--channel->MDepthSpeedA)
+        return;
+
+    channel->MDepthSpeedA = channel->MDepthSpeedB;
+
+    if (channel->mdc == 0)
+        return;
+
+    if (channel->mdc <= 127)
+        channel->mdc--;
+
+    int al;
+
+    if (channel->step < 0)
+    {
+        al = channel->MDepth - channel->step;
+
+        if (al < 128)
+            channel->step = -al;
+        else
+            channel->step = (channel->MDepth < 0) ? 0 : -127;
+    }
+    else
+    {
+        al = channel->step + channel->MDepth;
+
+        if (al < 128)
+            channel->step = al;
+        else
+            channel->step = (channel->MDepth < 0) ? 0 : 127;
+    }
 }

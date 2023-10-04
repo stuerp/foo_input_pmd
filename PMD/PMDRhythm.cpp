@@ -53,7 +53,7 @@ void PMD::RhythmMain(Channel * channel)
                 _State.RhythmData = bx;
 
                 channel->Length = al;
-                channel->keyon_flag++;
+                channel->KeyOnFlag++;
 
                 _Driver.TieMode = 0;
                 _Driver.volpush_flag = 0;
@@ -115,14 +115,25 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
     {
         case 0xff: si++; break;
         case 0xfe: si++; break;
-        case 0xfd: channel->Volume = *si++; break;
-        case 0xfc: si = ChangeTempoCommand(si); break;
 
-        case 0xfb:
+        case 0xfd:
+            channel->Volume = *si++;
+            break;
+
+        case 0xfc:
+            si = ChangeTempoCommand(si);
+            break;
+
+        // Command "&": Tie notes together.
+        case 0xFB:
             _Driver.TieMode |= 1;
             break;
 
-        case 0xfa: channel->detune = *(int16_t *) si; si += 2; break;
+        case 0xfa:
+            channel->DetuneValue = *(int16_t *) si;
+            si += 2;
+            break;
+
         case 0xf9: si = SetStartOfLoopCommand(channel, si); break;
         case 0xf8: si = SetEndOfLoopCommand(channel, si); break;
         case 0xf7: si = ExitLoopCommand(channel, si); break;
@@ -145,8 +156,8 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
         case 0xe7: si++; break;
-        case 0xe6: si = rmsvs_sft(si); break;
-        case 0xe5: si = rhyvs_sft(si); break;
+        case 0xe6: si = SetRhythmVolume(si); break;
+        case 0xe5: si = SetRhythmPanValue(si); break;
 
         case 0xe4: si++; break;
 
@@ -161,7 +172,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xde: si = SetSSGVolumeCommand(channel, si); break;
-        case 0xdd: si = DecreaseSoundSourceVolumeCommand(channel, si); break;
+        case 0xdd: si = DecreaseVolumeCommand(channel, si); break;
 
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -173,7 +184,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xd7: si++; break;
 
         case 0xd6: si += 2; break;
-        case 0xd5: channel->detune += *(int16_t *) si; si += 2; break;
+        case 0xd5: channel->DetuneValue += *(int16_t *) si; si += 2; break;
 
         case 0xd4: si = SetSSGEffect(channel, si); break;
         case 0xd3: si = SetFMEffect(channel, si); break;

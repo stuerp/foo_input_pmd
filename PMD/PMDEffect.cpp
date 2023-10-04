@@ -33,7 +33,7 @@ void PMD::EffectMain(Channel * channel, int al)
 
         int ah = _Effect.Flags;
 
-        int bh = (ah & 0x01) ? channel->detune % 256 : 0; // Keep only the lower 8 bits.
+        int bh = (ah & 0x01) ? channel->DetuneValue % 256 : 0; // Keep only the lower 8 bits.
         int bl = 15;
 
         if (ah & 0x02)

@@ -9,7 +9,7 @@ struct Channel
     int qdat; // 1 gatetime (value calculated from q/Q value)
 
     uint32_t fnum;  // 2 Power BLOCK/FNUM
-    int detune;  // 2 Detune
+    int DetuneValue;
 
     int lfoswi;  // 1. LFOSW: bit 0: tone, bit 1: vol,  bit 2: same period, bit 3: portamento
     int extendmode; // 1. bit 1: Detune, bit 2: LFO, bit 3: Env Normal/Extend
@@ -29,10 +29,9 @@ struct Channel
     int time;  // 1 [TIME]
     int time2;  // 1 [TIME_2]
 
-    int mdepth;  // 1 M depth
-
-    int mdspd;  // 1 M speed
-    int mdspd2;  // 1 M speed_2
+    int MDepthSpeedA;
+    int MDepthSpeedB;
+    int MDepth;
 
     int lfo_wave; // 1 LFO waveform
 
@@ -107,15 +106,16 @@ struct Channel
     int KeyOffFlag;  // 1 Flag indicating whether keyoff has been performed
     int qdata;  // 1 value of q
     int qdatb;  // 1 value of q
-    int hldelay; // 1 HardLFO delay
-    int hldelay_c; // 1 HardLFO delay Counter
+
+    int HardwareLFODelay;
+    int HardwareLFODelayCounter;
 
     int Tone;  // Scale data being played (0xFF = rest)
     int sdelay;  // 1 Slot delay
     int sdelay_c; // 1 Slot delay counter
     int sdelay_m; // 1 Slot delay Mask
     int alg_fb;  // 1 Tone alg/fb
-    int keyon_flag; // 1 After processing new scale/rest data, inc
+    int KeyOnFlag; // 1 After processing new scale/rest data, inc
     int qdat2;  // 1 q minimum guaranteed value
     int DefaultTone; // 1 Scale data being played (before modulation processing / ?fh: rest)
     int shift_def; // 1 Master modulation value
