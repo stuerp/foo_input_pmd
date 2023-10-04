@@ -71,7 +71,7 @@ void P86Driver::InitializeInternal()
     release_flag2 = false;
 
     _PanFlag = 0;
-    _PanData = 0;
+    _PanValue = 0;
 
     _AVolume = 0;
 
@@ -173,14 +173,14 @@ void P86Driver::SetSampleRate(uint32_t synthesisRate, bool useInterpolation)
     addsize1 = (int) ( Pitch           >> 16);
 }
 
-void P86Driver::SetVolume(int volume)
+void P86Driver::SetVolume(int value)
 {
-    CreateVolumeTable(volume);
+    CreateVolumeTable(value);
 }
 
-bool P86Driver::SetVol(int volume)
+bool P86Driver::SelectVolume(int value)
 {
-    _Volume = volume;
+    _Volume = value;
 
     return true;
 }
@@ -196,30 +196,29 @@ bool P86Driver::SelectSample(int index)
     return true;
 }
 
-//  PAN 設定
-bool P86Driver::SetPan(int flag, int data)
+bool P86Driver::SetPan(int flag, int value)
 {
     _PanFlag = flag;
-    _PanData = data;
+    _PanValue = value;
 
     return true;
 }
 
-bool P86Driver::SetPitch(int sampleRateIndex, uint32_t pitch)
+bool P86Driver::SetPitch(int sampleRateIndex, uint32_t value)
 {
     if (sampleRateIndex < 0 || sampleRateIndex >= _countof(SampleRates))
         return false;
 
-    if (pitch > 0x1fffff)
+    if (value > 0x1fffff)
         return false;
 
     _OrigSampleRate = SampleRates[sampleRateIndex];
-    _Pitch = pitch;
+    _Pitch = value;
 
-    pitch = (uint32_t) ((uint64_t) pitch * _OrigSampleRate / _SampleRate);
+    value = (uint32_t) ((uint64_t) value * _OrigSampleRate / _SampleRate);
 
-    addsize2 = (int) ((pitch & 0xffff) >> 4);
-    addsize1 = (int) (pitch >> 16);
+    addsize2 = (int) ((value & 0xffff) >> 4);
+    addsize1 = (int) (value >> 16);
 
     return true;
 }
@@ -457,7 +456,7 @@ void P86Driver::left_trans_i(Sample * sampleData, size_t sampleCount)
 
         *sampleData++ += data;
 
-        data = data * _PanData / (256 / 2);
+        data = data * _PanValue / (256 / 2);
 
         *sampleData++ += data;
 
@@ -478,7 +477,7 @@ void P86Driver::left_trans_g_i(Sample * sampleData, size_t sampleCount)
 
         *sampleData++ += data;
 
-        data = data * _PanData / (256 / 2);
+        data = data * _PanValue / (256 / 2);
 
         *sampleData++ -= data;
 
@@ -496,7 +495,7 @@ void P86Driver::right_trans_i(Sample * sampleData, size_t sampleCount)
     for (size_t i = 0; i < sampleCount; i++)
     {
         Sample Right = (_VolumeTable[_Volume][*start_ofs] * (0x1000 - start_ofs_x) + _VolumeTable[_Volume][*(start_ofs + 1)] * start_ofs_x) >> 12;
-        Sample Left  = Right * _PanData / (256 / 2);
+        Sample Left  = Right * _PanValue / (256 / 2);
 
         *sampleData++ += Left;
         *sampleData++ += Right;
@@ -515,7 +514,7 @@ void P86Driver::right_trans_g_i(Sample * sampleData, size_t sampleCount)
     for (size_t i = 0; i < sampleCount; i++)
     {
         Sample Right = (_VolumeTable[_Volume][*start_ofs] * (0x1000 - start_ofs_x) + _VolumeTable[_Volume][*(start_ofs + 1)] * start_ofs_x) >> 12;
-        Sample Left  = Right * _PanData / (256 / 2);
+        Sample Left  = Right * _PanValue / (256 / 2);
 
         *sampleData++ += Left;
         *sampleData++ -= Right;
@@ -573,7 +572,7 @@ void P86Driver::left_trans(Sample * sampleData, size_t sampleCount)
 
         *sampleData++ += data;
 
-        data = data * _PanData / (256 / 2);
+        data = data * _PanValue / (256 / 2);
 
         *sampleData++ += data;
 
@@ -594,7 +593,7 @@ void P86Driver::left_trans_g(Sample * sampleData, size_t sampleCount)
 
         *sampleData++ += data;
 
-        data = data * _PanData / (256 / 2);
+        data = data * _PanValue / (256 / 2);
 
         *sampleData++ -= data;
 
@@ -612,7 +611,7 @@ void P86Driver::right_trans(Sample * sampleData, size_t sampleCount)
     for (size_t i = 0; i < sampleCount; i++)
     {
         Sample Right = _VolumeTable[_Volume][*start_ofs];
-        Sample Left  = Right * _PanData / (256 / 2);
+        Sample Left  = Right * _PanValue / (256 / 2);
 
         *sampleData++ += Left;
         *sampleData++ += Right;
@@ -631,7 +630,7 @@ void P86Driver::right_trans_g(Sample * sampleData, size_t sampleCount)
     for (size_t i = 0; i < sampleCount; i++)
     {
         Sample Right = _VolumeTable[_Volume][*start_ofs];
-        Sample Left  = Right * _PanData / (256 / 2);
+        Sample Left  = Right * _PanValue / (256 / 2);
 
         *sampleData++ += Left;
         *sampleData++ -= Right;

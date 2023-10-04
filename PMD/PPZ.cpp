@@ -36,12 +36,6 @@ const int ADPCM_EM_VOL[256] =
     12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,
 };
 
-// Constant table (ADPCM Pan to PPZ8 Pan)
-const int ADPCM_EM_PAN[4] =
-{
-    0, 9, 1, 5
-};
-
 PPZDriver::PPZDriver(File * file) : _File(file)
 {
     XMS_FRAME_ADR[0] = nullptr;
@@ -446,16 +440,18 @@ void PPZDriver::AllStop()
         Stop(i);
 }
 
-// 13H Set the pan state.
-bool PPZDriver::SetPan(int ch, int pan)
+// 13H Set the pan value.
+bool PPZDriver::SetPan(int ch, int value)
 {
+    static const int PanValues[4] = { 0, 9, 1, 5 }; // { Left, Right, Leftwards, Rightwards }
+
     if (ch >= MaxPPZChannels)
         return false;
 
     if (ch != 7 || !_EmulateADPCM)
-        _Channel[ch].PCM_PAN = pan;
+        _Channel[ch].PanValue = value;
     else
-        _Channel[ch].PCM_PAN = ADPCM_EM_PAN[pan & 3];
+        _Channel[ch].PanValue = PanValues[value & 3];
 
     return true;
 }
@@ -581,7 +577,7 @@ void PPZDriver::Reset()
         _Channel[i].PCM_ADDS_H = 1;
         _Channel[i].PCM_ADDS_L = 0;
         _Channel[i].PCM_SORC_F = 16000; // Original playback rate
-        _Channel[i].PCM_PAN = 5;        // Pan Center
+        _Channel[i].PanValue = 5;        // Pan Center
         _Channel[i].PCM_VOL = 8;        // Default volume
     }
 
@@ -626,7 +622,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
             continue;
         }
 
-        if (_Channel[i].PCM_PAN == 0)
+        if (_Channel[i].PanValue == 0)
         {
             _Channel[i].PCM_FLG = 0;
             continue;
@@ -636,7 +632,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
         {
             di = sampleData;
 
-            switch (_Channel[i].PCM_PAN)
+            switch (_Channel[i].PanValue)
             {
                 case 1:  //  1 , 0
                     while (di < &sampleData[sampleCount * 2])
@@ -960,7 +956,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
         {
             di = sampleData;
 
-            switch (_Channel[i].PCM_PAN)
+            switch (_Channel[i].PanValue)
             {
                 case 1:  //  1 , 0
                     while (di < &sampleData[sampleCount * 2])

@@ -69,7 +69,7 @@ public:
     int FadeOutSpeed;
     int FadeOutVolume;
 
-    int BarLength;  // Bar length
+    int BarLength;  // Time signature 4/4 = 96 (default); E.g. time signature 3/4 = 72
     int OpsCounter; // Shortest note counter
 
     int SSGEffectFlag; // SSG sound effect on/off flag (substituted by user)
@@ -95,12 +95,11 @@ public:
     int slot_detune4;  // FM3 Slot Detune値 slot4
 
     int fadeout_flag;  // When calling Fade from inside 1
-    int ReversePCM86Phase;
     int BarCounter;
     int port22h; // Last value output to OPN-PORT 22H (hlfo)
 
     int rshot_dat; // Rhythm shot flag
-    int rdat[6]; // Rhythm volume/pan data
+    int RhythmPanAndVolume[6]; // Pan value and volume
 
     int rshot_bd; // Rhythm shot inc flag (BD)
     int rshot_sd; // Rhythm shot inc flag (SD)

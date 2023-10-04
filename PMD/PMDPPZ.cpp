@@ -26,7 +26,7 @@ void PMD::PPZMain(Channel * channel)
 
     channel->Length--;
 
-    if (channel->PartMask)
+    if (channel->MuteMask)
     {
         channel->KeyOffFlag = -1;
     }
@@ -62,7 +62,7 @@ void PMD::PPZMain(Channel * channel)
 
                 if (channel->LoopData == nullptr)
                 {
-                    if (channel->PartMask)
+                    if (channel->MuteMask)
                     {
                         _Driver.TieMode = 0;
                         _Driver.volpush_flag = 0;
@@ -87,7 +87,7 @@ void PMD::PPZMain(Channel * channel)
                     return;
                 }
                 else
-                if (channel->PartMask)
+                if (channel->MuteMask)
                 {
                     si++;
                     channel->fnum = 0;    //休符に設定
@@ -234,10 +234,10 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xee: si++; break;
         case 0xed: si++; break;
 
-        case 0xec: si = SetPPZPanning(channel, si); break;        // FOR SB2
+        case 0xec: si = SetPPZPanValueCommand(channel, si); break;        // FOR SB2
         case 0xeb: si = RhythmInstrumentCommand(si); break;
         case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
-        case 0xe9: si = SetRhythmOutputPosition(si); break;
+        case 0xe9: si = SetRhythmPanCommand(si); break;
         case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
         case 0xe7: channel->shift += *(int8_t *) si++; break;
@@ -260,10 +260,17 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xe1: si++; break;
         case 0xe0: si++; break;
 
-        case 0xdf: _State.BarLength = *si++; break;
+        case 0xdf:
+            _State.BarLength = *si++; // Command "Z number"
+            break;
 
-        case 0xde: si = vol_one_up_pcm(channel, si); break;
-        case 0xdd: si = DecreaseSoundSourceVolumeCommand(channel, si); break;
+        case 0xde:
+             si = IncreasePCMVolumeCommand(channel, si);
+            break;
+
+        case 0xdd:
+            si = DecreaseSoundSourceVolumeCommand(channel, si);
+            break;
 
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -288,7 +295,10 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xd0: si++; break;
 
         case 0xcf: si++; break;
-        case 0xce: si = ppzrepeat_set(channel, si); break;
+        case 0xce:
+            si = SetPPZRepeatCommand(channel, si);
+            break;
+
         case 0xcd: si = SetSSGEnvelopeSpeedToExtend(channel, si); break;
         case 0xcc: si++; break;
         case 0xcb: channel->lfo_wave = *si++; break;
@@ -305,10 +315,13 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
         case 0xc4: channel->qdatb = *si++; break;
-        case 0xc3: si = pansetz_ex(channel, si); break;
+        case 0xc3:
+            si = SetPPZPanValueExtendedCommand(channel, si);
+            break;
+
         case 0xc2: channel->delay = channel->delay2 = *si++; lfoinit_main(channel); break;
         case 0xc1: break;
-        case 0xc0: si = ppz_mml_part_mask(channel, si); break;
+        case 0xc0: si = SetPPZMaskCommand(channel, si); break;
         case 0xbf: SwapLFO(channel); si = SetLFOParameter(channel, si); SwapLFO(channel); break;
         case 0xbe: si = _lfoswitch(channel, si); break;
         case 0xbd:
@@ -352,12 +365,12 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-void PMD::SetPPZTone(Channel * qq, int al)
+void PMD::SetPPZTone(Channel * channel, int al)
 {
     if ((al & 0x0f) != 0x0f)
     {
         // Music Note
-        qq->Tone = al;
+        channel->Tone = al;
 
         int bx = al & 0x0f;          // bx=onkai
         int cl = (al >> 4) & 0x0f;    // cl = octarb
@@ -372,15 +385,15 @@ void PMD::SetPPZTone(Channel * qq, int al)
         else
             ax <<= cl;
 
-        qq->fnum = ax;
+        channel->fnum = ax;
     }
     else
     {
         // Rest
-        qq->Tone = 0xFF;
+        channel->Tone = 0xFF;
 
-        if ((qq->lfoswi & 0x11) == 0)
-            qq->fnum = 0;      // 音程LFO未使用
+        if ((channel->lfoswi & 0x11) == 0)
+            channel->fnum = 0;      // 音程LFO未使用
     }
 }
 
@@ -529,7 +542,7 @@ uint8_t * PMD::SetPPZPortamento(Channel * channel, uint8_t * si)
 {
     int    ax, al_, bx_;
 
-    if (channel->PartMask)
+    if (channel->MuteMask)
     {
         channel->fnum = 0;    //休符に設定
         channel->Tone = 255;
@@ -600,12 +613,33 @@ uint8_t * PMD::SetPPZPortamento(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command "p"
-uint8_t * PMD::SetPPZPanning(Channel * channel, uint8_t * si)
+// Command "p <value>" (1: right, 2: left, 3: center (default))
+uint8_t * PMD::SetPPZPanValueCommand(Channel * channel, uint8_t * si)
 {
-    channel->Panning = PPZPanning[*si++];
+    static const int PanValues[4] = { 0, 9, 1, 5 }; // { Left, Right, Leftwards, Rightwards }
 
-    _PPZ->SetPan(_Driver.CurrentChannel, channel->Panning);
+    channel->PanAndVolume = PanValues[*si++];
+
+    _PPZ->SetPan(_Driver.CurrentChannel, channel->PanAndVolume);
+
+    return si;
+}
+
+// Command "px <value 1>, <value 2>" (value 1: -128 to -4 (Pan to the left), -3 to -1 (Leftwards), 0 (Center), 1 to 3 (Rightwards), 4 to 127 (Pan to the right), value 2: 0 (In phase) or 1 (Reverse phase)).
+uint8_t * PMD::SetPPZPanValueExtendedCommand(Channel * channel, uint8_t * si)
+{
+    int al = *(int8_t *) si++;
+    si++; // Skip the Phase flag.
+
+    if (al >  4)
+        al = 4;
+    else
+    if (al < -4)
+        al = -4;
+
+    channel->PanAndVolume = al + 5; // Scale the value to range 1..9.
+
+    _PPZ->SetPan(_Driver.CurrentChannel, channel->PanAndVolume);
 
     return si;
 }
@@ -628,11 +662,85 @@ uint8_t * PMD::InitializePPZ(Channel *, uint8_t * si)
             _PPZChannel[i].Tone = 0xFF;         // Rest
             _PPZChannel[i].DefaultTone = 0xFF;  // Rest
             _PPZChannel[i].Volume = 128;
-            _PPZChannel[i].Panning = 5;         // Middle
+            _PPZChannel[i].PanAndVolume = 5;         // Center
         }
 
         si += 2;
     }
+
+    return si;
+}
+
+// Command "@[@] insnum[,number1[,number2[,number3]]]"
+uint8_t * PMD::SetPPZRepeatCommand(Channel * channel, uint8_t * si)
+{
+    int LoopBegin, LoopEnd;
+
+    if ((channel->InstrumentNumber & 0x80) == 0)
+    {
+        LoopBegin = *(int16_t *) si;
+        si += 2;
+
+        if (LoopBegin < 0)
+            LoopBegin = (int) (_PPZ->PCME_WORK[0].PZIItem[channel->InstrumentNumber].Size - LoopBegin);
+
+        LoopEnd = *(int16_t *) si;
+        si += 2;
+
+        if (LoopEnd < 0)
+            LoopEnd = (int) (_PPZ->PCME_WORK[0].PZIItem[channel->InstrumentNumber].Size - LoopBegin);
+    }
+    else
+    {
+        LoopBegin = *(int16_t *) si;
+        si += 2;
+
+        if (LoopBegin < 0)
+            LoopBegin = (int) (_PPZ->PCME_WORK[1].PZIItem[channel->InstrumentNumber & 0x7f].Size - LoopBegin);
+
+        LoopEnd = *(int16_t *) si;
+        si += 2;
+
+        if (LoopEnd < 0)
+            LoopEnd = (int) (_PPZ->PCME_WORK[1].PZIItem[channel->InstrumentNumber & 0x7f].Size - LoopEnd);
+    }
+
+    _PPZ->SetLoop(_Driver.CurrentChannel, (uint32_t) LoopBegin, (uint32_t) LoopEnd);
+
+    return si + 2; // Skip the Loop Release Address.
+}
+
+// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+uint8_t * PMD::SetPPZMaskCommand(Channel * channel, uint8_t * si)
+{
+    uint8_t Value = *si++;
+
+    if (Value != 0)
+    {
+        if (Value < 2)
+        {
+            channel->MuteMask |= 0x40;
+
+            if (channel->MuteMask == 0x40)
+                _PPZ->Stop(_Driver.CurrentChannel);
+        }
+        else
+            si = SpecialC0ProcessingCommand(channel, si, Value);
+    }
+    else
+        channel->MuteMask &= 0xBF; // 1011 1111
+
+    return si;
+}
+
+uint8_t * PMD::DecreasePPZVolumeCommand(Channel *, uint8_t * si)
+{
+    int al = *(int8_t *) si++;
+
+    if (al)
+        _State.PPZVolumeDown = Limit(al + _State.PPZVolumeDown, 255, 0);
+    else
+        _State.PPZVolumeDown = _State.DefaultPPZVolumeDown;
 
     return si;
 }

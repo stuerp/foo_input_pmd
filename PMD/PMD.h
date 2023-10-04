@@ -247,7 +247,7 @@ private:
     void PPZMain(Channel * channel);
     void EffectMain(Channel * channel, int al);
 
-    void RhythmPlayEffect(Channel * channel, int al);
+    void SSGPlayEffect(Channel * channel, int al);
 
     void PlayEffect();
     void StartEffect(const int * si);
@@ -256,7 +256,7 @@ private:
 
     void GetText(const uint8_t * data, size_t size, int al, char * text) const noexcept;
 
-    int MuteFMPart(Channel * channel);
+    int MuteFMChannel(Channel * channel);
 
     void SetFMKeyOff(Channel * channel);
     void SetSSGKeyOff(Channel * channel);
@@ -280,15 +280,15 @@ private:
     uint8_t * ExecutePCM86Command(Channel * channel, uint8_t * si);
     uint8_t * ExecutePPZCommand(Channel * channel, uint8_t * si);
 
-    uint8_t * special_0c0h(Channel * channel, uint8_t * si, uint8_t al);
+    uint8_t * SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8_t value);
     uint8_t * ChangeTempoCommand(uint8_t * si);
     uint8_t * SetSSGPseudoEchoCommand(uint8_t * si);
 
-    uint8_t * _vd_fm(Channel * channel, uint8_t * si);
-    uint8_t * _vd_ssg(Channel * channel, uint8_t * si);
-    uint8_t * _vd_pcm(Channel * channel, uint8_t * si);
-    uint8_t * _vd_rhythm(Channel * channel, uint8_t * si);
-    uint8_t * _vd_ppz(Channel * channel, uint8_t * si);
+    uint8_t * DecreaseFMVolumeCommand(Channel * channel, uint8_t * si);
+    uint8_t * DecreaseSSGVolumeCommand(Channel * channel, uint8_t * si);
+    uint8_t * DecreaseADPCMVolumeCommand(Channel * channel, uint8_t * si);
+    uint8_t * DecreaseRhythmVolumeCommand(Channel * channel, uint8_t * si);
+    uint8_t * DecreasePPZVolumeCommand(Channel * channel, uint8_t * si);
 
     uint8_t * ChangeProgramCommand(Channel * channel, uint8_t * si);
     uint8_t * comatm(Channel * channel, uint8_t * si);
@@ -303,7 +303,7 @@ private:
     uint8_t * psgenvset(Channel * channel, uint8_t * si);
 
     uint8_t * SetSSGVolumeCommand(Channel * channel, uint8_t * si);
-    uint8_t * vol_one_up_pcm(Channel * channel, uint8_t * si);
+    uint8_t * IncreasePCMVolumeCommand(Channel * channel, uint8_t * si);
     uint8_t * DecreaseSoundSourceVolumeCommand(Channel * channel, uint8_t * si);
     uint8_t * SetSSGPortamento(Channel * channel, uint8_t * si);
     uint8_t * SetADPCMPortamento(Channel * channel, uint8_t * si);
@@ -311,37 +311,38 @@ private:
     uint8_t * mdepth_count(Channel * channel, uint8_t * si);
     uint8_t * GetToneData(Channel * channel, int dl);
 
-    uint8_t * SetFMPanning(Channel * channel, uint8_t * si);
-    uint8_t * SetFMPanningExtend(Channel * channel, uint8_t * si);
+    uint8_t * SetFMPanValueCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetFMPanValueExtendedCommand(Channel * channel, uint8_t * si);
     uint8_t * SetADPCMPanning(Channel * channel, uint8_t * si);
-    uint8_t * SetP86Panning(Channel * channel, uint8_t * si);
-    uint8_t * SetPPZPanning(Channel * channel, uint8_t * si);
-    uint8_t * pansetz_ex(Channel * channel, uint8_t * si);
+    uint8_t * SetP86PanValueCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetPPZPanValueCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetPPZPanValueExtendedCommand(Channel * channel, uint8_t * si);
 
     uint8_t * CalculateQ(Channel * channel, uint8_t * si);
     uint8_t * lfoswitch(Channel * channel, uint8_t * si);
 
-    uint8_t * pcmrepeat_set(Channel * channel, uint8_t * si);
-    uint8_t * pcmrepeat_set8(Channel * channel, uint8_t * si);
-    uint8_t * ppzrepeat_set(Channel * channel, uint8_t * si);
+    uint8_t * SetADPCMRepeatCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetPCM86RepeatCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetPPZRepeatCommand(Channel * channel, uint8_t * si);
+
     uint8_t * SetADPCMPanningExtend(Channel * channel, uint8_t * si);
-    uint8_t * SetP86PanningExtend(Channel * channel, uint8_t * si);
-    uint8_t * pcm_mml_part_mask(Channel * channel, uint8_t * si);
-    uint8_t * pcm_mml_part_mask8(Channel * channel, uint8_t * si);
-    uint8_t * ppz_mml_part_mask(Channel * channel, uint8_t * si);
+    uint8_t * SetP86PanValueExtendedCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetADPCMMaskCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetP86MaskCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetPPZMaskCommand(Channel * channel, uint8_t * si);
 
     uint8_t * hlfo_set(Channel * channel, uint8_t * si);
     uint8_t * IncreaseFMVolumeCommand(Channel * channel, uint8_t * si);
     uint8_t * SetFMPortamentoCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetSlotMask(Channel * channel, uint8_t * si);
+    uint8_t * SetFMSlotCommand(Channel * channel, uint8_t * si);
     uint8_t * slotdetune_set(Channel * channel, uint8_t * si);
     uint8_t * slotdetune_set2(Channel * channel, uint8_t * si);
     uint8_t * SetFMChannel3ModeEx(Channel * channel, uint8_t * si);
     uint8_t * InitializePPZ(Channel * channel, uint8_t * si);
     uint8_t * volmask_set(Channel * channel, uint8_t * si);
-    uint8_t * fm_mml_part_mask(Channel * channel, uint8_t * si);
-    uint8_t * ssg_mml_part_mask(Channel * channel, uint8_t * si);
-    uint8_t * rhythm_mml_part_mask(Channel * channel, uint8_t * si);
+    uint8_t * SetFMMaskCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetSSGMaskCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetRhythmMaskCommand(Channel * channel, uint8_t * si);
     uint8_t * _lfoswitch(Channel * channel, uint8_t * si);
     uint8_t * _volmask_set(Channel * channel, uint8_t * si);
     uint8_t * tl_set(Channel * channel, uint8_t * si);
@@ -354,7 +355,7 @@ private:
     uint8_t * RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success);
     uint8_t * RhythmInstrumentCommand(uint8_t * si);
     uint8_t * SetRhythmInstrumentVolumeCommand(uint8_t * si);
-    uint8_t * SetRhythmOutputPosition(uint8_t * si);
+    uint8_t * SetRhythmPanCommand(uint8_t * si);
     uint8_t * SetRhythmMasterVolumeCommand(uint8_t * si);
     uint8_t * rmsvs_sft(uint8_t * si);
     uint8_t * rhyvs_sft(uint8_t * si);
@@ -367,7 +368,7 @@ private:
     int oshift(Channel * channel, int al);
     int oshiftp(Channel * channel, int al);
 
-    void SetFMPanningMain(Channel * channel, int al);
+    void SetFMPanValueInternal(Channel * channel, int al);
 
     uint8_t calc_panout(Channel * channel);
     void fm_block_calc(int * cx, int * ax);
@@ -377,7 +378,7 @@ private:
     void ch3_special(Channel * channel, int ax, int cx);
 
     void SetFMVolumeCommand(Channel * channel);
-    void SetSSGVolume2(Channel * channel);
+    void SetSSGVolume(Channel * channel);
     void SetADPCMVolumeCommand(Channel * channel);
     void SetPCM86Volume(Channel * channel);
     void SetPPZVolume(Channel * channel);

@@ -245,7 +245,7 @@ void PMD::lfin1(Channel * track)
     track->hldelay_c = track->hldelay;
 
     if (track->hldelay)
-        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), (uint32_t) (track->Panning & 0xc0));
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), (uint32_t) (track->PanAndVolume & 0xc0));
 
     track->sdelay_c = track->sdelay;
 

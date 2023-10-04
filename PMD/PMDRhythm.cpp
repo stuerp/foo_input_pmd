@@ -141,7 +141,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xec: si++; break;
         case 0xeb: si = RhythmInstrumentCommand(si); break;
         case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
-        case 0xe9: si = SetRhythmOutputPosition(si); break;
+        case 0xe9: si = SetRhythmPanCommand(si); break;
         case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
         case 0xe7: si++; break;
@@ -156,7 +156,9 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xe1: si++; break;
         case 0xe0: si++; break;
 
-        case 0xdf: _State.BarLength = *si++; break;
+        case 0xdf:
+            _State.BarLength = *si++; // Command "Z number"
+            break;
 
         case 0xde: si = SetSSGVolumeCommand(channel, si); break;
         case 0xdd: si = DecreaseSoundSourceVolumeCommand(channel, si); break;
@@ -198,7 +200,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xc3: si += 2; break;
         case 0xc2: si++; break;
         case 0xc1: break;
-        case 0xc0: si = rhythm_mml_part_mask(channel, si); break;
+        case 0xc0: si = SetRhythmMaskCommand(channel, si); break;
         case 0xbf: si += 4; break;
         case 0xbe: si++; break;
         case 0xbd: si += 2; break;
@@ -238,7 +240,7 @@ uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
 
     *success = true;
 
-    if (channel->PartMask)
+    if (channel->MuteMask)
     {
         _State.kshot_dat = 0x00;
 
@@ -311,7 +313,7 @@ uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
                 al++;
             }
 
-            RhythmPlayEffect(channel, al);
+            SSGPlayEffect(channel, al);
 
             bx_ >>= 1;
         }
@@ -344,12 +346,12 @@ uint8_t * PMD::RhythmInstrumentCommand(uint8_t * si)
 
     if (dl < 0x80)
     {
-        if (dl & 0x01) _OPNAW->SetReg(0x18, (uint32_t) _State.rdat[0]);
-        if (dl & 0x02) _OPNAW->SetReg(0x19, (uint32_t) _State.rdat[1]);
-        if (dl & 0x04) _OPNAW->SetReg(0x1a, (uint32_t) _State.rdat[2]);
-        if (dl & 0x08) _OPNAW->SetReg(0x1b, (uint32_t) _State.rdat[3]);
-        if (dl & 0x10) _OPNAW->SetReg(0x1c, (uint32_t) _State.rdat[4]);
-        if (dl & 0x20) _OPNAW->SetReg(0x1d, (uint32_t) _State.rdat[5]);
+        if (dl & 0x01) _OPNAW->SetReg(0x18, (uint32_t) _State.RhythmPanAndVolume[0]);
+        if (dl & 0x02) _OPNAW->SetReg(0x19, (uint32_t) _State.RhythmPanAndVolume[1]);
+        if (dl & 0x04) _OPNAW->SetReg(0x1a, (uint32_t) _State.RhythmPanAndVolume[2]);
+        if (dl & 0x08) _OPNAW->SetReg(0x1b, (uint32_t) _State.RhythmPanAndVolume[3]);
+        if (dl & 0x10) _OPNAW->SetReg(0x1c, (uint32_t) _State.RhythmPanAndVolume[4]);
+        if (dl & 0x20) _OPNAW->SetReg(0x1d, (uint32_t) _State.RhythmPanAndVolume[5]);
     }
 
     _OPNAW->SetReg(0x10, (uint32_t) dl);
@@ -403,7 +405,7 @@ uint8_t * PMD::SetRhythmInstrumentVolumeCommand(uint8_t * si)
 {
     int dl = *si & 0x1f;
     int dh = *si++ >> 5;
-    int * bx = &_State.rdat[dh - 1];
+    int * bx = &_State.RhythmPanAndVolume[dh - 1];
 
     dh = 0x18 - 1 + dh;
     dl |= (*bx & 0xc0);
@@ -414,24 +416,51 @@ uint8_t * PMD::SetRhythmInstrumentVolumeCommand(uint8_t * si)
     return si;
 }
 
-/// <summary>
-/// Plays an SSG drum or sound effect.
-/// </summary>
-/// <param name="channel"></param>
-/// <param name="al">Sound effect number</param>
-void PMD::RhythmPlayEffect(Channel * channel, int al)
+// Command "\p?"
+uint8_t * PMD::SetRhythmPanCommand(uint8_t * si)
 {
-    if (_Driver.UsePPS)
+    int dl = (*si & 0x03) << 6;     // Pan value
+    int dh = (*si++ >> 5) & 0x07;   // Instrument
+
+    int * bx = &_State.RhythmPanAndVolume[dh - 1];
+
+    dl |= (*bx & 0x1F);
+
+    *bx = dl;
+
+    dh += 0x18 - 1;
+
+    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
+
+    return si;
+}
+
+// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+uint8_t * PMD::SetRhythmMaskCommand(Channel * channel, uint8_t * si)
+{
+    uint8_t Value = *si++;
+
+    if (Value != 0)
     {
-        al |= 0x80;
-
-        if (_Effect.PreviousNumber == al)
-            _PPS->Stop();
+        if (Value < 2)
+            channel->MuteMask |= 0x40;
         else
-            _Effect.PreviousNumber = al;
+            si = SpecialC0ProcessingCommand(channel, si, Value);
     }
+    else
+        channel->MuteMask &= 0xBF;
 
-    _Effect.Flags = 0x03; // Correct the pitch and volume (K part).
+    return si;
+}
 
-    EffectMain(channel, al);
+uint8_t * PMD::DecreaseRhythmVolumeCommand(Channel *, uint8_t * si)
+{
+    int al = *(int8_t *) si++;
+
+    if (al)
+        _State.RhythmVolumeDown = Limit(al + _State.RhythmVolumeDown, 255, 0);
+    else
+        _State.RhythmVolumeDown = _State.DefaultRhythmVolumeDown;
+
+    return si;
 }

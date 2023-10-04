@@ -87,7 +87,7 @@ struct Channel
     int eenv_rrc; // 1 /RRのカウンタ /旧pr2b
     int eenv_volume;  // 1 /Volume値(0?15)/旧penv
 
-    int Panning;  // 1 FM Panning + AMD + PMD
+    int PanAndVolume;
     int psgpat;  // 1 SSG PATTERN [TONE/NOISE/MIX]
     int InstrumentNumber;
     int loopcheck; // 1 When the loop ends 1 When the loop ends 3
@@ -97,9 +97,9 @@ struct Channel
     int slot2;  // 1 SLOT 2 ﾉ TL
     int slot4;  // 1 SLOT 4 ﾉ TL
 
-    int SlotMask; // 1 FM slotmask
+    int FMSlotMask; // 1 FM slotmask
     int ToneMask; // 1 maskdata for FM tone definition
-    int PartMask; // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
+    int MuteMask; // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
     int VolumeMask1; // Volume LFO mask
     int VolumeMask2; // Volume LFO mask
 

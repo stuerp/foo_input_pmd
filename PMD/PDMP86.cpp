@@ -24,7 +24,7 @@ void PMD::PCM86Main(Channel * channel)
 
     channel->Length--;
 
-    if (channel->PartMask)
+    if (channel->MuteMask)
     {
         channel->KeyOffFlag = 0xFF;
     }
@@ -59,7 +59,7 @@ void PMD::PCM86Main(Channel * channel)
 
                 if (channel->LoopData == nullptr)
                 {
-                    if (channel->PartMask)
+                    if (channel->MuteMask)
                     {
                         _Driver.TieMode = 0;
                         _Driver.volpush_flag = 0;
@@ -77,7 +77,7 @@ void PMD::PCM86Main(Channel * channel)
             }
             else
             {
-                if (channel->PartMask)
+                if (channel->MuteMask)
                 {
                     si++;
 
@@ -223,10 +223,10 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xee: si++; break;
         case 0xed: si++; break;
 
-        case 0xec: si = SetP86Panning(channel, si); break;        // FOR SB2
+        case 0xec: si = SetP86PanValueCommand(channel, si); break;        // FOR SB2
         case 0xeb: si = RhythmInstrumentCommand(si); break;
         case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
-        case 0xe9: si = SetRhythmOutputPosition(si); break;
+        case 0xe9: si = SetRhythmPanCommand(si); break;
         case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
         case 0xe7: channel->shift += *(int8_t *) si++; break;
@@ -256,10 +256,17 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xe1: si++; break;
         case 0xe0: si++; break;
 
-        case 0xdf: _State.BarLength = *si++; break;
+        case 0xdf:
+            _State.BarLength = *si++; // Command "Z number"
+            break;
 
-        case 0xde: si = vol_one_up_pcm(channel, si); break;
-        case 0xdd: si = DecreaseSoundSourceVolumeCommand(channel, si); break;
+        case 0xde:
+            si = IncreasePCMVolumeCommand(channel, si);
+            break;
+
+        case 0xdd:
+            si = DecreaseSoundSourceVolumeCommand(channel, si);
+            break;
 
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -289,9 +296,9 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
 
         case 0xd1: si++; break;
         case 0xd0: si++; break;
-
         case 0xcf: si++; break;
-        case 0xce: si = pcmrepeat_set8(channel, si); break;
+
+        case 0xce: si = SetPCM86RepeatCommand(channel, si); break;
         case 0xcd: si = SetSSGEnvelopeSpeedToExtend(channel, si); break;
         case 0xcc: si++; break;
         case 0xcb: channel->lfo_wave = *si++; break;
@@ -308,8 +315,15 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xc7: si += 3; break;
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
-        case 0xc4: channel->qdatb = *si++; break;
-        case 0xc3: si = SetP86PanningExtend(channel, si); break;
+
+        case 0xc4:
+            channel->qdatb = *si++;
+            break;
+
+        case 0xc3:
+            si = SetP86PanValueExtendedCommand(channel, si);
+            break;
+
         case 0xc2:
             channel->delay = channel->delay2 = *si++;
             lfoinit_main(channel);
@@ -317,7 +331,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
 
         case 0xc1: break;
         case 0xc0:
-            si = pcm_mml_part_mask8(channel, si);
+            si = SetP86MaskCommand(channel, si);
             break;
 
         case 0xbf: si += 4; break;
@@ -469,7 +483,7 @@ void PMD::SetPCM86Volume(Channel * channel)
     else
         al = (int) ::sqrt(al); // Make the volume NEC Speaker Board-compatible.
 
-    _P86->SetVol(al);
+    _P86->SelectVolume(al);
 }
 
 void PMD::SetPCM86Pitch(Channel * track)
@@ -510,8 +524,8 @@ void PMD::SetP86KeyOff(Channel * channel)
         SetSSGKeyOff(channel);
 }
 
-// Command "p"
-uint8_t * PMD::SetP86Panning(Channel *, uint8_t * si)
+// Command "p <value>" (1: right, 2: left, 3: center (default), 0: Reverse Phase)
+uint8_t * PMD::SetP86PanValueCommand(Channel *, uint8_t * si)
 {
     switch (*si++)
     {
@@ -527,41 +541,81 @@ uint8_t * PMD::SetP86Panning(Channel *, uint8_t * si)
             _P86->SetPan(3, 0);
             break;
 
-        default: // Reverse
+        default: // Reverse Phase
             _P86->SetPan(3 | 4, 0);
     }
 
     return si;
 }
 
-uint8_t * PMD::SetP86PanningExtend(Channel * track, uint8_t * si)
+// Command "px <value 1>, <value 2>" (value 1: < 0 (Pan to the right), > 0 (Pan to the left), 0 (Center), value 2: 0 (In phase) or 1 (Reverse phase)).
+uint8_t * PMD::SetP86PanValueExtendedCommand(Channel * channel, uint8_t * si)
 {
-    int flag, data;
+    int flag, value;
 
-    track->Panning = (int8_t) *si++;
-    _State.ReversePCM86Phase = *si++;
+    channel->PanAndVolume = (int8_t) *si++;
+    bool ReversePhase = (*si++ == 1);
 
-    if (track->Panning == 0)
+    if (channel->PanAndVolume == 0)
     {
         flag = 3; // Center
-        data = 0;
+        value = 0;
     }
     else
-    if (track->Panning > 0)
+    if (channel->PanAndVolume > 0)
     {
         flag = 2; // Right
-        data = 128 - track->Panning;
+        value = 128 - channel->PanAndVolume;
     }
     else
     {
         flag = 1; // Left
-        data = 128 + track->Panning;
+        value = 128 + channel->PanAndVolume;
     }
 
-    if (_State.ReversePCM86Phase != 1)
+    if (ReversePhase != 1)
         flag |= 4; // Reverse the phase
 
-    _P86->SetPan(flag, data);
+    _P86->SetPan(flag, value);
+
+    return si;
+}
+
+// Command "@[@] insnum[,number1[,number2[,number3]]]"
+uint8_t * PMD::SetPCM86RepeatCommand(Channel *, uint8_t * si)
+{
+    int16_t LoopBegin = *(int16_t *) si;
+    si += 2;
+
+    int16_t LoopEnd = *(int16_t *) si;
+    si += 2;
+
+    int16_t ReleaseStart = *(int16_t *) si;
+
+    _P86->SetLoop(LoopBegin, LoopEnd, ReleaseStart, _State.PMDB2CompatibilityMode);
+
+    return si + 2;
+}
+
+// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+uint8_t * PMD::SetP86MaskCommand(Channel * channel, uint8_t * si)
+{
+    uint8_t Value = *si++;
+
+    if (Value != 0)
+    {
+        if (Value < 2)
+        {
+            channel->MuteMask |= 0x40;
+
+            if (channel->MuteMask == 0x40)
+                _P86->Stop();
+        }
+        else
+            si = SpecialC0ProcessingCommand(channel, si, Value);
+    }
+    else
+        channel->MuteMask &= 0xBF; // 1011 1111
 
     return si;
 }

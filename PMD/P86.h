@@ -76,9 +76,9 @@ public:
 
     void SetSampleRate(uint32_t sampleRate, bool useInterpolation);
     void SetVolume(int volume);
-    bool SetVol(int volume);
+    bool SelectVolume(int value);
     bool SetPitch(int sampleRateIndex, uint32_t pitch);
-    bool SetPan(int flag, int data);
+    bool SetPan(int flag, int value);
     bool SelectSample(int num); // PCM number setting
     bool SetLoop(int loop_start, int loop_end, int release_start, bool adpcm);
 
@@ -143,7 +143,7 @@ private:
     bool  release_flag2;              // リリースしたかどうかのflag
 
     int _PanFlag;   // Pan data 1 (bit0=left/bit1=right/bit2=reverse)
-    int _PanData;   // Pan data 2 (volume value on the side where the volume is lowered)
+    int _PanValue;   // Pan data 2 (volume value on the side where the volume is lowered)
 
     int _AVolume;
     Sample _VolumeTable[16][256];

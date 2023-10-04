@@ -21,6 +21,5 @@ extern const uint32_t p86_tune_data[];
 extern const int ppz_tune_data[];
 extern const int carrier_table[];
 extern const int rhydat[][3];
-extern const int PPZPanning[];
 
 extern const SSGEffect SSGEffects[];

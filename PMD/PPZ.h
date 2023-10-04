@@ -34,7 +34,7 @@ struct PPZChannel
     int PCM_SORC_F;                // 元データの再生レート
     int PCM_FLG;                // 再生フラグ
     int PCM_VOL;                // ボリューム
-    int PCM_PAN;                // PAN
+    int PanValue;
     int PCM_NUM;                // PCM番号
     int PCM_LOOP_FLG;            // ループ使用フラグ
     uint8_t * PCM_NOW;                // 現在の値
@@ -97,7 +97,7 @@ public:
     bool SetPitch(int channelNumber, uint32_t pitch);
     bool SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);
     void AllStop();
-    bool SetPan(int ch, int pan);
+    bool SetPan(int ch, int value);
     bool SetRate(uint32_t sampleRate, bool useInterpolation);
     bool SetSourceRate(int ch, int sampleRate);
     void SetAllVolume(int volume);
