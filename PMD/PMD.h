@@ -373,9 +373,9 @@ private:
     uint8_t calc_panout(Channel * channel);
     void fm_block_calc(int * cx, int * ax);
     int SetFMChannel3Mode(Channel * channel);
-    void cm_clear(int * ah, int * al);
+    void ClearFM3(int& ah, int& al);
     void SetFMChannel3Mode2(Channel * channel);
-    void ch3_special(Channel * channel, int ax, int cx);
+    void SpecialFM3Processing(Channel * channel, int ax, int cx);
 
     void SetFMVolumeCommand(Channel * channel);
     void SetSSGVolume(Channel * channel);

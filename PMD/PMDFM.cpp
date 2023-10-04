@@ -655,7 +655,7 @@ void PMD::SetFMPitch(Channel * channel)
     ax += channel->porta_num + channel->DetuneValue;
 
     if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0) && (_State.FMChannel3Mode != 0x3F))
-        ch3_special(channel, ax, cx);
+        SpecialFM3Processing(channel, ax, cx);
     else
     {
         if (channel->lfoswi & 1)
@@ -1440,9 +1440,7 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
     int ah;
 
     if ((channel->FMSlotMask & 0xF0) == 0)
-    {
-        cm_clear(&ah, &al); // s0
-    }
+        ClearFM3(ah, al); // s0
     else
     if (channel->FMSlotMask != 0xF0)
     {
@@ -1452,9 +1450,7 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
     else
 
     if ((channel->VolumeMask1 & 0x0F) == 0)
-    {
-        cm_clear(&ah, &al);
-    }
+        ClearFM3(ah, al);
     else
     if ((channel->lfoswi & 1) != 0)
     {
@@ -1464,9 +1460,7 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
     else
 
     if ((channel->VolumeMask2 & 0x0F) == 0)
-    {
-        cm_clear(&ah, &al);
-    }
+        ClearFM3(ah, al);
     else
     if (channel->lfoswi & 0x10)
     {
@@ -1474,9 +1468,7 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
         ah = 0x7F;
     }
     else
-    {
-        cm_clear(&ah, &al);
-    }
+        ClearFM3(ah, al);
 
     if ((uint32_t) ah == _State.FMChannel3Mode)
         return;
@@ -1503,6 +1495,16 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
 
     if (_FMExtensionChannel[1].MuteMask == 0x00)
         SetFMPitch(&_FMExtensionChannel[1]);
+}
+
+void PMD::ClearFM3(int& ah, int& al)
+{
+    al ^= 0xFF;
+
+    if ((_Driver.slot3_flag &= al) == 0)
+        ah = (_Driver.slotdetune_flag != 1) ? 0x3F : 0x7F;
+    else
+        ah = 0x7F;
 }
 
 void PMD::InitializeFMChannel3(Channel * channel, uint8_t * ax)
@@ -1780,4 +1782,103 @@ void PMD::ResetFMInstrument(Channel * channel)
     dh = _Driver.CurrentChannel + 0xb4 - 1;
 
     _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), calc_panout(channel));
+}
+
+//  Pitch setting when using ch3=sound effect mode (input CX:block AX:fnum)
+void PMD::SpecialFM3Processing(Channel * channel, int ax, int cx)
+{
+    int shiftmask = 0x80;
+
+    int si = cx;
+
+    int bh = ((channel->VolumeMask1 & 0x0F) == 0) ? 0xF0 /* All */ : channel->VolumeMask1;  // bh=lfo1 mask 4321xxxx
+    int ch = ((channel->VolumeMask2 & 0x0F) == 0) ? 0xF0 /* All */ : channel->VolumeMask2;  // ch=lfo2 mask 4321xxxx
+
+    //  slot  4
+    int ax_;
+
+    if (channel->FMSlotMask & 0x80)
+    {
+        ax_ = ax;
+        ax += _State.slot_detune4;
+
+        if ((bh & shiftmask) && (channel->lfoswi & 0x01))  ax += channel->lfodat;
+        if ((ch & shiftmask) && (channel->lfoswi & 0x10))  ax += channel->_lfodat;
+        shiftmask >>= 1;
+
+        cx = si;
+        fm_block_calc(&cx, &ax);
+        ax |= cx;
+
+        _OPNAW->SetReg(0xa6, (uint32_t) HIBYTE(ax));
+        _OPNAW->SetReg(0xa2, (uint32_t) LOBYTE(ax));
+
+        ax = ax_;
+    }
+
+    //  slot  3
+    if (channel->FMSlotMask & 0x40)
+    {
+        ax_ = ax;
+        ax += _State.slot_detune3;
+
+        if ((bh & shiftmask) && (channel->lfoswi & 0x01))  ax += channel->lfodat;
+        if ((ch & shiftmask) && (channel->lfoswi & 0x10))  ax += channel->_lfodat;
+        shiftmask >>= 1;
+
+        cx = si;
+        fm_block_calc(&cx, &ax);
+        ax |= cx;
+
+        _OPNAW->SetReg(0xac, (uint32_t) HIBYTE(ax));
+        _OPNAW->SetReg(0xa8, (uint32_t) LOBYTE(ax));
+
+        ax = ax_;
+    }
+
+    //  slot  2
+    if (channel->FMSlotMask & 0x20)
+    {
+        ax_ = ax;
+        ax += _State.slot_detune2;
+
+        if ((bh & shiftmask) && (channel->lfoswi & 0x01))
+            ax += channel->lfodat;
+
+        if ((ch & shiftmask) && (channel->lfoswi & 0x10))
+            ax += channel->_lfodat;
+
+        shiftmask >>= 1;
+
+        cx = si;
+        fm_block_calc(&cx, &ax);
+        ax |= cx;
+
+        _OPNAW->SetReg(0xae, (uint32_t) HIBYTE(ax));
+        _OPNAW->SetReg(0xaa, (uint32_t) LOBYTE(ax));
+
+        ax = ax_;
+    }
+
+    //  slot  1
+    if (channel->FMSlotMask & 0x10)
+    {
+        ax_ = ax;
+        ax += _State.slot_detune1;
+
+        if ((bh & shiftmask) && (channel->lfoswi & 0x01)) 
+            ax += channel->lfodat;
+
+        if ((ch & shiftmask) && (channel->lfoswi & 0x10))
+            ax += channel->_lfodat;
+
+        cx = si;
+        fm_block_calc(&cx, &ax);
+        ax |= cx;
+
+        _OPNAW->SetReg(0xad, (uint32_t) HIBYTE(ax));
+        _OPNAW->SetReg(0xa9, (uint32_t) LOBYTE(ax));
+
+        ax = ax_;
+    }
 }
