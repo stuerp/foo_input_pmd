@@ -278,7 +278,7 @@ int PMD::Load(const uint8_t * data, size_t size)
     ::memcpy(_MData, data, size);
     ::memset(_MData + size, 0, sizeof(_MData) - size);
 
-    if (_State.SearchPath.size() == 0)
+    if (_SearchPath.size() == 0)
         return ERR_SUCCESS;
 
     int Result = ERR_SUCCESS;
@@ -733,7 +733,7 @@ bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
         ::wcscpy(Path, *iter);
         AddBackslash(Path, _countof(Path));
 
-        _State.SearchPath.push_back(Path);
+        _SearchPath.push_back(Path);
     }
 
     return true;
@@ -742,9 +742,9 @@ bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
 /// <summary>
 /// Sets the rate at which raw PCM data is synthesized (in Hz, for example 44100)
 /// </summary>
-void PMD::SetSynthesisRate(uint32_t frequency)
+void PMD::SetSynthesisRate(uint32_t value)
 {
-    if (frequency == SOUND_55K || frequency == SOUND_55K_2)
+    if (value == SOUND_55K || value == SOUND_55K_2)
     {
         _State.OPNARate =
         _State.PPZRate = SOUND_44K;
@@ -753,15 +753,15 @@ void PMD::SetSynthesisRate(uint32_t frequency)
     else
     {
         _State.OPNARate =
-        _State.PPZRate = frequency;
+        _State.PPZRate = value;
         _State.UseFM55kHzSynthesis = false;
     }
 
-    _OPNAW->SetRate(OPNAClock, _State.OPNARate, _State.UseFM55kHzSynthesis);
+    _OPNAW->SetSampleRate(OPNAClock, _State.OPNARate, _State.UseFM55kHzSynthesis);
 
-    _PPZ->SetRate(_State.PPZRate, _State.UseInterpolationPPZ);
-    _PPS->SetRate(_State.OPNARate, _State.UseInterpolationPPS);
     _P86->SetSampleRate(_State.OPNARate, _State.UseInterpolationP86);
+    _PPS->SetSampleRate(_State.OPNARate, _State.UseInterpolationPPS);
+    _PPZ->SetSampleRate(_State.PPZRate, _State.UseInterpolationPPZ);
 }
 
 /// <summary>
@@ -771,7 +771,7 @@ void PMD::SetFM55kHzSynthesisMode(bool flag)
 {
     _State.UseFM55kHzSynthesis = flag;
 
-    _OPNAW->SetRate(OPNAClock, _State.OPNARate, _State.UseFM55kHzSynthesis);
+    _OPNAW->SetSampleRate(OPNAClock, _State.OPNARate, _State.UseFM55kHzSynthesis);
 }
 
 /// <summary>
@@ -781,7 +781,7 @@ void PMD::SetPPZSynthesisRate(uint32_t frequency)
 {
     _State.PPZRate = frequency;
 
-    _PPZ->SetRate(frequency, _State.UseInterpolationPPZ);
+    _PPZ->SetSampleRate(frequency, _State.UseInterpolationPPZ);
 }
 
 /// <summary>
@@ -791,7 +791,7 @@ void PMD::SetPPZInterpolation(bool flag)
 {
     _State.UseInterpolationPPZ = flag;
 
-    _PPZ->SetRate(_State.PPZRate, flag);
+    _PPZ->SetSampleRate(_State.PPZRate, flag);
 }
 
 /// <summary>
@@ -801,7 +801,7 @@ void PMD::SetPPSInterpolation(bool flag)
 {
     _State.UseInterpolationPPS = flag;
 
-    _PPS->SetRate(_State.OPNARate, flag);
+    _PPS->SetSampleRate(_State.OPNARate, flag);
 }
 
 /// <summary>
@@ -2515,9 +2515,9 @@ WCHAR * PMD::FindFile(WCHAR * filePath, const WCHAR * filename)
 {
     WCHAR FilePath[MAX_PATH];
 
-    for (size_t i = 0; i < _State.SearchPath.size(); ++i)
+    for (size_t i = 0; i < _SearchPath.size(); ++i)
     {
-        CombinePath(FilePath, _countof(FilePath), _State.SearchPath[i].c_str(), filename);
+        CombinePath(FilePath, _countof(FilePath), _SearchPath[i].c_str(), filename);
 
         if (_File->GetFileSize(FilePath) > 0)
         {

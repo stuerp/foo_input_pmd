@@ -64,78 +64,72 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
     delete _PMD;
     _PMD = new PMD();
 
-    WCHAR FilePath[MAX_PATH];
-    WCHAR PDXSamplesPath[MAX_PATH];
-
     {
-        if (::MultiByteToWideChar(CP_UTF8, 0, filePath, -1, FilePath, _countof(FilePath)) == 0)
-            return false;
+        WCHAR FilePath[MAX_PATH];
+        WCHAR PDXSamplesPath[MAX_PATH];
 
-        if (::MultiByteToWideChar(CP_UTF8, 0, pdxSamplesPath, -1, PDXSamplesPath, _countof(PDXSamplesPath)) == 0)
-            return false;
-    }
+        {
+            if (::MultiByteToWideChar(CP_UTF8, 0, filePath, -1, FilePath, _countof(FilePath)) == 0)
+                return false;
 
-    {
-        WCHAR DirectoryPath[MAX_PATH];
-
-        ::wcsncpy_s(DirectoryPath, _countof(DirectoryPath), FilePath, ::wcslen(FilePath));
-        
-        if (!SUCCEEDED(::PathCchRemoveFileSpec(DirectoryPath, _countof(DirectoryPath))))
-            return false;
+            if (::MultiByteToWideChar(CP_UTF8, 0, pdxSamplesPath, -1, PDXSamplesPath, _countof(PDXSamplesPath)) == 0)
+                return false;
+        }
 
         _PMD->Initialize(PDXSamplesPath);
         _PMD->SetSynthesisRate(_SynthesisRate);
 
         {
-            std::vector<const WCHAR *> Paths;
+            WCHAR DirectoryPath[MAX_PATH];
 
-            if (::wcslen(DirectoryPath) > 0)
-                Paths.push_back(DirectoryPath);
-
-            Paths.push_back(L".\\");
-
-            if (::wcslen(DirectoryPath) > 0)
-                Paths.push_back(PDXSamplesPath);
-
-            if (!_PMD->SetSearchPaths(Paths))
+            ::wcsncpy_s(DirectoryPath, _countof(DirectoryPath), FilePath, ::wcslen(FilePath));
+        
+            if (!SUCCEEDED(::PathCchRemoveFileSpec(DirectoryPath, _countof(DirectoryPath))))
                 return false;
+
+            {
+                std::vector<const WCHAR *> Paths;
+
+                if (::wcslen(DirectoryPath) > 0)
+                    Paths.push_back(DirectoryPath);
+
+                Paths.push_back(L".\\");
+
+                if (::wcslen(DirectoryPath) > 0)
+                    Paths.push_back(PDXSamplesPath);
+
+                if (!_PMD->SetSearchPaths(Paths))
+                    return false;
+            }
         }
-    }
 
-    {
-        PMD * pmd = new PMD();
-
-        pmd->Initialize(PDXSamplesPath);
-        pmd->SetSynthesisRate(_SynthesisRate);
-
-        pmd->Load(data, size);
-
-        if (!pmd->GetLength((int *) &_Length, (int *) &_LoopLength))
+        if (_PMD->Load(_Data, _Size) != ERR_SUCCESS)
             return false;
 
-        if (!pmd->GetLengthInEvents((int *) &_EventCount, (int *) &_LoopEventCount))
+        if (!_PMD->GetLength((int *) &_Length, (int *) &_LoopLength))
+            return false;
+
+        if (!_PMD->GetLengthInEvents((int *) &_EventCount, (int *) &_LoopEventCount))
             return false;
 
         {
             char Memo[1024] = { 0 };
 
-            pmd->GetMemo(data, size, 1, Memo, _countof(Memo));
+            _PMD->GetMemo(data, size, 1, Memo, _countof(Memo));
             ConvertShiftJIToUTF8(Memo, _Title);
 
             Memo[0] = '\0';
-            pmd->GetMemo(data, size, 2, Memo, _countof(Memo));
+            _PMD->GetMemo(data, size, 2, Memo, _countof(Memo));
             ConvertShiftJIToUTF8(Memo, _Composer);
 
             Memo[0] = '\0';
-            pmd->GetMemo(data, size, 3, Memo, _countof(Memo));
+            _PMD->GetMemo(data, size, 3, Memo, _countof(Memo));
             ConvertShiftJIToUTF8(Memo, _Arranger);
 
             Memo[0] = '\0';
-            pmd->GetMemo(data, size, 4, Memo, _countof(Memo));
+            _PMD->GetMemo(data, size, 4, Memo, _countof(Memo));
             ConvertShiftJIToUTF8(Memo, _Memo);
         }
-
-        delete pmd;
     }
 
     return true;
@@ -154,9 +148,6 @@ bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
 /// </summary>
 void PMDDecoder::Initialize() const noexcept
 {
-    if (_PMD->Load(_Data, _Size) != ERR_SUCCESS)
-        return;
-
     _PMD->UsePPS(CfgUsePPS);
     _PMD->UseRhythm(CfgUseRhythm);
     _PMD->Start();

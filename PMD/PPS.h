@@ -51,7 +51,7 @@ public:
     bool Play(int num, int shift, int volshift);
 
     bool SetParameter(int index, bool value);
-    bool SetRate(uint32_t r, bool ip);
+    bool SetSampleRate(uint32_t r, bool ip);
     void SetVolume(int volume);
 
     void Mix(Sample * sampleData, size_t sampleCount);

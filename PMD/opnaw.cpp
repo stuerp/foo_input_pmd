@@ -32,7 +32,7 @@ bool OPNAW::Initialize(uint32_t clock, uint32_t synthesisRate, bool useInterpola
 /// <summary>
 /// Sets the synthesis rate.
 /// </summary>
-bool OPNAW::SetRate(uint32_t clock, uint32_t synthesisRate, bool useFM55kHzSynthesis)
+bool OPNAW::SetSampleRate(uint32_t clock, uint32_t synthesisRate, bool useFM55kHzSynthesis)
 {
     SetFMDelay(_FMDelay);
     SetSSGDelay(_SSGDelay);

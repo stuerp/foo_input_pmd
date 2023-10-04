@@ -58,7 +58,7 @@ bool PPZDriver::Initialize(uint32_t sampleRate, bool useInterpolation)
 {
     InitializeInternal();
 
-    return SetRate(sampleRate, useInterpolation);
+    return SetSampleRate(sampleRate, useInterpolation);
 }
 
 void PPZDriver::InitializeInternal()
@@ -457,7 +457,7 @@ bool PPZDriver::SetPan(int ch, int value)
 }
 
 // 14H Set the sample rate
-bool PPZDriver::SetRate(uint32_t sampleRate, bool useInterpolation)
+bool PPZDriver::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 {
     _SampleRate = (int) sampleRate;
     _UseInterpolation = useInterpolation;

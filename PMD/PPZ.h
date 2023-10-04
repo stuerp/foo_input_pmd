@@ -98,7 +98,7 @@ public:
     bool SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);
     void AllStop();
     bool SetPan(int ch, int value);
-    bool SetRate(uint32_t sampleRate, bool useInterpolation);
+    bool SetSampleRate(uint32_t sampleRate, bool useInterpolation);
     bool SetSourceRate(int ch, int sampleRate);
     void SetAllVolume(int volume);
     void SetVolume(int volume);

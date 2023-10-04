@@ -446,6 +446,8 @@ private:
     }
 
 private:
+    std::vector<std::wstring> _SearchPath;
+
     File * _File;
 
     OPNAW * _OPNAW;
