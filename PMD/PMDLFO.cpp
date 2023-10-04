@@ -29,16 +29,16 @@ void PMD::LFOMain(Channel * channel)
 
     int al, ax;
 
-    if (channel->lfo_wave == 0 || channel->lfo_wave == 4 || channel->lfo_wave == 5)
+    if (channel->LFOWaveform == 0 || channel->LFOWaveform == 4 || channel->LFOWaveform == 5)
     {
-        // Triangle wave (lfowave = 0,4,5)
-        if (channel->lfo_wave == 5)
+        // Triangle wave
+        if (channel->LFOWaveform == 5)
             ax = ::abs(channel->step) * channel->step;
         else
             ax = channel->step;
 
         if ((channel->lfodat += ax) == 0)
-            md_inc(channel);
+            SetStepUsingMDValue(channel);
 
         al = channel->time;
 
@@ -48,7 +48,7 @@ void PMD::LFOMain(Channel * channel)
             {
                 al = channel->time2;
 
-                if (channel->lfo_wave != 4)
+                if (channel->LFOWaveform != 4)
                     al += al;  // When lfowave = 0 or 5, double the time when inverting.
 
                 channel->time = al;
@@ -61,20 +61,20 @@ void PMD::LFOMain(Channel * channel)
         channel->time = al;
     }
     else
-    if (channel->lfo_wave == 2)
+    if (channel->LFOWaveform == 2)
     {
-        // Square wave (lfowave = 2)
+        // Square wave
         channel->lfodat = (channel->step * channel->time);
 
-        md_inc(channel);
+        SetStepUsingMDValue(channel);
 
         channel->step = -channel->step;
 
     }
     else
-    if (channel->lfo_wave == 6)
+    if (channel->LFOWaveform == 6)
     {
-        // One shot (lfowave = 6)
+        // One shot
         if (channel->time)
         {
             if (channel->time != 255)
@@ -84,9 +84,9 @@ void PMD::LFOMain(Channel * channel)
         }
     }
     else
-    if (channel->lfo_wave == 1)
+    if (channel->LFOWaveform == 1)
     {
-        // Sawtooth wave (lfowave = 1)
+        // Sawtooth wave
         channel->lfodat += channel->step;
 
         al = channel->time;
@@ -99,7 +99,7 @@ void PMD::LFOMain(Channel * channel)
             {
                 channel->lfodat = -channel->lfodat;
 
-                md_inc(channel);
+                SetStepUsingMDValue(channel);
 
                 al = (channel->time2) * 2;
             }
@@ -109,12 +109,12 @@ void PMD::LFOMain(Channel * channel)
     }
     else
     {
-        // Random wave (lfowave = 3)
+        // Random wave
         ax = abs(channel->step) * channel->time;
 
         channel->lfodat = ax - rnd(ax * 2);
 
-        md_inc(channel);
+        SetStepUsingMDValue(channel);
     }
 }
 
@@ -124,11 +124,11 @@ int PMD::StartLFO(Channel * channel, int al)
 
     if (ah == 0x0C)
     {
-        al = channel->DefaultTone;
+        al = channel->DefaultNote;
         ah = al & 0x0F;
     }
 
-    channel->DefaultTone = al;
+    channel->DefaultNote = al;
 
     if (ah == 0x0F)
     {
@@ -139,10 +139,10 @@ int PMD::StartLFO(Channel * channel, int al)
 
     channel->porta_num = 0; // Initialize the portamento.
 
-    if (_Driver.TieMode & 1)
+    if (_Driver.TieMode & 0x01)
         StopLFO(channel);
     else
-        lfin1(channel);
+        InitializeLFO(channel);
 
     return al;
 }
@@ -154,11 +154,11 @@ int PMD::StartPCMLFO(Channel * channel, int al)
 
     if (ah == 0x0C)
     {
-        al = channel->DefaultTone;
+        al = channel->DefaultNote;
         ah = al & 0x0F;
     }
 
-    channel->DefaultTone = al;
+    channel->DefaultNote = al;
 
     if (ah == 0x0F)
     {
@@ -194,7 +194,7 @@ int PMD::StartPCMLFO(Channel * channel, int al)
         channel->eenv_sr = channel->eenv_src;
         channel->eenv_rr = channel->eenv_rrc;
 
-        lfin1(channel);
+        InitializeLFO(channel);
     }
     else
     {
@@ -217,102 +217,100 @@ int PMD::StartPCMLFO(Channel * channel, int al)
 
         ExtendedSSGPCMSoftwareEnvelopeMain(channel);
 
-        lfin1(channel);
+        InitializeLFO(channel);
     }
 
     return al;
 }
 
-void PMD::StopLFO(Channel * track)
+void PMD::StopLFO(Channel * channel)
 {
-    if ((track->lfoswi & 0x03) != 0)
-        lfo(track); // Only execute the LFO once when preceded by a "&" command (Tie).
+    if ((channel->LFOSwitch & 0x03) != 0)
+        lfo(channel); // Only execute the LFO once when preceded by a "&" command (Tie).
 
-    if ((track->lfoswi & 0x30) != 0)
+    if ((channel->LFOSwitch & 0x30) != 0)
     {
         // Only execute the LFO once when preceded by a "&" command (Tie).
-        SwapLFO(track);
+        SwapLFO(channel);
 
-        lfo(track);
+        lfo(channel);
 
-        SwapLFO(track);
+        SwapLFO(channel);
     }
 }
 
-//  ＬＦＯ初期化
-void PMD::lfin1(Channel * track)
+// Initialize LFO
+void PMD::InitializeLFO(Channel * channel)
 {
-    track->HardwareLFODelayCounter = track->HardwareLFODelay;
+    channel->HardwareLFODelayCounter = channel->HardwareLFODelay;
 
-    if (track->HardwareLFODelay != 0)
-        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), (uint32_t) (track->PanAndVolume & 0xc0));
+    if (channel->HardwareLFODelay != 0)
+        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + _Driver.FMSelector + 0xB4 - 1), (uint32_t) (channel->PanAndVolume & 0xC0));
 
-    track->sdelay_c = track->sdelay;
+    channel->sdelay_c = channel->sdelay;
 
-    if (track->lfoswi & 0x03)
+    if ((channel->LFOSwitch & 0x03) != 0)
     {   // LFO not used
-        if ((track->lfoswi & 4) == 0)
-            lfoinit_main(track); // Is keyon asynchronous?
+        if ((channel->LFOSwitch & 4) == 0)
+            lfoinit_main(channel); // Is keyon asynchronous?
 
-        lfo(track);
+        lfo(channel);
     }
 
-    if (track->lfoswi & 0x30)
+    if ((channel->LFOSwitch & 0x30) != 0)
     {   // LFO not used
-        if ((track->lfoswi & 0x40) == 0)
+        if ((channel->LFOSwitch & 0x40) == 0)
         {
-            SwapLFO(track); // Is keyon asynchronous?
+            SwapLFO(channel); // Is keyon asynchronous?
 
-            lfoinit_main(track);
+            lfoinit_main(channel);
 
-            SwapLFO(track);
+            SwapLFO(channel);
         }
 
-        SwapLFO(track);
+        SwapLFO(channel);
 
-        lfo(track);
+        lfo(channel);
 
-        SwapLFO(track);
+        SwapLFO(channel);
     }
 }
 
-void PMD::lfoinit_main(Channel * track)
+void PMD::lfoinit_main(Channel * channel)
 {
-    track->lfodat = 0;
-    track->delay = track->delay2;
-    track->speed = track->speed2;
-    track->step = track->step2;
-    track->time = track->time2;
-    track->mdc = track->mdc2;
+    channel->lfodat = 0;
+    channel->delay = channel->delay2;
+    channel->speed = channel->speed2;
+    channel->step = channel->step2;
+    channel->time = channel->time2;
+    channel->mdc = channel->mdc2;
 
-    if (track->lfo_wave == 2 || track->lfo_wave == 3)
-    {   // Square wave or random wave?
-        track->speed = 1;  // Make the LFO apply immediately after the delay
-    }
+    if (channel->LFOWaveform == 2 || channel->LFOWaveform == 3) // Square wave or random wave?
+        channel->speed = 1;  // Make the LFO apply immediately after the delay
     else
-        track->speed++; // Otherwise, +1 to the speed value immediately after the delay
+        channel->speed++; // Otherwise, +1 to the speed value immediately after the delay
 }
 
 //  ＬＦＯ処理
 //    Don't Break cl
 //    output    cy=1  変化があった
-int PMD::lfo(Channel * track)
+int PMD::lfo(Channel * channel)
 {
-    return SetSSGLFO(track);
+    return SetSSGLFO(channel);
 }
 
-int PMD::SetSSGLFO(Channel * track)
+int PMD::SetSSGLFO(Channel * channel)
 {
-    if (track->delay)
+    if (channel->delay)
     {
-        track->delay--;
+        channel->delay--;
 
         return 0;
     }
 
     int ax, ch;
 
-    if (track->extendmode & 2)
+    if (channel->extendmode & 0x02)
     {
         // Match with TimerA? If not, unconditionally process lfo
         ch = _State.TimerATime - _Driver.OldTimerATime;
@@ -320,19 +318,19 @@ int PMD::SetSSGLFO(Channel * track)
         if (ch == 0)
             return 0;
 
-        ax = track->lfodat;
+        ax = channel->lfodat;
 
         for (; ch > 0; ch--)
-            LFOMain(track);
+            LFOMain(channel);
     }
     else
     {
-        ax = track->lfodat;
+        ax = channel->lfodat;
 
-        LFOMain(track);
+        LFOMain(channel);
     }
 
-    return (ax == track->lfodat) ? 0 : 1;
+    return (ax == channel->lfodat) ? 0 : 1;
 }
 
 uint8_t * PMD::lfoswitch(Channel * channel, uint8_t * si)
@@ -344,7 +342,7 @@ uint8_t * PMD::lfoswitch(Channel * channel, uint8_t * si)
 
     al &= 7;
 
-    channel->lfoswi = (channel->lfoswi & 0xf8) | al;
+    channel->LFOSwitch = (channel->LFOSwitch & 0xf8) | al;
 
     lfoinit_main(channel);
 
@@ -352,7 +350,7 @@ uint8_t * PMD::lfoswitch(Channel * channel, uint8_t * si)
 }
 
 // Change STEP value by value of MD command
-void PMD::md_inc(Channel * channel)
+void PMD::SetStepUsingMDValue(Channel * channel)
 {
     if (--channel->MDepthSpeedA)
         return;

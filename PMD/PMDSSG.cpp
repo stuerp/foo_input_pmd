@@ -49,7 +49,7 @@ void PMD::SSGMain(Channel * channel)
 
     if (channel->Length == 0)
     {
-        channel->lfoswi &= 0xf7;
+        channel->LFOSwitch &= 0xf7;
 
         // DATA READ
         while (1)
@@ -68,7 +68,7 @@ void PMD::SSGMain(Channel * channel)
             {
                 channel->Data = si;
                 channel->loopcheck = 3;
-                channel->Tone = 255;
+                channel->Note = 255;
 
                 if (channel->LoopData == nullptr)
                 {
@@ -91,7 +91,7 @@ void PMD::SSGMain(Channel * channel)
             {
                 if (*si == 0xda)
                 {
-                    si = SetSSGPortamento(channel, ++si);
+                    si = SetSSGPortamentoCommand(channel, ++si);
 
                     _Driver.loop_work &= channel->loopcheck;
 
@@ -105,7 +105,7 @@ void PMD::SSGMain(Channel * channel)
                         si++;
 
                         channel->fnum = 0;      // Set to "rest".
-                        channel->Tone = 255;
+                        channel->Note = 255;
                         channel->Length = *si++;
                         channel->KeyOnFlag++;
                         channel->Data = si;
@@ -126,7 +126,7 @@ void PMD::SSGMain(Channel * channel)
 
                 si = CalculateQ(channel, si);
 
-                if (channel->volpush && channel->Tone != 255)
+                if (channel->volpush && channel->Note != 255)
                 {
                     if (--_Driver.volpush_flag)
                     {
@@ -155,19 +155,19 @@ void PMD::SSGMain(Channel * channel)
         }
     }
 
-    _Driver.lfo_switch = (channel->lfoswi & 8);
+    _Driver.lfo_switch = (channel->LFOSwitch & 8);
 
-    if (channel->lfoswi)
+    if (channel->LFOSwitch)
     {
-        if (channel->lfoswi & 3)
+        if (channel->LFOSwitch & 3)
         {
             if (SetSSGLFO(channel))
             {
-                _Driver.lfo_switch |= (channel->lfoswi & 3);
+                _Driver.lfo_switch |= (channel->LFOSwitch & 3);
             }
         }
 
-        if (channel->lfoswi & 0x30)
+        if (channel->LFOSwitch & 0x30)
         {
             SwapLFO(channel);
 
@@ -175,7 +175,7 @@ void PMD::SSGMain(Channel * channel)
             {
                 SwapLFO(channel);
 
-                _Driver.lfo_switch |= (channel->lfoswi & 0x30);
+                _Driver.lfo_switch |= (channel->LFOSwitch & 0x30);
             }
             else
                 SwapLFO(channel);
@@ -187,7 +187,7 @@ void PMD::SSGMain(Channel * channel)
                 CalculatePortamento(channel);
 
             // Do not operate while resting on SSG channel 3 and SSG drum is sounding.
-            if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Tone == 255) && (_State.kshot_dat != 0)))
+            if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Note == 255) && (_State.kshot_dat != 0)))
                 SetSSGPitch(channel);
         }
     }
@@ -197,7 +197,7 @@ void PMD::SSGMain(Channel * channel)
     if ((temp != 0) || _Driver.lfo_switch & 0x22 || (_State.FadeOutSpeed != 0))
     {
         // Do not set volume while resting on SSG channel 3 and SSG drum is sounding.
-        if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Tone == 255) && (_State.kshot_dat != 0)))
+        if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Note == 255) && (_State.kshot_dat != 0)))
             SetSSGVolume(channel);
     }
 
@@ -217,7 +217,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             channel->qdat3 = 0;
             break;
 
-        case 0xfd:
+        case 0xFD:
             channel->Volume = *si++;
             break;
 
@@ -235,36 +235,106 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             si += 2;
             break;
 
-        case 0xf9: si = SetStartOfLoopCommand(channel, si); break;
-        case 0xf8: si = SetEndOfLoopCommand(channel, si); break;
-        case 0xf7: si = ExitLoopCommand(channel, si); break;
-        case 0xf6: channel->LoopData = si; break;
-        case 0xf5: channel->shift = *(int8_t *) si++; break;
-        case 0xf4: if (channel->Volume < 15) channel->Volume++; break;
-        case 0xf3: if (channel->Volume > 0) channel->Volume--; break;
-        case 0xf2: si = SetLFOParameter(channel, si); break;
-        case 0xf1: si = lfoswitch(channel, si); break;
-        case 0xf0: si = psgenvset(channel, si); break;
+        case 0xf9:
+            si = SetStartOfLoopCommand(channel, si);
+            break;
 
-        case 0xef: _OPNAW->SetReg(*si, *(si + 1)); si += 2; break;
-        case 0xee: _State.SSGNoiseFrequency = *si++; break;
-        case 0xed: channel->psgpat = *si++; break;
+        case 0xf8:
+            si = SetEndOfLoopCommand(channel, si);
+            break;
+
+        case 0xf7:
+            si = ExitLoopCommand(channel, si);
+            break;
+
+        case 0xf6:
+            channel->LoopData = si;
+            break;
+
+        case 0xf5:
+            channel->shift = *(int8_t *) si++;
+            break;
+
+        case 0xf4:
+            if (channel->Volume < 15)
+                channel->Volume++;
+            break;
+
+        case 0xf3:
+            if (channel->Volume > 0)
+                channel->Volume--;
+            break;
+
+        case 0xf2:
+            si = SetLFOParameter(channel, si);
+            break;
+
+        case 0xf1:
+            si = lfoswitch(channel, si);
+            break;
+
+        case 0xf0:
+            si = SetSSGEnvelopeCommand(channel, si);
+            break;
+
+        case 0xef:
+            _OPNAW->SetReg(*si, *(si + 1));
+            si += 2;
+            break;
+
+        case 0xee:
+            _State.SSGNoiseFrequency = *si++;
+            break;
+
+        case 0xed:
+            channel->SSGPattern = *si++;
+            break;
 
         case 0xec: si++; break;
-        case 0xeb: si = RhythmInstrumentCommand(si); break;
-        case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
-        case 0xe9: si = SetRhythmPanCommand(si); break;
-        case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
 
-        case 0xe7: channel->shift += *(int8_t *) si++; break;
-        case 0xe6: si = SetRhythmVolume(si); break;
-        case 0xe5: si = SetRhythmPanValue(si); break;
+        case 0xeb:
+            si = RhythmInstrumentCommand(si);
+            break;
+
+        case 0xea:
+            si = SetRhythmInstrumentVolumeCommand(si);
+            break;
+
+        case 0xe9:
+            si = SetRhythmPanCommand(si);
+            break;
+
+        case 0xe8:
+            si = SetRhythmMasterVolumeCommand(si);
+            break;
+
+        case 0xe7:
+            channel->shift += *(int8_t *) si++;
+            break;
+
+        case 0xe6:
+            si = SetRhythmVolume(si);
+            break;
+
+        case 0xe5:
+            si = SetRhythmPanValue(si);
+            break;
 
         case 0xe4: si++; break;
 
-        case 0xe3: channel->Volume += *si++; if (channel->Volume > 15) channel->Volume = 15; break;
-        case 0xe2: channel->Volume -= *si++; if (channel->Volume < 0) channel->Volume = 0; break;
+        case 0xe3:
+            channel->Volume += *si++;
 
+            if (channel->Volume > 15)
+                channel->Volume = 15;
+            break;
+
+        case 0xe2:
+            channel->Volume -= *si++;
+
+            if (channel->Volume < 0)
+                channel->Volume = 0;
+            break;
 
         case 0xe1: si++; break;
         case 0xe0: si++; break;
@@ -273,13 +343,25 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             _State.BarLength = *si++; // Command "Z number"
             break;
 
-        case 0xde: si = SetSSGVolumeCommand(channel, si); break;
-        case 0xdd: si = DecreaseVolumeCommand(channel, si); break;
+        case 0xde:
+            si = SetSSGVolumeCommand(channel, si);
+            break;
 
-        case 0xdc: _State.status = *si++; break;
-        case 0xdb: _State.status += *si++; break;
+        case 0xdd:
+            si = DecreaseVolumeCommand(channel, si);
+            break;
 
-        case 0xda: si = SetSSGPortamento(channel, si); break;
+        case 0xdc:
+            _State.status = *si++;
+            break;
+
+        case 0xdb:
+            _State.status += *si++;
+            break;
+
+        case 0xda:
+            si = SetSSGPortamentoCommand(channel, si);
+            break;
 
         case 0xd9: si++; break;
         case 0xd8: si++; break;
@@ -295,26 +377,42 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             si += 2;
             break;
 
-        case 0xd4: si = SetSSGEffect(channel, si); break;
-        case 0xd3: si = SetFMEffect(channel, si); break;
+        case 0xd4:
+            si = SetSSGEffect(channel, si);
+            break;
+
+        case 0xd3:
+            si = SetFMEffect(channel, si);
+            break;
+
         case 0xd2:
             _State.fadeout_flag = 1;
             _State.FadeOutSpeed = *si++;
             break;
 
         case 0xd1: si++; break;
-        case 0xd0: si = SetSSGPseudoEchoCommand(si); break;
+
+        case 0xd0:
+            si = SetSSGPseudoEchoCommand(si);
+            break;
 
         case 0xcf: si++; break;
         case 0xce: si += 6; break;
-        case 0xcd: si = SetSSGEnvelopeSpeedToExtend(channel, si); break;
+
+        case 0xcd:
+            si = SetSSGEnvelopeSpeedToExtend(channel, si);
+            break;
+
         case 0xcc:
             channel->extendmode = (channel->extendmode & 0xfe) | (*si++ & 1);
             break;
 
-        case 0xcb: channel->lfo_wave = *si++; break;
+        case 0xcb:
+            channel->LFOWaveform = *si++;
+            break;
+
         case 0xca:
-            channel->extendmode = (channel->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            channel->extendmode = (channel->extendmode & 0xFD) | ((*si++ & 1) << 1);
             break;
 
         case 0xc9:
@@ -325,11 +423,23 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
         case 0xc7: si += 3; break;
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
-        case 0xc4: channel->qdatb = *si++; break;
+
+        case 0xc4:
+            channel->qdatb = *si++;
+            break;
+
         case 0xc3: si += 2; break;
-        case 0xc2: channel->delay = channel->delay2 = *si++; lfoinit_main(channel); break;
+
+        case 0xc2:
+            channel->delay = channel->delay2 = *si++;
+            lfoinit_main(channel);
+            break;
+
         case 0xc1: break;
-        case 0xc0: si = SetSSGMaskCommand(channel, si); break;
+
+        case 0xc0:
+            si = SetSSGMaskCommand(channel, si);
+            break;
 
         case 0xbf:
             SwapLFO(channel);
@@ -340,7 +450,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xbe:
-            channel->lfoswi = (channel->lfoswi & 0x8f) | ((*si++ & 7) << 4);
+            channel->LFOSwitch = (channel->LFOSwitch & 0x8f) | ((*si++ & 7) << 4);
 
             SwapLFO(channel);
 
@@ -361,7 +471,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
         case 0xbc:
             SwapLFO(channel);
 
-            channel->lfo_wave = *si++;
+            channel->LFOWaveform = *si++;
 
             SwapLFO(channel);
             break;
@@ -369,7 +479,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
         case 0xbb:
             SwapLFO(channel);
 
-            channel->extendmode = (channel->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            channel->extendmode = (channel->extendmode & 0xFD) | ((*si++ & 1) << 1);
 
             SwapLFO(channel);
             break;
@@ -388,14 +498,26 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xb8: si += 2; break;
-        case 0xb7: si = SetMDepthCountCommand(channel, si); break;
+
+        case 0xb7:
+            si = SetMDepthCountCommand(channel, si);
+            break;
+
         case 0xb6: si++; break;
         case 0xb5: si += 2; break;
         case 0xb4: si += 16; break;
 
-        case 0xb3: channel->qdat2 = *si++; break;
-        case 0xb2: channel->shift_def = *(int8_t *) si++; break;
-        case 0xb1: channel->qdat3 = *si++; break;
+        case 0xb3:
+            channel->qdat2 = *si++;
+            break;
+
+        case 0xb2:
+            channel->shift_def = *(int8_t *) si++;
+            break;
+
+        case 0xb1:
+            channel->qdat3 = *si++;
+            break;
 
         default:
             si--;
@@ -473,12 +595,12 @@ uint8_t * PMD::SetSSGVolumeCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetSSGPortamentoCommand(Channel * channel, uint8_t * si)
 {
     if (channel->MuteMask)
     {
-        channel->fnum = 0;    // Set to "rest"
-        channel->Tone = 255;
+        channel->fnum = 0;
+        channel->Note = 0xFF; // Rest
         channel->Length = *(si + 2);
         channel->KeyOnFlag++;
         channel->Data = si + 3;
@@ -496,13 +618,13 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
     SetSSGTone(channel, oshiftp(channel, StartPCMLFO(channel, *si++)));
 
     int bx_ = (int) channel->fnum;
-    int al_ = channel->Tone;
+    int al_ = channel->Note;
 
     SetSSGTone(channel, oshiftp(channel, *si++));
 
     int ax = (int) channel->fnum;   // ax = portamento destination psg_tune value
 
-    channel->Tone = al_;
+    channel->Note = al_;
     channel->fnum = (uint32_t) bx_; // bx = portamento original psg_tune value
 
     ax -= bx_;
@@ -511,11 +633,11 @@ uint8_t * PMD::SetSSGPortamento(Channel * channel, uint8_t * si)
 
     si = CalculateQ(channel, si);
 
-    channel->porta_num2 = ax / channel->Length; // Quotient
-    channel->porta_num3 = ax % channel->Length; // Remainder
-    channel->lfoswi |= 8;                       // Porta ON
+    channel->porta_num2 = ax / channel->Length;
+    channel->porta_num3 = ax % channel->Length;
+    channel->LFOSwitch |= 8; // Enable portamento.
 
-    if (channel->volpush && channel->Tone != 255)
+    if (channel->volpush && channel->Note != 255)
     {
         if (--_Driver.volpush_flag)
         {
@@ -604,6 +726,22 @@ uint8_t * PMD::SetSSGMaskCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
+uint8_t * PMD::SetSSGEnvelopeCommand(Channel * channel, uint8_t * si)
+{
+    channel->eenv_ar = *si; channel->eenv_arc = *si++;
+    channel->eenv_dr = *(int8_t *) si++;
+    channel->eenv_sr = *si; channel->eenv_src = *si++;
+    channel->eenv_rr = *si; channel->eenv_rrc = *si++;
+
+    if (channel->envf == -1)
+    {
+        channel->envf = 2;    // RR
+        channel->eenv_volume = -15;    // volume
+    }
+
+    return si;
+}
+
 
 /// <summary>
 /// Decides to stop the SSG drum and reset the SSG.
@@ -635,9 +773,9 @@ void PMD::SetSSGTone(Channel * channel, int al)
 {
     if ((al & 0x0f) == 0x0f)
     {
-        channel->Tone = 255; // Kyufu Nara FNUM Ni 0 Set
+        channel->Note = 255; // Kyufu Nara FNUM Ni 0 Set
 
-        if (channel->lfoswi & 0x11)
+        if (channel->LFOSwitch & 0x11)
             return;
 
         channel->fnum = 0;  // Pitch LFO not used
@@ -645,7 +783,7 @@ void PMD::SetSSGTone(Channel * channel, int al)
         return;
     }
 
-    channel->Tone = al;
+    channel->Note = al;
 
     int cl = (al >> 4) & 0x0f;  // cl=oct
     int bx = al & 0x0f;      // bx=onkai
@@ -712,15 +850,15 @@ void PMD::SetSSGVolume(Channel * channel)
 
 
     //  音量LFO計算
-    if ((channel->lfoswi & 0x22) == 0)
+    if ((channel->LFOSwitch & 0x22) == 0)
     {
         _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), (uint32_t) dl);
         return;
     }
 
-    int ax = (channel->lfoswi & 2) ? channel->lfodat : 0;
+    int ax = (channel->LFOSwitch & 2) ? channel->lfodat : 0;
 
-    if (channel->lfoswi & 0x20)
+    if (channel->LFOSwitch & 0x20)
         ax += channel->_lfodat;
 
     dl += ax;
@@ -748,14 +886,14 @@ void PMD::SetSSGPitch(Channel * channel)
     int dx = 0;
 
     // SSG Detune/LFO set
-    if ((channel->extendmode & 1) == 0)
+    if ((channel->extendmode & 0x01) == 0)
     {
         ax -= channel->DetuneValue;
 
-        if (channel->lfoswi & 1)
+        if (channel->LFOSwitch & 1)
             ax -= channel->lfodat;
 
-        if (channel->lfoswi & 0x10)
+        if (channel->LFOSwitch & 0x10)
             ax -= channel->_lfodat;
     }
     else
@@ -774,14 +912,14 @@ void PMD::SetSSGPitch(Channel * channel)
         }
 
         // 拡張DETUNE(LFO)の計算
-        if (channel->lfoswi & 0x11)
+        if (channel->LFOSwitch & 0x11)
         {
-            if (channel->lfoswi & 1)
+            if (channel->LFOSwitch & 1)
                 dx = channel->lfodat;
             else
                 dx = 0;
 
-            if (channel->lfoswi & 0x10)
+            if (channel->LFOSwitch & 0x10)
                 dx += channel->_lfodat;
 
             if (dx)
@@ -813,13 +951,13 @@ void PMD::SetSSGPitch(Channel * channel)
 
 void PMD::SetSSGKeyOn(Channel * channel)
 {
-    if (channel->Tone == 0xFF)
+    if (channel->Note == 0xFF)
         return;
 
     int ah = (1 << (_Driver.CurrentChannel - 1)) | (1 << (_Driver.CurrentChannel + 2));
     int al = ((int32_t) _OPNAW->GetReg(0x07) | ah);
 
-    ah = ~(ah & channel->psgpat);
+    ah = ~(ah & channel->SSGPattern);
     al &= ah;
 
     _OPNAW->SetReg(7, (uint32_t) al);
@@ -835,7 +973,7 @@ void PMD::SetSSGKeyOn(Channel * channel)
 
 void PMD::SetSSGKeyOff(Channel * channel)
 {
-    if (channel->Tone == 255)
+    if (channel->Note == 255)
         return;
 
     if (channel->envf != -1)

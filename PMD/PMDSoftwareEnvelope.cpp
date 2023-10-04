@@ -17,7 +17,7 @@
 
 int PMD::SSGPCMSoftwareEnvelope(Channel * channel)
 {
-    if (channel->extendmode & 4)
+    if (channel->extendmode & 0x04)
     {
         if (_State.TimerATime == _Driver.OldTimerATime)
             return 0;

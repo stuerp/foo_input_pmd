@@ -6,13 +6,11 @@ struct Channel
     uint8_t * LoopData;
     int Length;
 
-    int qdat; // 1 gatetime (value calculated from q/Q value)
-
     uint32_t fnum;  // 2 Power BLOCK/FNUM
     int DetuneValue;
 
-    int lfoswi;  // 1. LFOSW: bit 0: tone, bit 1: vol,  bit 2: same period, bit 3: portamento
-    int extendmode; // 1. bit 1: Detune, bit 2: LFO, bit 3: Env Normal/Extend
+    int LFOSwitch;  // bit 0: tone, bit 1: vol,  bit 2: same period, bit 3: portamento
+    int extendmode; // bit 1: Detune, bit 2: LFO, bit 3: Env Normal/Extend
 
     // LFO 1
     int lfodat;  // 2 LFO DATA
@@ -33,7 +31,7 @@ struct Channel
     int MDepthSpeedB;
     int MDepth;
 
-    int lfo_wave; // 1 LFO waveform
+    int LFOWaveform;
 
     int mdc;  // 1 M depth Counter (Fluctuation value)
     int mdc2;  // 1 M depth Counter
@@ -58,20 +56,21 @@ struct Channel
     int _mdspd;  // 1 M speed
     int _mdspd2; // 1 M speed_2
 
-    int _lfo_wave; // 1 LFO waveform
+    int _LFOWaveform;
 
     int _mdc;  // 1 M depth Counter (Fluctuation value)
     int _mdc2;  // 1 M depth Counter
 
-    int porta_num; // 2 ポルタメントの加減値（全体）
-    int porta_num2; // 2 ポルタメントの加減値（一回）
-    int porta_num3; // 2 ポルタメントの加減値（余り）
+    int porta_num; // 2 Portamento adjustment value (overall)
+    int porta_num2; // 2 Portamento adjustment value (once)
+    int porta_num3; // 2 Portamento adjustment value (remainder)
 
     int Volume;  // 1 VOLUME
     int shift;  // 1 ｵﾝｶｲ ｼﾌﾄ ﾉ ｱﾀｲ
 
     // bit 4: tone / bit 5: vol / bit 6: same period
     int volpush; // 1 Volume PUSHarea
+
     int envf;  // 1 SSG ENV. [START_FLAG] / -1でextend
     int eenv_count; // 1 ExtendSSGenv/No=0 AR=1 DR=2 SR=3 RR=4
     int eenv_ar; // 1  /AR  /旧pat
@@ -87,9 +86,10 @@ struct Channel
     int eenv_volume;  // 1 /Volume値(0?15)/旧penv
 
     int PanAndVolume;
-    int psgpat;  // 1 SSG PATTERN [TONE/NOISE/MIX]
+    int SSGPattern;         // Tone / Noise / Mix
     int InstrumentNumber;
     int loopcheck; // 1 When the loop ends 1 When the loop ends 3
+
     int carrier; // 1 FM Carrier
     int slot1;  // 1 SLOT 1 ﾉ TL
     int slot3;  // 1 SLOT 3 ﾉ TL
@@ -103,6 +103,7 @@ struct Channel
     int VolumeMask2; // Volume LFO mask
 
     // bit 3: none / bit 4: For PPZ/ADE / bit 5: s0 time / bit 6: m / bit 7: temporary
+    int KeyOnFlag; // 1 After processing new scale/rest data, inc
     int KeyOffFlag;  // 1 Flag indicating whether keyoff has been performed
     int qdata;  // 1 value of q
     int qdatb;  // 1 value of q
@@ -110,14 +111,17 @@ struct Channel
     int HardwareLFODelay;
     int HardwareLFODelayCounter;
 
-    int Tone;  // Scale data being played (0xFF = rest)
+    int Note;  // Scale data being played (0xFF = rest)
+    int DefaultNote; // 1 Scale data being played (before modulation processing / ?fh: rest)
+
     int sdelay;  // 1 Slot delay
     int sdelay_c; // 1 Slot delay counter
     int sdelay_m; // 1 Slot delay Mask
+
     int alg_fb;  // 1 Tone alg/fb
-    int KeyOnFlag; // 1 After processing new scale/rest data, inc
-    int qdat2;  // 1 q minimum guaranteed value
-    int DefaultTone; // 1 Scale data being played (before modulation processing / ?fh: rest)
     int shift_def; // 1 Master modulation value
+
+    int qdat; // 1 gatetime (value calculated from q/Q value)
+    int qdat2;  // 1 q minimum guaranteed value
     int qdat3;  // 1 q Random
 };

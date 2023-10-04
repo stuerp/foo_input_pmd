@@ -46,7 +46,7 @@ void PMD::PPZMain(Channel * channel)
     // LENGTH CHECK
     if (channel->Length == 0)
     {
-        channel->lfoswi &= 0xf7;
+        channel->LFOSwitch &= 0xf7;
 
         while (1)
         {
@@ -58,7 +58,7 @@ void PMD::PPZMain(Channel * channel)
             {
                 channel->Data = si;
                 channel->loopcheck = 3;
-                channel->Tone = 255;
+                channel->Note = 255;
 
                 if (channel->LoopData == nullptr)
                 {
@@ -92,7 +92,7 @@ void PMD::PPZMain(Channel * channel)
                 {
                     si++;
                     channel->fnum = 0;    //休符に設定
-                    channel->Tone = 255;
+                    channel->Note = 255;
                     //          qq->DefaultTone = 255;
                     channel->Length = *si++;
                     channel->KeyOnFlag++;
@@ -115,7 +115,7 @@ void PMD::PPZMain(Channel * channel)
 
                 si = CalculateQ(channel, si);
 
-                if (channel->volpush && channel->Tone != 255)
+                if (channel->volpush && channel->Note != 255)
                 {
                     if (--_Driver.volpush_flag)
                     {
@@ -146,24 +146,24 @@ void PMD::PPZMain(Channel * channel)
         }
     }
 
-    _Driver.lfo_switch = (channel->lfoswi & 8);
-    if (channel->lfoswi)
+    _Driver.lfo_switch = (channel->LFOSwitch & 8);
+    if (channel->LFOSwitch)
     {
-        if (channel->lfoswi & 3)
+        if (channel->LFOSwitch & 3)
         {
             if (lfo(channel))
             {
-                _Driver.lfo_switch |= (channel->lfoswi & 3);
+                _Driver.lfo_switch |= (channel->LFOSwitch & 3);
             }
         }
 
-        if (channel->lfoswi & 0x30)
+        if (channel->LFOSwitch & 0x30)
         {
             SwapLFO(channel);
             if (SetSSGLFO(channel))
             {
                 SwapLFO(channel);
-                _Driver.lfo_switch |= (channel->lfoswi & 0x30);
+                _Driver.lfo_switch |= (channel->LFOSwitch & 0x30);
             }
             else
             {
@@ -197,14 +197,14 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
     switch (al)
     {
         case 0xff:
-            si = SetPPZInstrument(channel, si);
+            si = SetPPZInstrumentCommand(channel, si);
             break;
 
         case 0xfe:
             channel->qdata = *si++;
             break;
 
-        case 0xfd:
+        case 0xFD:
             channel->Volume = *si++;
             break;
 
@@ -237,7 +237,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xf3: if (channel->Volume < 16) channel->Volume = 0; else channel->Volume -= 16; break;
         case 0xf2: si = SetLFOParameter(channel, si); break;
         case 0xf1: si = lfoswitch(channel, si); break;
-        case 0xf0: si = psgenvset(channel, si); break;
+        case 0xf0: si = SetSSGEnvelopeCommand(channel, si); break;
 
         case 0xef: _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + *si), (uint32_t) *(si + 1)); si += 2; break;
         case 0xee: si++; break;
@@ -315,9 +315,9 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
 
         case 0xcd: si = SetSSGEnvelopeSpeedToExtend(channel, si); break;
         case 0xcc: si++; break;
-        case 0xcb: channel->lfo_wave = *si++; break;
+        case 0xcb: channel->LFOWaveform = *si++; break;
         case 0xca:
-            channel->extendmode = (channel->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            channel->extendmode = (channel->extendmode & 0xFD) | ((*si++ & 1) << 1);
             break;
 
         case 0xc9:
@@ -360,7 +360,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xbc:
             SwapLFO(channel);
 
-            channel->lfo_wave = *si++;
+            channel->LFOWaveform = *si++;
 
             SwapLFO(channel);
             break;
@@ -368,7 +368,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xbb:
             SwapLFO(channel);
 
-            channel->extendmode = (channel->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            channel->extendmode = (channel->extendmode & 0xFD) | ((*si++ & 1) << 1);
 
             SwapLFO(channel);
             break;
@@ -411,7 +411,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
 
 #pragma region(Commands)
 // Command "@ number": Sets the number of the instrument to be used. Range 0-255.
-uint8_t * PMD::SetPPZInstrument(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetPPZInstrumentCommand(Channel * channel, uint8_t * si)
 {
     channel->InstrumentNumber = *si++;
 
@@ -436,7 +436,7 @@ void PMD::SetPPZTone(Channel * channel, int al)
     if ((al & 0x0f) != 0x0f)
     {
         // Music Note
-        channel->Tone = al;
+        channel->Note = al;
 
         int bx = al & 0x0f;          // bx=onkai
         int cl = (al >> 4) & 0x0f;    // cl = octarb
@@ -456,9 +456,9 @@ void PMD::SetPPZTone(Channel * channel, int al)
     else
     {
         // Rest
-        channel->Tone = 0xFF;
+        channel->Note = 0xFF;
 
-        if ((channel->lfoswi & 0x11) == 0)
+        if ((channel->LFOSwitch & 0x11) == 0)
             channel->fnum = 0;      // 音程LFO未使用
     }
 }
@@ -521,11 +521,11 @@ void PMD::SetPPZVolume(Channel * channel)
     }
 
     // Calculate the LFO volume.
-    if ((channel->lfoswi & 0x22))
+    if ((channel->LFOSwitch & 0x22))
     {
-        int dx = (channel->lfoswi & 2) ? channel->lfodat : 0;
+        int dx = (channel->LFOSwitch & 2) ? channel->lfodat : 0;
 
-        if (channel->lfoswi & 0x20)
+        if (channel->LFOSwitch & 0x20)
             dx += channel->_lfodat;
 
         al += dx;
@@ -557,9 +557,9 @@ void PMD::SetPPZPitch(Channel * channel)
 
     cx += channel->porta_num * 16;
 
-    int ax = (channel->lfoswi & 1) ? channel->lfodat : 0;
+    int ax = (channel->LFOSwitch & 1) ? channel->lfodat : 0;
 
-    if (channel->lfoswi & 0x10)
+    if (channel->LFOSwitch & 0x10)
         ax += channel->_lfodat;
 
     ax += channel->DetuneValue;
@@ -579,7 +579,7 @@ void PMD::SetPPZPitch(Channel * channel)
 
 void PMD::SetPPZKeyOn(Channel * channel)
 {
-    if (channel->Tone == 0xFF)
+    if (channel->Note == 0xFF)
         return;
 
     if ((channel->InstrumentNumber & 0x80) == 0)
@@ -611,7 +611,7 @@ uint8_t * PMD::SetPPZPortamentoCommand(Channel * channel, uint8_t * si)
     {
         // Set to 'rest'.
         channel->fnum = 0;
-        channel->Tone = 255;
+        channel->Note = 255;
         channel->Length = si[2];
         channel->KeyOnFlag++;
         channel->Data = si + 3;
@@ -629,13 +629,13 @@ uint8_t * PMD::SetPPZPortamentoCommand(Channel * channel, uint8_t * si)
     SetPPZTone(channel, oshift(channel, StartPCMLFO(channel, *si++)));
 
     int bx_ = (int) channel->fnum;
-    int al_ = channel->Tone;
+    int al_ = channel->Note;
 
     SetPPZTone(channel, oshift(channel, *si++));
 
     int ax = (int) channel->fnum;       // ax = ポルタメント先のdelta_n値
 
-    channel->Tone = al_;
+    channel->Note = al_;
     channel->fnum = (uint32_t) bx_;      // bx = ポルタメント元のdekta_n値
 
     ax -= bx_;        // ax = delta_n差
@@ -645,11 +645,11 @@ uint8_t * PMD::SetPPZPortamentoCommand(Channel * channel, uint8_t * si)
 
     si = CalculateQ(channel, si);
 
-    channel->porta_num2 = ax / channel->Length;    // 商
-    channel->porta_num3 = ax % channel->Length;    // 余り
-    channel->lfoswi |= 8;        // Porta ON
+    channel->porta_num2 = ax / channel->Length;
+    channel->porta_num3 = ax % channel->Length;
+    channel->LFOSwitch |= 8;        // Porta ON
 
-    if (channel->volpush && channel->Tone != 255)
+    if (channel->volpush && channel->Note != 255)
     {
         if (--_Driver.volpush_flag)
         {
@@ -724,8 +724,8 @@ uint8_t * PMD::InitializePPZ(Channel *, uint8_t * si)
             _PPZChannel[i].mdc2 = -1;
             _PPZChannel[i]._mdc = -1;
             _PPZChannel[i]._mdc2 = -1;
-            _PPZChannel[i].Tone = 0xFF;         // Rest
-            _PPZChannel[i].DefaultTone = 0xFF;  // Rest
+            _PPZChannel[i].Note = 0xFF;         // Rest
+            _PPZChannel[i].DefaultNote = 0xFF;  // Rest
             _PPZChannel[i].Volume = 128;
             _PPZChannel[i].PanAndVolume = 5;         // Center
         }

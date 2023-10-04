@@ -133,7 +133,7 @@ void PMD::DriverStart()
     _Position = 0;
 
     InitializeState();
-    InitializeTracks();
+    InitializeChannels();
 
     InitializeOPN();
     InitializeInterrupt();

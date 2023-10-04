@@ -116,7 +116,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xff: si++; break;
         case 0xfe: si++; break;
 
-        case 0xfd:
+        case 0xFD:
             channel->Volume = *si++;
             break;
 

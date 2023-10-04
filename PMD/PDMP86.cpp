@@ -48,14 +48,14 @@ void PMD::PCM86Main(Channel * channel)
 //          if (*si > 0x80 && *si != 0xda) {
             if (*si > 0x80)
             {
-                si = ExecutePCM86Command(channel, si);
+                si = ExecuteP86Command(channel, si);
             }
             else
             if (*si == 0x80)
             {
                 channel->Data = si;
                 channel->loopcheck = 3;
-                channel->Tone = 255;
+                channel->Note = 255;
 
                 if (channel->LoopData == nullptr)
                 {
@@ -83,7 +83,7 @@ void PMD::PCM86Main(Channel * channel)
 
                     // Set to "rest".
                     channel->fnum = 0;
-                    channel->Tone = 0xFF;
+                    channel->Note = 0xFF;
                 //  channel->DefaultTone = 0xFF;
 
                     channel->Length = *si++;
@@ -104,7 +104,7 @@ void PMD::PCM86Main(Channel * channel)
 
                 si = CalculateQ(channel, si);
 
-                if (channel->volpush && (channel->Tone != 0xFF))
+                if (channel->volpush && (channel->Note != 0xFF))
                 {
                     if (--_Driver.volpush_flag)
                     {
@@ -135,18 +135,18 @@ void PMD::PCM86Main(Channel * channel)
         }
     }
 
-    if (channel->lfoswi & 0x22)
+    if (channel->LFOSwitch & 0x22)
     {
         _Driver.lfo_switch = 0;
 
-        if (channel->lfoswi & 2)
+        if (channel->LFOSwitch & 2)
         {
             lfo(channel);
 
-            _Driver.lfo_switch |= (channel->lfoswi & 2);
+            _Driver.lfo_switch |= (channel->LFOSwitch & 2);
         }
 
-        if (channel->lfoswi & 0x20)
+        if (channel->LFOSwitch & 0x20)
         {
             SwapLFO(channel);
 
@@ -154,7 +154,7 @@ void PMD::PCM86Main(Channel * channel)
             {
                 SwapLFO(channel);
 
-                _Driver.lfo_switch |= (channel->lfoswi & 0x20);
+                _Driver.lfo_switch |= (channel->LFOSwitch & 0x20);
             }
             else
                 SwapLFO(channel);
@@ -176,21 +176,21 @@ void PMD::PCM86Main(Channel * channel)
     _Driver.loop_work &= channel->loopcheck;
 }
 
-uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
+uint8_t * PMD::ExecuteP86Command(Channel * channel, uint8_t * si)
 {
     int al = *si++;
 
     switch (al)
     {
         case 0xff:
-            si = SetP86Instrument(channel, si);
+            si = SetP86InstrumentCommand(channel, si);
             break;
 
         case 0xfe:
             channel->qdata = *si++;
             break;
 
-        case 0xfd:
+        case 0xFD:
             channel->Volume = *si++;
             break;
 
@@ -229,10 +229,11 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
 
         case 0xf2: si = SetLFOParameter(channel, si); break;
         case 0xf1: si = lfoswitch(channel, si); break;
-        case 0xf0: si = psgenvset(channel, si); break;
+        case 0xf0: si = SetSSGEnvelopeCommand(channel, si); break;
 
         case 0xef:
-            _OPNAW->SetReg((uint32_t) (0x100 + *si), (uint32_t) (*(si + 1))); si += 2;
+            _OPNAW->SetReg((uint32_t) (0x100 + si[0]), (uint32_t) si[1]);
+            si += 2;
             break;
 
         case 0xee: si++; break;
@@ -251,8 +252,8 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xe4: si++; break;
 
         case 0xe3:
-            if (channel->Volume < (255 - (*si)))
-                channel->Volume += (*si);
+            if (channel->Volume < (255 - si[0]))
+                channel->Volume += si[0];
             else
                 channel->Volume = 255;
 
@@ -260,10 +261,10 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
             break;
 
         case 0xe2:
-            if (channel->Volume < *si)
+            if (channel->Volume < si[0])
                 channel->Volume = 0;
             else
-                channel->Volume -= *si;
+                channel->Volume -= si[0];
 
             si++;
             break;
@@ -315,17 +316,19 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
         case 0xd0: si++; break;
         case 0xcf: si++; break;
 
-        case 0xce: si = SetPCM86RepeatCommand(channel, si); break;
+        case 0xce: si = SetP86RepeatCommand(channel, si); break;
         case 0xcd: si = SetSSGEnvelopeSpeedToExtend(channel, si); break;
         case 0xcc: si++; break;
-        case 0xcb: channel->lfo_wave = *si++; break;
+        case 0xcb:
+            channel->LFOWaveform = *si++;
+            break;
 
         case 0xca:
-            channel->extendmode = (channel->extendmode & 0xfd) | ((*si++ & 1) << 1);
+            channel->extendmode = (channel->extendmode & 0xFD) | ((*si++ & 0x01) << 1);
             break;
 
         case 0xc9:
-            channel->extendmode = (channel->extendmode & 0xFB) | ((*si++ & 1) << 2);
+            channel->extendmode = (channel->extendmode & 0xFB) | ((*si++ & 0x01) << 2);
             break;
 
         case 0xc8: si += 3; break;
@@ -392,7 +395,7 @@ uint8_t * PMD::ExecutePCM86Command(Channel * channel, uint8_t * si)
 
 #pragma region(Commands)
 // Command "@ number": Sets the number of the instrument to be used. Range 0-255.
-uint8_t * PMD::SetP86Instrument(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetP86InstrumentCommand(Channel * channel, uint8_t * si)
 {
     channel->InstrumentNumber = *si++;
 
@@ -416,7 +419,7 @@ void PMD::SetP86Tone(Channel * channel, int al)
             al |= ah;
         }
 
-        channel->Tone = al;
+        channel->Note = al;
 
         int bl = ((al & 0xF0) >> 4) * 12 + ah;
 
@@ -425,9 +428,9 @@ void PMD::SetP86Tone(Channel * channel, int al)
     else
     {
         // Rest
-        channel->Tone = 0xFF;
+        channel->Note = 0xFF;
 
-        if ((channel->lfoswi & 0x11) == 0)
+        if ((channel->LFOSwitch & 0x11) == 0)
             channel->fnum = 0; // Don't use LFO pitch.
     }
 }
@@ -491,9 +494,9 @@ void PMD::SetPCM86Volume(Channel * channel)
     }
 
     // Calculate Volume LFO.
-    int dx = (channel->lfoswi & 2) ? channel->lfodat : 0;
+    int dx = (channel->LFOSwitch & 2) ? channel->lfodat : 0;
 
-    if (channel->lfoswi & 0x20)
+    if (channel->LFOSwitch & 0x20)
         dx += channel->_lfodat;
 
     if (dx >= 0)
@@ -531,7 +534,7 @@ void PMD::SetPCM86Pitch(Channel * channel)
 
 void PMD::SetP86KeyOn(Channel * channel)
 {
-    if (channel->Tone == 0xFF)
+    if (channel->Note == 0xFF)
         return;
 
     _P86->Play();
@@ -611,7 +614,7 @@ uint8_t * PMD::SetP86PanValueExtendedCommand(Channel * channel, uint8_t * si)
 }
 
 // Command "@[@] insnum[,number1[,number2[,number3]]]"
-uint8_t * PMD::SetPCM86RepeatCommand(Channel *, uint8_t * si)
+uint8_t * PMD::SetP86RepeatCommand(Channel *, uint8_t * si)
 {
     int16_t LoopBegin = *(int16_t *) si;
     si += 2;
