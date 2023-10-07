@@ -10,6 +10,7 @@
 
 #include "framework.h"
 
+#include <pfc/string-conv-lite.h>
 #include <shared/audio_math.h>
 #include <pathcch.h>
 
@@ -155,8 +156,15 @@ void PMDDecoder::Initialize() const noexcept
     _PMD->EnableChannel(16); // PPZ 1
 */
 
-    console::printf("PMDDecoder: ADPCM ROM %s.", (_PMD->HasADPCMROM() ? "found" : "not found"));
-    console::printf("PMDDecoder: Percussion samples %s.", (_PMD->HasPercussionSamples() ? "found" : "not found"));
+    console::printf("PMDDecoder: ADPCM ROM %sfound.", (_PMD->HasADPCMROM() ? "" : "not "));
+    console::printf("PMDDecoder: Percussion samples %sfound.", (_PMD->HasPercussionSamples() ? "" : "not "));
+
+    WCHAR FilePath[MAX_PATH];
+
+    console::printf("PMDDecoder: PPC samples file path: \"%s\".", pfc::utf8FromWide(_PMD->GetPCMFilePath(FilePath, _countof(FilePath))).c_str());
+
+    for (size_t i = 0; i < 2; ++i)
+        console::printf("PMDDecoder: PPZ samples file path %d: \"%s\".", i + 1, pfc::utf8FromWide(_PMD->GetPPZFilePath(FilePath, _countof(FilePath), i)).c_str());
 }
 
 /// <summary>

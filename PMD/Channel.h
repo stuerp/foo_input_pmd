@@ -1,7 +1,26 @@
 ﻿#pragma once
 
-struct Channel
+class Channel
 {
+public:
+    uint8_t * Rest(uint8_t * si, bool isVolumePushSet) noexcept
+    {
+        // Set to "rest".
+        fnum = 0;
+        Note = 0xFF;
+    //  DefaultNote = 0xFF;
+
+        Length = *si;
+        KeyOnFlag++;
+        Data = si;
+
+        if (isVolumePushSet)
+            VolumePush = 0;
+
+        return si;
+    }
+
+public:
     uint8_t * Data;
     uint8_t * LoopData;
     int Length;
@@ -69,7 +88,7 @@ struct Channel
     int shift;  // 1 ｵﾝｶｲ ｼﾌﾄ ﾉ ｱﾀｲ
 
     // bit 4: tone / bit 5: vol / bit 6: same period
-    int volpush; // 1 Volume PUSHarea
+    int VolumePush; // 1 Volume PUSHarea
 
     int envf;  // 1 SSG ENV. [START_FLAG] / -1でextend
     int eenv_count; // 1 ExtendSSGenv/No=0 AR=1 DR=2 SR=3 RR=4

@@ -25,7 +25,7 @@ typedef int Sample;
 
 #pragma pack(push)
 #pragma pack(2)
-struct PCMEnds
+struct SampleInfo
 {
     uint16_t Count;
     uint16_t Address[256][2];
@@ -86,11 +86,11 @@ public:
     void SetFadeOutSpeed(int speed);
     void SetFadeOutDurationHQ(int speed);
 
-    void SetPositionInTicks(int pos);
+    void SetPositionInTicks(int ticks);
     int GetPositionInTicks();
 
-    WCHAR * GetPCMFileName(WCHAR * fileName);
-    WCHAR * GetPPZFileName(WCHAR * fileName, int bufnum);
+    WCHAR * GetPCMFilePath(WCHAR * filePath, size_t size) const;
+    WCHAR * GetPPZFilePath(WCHAR * filePath, size_t size, size_t bufferNumber) const;
 
     void UsePPS(bool value) noexcept;
     void UseRhythm(bool value) noexcept;
@@ -110,6 +110,11 @@ public:
 
     int DisableChannel(int ch);
     int EnableChannel(int ch);
+
+    bool IsPlaying() const noexcept
+    {
+        return _IsPlaying;
+    }
 
     void SetFMVolumeDown(int value)
     {
@@ -207,16 +212,6 @@ public:
     }
 
     bool GetMemo(const uint8_t * data, size_t size, int al, char * text, size_t textSize);
-
-    int LoadPPC(const WCHAR * filePath);
-    int LoadPPS(const WCHAR * filePath);
-    int LoadP86(const WCHAR * filePath);
-    int LoadPPZ(const WCHAR * filePath, int bufnum);
-
-    bool IsPlaying() const noexcept
-    {
-        return _IsPlaying;
-    }
 
     Channel * GetChannel(int ch);
 
@@ -479,7 +474,7 @@ private:
     uint8_t _MData[MAX_MDATA_SIZE * 1024];
     uint8_t _VData[MAX_VDATA_SIZE * 1024];
     uint8_t _EData[MAX_EDATA_SIZE * 1024];
-    PCMEnds pcmends;
+    SampleInfo _SampleInfo;
 
     #pragma region(Dynamic Settings)
 
@@ -491,6 +486,7 @@ private:
     int64_t _Position;          // Time from start of playing (in μs)
     int64_t _FadeOutPosition;   // SetFadeOutDurationHQ start time
     int _Seed;                  // Random seed
+
     #pragma endregion
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member

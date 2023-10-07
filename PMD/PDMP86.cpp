@@ -29,15 +29,13 @@ void PMD::PCM86Main(Channel * channel)
         channel->KeyOffFlag = 0xFF;
     }
     else
+    if ((channel->KeyOffFlag & 0x03) == 0)
     {
-        if ((channel->KeyOffFlag & 0x03) == 0)
+        if (channel->Length <= channel->qdat)
         {
-            if (channel->Length <= channel->qdat)
-            {
-                SetP86KeyOff(channel);
+            SetP86KeyOff(channel);
 
-                channel->KeyOffFlag = 0xFF;
-            }
+            channel->KeyOffFlag = 0xFF;
         }
     }
 
@@ -55,14 +53,14 @@ void PMD::PCM86Main(Channel * channel)
             {
                 channel->Data = si;
                 channel->loopcheck = 3;
-                channel->Note = 255;
+                channel->Note = 0xFF;
 
                 if (channel->LoopData == nullptr)
                 {
                     if (channel->MuteMask)
                     {
                         _Driver.TieMode = 0;
-                        _Driver.volpush_flag = 0;
+                        _Driver.IsVolumePushSet = 0;
                         _Driver.loop_work &= channel->loopcheck;
 
                         return;
@@ -79,22 +77,26 @@ void PMD::PCM86Main(Channel * channel)
             {
                 if (channel->MuteMask)
                 {
+/*
                     si++;
 
                     // Set to "rest".
                     channel->fnum = 0;
                     channel->Note = 0xFF;
-                //  channel->DefaultTone = 0xFF;
+                //  channel->DefaultNote = 0xFF;
 
                     channel->Length = *si++;
                     channel->KeyOnFlag++;
                     channel->Data = si;
 
-                    if (--_Driver.volpush_flag)
-                        channel->volpush = 0;
+                    if (--_Driver.IsVolumePushSet)
+                        channel->VolumePush = 0;
+*/
+                    si = channel->Rest(++si, (--_Driver.IsVolumePushSet) != 0);
 
                     _Driver.TieMode = 0;
-                    _Driver.volpush_flag = 0;
+                    _Driver.IsVolumePushSet = 0;
+
                     break;
                 }
 
@@ -104,12 +106,12 @@ void PMD::PCM86Main(Channel * channel)
 
                 si = CalculateQ(channel, si);
 
-                if (channel->volpush && (channel->Note != 0xFF))
+                if ((channel->VolumePush != 0) && (channel->Note != 0xFF))
                 {
-                    if (--_Driver.volpush_flag)
+                    if (--_Driver.IsVolumePushSet)
                     {
-                        _Driver.volpush_flag = 0;
-                        channel->volpush = 0;
+                        _Driver.IsVolumePushSet = 0;
+                        channel->VolumePush = 0;
                     }
                 }
 
@@ -123,7 +125,7 @@ void PMD::PCM86Main(Channel * channel)
                 channel->Data = si;
 
                 _Driver.TieMode = 0;
-                _Driver.volpush_flag = 0;
+                _Driver.IsVolumePushSet = 0;
 
                 // Don't perform Key Off if a "&" command (Tie) follows immediately.
                 channel->KeyOffFlag = (*si == 0xFB) ? 0x02: 0x00;
@@ -437,7 +439,7 @@ void PMD::SetP86Tone(Channel * channel, int al)
 
 void PMD::SetPCM86Volume(Channel * channel)
 {
-    int al = channel->volpush ? channel->volpush : channel->Volume;
+    int al = channel->VolumePush ? channel->VolumePush : channel->Volume;
 
     //  Calculate Volume Down
     al = ((256 - _State.ADPCMVolumeDown) * al) >> 8;

@@ -24,7 +24,6 @@ void PMD::SSGMain(Channel * channel)
 
     channel->Length--;
 
-    // KEYOFF CHECK & Keyoff
     if (_Driver.UsePPS && (channel == &_SSGChannel[2]) && (_State.kshot_dat != 0) && (channel->Length <= channel->qdat))
     {
         // When using PPS & SSG 3ch & when playing SSG sound effects.
@@ -32,18 +31,19 @@ void PMD::SSGMain(Channel * channel)
 
         _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0U);   // Force the soundto sto.
 
-        channel->KeyOffFlag = -1;
+        channel->KeyOffFlag = 0xFF;
     }
 
     if (channel->MuteMask)
-        channel->KeyOffFlag = -1;
+        channel->KeyOffFlag = 0xFF;
     else
-    if ((channel->KeyOffFlag & 3) == 0) // Already keyed-off?
+    if ((channel->KeyOffFlag & 0x03) == 0)
     {
         if (channel->Length <= channel->qdat)
         {
             SetSSGKeyOff(channel);
-            channel->KeyOffFlag = -1;
+
+            channel->KeyOffFlag = 0xFF;
         }
     }
 
@@ -68,14 +68,14 @@ void PMD::SSGMain(Channel * channel)
             {
                 channel->Data = si;
                 channel->loopcheck = 3;
-                channel->Note = 255;
+                channel->Note = 0xFF;
 
                 if (channel->LoopData == nullptr)
                 {
                     if (channel->MuteMask)
                     {
                         _Driver.TieMode = 0;
-                        _Driver.volpush_flag = 0;
+                        _Driver.IsVolumePushSet = 0;
                         _Driver.loop_work &= channel->loopcheck;
                         return;
                     }
@@ -102,19 +102,24 @@ void PMD::SSGMain(Channel * channel)
                 {
                     if (!CheckSSGDrum(channel, *si))
                     {
+/*
                         si++;
 
-                        channel->fnum = 0;      // Set to "rest".
-                        channel->Note = 255;
+                        // Set to 'rest'.
+                        channel->fnum = 0;
+                        channel->Note = 0xFF;
                         channel->Length = *si++;
+
                         channel->KeyOnFlag++;
                         channel->Data = si;
 
-                        if (--_Driver.volpush_flag)
-                            channel->volpush = 0;
+                        if (--_Driver.IsVolumePushSet)
+                            channel->VolumePush = 0;
+*/
+                        si = channel->Rest(++si, (--_Driver.IsVolumePushSet) != 0);
 
                         _Driver.TieMode = 0;
-                        _Driver.volpush_flag = 0;
+                        _Driver.IsVolumePushSet = 0;
                         break;
                     }
                 }
@@ -126,12 +131,12 @@ void PMD::SSGMain(Channel * channel)
 
                 si = CalculateQ(channel, si);
 
-                if (channel->volpush && channel->Note != 255)
+                if ((channel->VolumePush != 0) && (channel->Note != 0xFF))
                 {
-                    if (--_Driver.volpush_flag)
+                    if (--_Driver.IsVolumePushSet)
                     {
-                        _Driver.volpush_flag = 0;
-                        channel->volpush = 0;
+                        _Driver.IsVolumePushSet = 0;
+                        channel->VolumePush = 0;
                     }
                 }
 
@@ -143,7 +148,7 @@ void PMD::SSGMain(Channel * channel)
                 channel->Data = si;
 
                 _Driver.TieMode = 0;
-                _Driver.volpush_flag = 0;
+                _Driver.IsVolumePushSet = 0;
 
                 // Don't perform Key Off if a "&" command (Tie) follows immediately.
                 channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
@@ -187,7 +192,7 @@ void PMD::SSGMain(Channel * channel)
                 CalculatePortamento(channel);
 
             // Do not operate while resting on SSG channel 3 and SSG drum is sounding.
-            if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Note == 255) && (_State.kshot_dat != 0)))
+            if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Note == 0xFF) && (_State.kshot_dat != 0)))
                 SetSSGPitch(channel);
         }
     }
@@ -197,7 +202,7 @@ void PMD::SSGMain(Channel * channel)
     if ((temp != 0) || _Driver.lfo_switch & 0x22 || (_State.FadeOutSpeed != 0))
     {
         // Do not set volume while resting on SSG channel 3 and SSG drum is sounding.
-        if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Note == 255) && (_State.kshot_dat != 0)))
+        if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Note == 0xFF) && (_State.kshot_dat != 0)))
             SetSSGVolume(channel);
     }
 
@@ -589,8 +594,8 @@ uint8_t * PMD::SetSSGVolumeCommand(Channel * channel, uint8_t * si)
     if (al > 15)
         al = 15;
 
-    channel->volpush = ++al;
-    _Driver.volpush_flag = 1;
+    channel->VolumePush = ++al;
+    _Driver.IsVolumePushSet = 1;
 
     return si;
 }
@@ -599,17 +604,18 @@ uint8_t * PMD::SetSSGPortamentoCommand(Channel * channel, uint8_t * si)
 {
     if (channel->MuteMask)
     {
+        // Set to 'rest'.
         channel->fnum = 0;
-        channel->Note = 0xFF; // Rest
+        channel->Note = 0xFF;
         channel->Length = *(si + 2);
         channel->KeyOnFlag++;
         channel->Data = si + 3;
 
-        if (--_Driver.volpush_flag)
-            channel->volpush = 0;
+        if (--_Driver.IsVolumePushSet)
+            channel->VolumePush = 0;
 
         _Driver.TieMode = 0;
-        _Driver.volpush_flag = 0;
+        _Driver.IsVolumePushSet = 0;
         _Driver.loop_work &= channel->loopcheck;
 
         return si + 3; // Skip when masking
@@ -637,12 +643,12 @@ uint8_t * PMD::SetSSGPortamentoCommand(Channel * channel, uint8_t * si)
     channel->porta_num3 = ax % channel->Length;
     channel->LFOSwitch |= 8; // Enable portamento.
 
-    if (channel->volpush && channel->Note != 255)
+    if ((channel->VolumePush != 0) && (channel->Note != 0xFF))
     {
-        if (--_Driver.volpush_flag)
+        if (--_Driver.IsVolumePushSet)
         {
-            _Driver.volpush_flag = 0;
-            channel->volpush = 0;
+            _Driver.IsVolumePushSet = 0;
+            channel->VolumePush = 0;
         }
     }
 
@@ -654,7 +660,7 @@ uint8_t * PMD::SetSSGPortamentoCommand(Channel * channel, uint8_t * si)
     channel->Data = si;
 
     _Driver.TieMode = 0;
-    _Driver.volpush_flag = 0;
+    _Driver.IsVolumePushSet = 0;
 
     // Don't perform Key Off if a "&" command (Tie) follows immediately.
     channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
@@ -773,7 +779,7 @@ void PMD::SetSSGTone(Channel * channel, int al)
 {
     if ((al & 0x0f) == 0x0f)
     {
-        channel->Note = 255; // Kyufu Nara FNUM Ni 0 Set
+        channel->Note = 0xFF; // Kyufu Nara FNUM Ni 0 Set
 
         if (channel->LFOSwitch & 0x11)
             return;
@@ -806,7 +812,7 @@ void PMD::SetSSGVolume(Channel * channel)
     if (channel->envf == 3 || (channel->envf == -1 && channel->eenv_count == 0))
         return;
 
-    int dl = (channel->volpush) ? channel->volpush - 1 : channel->Volume;
+    int dl = (channel->VolumePush) ? channel->VolumePush - 1 : channel->Volume;
 
     //  音量down計算
     dl = ((256 - _State.SSGVolumeDown) * dl) >> 8;
@@ -901,7 +907,7 @@ void PMD::SetSSGPitch(Channel * channel)
         // 拡張DETUNE(DETUNE)の計算
         if (channel->DetuneValue)
         {
-            dx = (ax * channel->DetuneValue) >> 12;    // dx:ax=ax * qq->detune
+            dx = (ax * channel->DetuneValue) >> 12;
 
             if (dx >= 0)
                 dx++;
@@ -922,7 +928,7 @@ void PMD::SetSSGPitch(Channel * channel)
             if (channel->LFOSwitch & 0x10)
                 dx += channel->_lfodat;
 
-            if (dx)
+            if (dx != 0)
             {
                 dx = (ax * dx) >> 12;
 
@@ -973,7 +979,7 @@ void PMD::SetSSGKeyOn(Channel * channel)
 
 void PMD::SetSSGKeyOff(Channel * channel)
 {
-    if (channel->Note == 255)
+    if (channel->Note == 0xFF)
         return;
 
     if (channel->envf != -1)

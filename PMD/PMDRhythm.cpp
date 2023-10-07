@@ -56,7 +56,7 @@ void PMD::RhythmMain(Channel * channel)
                 channel->KeyOnFlag++;
 
                 _Driver.TieMode = 0;
-                _Driver.volpush_flag = 0;
+                _Driver.IsVolumePushSet = 0;
                 _Driver.loop_work &= channel->loopcheck;
 
                 return;
@@ -96,7 +96,7 @@ void PMD::RhythmMain(Channel * channel)
                 _State.RhythmData = &_State.DummyRhythmData;
 
                 _Driver.TieMode = 0;
-                _Driver.volpush_flag = 0;
+                _Driver.IsVolumePushSet = 0;
                 _Driver.loop_work &= channel->loopcheck;
 
                 return;

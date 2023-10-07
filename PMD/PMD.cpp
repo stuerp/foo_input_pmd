@@ -97,16 +97,16 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _OPNAW->SetRhythmDelay(DEFAULT_REG_WAIT);
 
     {
-        pcmends.Count = 0x26;
+        _SampleInfo.Count = 38;
 
         for (int i = 0; i < 256; ++i)
         {
-            pcmends.Address[i][0] = 0;
-            pcmends.Address[i][1] = 0;
+            _SampleInfo.Address[i][0] = 0;
+            _SampleInfo.Address[i][1] = 0;
         }
     }
 
-    _State.PPCFileName[0] = '\0';
+    _State._FilePath[0] = '\0';
 
     // Initial setting of 088/188/288/388 (same INT number only)
     _OPNAW->SetReg(0x29, 0x00);
@@ -134,7 +134,7 @@ void PMD::Reset()
     ::memset(&_EffectChannel, 0, sizeof(_EffectChannel));
     ::memset(_PPZChannel, 0, sizeof(_PPZChannel));
 
-    ::memset(&pcmends, 0, sizeof(pcmends));
+    ::memset(&_SampleInfo, 0, sizeof(_SampleInfo));
 
     ::memset(_SampleSrc, 0, sizeof(_SampleSrc));
     ::memset(_SampleDst, 0, sizeof(_SampleSrc));
@@ -150,7 +150,7 @@ void PMD::Reset()
     ::memset(_MData, 0, sizeof(_MData));
     ::memset(_VData, 0, sizeof(_VData));
     ::memset(_EData, 0, sizeof(_EData));
-    ::memset(&pcmends, 0, sizeof(pcmends));
+    ::memset(&_SampleInfo, 0, sizeof(_SampleInfo));
 
     // Initialize OPEN_WORK.
     _State.OPNARate = SOUND_44K;
@@ -960,20 +960,20 @@ void PMD::SetFadeOutDurationHQ(int speed)
 }
 
 // Gets PPC / P86 filename.
-WCHAR * PMD::GetPCMFileName(WCHAR * filePath)
+WCHAR * PMD::GetPCMFilePath(WCHAR * filePath, size_t size) const
 {
     if (_State.IsUsingP86)
-        ::wcscpy(filePath, _P86->_FilePath);
+        ::wcscpy_s(filePath, size, _P86->_FilePath);
     else
-        ::wcscpy(filePath, _State.PPCFileName);
+        ::wcscpy_s(filePath, size, _State._FilePath);
 
     return filePath;
 }
 
 // Gets PPZ filename.
-WCHAR * PMD::GetPPZFileName(WCHAR * filePath, int index)
+WCHAR * PMD::GetPPZFilePath(WCHAR * filePath, size_t size, size_t bufferNumber) const
 {
-    ::wcscpy(filePath, _PPZ->_FilePath[index]);
+    ::wcscpy_s(filePath, size, _PPZ->_FilePath[bufferNumber]);
 
     return filePath;
 }
@@ -1211,75 +1211,6 @@ void PMD::GetText(const uint8_t * data, size_t size, int index, char * text) con
         ::strcpy(text, (char *) &Data[Offset]);
 }
 
-// Load PPC
-int PMD::LoadPPC(const WCHAR * filePath)
-{
-    Stop();
-
-    int Result = LoadPPCInternal(filePath);
-
-    if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
-        _State.IsUsingP86 = false;
-
-    return Result;
-}
-
-// Load PPS
-int PMD::LoadPPS(const WCHAR * filePath)
-{
-    Stop();
-
-    int Result = _PPS->Load(filePath);
-
-    switch (Result)
-    {
-        case PPS_SUCCESS:        return ERR_SUCCESS;
-        case PPS_OPEN_FAILED:    return ERR_OPEN_FAILED;
-        case PPS_ALREADY_LOADED: return ERR_ALREADY_LOADED;
-        case PPZ_OUT_OF_MEMORY:  return ERR_OUT_OF_MEMORY;
-        default:                 return ERR_UNKNOWN;
-    }
-}
-
-// Load P86
-int PMD::LoadP86(const WCHAR * filename)
-{
-    Stop();
-
-    int Result = _P86->Load(filename);
-
-    if (Result == P86_SUCCESS || Result == P86_ALREADY_LOADED)
-        _State.IsUsingP86 = true;
-
-    switch (Result)
-    {
-        case P86_SUCCESS:           return ERR_SUCCESS;
-        case P86_OPEN_FAILED:       return ERR_OPEN_FAILED;
-        case P86_UNKNOWN_FORMAT:    return ERR_UNKNOWN_FORMAT;
-        case P86_ALREADY_LOADED:    return ERR_ALREADY_LOADED;
-        case PPZ_OUT_OF_MEMORY:     return ERR_OUT_OF_MEMORY;
-        default:                    return ERR_UNKNOWN;
-    }
-}
-
-// Load .PZI, .PVI
-int PMD::LoadPPZ(const WCHAR * filename, int bufnum)
-{
-    Stop();
-
-    int Result = _PPZ->Load(filename, bufnum);
-
-    switch (Result)
-    {
-        case PPZ_SUCCESS:           return ERR_SUCCESS;
-        case PPZ_OPEN_FAILED:       return ERR_OPEN_FAILED;
-        case PPZ_UNKNOWN_FORMAT:    return ERR_UNKNOWN_FORMAT;
-        case PPZ_ALREADY_LOADED:    return ERR_ALREADY_LOADED;
-        case PPZ_OUT_OF_MEMORY:     return ERR_OUT_OF_MEMORY;
-        default:                    return ERR_UNKNOWN;
-    }
-}
-
 Channel * PMD::GetChannel(int channelNumber)
 {
     if (channelNumber >= _countof(_State.Channel))
@@ -1349,8 +1280,8 @@ uint8_t * PMD::IncreasePCMVolumeCommand(Channel * channel, uint8_t * si)
 
     al++;
 
-    channel->volpush = al;
-    _Driver.volpush_flag = 1;
+    channel->VolumePush = al;
+    _Driver.IsVolumePushSet = 1;
 
     return si;
 }
@@ -1616,8 +1547,8 @@ uint8_t * PMD::DecreaseVolumeCommand(Channel * channel, uint8_t * si)
     if (al >= 255)
         al = 254;
 
-    channel->volpush = ++al;
-    _Driver.volpush_flag = 1;
+    channel->VolumePush = ++al;
+    _Driver.IsVolumePushSet = 1;
 
     return si;
 }
@@ -2252,7 +2183,7 @@ void PMD::InitializeChannels()
             _FMChannel[i].Data = &_State.MData[*Offsets];
 
         _FMChannel[i].Length = 1;
-        _FMChannel[i].KeyOffFlag = -1;
+        _FMChannel[i].KeyOffFlag = 0xFF;
         _FMChannel[i].mdc = -1;             // MDepth Counter (-1 = infinite)
         _FMChannel[i].mdc2 = -1;
         _FMChannel[i]._mdc = -1;
@@ -2275,7 +2206,7 @@ void PMD::InitializeChannels()
             _SSGChannel[i].Data = &_State.MData[*Offsets];
 
         _SSGChannel[i].Length = 1;
-        _SSGChannel[i].KeyOffFlag = -1;
+        _SSGChannel[i].KeyOffFlag = 0xFF;
         _SSGChannel[i].mdc = -1;            // MDepth Counter (-1 = infinite)
         _SSGChannel[i].mdc2 = -1;
         _SSGChannel[i]._mdc = -1;
@@ -2296,7 +2227,7 @@ void PMD::InitializeChannels()
             _ADPCMChannel.Data = &_State.MData[*Offsets];
 
         _ADPCMChannel.Length = 1;
-        _ADPCMChannel.KeyOffFlag = -1;
+        _ADPCMChannel.KeyOffFlag = 0xFF;
         _ADPCMChannel.mdc = -1;
         _ADPCMChannel.mdc2 = -1;
         _ADPCMChannel._mdc = -1;
@@ -2316,7 +2247,7 @@ void PMD::InitializeChannels()
             _RhythmChannel.Data = &_State.MData[*Offsets];
 
         _RhythmChannel.Length = 1;
-        _RhythmChannel.KeyOffFlag = -1;
+        _RhythmChannel.KeyOffFlag = 0xFF;
         _RhythmChannel.mdc = -1;
         _RhythmChannel.mdc2 = -1;
         _RhythmChannel._mdc = -1;
@@ -2405,19 +2336,22 @@ int PMD::LoadPPCInternal(const WCHAR * filePath)
     if (Size < 0)
         return ERR_OPEN_FAILED;
 
-    uint8_t * pcmbuf = (uint8_t *) ::malloc((size_t) Size);
+    uint8_t * Data = (uint8_t *) ::malloc((size_t) Size);
 
-    if (pcmbuf == NULL)
+    if (Data == NULL)
         return ERR_OUT_OF_MEMORY;
 
-    _File->Read(pcmbuf, (uint32_t) Size);
+    _File->Read(Data, (uint32_t) Size);
     _File->Close();
 
-    int Result = LoadPPCInternal(pcmbuf, (int) Size);
+    int Result = LoadPPCInternal(Data, (int) Size);
 
-    ::wcscpy(_State.PPCFileName, filePath);
+    if (Result == ERR_SUCCESS)
+        ::wcscpy(_State._FilePath, filePath);
+    else
+        _State._FilePath[0] = '\0';
 
-    ::free(pcmbuf);
+    ::free(Data);
 
     return Result;
 }
@@ -2425,14 +2359,10 @@ int PMD::LoadPPCInternal(const WCHAR * filePath)
 /// <summary>
 /// Loads the PPC data.
 /// </summary>
-int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
+int PMD::LoadPPCInternal(uint8_t * data, int size)
 {
     if (size < 0x10)
-    {
-        _State.PPCFileName[0] = '\0';
-
         return ERR_UNKNOWN_FORMAT;
-    }
 
     bool FoundPVI;
 
@@ -2440,65 +2370,57 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
     uint16_t * pcmdata2;
     int bx = 0;
 
-    if ((::strncmp((char *) pcmdata, PVIHeader, sizeof(PVIHeader) - 1) == 0) && (pcmdata[10] == 2))
+    if ((::strncmp((char *) data, PVIHeader, sizeof(PVIHeader) - 1) == 0) && (data[10] == 2))
     {   // PVI, x8
         FoundPVI = true;
 
-        // Transfer from pvi tone information to pmd
+        // Convert from PVI  to PMD format.
         for (i = 0; i < 128; ++i)
         {
-            if (*((uint16_t *) &pcmdata[18 + i * 4]) == 0)
+            if (*((uint16_t *) &data[18 + i * 4]) == 0)
             {
-                pcmends.Address[i][0] = pcmdata[16 + i * 4];
-                pcmends.Address[i][1] = 0;
+                _SampleInfo.Address[i][0] = data[16 + i * 4];
+                _SampleInfo.Address[i][1] = 0;
             }
             else
             {
-                pcmends.Address[i][0] = (uint16_t) (*(uint16_t *) &pcmdata[16 + i * 4] + 0x26);
-                pcmends.Address[i][1] = (uint16_t) (*(uint16_t *) &pcmdata[18 + i * 4] + 0x26);
+                _SampleInfo.Address[i][0] = (uint16_t) (*(uint16_t *) &data[16 + i * 4] + 0x26);
+                _SampleInfo.Address[i][1] = (uint16_t) (*(uint16_t *) &data[18 + i * 4] + 0x26);
             }
 
-            if (bx < pcmends.Address[i][1])
-                bx = pcmends.Address[i][1] + 1;
+            if (bx < _SampleInfo.Address[i][1])
+                bx = _SampleInfo.Address[i][1] + 1;
         }
 
         // The remaining 128 are undefined
         for (i = 128; i < 256; ++i)
         { 
-            pcmends.Address[i][0] = 0;
-            pcmends.Address[i][1] = 0;
+            _SampleInfo.Address[i][0] = 0;
+            _SampleInfo.Address[i][1] = 0;
         }
 
-        pcmends.Count = (uint16_t) bx;
+        _SampleInfo.Count = (uint16_t) bx;
     }
     else
-    if (::strncmp((char *) pcmdata, PPCHeader, sizeof(PPCHeader) - 1) == 0)
+    if (::strncmp((char *) data, PPCHeader, sizeof(PPCHeader) - 1) == 0)
     {   // PPC
         FoundPVI = false;
 
-        pcmdata2 = (uint16_t *) pcmdata + 30 / 2;
+        pcmdata2 = (uint16_t *) data + 30 / 2;
 
         if (size < 30 + 4 * 256 + 2)
-        {
-            _State.PPCFileName[0] = '\0';
-
             return ERR_UNKNOWN_FORMAT;
-        }
 
-        pcmends.Count = *pcmdata2++;
+        _SampleInfo.Count = *pcmdata2++;
 
         for (i = 0; i < 256; ++i)
         {
-            pcmends.Address[i][0] = *pcmdata2++;
-            pcmends.Address[i][1] = *pcmdata2++;
+            _SampleInfo.Address[i][0] = *pcmdata2++;
+            _SampleInfo.Address[i][1] = *pcmdata2++;
         }
     }
     else
-    {
-        _State.PPCFileName[0] = '\0';
-
         return ERR_UNKNOWN_FORMAT;
-    }
 
     uint8_t tempbuf[0x26 * 32];
 
@@ -2507,43 +2429,35 @@ int PMD::LoadPPCInternal(uint8_t * pcmdata, int size)
 
     // Skip the "ADPCM?" header
     // Ignore file name (PMDWin specification)
-    if (::memcmp(&tempbuf[30], &pcmends, sizeof(pcmends)) == 0)
+    if (::memcmp(&tempbuf[30], &_SampleInfo, sizeof(_SampleInfo)) == 0)
         return ERR_ALREADY_LOADED;
 
     uint8_t tempbuf2[30 + 4 * 256 + 128 + 2];
 
     // Write PMD work to PCMRAM head
     ::memcpy(tempbuf2, PPCHeader, sizeof(PPCHeader) - 1);
-    ::memcpy(&tempbuf2[sizeof(PPCHeader) - 1], &pcmends.Count, sizeof(tempbuf2) - (sizeof(PPCHeader) - 1));
+    ::memcpy(&tempbuf2[sizeof(PPCHeader) - 1], &_SampleInfo.Count, sizeof(tempbuf2) - (sizeof(PPCHeader) - 1));
 
     WritePCMData(0, 0x25, tempbuf2);
 
     // Write PCMDATA to PCMRAM
     if (FoundPVI)
     {
-        pcmdata2 = (uint16_t *) (pcmdata + 0x10 + sizeof(uint16_t) * 2 * 128);
+        pcmdata2 = (uint16_t *) (data + 0x10 + sizeof(uint16_t) * 2 * 128);
 
-        if (size < (int) (pcmends.Count - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
-        {
-            _State.PPCFileName[0] = '\0';
-
+        if (size < (int) (_SampleInfo.Count - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
             return ERR_UNKNOWN_FORMAT;
-        }
     }
     else
     {
-        pcmdata2 = (uint16_t *) pcmdata + (30 + 4 * 256 + 2) / 2;
+        pcmdata2 = (uint16_t *) data + (30 + 4 * 256 + 2) / 2;
 
-        if (size < (pcmends.Count - ((30 + 4 * 256 + 2) / 2)) * 32)
-        {
-            _State.PPCFileName[0] = '\0';
-
+        if (size < (_SampleInfo.Count - ((30 + 4 * 256 + 2) / 2)) * 32)
             return ERR_UNKNOWN_FORMAT;
-        }
     }
 
     uint16_t pcmstart = 0x26;
-    uint16_t pcmstop = pcmends.Count;
+    uint16_t pcmstop = _SampleInfo.Count;
 
     WritePCMData(pcmstart, pcmstop, (uint8_t *) pcmdata2);
 

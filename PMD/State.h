@@ -130,6 +130,6 @@ public:
 
     int FadeOutSpeedHQ; // Fadeout (High Sound Quality) speed (fadeout at > 0)
 
-    WCHAR PPCFileName[MAX_PATH];
+    WCHAR _FilePath[MAX_PATH];
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member
