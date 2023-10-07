@@ -78,8 +78,8 @@ bool PMD::Initialize(const WCHAR * directoryPath)
 
         ::memset(Page, 0x08, sizeof(Page));
 
-        for (int i = 0; i < 0x100; ++i)
-            WritePCMData((uint16_t) i * sizeof(Page) / 32, (uint16_t) (i + 1) * sizeof(Page) / 32, Page);
+        for (uint16_t i = 0; i < 0x100; ++i)
+            WritePCMData(i * sizeof(Page) / 32, (i + 1) * sizeof(Page) / 32, Page);
     }
 
     _OPNAW->SetFMVolume(0);

@@ -235,7 +235,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xf3: if (channel->Volume < 16) channel->Volume = 0; else channel->Volume -= 16; break;
         case 0xf2: si = SetLFOParameter(channel, si); break;
         case 0xf1: si = lfoswitch(channel, si); break;
-        case 0xf0: si = SetSSGEnvelopeCommand(channel, si); break;
+        case 0xf0: si = SetSSGEnvelopeFormat1Command(channel, si); break;
 
         case 0xef: _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + *si), (uint32_t) *(si + 1)); si += 2; break;
         case 0xee: si++; break;
@@ -311,7 +311,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
             si = SetPPZRepeatCommand(channel, si);
             break;
 
-        case 0xcd: si = SetSSGEnvelopeSpeedToExtend(channel, si); break;
+        case 0xcd: si = SetSSGEnvelopeFormat2Command(channel, si); break;
         case 0xcc: si++; break;
         case 0xcb: channel->LFOWaveform = *si++; break;
         case 0xca:
@@ -477,31 +477,34 @@ void PMD::SetPPZVolume(Channel * channel)
     {
         _PPZ->SetVolume(_Driver.CurrentChannel, 0);
         _PPZ->Stop(_Driver.CurrentChannel);
+
         return;
     }
 
     if (channel->envf == -1)
     {
         //  拡張版 音量=al*(eenv_vol+1)/16
-        if (channel->eenv_volume == 0)
+        if (channel->ExtendedAttackLevel == 0)
         {
             //*@    ppz8->SetVol(pmdwork._CurrentPart, 0);
             _PPZ->Stop(_Driver.CurrentChannel);
+
             return;
         }
 
-        al = ((((al * (channel->eenv_volume + 1))) >> 3) + 1) >> 1;
+        al = ((((al * (channel->ExtendedAttackLevel + 1))) >> 3) + 1) >> 1;
     }
     else
     {
-        if (channel->eenv_volume < 0)
+        if (channel->ExtendedAttackLevel < 0)
         {
-            int ah = -channel->eenv_volume * 16;
+            int ah = -channel->ExtendedAttackLevel * 16;
 
             if (al < ah)
             {
                 //*@      ppz8->SetVol(pmdwork._CurrentPart, 0);
                 _PPZ->Stop(_Driver.CurrentChannel);
+
                 return;
             }
             else
@@ -509,7 +512,7 @@ void PMD::SetPPZVolume(Channel * channel)
         }
         else
         {
-            int ah = channel->eenv_volume * 16;
+            int ah = channel->ExtendedAttackLevel * 16;
 
             if (al + ah > 255)
                 al = 255;
@@ -595,7 +598,7 @@ void PMD::SetPPZKeyOff(Channel * channel)
     }
     else
     {
-        if (channel->eenv_count == 4)
+        if (channel->ExtendedCount == 4)
             return;
     }
 

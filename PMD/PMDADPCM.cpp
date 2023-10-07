@@ -261,7 +261,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xf0:
-            si = SetSSGEnvelopeCommand(channel, si);
+            si = SetSSGEnvelopeFormat1Command(channel, si);
             break;
 
         case 0xef:
@@ -362,7 +362,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xcd:
-            si = SetSSGEnvelopeSpeedToExtend(channel, si);
+            si = SetSSGEnvelopeFormat2Command(channel, si);
             break;
 
         case 0xcc: si++; break;
@@ -552,23 +552,25 @@ void PMD::SetADPCMVolumeCommand(Channel * channel)
     if (channel->envf == -1)
     {
         //  拡張版 音量=al*(eenv_vol+1)/16
-        if (channel->eenv_volume == 0)
+        if (channel->ExtendedAttackLevel == 0)
         {
             _OPNAW->SetReg(0x10b, 0);
+
             return;
         }
 
-        al = ((((al * (channel->eenv_volume + 1))) >> 3) + 1) >> 1;
+        al = ((((al * (channel->ExtendedAttackLevel + 1))) >> 3) + 1) >> 1;
     }
     else
     {
-        if (channel->eenv_volume < 0)
+        if (channel->ExtendedAttackLevel < 0)
         {
-            int ah = -channel->eenv_volume * 16;
+            int ah = -channel->ExtendedAttackLevel * 16;
 
             if (al < ah)
             {
                 _OPNAW->SetReg(0x10b, 0);
+
                 return;
             }
             else
@@ -576,7 +578,7 @@ void PMD::SetADPCMVolumeCommand(Channel * channel)
         }
         else
         {
-            int ah = channel->eenv_volume * 16;
+            int ah = channel->ExtendedAttackLevel * 16;
 
             if (al + ah > 255)
                 al = 255;
@@ -688,11 +690,13 @@ void PMD::SetADPCMKeyOff(Channel * channel)
 {
     if (channel->envf != -1)
     {
-        if (channel->envf == 2) return;
+        if (channel->envf == 2)
+            return;
     }
     else
     {
-        if (channel->eenv_count == 4) return;
+        if (channel->ExtendedCount == 4)
+            return;
     }
 
     if (_Driver.LoopRelease != 0x8000)

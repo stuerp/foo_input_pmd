@@ -41,11 +41,11 @@ int PMD::SSGPCMSoftwareEnvelopeMain(Channel * channel)
     if (channel->envf == -1)
         return ExtendedSSGPCMSoftwareEnvelopeMain(channel);
 
-    int dl = channel->eenv_volume;
+    int dl = channel->ExtendedAttackLevel;
 
     SSGPCMSoftwareEnvelopeSub(channel);
 
-    if (dl == channel->eenv_volume)
+    if (dl == channel->ExtendedAttackLevel)
         return 0;
 
     return -1;
@@ -56,11 +56,11 @@ int PMD::SSGPCMSoftwareEnvelopeSub(Channel * channel)
     if (channel->envf == 0)
     {
         // Attack
-        if (--channel->eenv_ar != 0)
+        if (--channel->AttackDuration != 0)
             return 0;
 
         channel->envf = 1;
-        channel->eenv_volume = channel->eenv_dr;
+        channel->ExtendedAttackLevel = channel->DecayDepth;
 
         return 1;
     }
@@ -68,51 +68,54 @@ int PMD::SSGPCMSoftwareEnvelopeSub(Channel * channel)
     if (channel->envf != 2)
     {
         // Decay
-        if (channel->eenv_sr == 0) return 0;  // No attenuation when DR=0
-        if (--channel->eenv_sr != 0) return 0;
+        if (channel->SustainRate == 0)
+            return 0;  // No attenuation when DR=0
 
-        channel->eenv_sr = channel->eenv_src;
-        channel->eenv_volume--;
-
-        if (channel->eenv_volume >= -15 || channel->eenv_volume < 15)
+        if (--channel->SustainRate != 0)
             return 0;
 
-        channel->eenv_volume = -15;
+        channel->SustainRate = channel->ExtendedSustainRate;
+        channel->ExtendedAttackLevel--;
+
+        if (channel->ExtendedAttackLevel >= -15 || channel->ExtendedAttackLevel < 15)
+            return 0;
+
+        channel->ExtendedAttackLevel = -15;
 
         return 0;
     }
 
     // Release
-    if (channel->eenv_rr == 0)
+    if (channel->ReleaseRate == 0)
     {
-        channel->eenv_volume = -15; // When RR = 0, immediately mute
+        channel->ExtendedAttackLevel = -15; // When RR = 0, immediately mute
         return 0;
     }
 
-    if (--channel->eenv_rr != 0)
+    if (--channel->ReleaseRate != 0)
         return 0;
 
-    channel->eenv_rr = channel->eenv_rrc;
-    channel->eenv_volume--;
+    channel->ReleaseRate = channel->ExtendedReleaseRate;
+    channel->ExtendedAttackLevel--;
 
-    if (channel->eenv_volume >= -15 && channel->eenv_volume < 15)
+    if (channel->ExtendedAttackLevel >= -15 && channel->ExtendedAttackLevel < 15)
         return 0;
 
-    channel->eenv_volume = -15;
+    channel->ExtendedAttackLevel = -15;
 
     return 0;
 }
 
 int PMD::ExtendedSSGPCMSoftwareEnvelopeMain(Channel * channel)
 {
-    if (channel->eenv_count == 0)
+    if (channel->ExtendedCount == 0)
         return 0;
 
-    int dl = channel->eenv_volume;
+    int dl = channel->ExtendedAttackLevel;
 
-    ExtendedSSGPCMSoftwareEnvelopeSub(channel, channel->eenv_count);
+    ExtendedSSGPCMSoftwareEnvelopeSub(channel, channel->ExtendedCount);
 
-    if (dl == channel->eenv_volume)
+    if (dl == channel->ExtendedAttackLevel)
         return 0;
 
     return -1;
@@ -123,32 +126,32 @@ void PMD::ExtendedSSGPCMSoftwareEnvelopeSub(Channel * channel, int ah)
     if (--ah == 0)
     {
         // Attack Rate
-        if (channel->eenv_arc > 0)
+        if (channel->ExtendedAttackDuration > 0)
         {
-            channel->eenv_volume += channel->eenv_arc;
+            channel->ExtendedAttackLevel += channel->ExtendedAttackDuration;
 
-            if (channel->eenv_volume < 15)
+            if (channel->ExtendedAttackLevel < 15)
             {
-                channel->eenv_arc = channel->eenv_ar - 16;
+                channel->ExtendedAttackDuration = channel->AttackDuration - 16;
                 return;
             }
 
-            channel->eenv_volume = 15;
-            channel->eenv_count++;
+            channel->ExtendedAttackLevel = 15;
+            channel->ExtendedCount++;
 
-            if (channel->eenv_sl != 15)
+            if (channel->SustainLevel != 15)
                 return;    // If SL=0, immediately go to SR
 
-            channel->eenv_count++;
+            channel->ExtendedCount++;
 
             return;
         }
         else
         {
-            if (channel->eenv_ar == 0)
+            if (channel->AttackDuration == 0)
                 return;
 
-            channel->eenv_arc++;
+            channel->ExtendedAttackDuration++;
 
             return;
         }
@@ -157,30 +160,30 @@ void PMD::ExtendedSSGPCMSoftwareEnvelopeSub(Channel * channel, int ah)
     if (--ah == 0)
     {
         // Decay Rate
-        if (channel->eenv_drc > 0)
+        if (channel->ExtendedDecayDepth > 0)
         {
-            channel->eenv_volume -= channel->eenv_drc; // Count CHECK if less than 0
+            channel->ExtendedAttackLevel -= channel->ExtendedDecayDepth; // Count CHECK if less than 0
 
-            if (channel->eenv_volume < 0 || channel->eenv_volume < channel->eenv_sl)
+            if (channel->ExtendedAttackLevel < 0 || channel->ExtendedAttackLevel < channel->SustainLevel)
             {
-                channel->eenv_volume = channel->eenv_sl;
-                channel->eenv_count++;
+                channel->ExtendedAttackLevel = channel->SustainLevel;
+                channel->ExtendedCount++;
 
                 return;
             }
 
-            if (channel->eenv_dr < 16)
-                channel->eenv_drc = (channel->eenv_dr - 16) * 2;
+            if (channel->DecayDepth < 16)
+                channel->ExtendedDecayDepth = (channel->DecayDepth - 16) * 2;
             else
-                channel->eenv_drc = channel->eenv_dr - 16;
+                channel->ExtendedDecayDepth = channel->DecayDepth - 16;
 
             return;
         }
 
-        if (channel->eenv_dr == 0)
+        if (channel->DecayDepth == 0)
             return;
 
-        channel->eenv_drc++;
+        channel->ExtendedDecayDepth++;
 
         return;
     }
@@ -188,42 +191,42 @@ void PMD::ExtendedSSGPCMSoftwareEnvelopeSub(Channel * channel, int ah)
     if (--ah == 0)
     {
         // Sustain Rate
-        if (channel->eenv_src > 0)
+        if (channel->ExtendedSustainRate > 0)
         {
             // Count CHECK if less than 0
-            if ((channel->eenv_volume -= channel->eenv_src) < 0)
-                channel->eenv_volume = 0;
+            if ((channel->ExtendedAttackLevel -= channel->ExtendedSustainRate) < 0)
+                channel->ExtendedAttackLevel = 0;
 
-            if (channel->eenv_sr < 16)
-                channel->eenv_src = (channel->eenv_sr - 16) * 2;
+            if (channel->SustainRate < 16)
+                channel->ExtendedSustainRate = (channel->SustainRate - 16) * 2;
             else
-                channel->eenv_src = channel->eenv_sr - 16;
+                channel->ExtendedSustainRate = channel->SustainRate - 16;
 
             return;
         }
 
-        if (channel->eenv_sr == 0)
+        if (channel->SustainRate == 0)
             return;  // SR=0?
 
-        channel->eenv_src++;
+        channel->ExtendedSustainRate++;
 
         return;
     }
 
     // Release Rate
-    if (channel->eenv_rrc > 0)
+    if (channel->ExtendedReleaseRate > 0)
     {
         // Count CHECK if less than 0
-        if ((channel->eenv_volume -= channel->eenv_rrc) < 0)
-            channel->eenv_volume = 0;
+        if ((channel->ExtendedAttackLevel -= channel->ExtendedReleaseRate) < 0)
+            channel->ExtendedAttackLevel = 0;
 
-        channel->eenv_rrc = (channel->eenv_rr) * 2 - 16;
+        channel->ExtendedReleaseRate = (channel->ReleaseRate) * 2 - 16;
 
         return;
     }
 
-    if (channel->eenv_rr == 0)
+    if (channel->ReleaseRate == 0)
         return;
 
-    channel->eenv_rrc++;
+    channel->ExtendedReleaseRate++;
 }

@@ -182,38 +182,38 @@ int PMD::StartPCMLFO(Channel * channel, int al)
     if (channel->envf != -1)
     {
         channel->envf = 0;
-        channel->eenv_volume = 0;
-        channel->eenv_ar = channel->eenv_arc;
+        channel->ExtendedAttackLevel = 0;
+        channel->AttackDuration = channel->ExtendedAttackDuration;
 
-        if (channel->eenv_ar == 0)
+        if (channel->AttackDuration == 0)
         {
             channel->envf = 1;  // ATTACK=0 ... ｽｸﾞ Decay ﾆ
-            channel->eenv_volume = channel->eenv_dr;
+            channel->ExtendedAttackLevel = channel->DecayDepth;
         }
 
-        channel->eenv_sr = channel->eenv_src;
-        channel->eenv_rr = channel->eenv_rrc;
+        channel->SustainRate = channel->ExtendedSustainRate;
+        channel->ReleaseRate = channel->ExtendedReleaseRate;
 
         InitializeLFO(channel);
     }
     else
     {
         // Extended SSG envelope processing
-        channel->eenv_arc = channel->eenv_ar - 16;
+        channel->ExtendedAttackDuration = channel->AttackDuration - 16;
 
-        if (channel->eenv_dr < 16)
-            channel->eenv_drc = (channel->eenv_dr - 16) * 2;
+        if (channel->DecayDepth < 16)
+            channel->ExtendedDecayDepth = (channel->DecayDepth - 16) * 2;
         else
-            channel->eenv_drc = channel->eenv_dr - 16;
+            channel->ExtendedDecayDepth = channel->DecayDepth - 16;
 
-        if (channel->eenv_sr < 16)
-            channel->eenv_src = (channel->eenv_sr - 16) * 2;
+        if (channel->SustainRate < 16)
+            channel->ExtendedSustainRate = (channel->SustainRate - 16) * 2;
         else
-            channel->eenv_src = channel->eenv_sr - 16;
+            channel->ExtendedSustainRate = channel->SustainRate - 16;
 
-        channel->eenv_rrc = (channel->eenv_rr) * 2 - 16;
-        channel->eenv_volume = channel->eenv_al;
-        channel->eenv_count = 1;
+        channel->ExtendedReleaseRate = (channel->ReleaseRate) * 2 - 16;
+        channel->ExtendedAttackLevel = channel->AttackLevel;
+        channel->ExtendedCount = 1;
 
         ExtendedSSGPCMSoftwareEnvelopeMain(channel);
 

@@ -279,7 +279,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xf0:
-            si = SetSSGEnvelopeCommand(channel, si);
+            si = SetSSGEnvelopeFormat1Command(channel, si);
             break;
 
         case 0xef:
@@ -405,7 +405,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
         case 0xce: si += 6; break;
 
         case 0xcd:
-            si = SetSSGEnvelopeSpeedToExtend(channel, si);
+            si = SetSSGEnvelopeFormat2Command(channel, si);
             break;
 
         case 0xcc:
@@ -566,21 +566,43 @@ void PMD::SSGPlayEffect(Channel * channel, int al)
     EffectMain(channel, al);
 }
 
-//  Command "#EnvelopeSpeed": Defines the SSG Envelope Speed (Extend)
-uint8_t * PMD::SetSSGEnvelopeSpeedToExtend(Channel * channel, uint8_t * si)
+//  Command "E number1, number2, number3, number4": Set the SSG Envelope (Format 1).
+uint8_t * PMD::SetSSGEnvelopeFormat1Command(Channel * channel, uint8_t * si)
 {
-    channel->eenv_ar = *si++ & 0x1f;
-    channel->eenv_dr = *si++ & 0x1f;
-    channel->eenv_sr = *si++ & 0x1f;
-    channel->eenv_rr = *si & 0x0f;
-    channel->eenv_sl = ((*si++ >> 4) & 0x0f) ^ 0x0f;
-    channel->eenv_al = *si++ & 0x0f;
+    channel->AttackDuration = *si;
+    channel->ExtendedAttackDuration = *si++;
+    channel->DecayDepth = *(int8_t *) si++;
+    channel->SustainRate = *si;
+    channel->ExtendedSustainRate = *si++;
+    channel->ReleaseRate = *si;
+    channel->ExtendedReleaseRate = *si++;
 
+    if (channel->envf == -1)
+    {
+        channel->envf = 2; // RR
+        channel->ExtendedAttackLevel = -15; // Volume
+    }
+
+    return si;
+}
+
+//  Command "E number1, number2, number3, number4, number5 [,number6]": Set the SSG Envelope (Format 2).
+uint8_t * PMD::SetSSGEnvelopeFormat2Command(Channel * channel, uint8_t * si)
+{
+    channel->AttackDuration = *si++ & 0x1F;
+    channel->DecayDepth = *si++ & 0x1F;
+    channel->SustainRate = *si++ & 0x1F;
+    channel->ReleaseRate = *si & 0x0F;
+    channel->SustainLevel = ((*si++ >> 4) & 0x0F) ^ 0x0F;
+    channel->AttackLevel = *si++ & 0x0F;
+
+    // Move from normal to expanded?
     if (channel->envf != -1)
-    {  // Did you move from normal to expanded?
+    {
         channel->envf = -1;
-        channel->eenv_count = 4;    // RR
-        channel->eenv_volume = 0;  // Volume
+
+        channel->ExtendedCount = 4; // RR
+        channel->ExtendedAttackLevel = 0; // Volume
     }
 
     return si;
@@ -732,23 +754,6 @@ uint8_t * PMD::SetSSGMaskCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::SetSSGEnvelopeCommand(Channel * channel, uint8_t * si)
-{
-    channel->eenv_ar = *si; channel->eenv_arc = *si++;
-    channel->eenv_dr = *(int8_t *) si++;
-    channel->eenv_sr = *si; channel->eenv_src = *si++;
-    channel->eenv_rr = *si; channel->eenv_rrc = *si++;
-
-    if (channel->envf == -1)
-    {
-        channel->envf = 2;    // RR
-        channel->eenv_volume = -15;    // volume
-    }
-
-    return si;
-}
-
-
 /// <summary>
 /// Decides to stop the SSG drum and reset the SSG.
 /// </summary>
@@ -777,7 +782,7 @@ bool PMD::CheckSSGDrum(Channel * channel, int al)
 
 void PMD::SetSSGTone(Channel * channel, int al)
 {
-    if ((al & 0x0f) == 0x0f)
+    if ((al & 0x0F) == 0x0F)
     {
         channel->Note = 0xFF; // Kyufu Nara FNUM Ni 0 Set
 
@@ -791,8 +796,8 @@ void PMD::SetSSGTone(Channel * channel, int al)
 
     channel->Note = al;
 
-    int cl = (al >> 4) & 0x0f;  // cl=oct
-    int bx = al & 0x0f;      // bx=onkai
+    int cl = (al >> 4) & 0x0F;  // cl=oct
+    int bx = al & 0x0F;      // bx=onkai
     int ax = psg_tune_data[bx];
 
     if (cl > 0)
@@ -809,7 +814,7 @@ void PMD::SetSSGTone(Channel * channel, int al)
 
 void PMD::SetSSGVolume(Channel * channel)
 {
-    if (channel->envf == 3 || (channel->envf == -1 && channel->eenv_count == 0))
+    if (channel->envf == 3 || (channel->envf == -1 && channel->ExtendedCount == 0))
         return;
 
     int dl = (channel->VolumePush) ? channel->VolumePush - 1 : channel->Volume;
@@ -830,18 +835,18 @@ void PMD::SetSSGVolume(Channel * channel)
 
     if (channel->envf == -1)
     {
-        if (channel->eenv_volume == 0)
+        if (channel->ExtendedAttackLevel == 0)
         {
             _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0);
 
             return;
         }
 
-        dl = ((((dl * (channel->eenv_volume + 1))) >> 3) + 1) >> 1;
+        dl = ((((dl * (channel->ExtendedAttackLevel + 1))) >> 3) + 1) >> 1;
     }
     else
     {
-        dl += channel->eenv_volume;
+        dl += channel->ExtendedAttackLevel;
 
         if (dl <= 0)
         {
@@ -985,7 +990,7 @@ void PMD::SetSSGKeyOff(Channel * channel)
     if (channel->envf != -1)
         channel->envf = 2;
     else
-        channel->eenv_count = 4;
+        channel->ExtendedCount = 4;
 }
 
 // Sets SSG Wait after register output.

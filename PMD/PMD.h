@@ -294,8 +294,8 @@ private:
 
     uint8_t * ExecuteSSGCommand(Channel * channel, uint8_t * si);
     uint8_t * DecreaseSSGVolumeCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetSSGEnvelopeCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetSSGEnvelopeSpeedToExtend(Channel * channel, uint8_t * si);
+    uint8_t * SetSSGEnvelopeFormat1Command(Channel * channel, uint8_t * si);
+    uint8_t * SetSSGEnvelopeFormat2Command(Channel * channel, uint8_t * si);
     uint8_t * SetSSGVolumeCommand(Channel * channel, uint8_t * si);
     uint8_t * SetSSGPortamentoCommand(Channel * channel, uint8_t * si);
     uint8_t * SetSSGMaskCommand(Channel * channel, uint8_t * si);

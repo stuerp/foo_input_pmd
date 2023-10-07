@@ -91,18 +91,20 @@ public:
     int VolumePush; // 1 Volume PUSHarea
 
     int envf;  // 1 SSG ENV. [START_FLAG] / -1でextend
-    int eenv_count; // 1 ExtendSSGenv/No=0 AR=1 DR=2 SR=3 RR=4
-    int eenv_ar; // 1  /AR  /旧pat
-    int eenv_dr; // 1 /DR  /旧pv2
-    int eenv_sr; // 1 /SR  /旧pr1
-    int eenv_rr; // 1 /RR  /旧pr2
-    int eenv_sl; // 1 /SL
-    int eenv_al; // 1 /AL
-    int eenv_arc; // 1 /ARのカウンタ /旧patb
-    int eenv_drc; // 1 /DRのカウンタ
-    int eenv_src; // 1 /SRのカウンタ /旧pr1b
-    int eenv_rrc; // 1 /RRのカウンタ /旧pr2b
-    int eenv_volume;  // 1 /Volume値(0?15)/旧penv
+    int ExtendedCount; // None=0 AR=1 DR=2 SR=3 RR=4
+
+    int AttackDuration;
+    int DecayDepth;
+    int SustainRate;
+    int ReleaseRate;
+    int SustainLevel;
+    int AttackLevel;    // Specifies the level at which the attack starts.
+
+    int ExtendedAttackDuration; // 1 /ARのカウンタ /旧patb
+    int ExtendedDecayDepth; // 1 /DRのカウンタ
+    int ExtendedSustainRate; // 1 /SRのカウンタ /旧pr1b
+    int ExtendedReleaseRate; // 1 /RRのカウンタ /旧pr2b
+    int ExtendedAttackLevel;  // 1 /Volume値(0?15)/旧penv
 
     int PanAndVolume;
     int SSGPattern;         // Tone / Noise / Mix

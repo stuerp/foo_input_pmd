@@ -231,7 +231,7 @@ uint8_t * PMD::ExecuteP86Command(Channel * channel, uint8_t * si)
 
         case 0xf2: si = SetLFOParameter(channel, si); break;
         case 0xf1: si = lfoswitch(channel, si); break;
-        case 0xf0: si = SetSSGEnvelopeCommand(channel, si); break;
+        case 0xf0: si = SetSSGEnvelopeFormat1Command(channel, si); break;
 
         case 0xef:
             _OPNAW->SetReg((uint32_t) (0x100 + si[0]), (uint32_t) si[1]);
@@ -319,7 +319,7 @@ uint8_t * PMD::ExecuteP86Command(Channel * channel, uint8_t * si)
         case 0xcf: si++; break;
 
         case 0xce: si = SetP86RepeatCommand(channel, si); break;
-        case 0xcd: si = SetSSGEnvelopeSpeedToExtend(channel, si); break;
+        case 0xcd: si = SetSSGEnvelopeFormat2Command(channel, si); break;
         case 0xcc: si++; break;
         case 0xcb:
             channel->LFOWaveform = *si++;
@@ -459,21 +459,21 @@ void PMD::SetPCM86Volume(Channel * channel)
     if (channel->envf == -1)
     {
         // Extended Envelope Volume
-        if (channel->eenv_volume == 0)
+        if (channel->ExtendedAttackLevel == 0)
         {
             _OPNAW->SetReg(0x10b, 0);
 
             return;
         }
 
-        al = ((((al * (channel->eenv_volume + 1))) >> 3) + 1) >> 1;
+        al = ((((al * (channel->ExtendedAttackLevel + 1))) >> 3) + 1) >> 1;
     }
     else
     {
         // Extended Envelope Volume
-        if (channel->eenv_volume < 0)
+        if (channel->ExtendedAttackLevel < 0)
         {
-            int ah = -channel->eenv_volume * 16;
+            int ah = -channel->ExtendedAttackLevel * 16;
 
             if (al < ah)
             {
@@ -486,7 +486,7 @@ void PMD::SetPCM86Volume(Channel * channel)
         }
         else
         {
-            int ah = channel->eenv_volume * 16;
+            int ah = channel->ExtendedAttackLevel * 16;
 
             if (al + ah > 255)
                 al = 255;
@@ -554,7 +554,7 @@ void PMD::SetP86KeyOff(Channel * channel)
         return;
     }
 
-    if (channel->eenv_count != 4)
+    if (channel->ExtendedCount != 4)
         SetSSGKeyOff(channel);
 }
 
