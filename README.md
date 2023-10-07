@@ -115,6 +115,7 @@ branch. Pull requests are warmly welcome.
 v0.4.0, 2023-10-xx, *""*
 
 * Added: Checkboxes to enable or disable the use of PPS and the SSG (Software-controlled Sound Generator).
+* Improved: Doubled the startup time of each song.
 * Improved: Tweaked the Shift JIS to UTF-8 conversion a little bit.
 * Fixed: Some settings weren't reset by the Reset button.
 * Builds with foobar2000 SDK 2023-09-06.
@@ -149,37 +150,43 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 ## Reference Material
 
 ### foobar2000
-  * [foobar2000 Development](https://wiki.hydrogenaud.io/index.php?title=Foobar2000:Development:Overview)
+
+* [foobar2000 Development](https://wiki.hydrogenaud.io/index.php?title=Foobar2000:Development:Overview)
 
 ### Windows User Interface
-  * [Desktop App User Interface](https://learn.microsoft.com/en-us/windows/win32/windows-application-ui-development)
-  * [Windows User Experience Interaction Guidelines](https://learn.microsoft.com/en-us/windows/win32/uxguide/guidelines)
-  * [Windows Controls](https://learn.microsoft.com/en-us/windows/win32/controls/window-controls)
-  * [Control Library](https://learn.microsoft.com/en-us/windows/win32/controls/individual-control-info)
-  * [Resource-Definition Statements](https://learn.microsoft.com/en-us/windows/win32/menurc/resource-definition-statements)
-  * [Visuals, Layout](https://learn.microsoft.com/en-us/windows/win32/uxguide/vis-layout)
 
-* Professional Music Driver
-  * [Help Solve the File Format Problem](http://justsolve.archiveteam.org/wiki/Professional_Music_Driver_PMD)
-  * [PMD Documentation](https://pigu-a.github.io/pmddocs/)
-  * [pmdmini](https://github.com/gzaffin/pmdmini)
-  * [pmdmini](https://github.com/mistydemeo/pmdmini)
-  * [FMP/PMD plugin for KbMediaPlayer 1.0r6](https://www.purose.net/befis/download/kmp/)
-  * [Kaja Tools](http://www5.airnet.ne.jp/kajapon/tool.html)
+* [Desktop App User Interface](https://learn.microsoft.com/en-us/windows/win32/windows-application-ui-development)
+* [Windows User Experience Interaction Guidelines](https://learn.microsoft.com/en-us/windows/win32/uxguide/guidelines)
+* [Windows Controls](https://learn.microsoft.com/en-us/windows/win32/controls/window-controls)
+* [Control Library](https://learn.microsoft.com/en-us/windows/win32/controls/individual-control-info)
+* [Resource-Definition Statements](https://learn.microsoft.com/en-us/windows/win32/menurc/resource-definition-statements)
+* [Visuals, Layout](https://learn.microsoft.com/en-us/windows/win32/uxguide/vis-layout)
 
-* Music Macro Language
-  * [PMD MML Command Manual](https://pigu-a.github.io/pmddocs/pmdmml.htm)
-  * [Video Game Music Preservation](http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language)
-  * [Pedipanol](https://mml-guide.readthedocs.io/pmd/intro/)
+### Professional Music Driver
 
-* Songs
-  * [Hoot Archive](http://hoot.joshw.info/pc98/)
-  * [Modland FTP server](https://www.exotica.org.uk/wiki/Modland)
-  * [Touhou 7: Perfect Cherry Blossom](https://www.youtube.com/watch?v=7k8BBweVxcw). Check the notes for links to the .M and .MML files.
-  * [Zun](http://www16.big.or.jp/~zun/html/pmd.html)
+* [Help Solve the File Format Problem](http://justsolve.archiveteam.org/wiki/Professional_Music_Driver_PMD)
+* [PMD Documentation](https://pigu-a.github.io/pmddocs/)
+* [pmdmini](https://github.com/gzaffin/pmdmini)
+* [pmdmini](https://github.com/mistydemeo/pmdmini)
+* [FMP/PMD plugin for KbMediaPlayer 1.0r6](https://www.purose.net/befis/download/kmp/)
+* [Kaja Tools](http://www5.airnet.ne.jp/kajapon/tool.html)
 
-* Various
-  * [RetroPie BIOS Collection](https://github.com/archtaurus/RetroPieBIOS)
+### Music Macro Language
+
+* [PMD MML Command Manual](https://pigu-a.github.io/pmddocs/pmdmml.htm)
+* [Video Game Music Preservation](http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language)
+* [Pedipanol](https://mml-guide.readthedocs.io/pmd/intro/)
+
+### Songs
+
+* [Hoot Archive](http://hoot.joshw.info/pc98/)
+* [Modland FTP server](https://www.exotica.org.uk/wiki/Modland)
+* [Touhou 7: Perfect Cherry Blossom](https://www.youtube.com/watch?v=7k8BBweVxcw). Check the notes for links to the .M and .MML files.
+* [Zun](http://www16.big.or.jp/~zun/html/pmd.html)
+
+### Various
+
+* [RetroPie BIOS Collection](https://github.com/archtaurus/RetroPieBIOS)
 
 ## Links
 

@@ -245,23 +245,23 @@ uint32_t OPNA::GetReg(uint32_t addr)
 /// <summary>
 /// Timer processing
 /// </summary>
-bool OPNA::Count(uint32_t us)
+bool OPNA::Count(uint32_t tickCount)
 {
     bool result = false;
 
     if (reg27 & 1)
     {
         if (timer_count[0] > 0)
-            timer_count[0] -= ((emulated_time) us << (48 - 6)) / (1000000 >> 6);
+            timer_count[0] -= ((emulated_time) tickCount << (48 - 6)) / (1000000 >> 6);
     }
 
     if (reg27 & 2)
     {
         if (timer_count[1] > 0)
-            timer_count[1] -= ((emulated_time) us << (48 - 6)) / (1000000 >> 6);
+            timer_count[1] -= ((emulated_time) tickCount << (48 - 6)) / (1000000 >> 6);
     }
 
-    for (int i = 0; i < sizeof(timer_count) / sizeof(emulated_time); i++)
+    for (int i = 0; i < _countof(timer_count); ++i)
     {
         if ((reg27 & (4 << i)) && timer_count[i] < 0)
         {
@@ -281,16 +281,16 @@ bool OPNA::Count(uint32_t us)
 }
 
 /// <summary>
-/// Gets the next event.
+/// Gets the next timer tick.
 /// </summary>
-uint32_t OPNA::GetNextEvent()
+uint32_t OPNA::GetNextTick()
 {
     if (timer_count[0] == 0 && timer_count[1] == 0)
         return 0;
 
     emulated_time result = INT64_MAX;
 
-    for (int i = 0; i < sizeof(timer_count) / sizeof(emulated_time); i++)
+    for (int i = 0; i < _countof(timer_count); ++i)
     {
         if (timer_count[i] > 0)
             result = (std::min)(result, timer_count[i]);

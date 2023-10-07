@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.cpp (2023.07.19) P. Stuer **/
+/** $VER: PMDDecoder.cpp (2023.10.07) P. Stuer **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -23,7 +23,7 @@ static bool ConvertShiftJIToUTF8(const char * text, pfc::string8 & utf8);
 /// Initializes a new instance.
 /// </summary>
 PMDDecoder::PMDDecoder() :
-    _FilePath(), _Data(), _Size(), _PMD(), _Length(), _LoopLength(), _EventCount(), _LoopEventCount(),
+    _FilePath(), _Data(), _Size(), _PMD(), _Length(), _LoopLength(), _TickCount(), _LoopTickCount(),
     _MaxLoopNumber(DefaultLoopCount), _FadeOutDuration(DefaultFadeOutDuration), _SynthesisRate(DefaultSynthesisRate)
 {
     _Samples.set_count((t_size) BlockSize * ChannelCount);
@@ -106,10 +106,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
         if (_PMD->Load(_Data, _Size) != ERR_SUCCESS)
             return false;
 
-        if (!_PMD->GetLength((int *) &_Length, (int *) &_LoopLength))
-            return false;
-
-        if (!_PMD->GetLengthInEvents((int *) &_EventCount, (int *) &_LoopEventCount))
+        if (!_PMD->GetLength((int *) &_Length, (int *) &_LoopLength, (int *) &_TickCount, (int *) &_LoopTickCount))
             return false;
 
         {
@@ -167,12 +164,12 @@ void PMDDecoder::Initialize() const noexcept
 /// </summary>
 size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
 {
-    uint32_t TotalEventCount = _EventCount;
+    uint32_t TotalTickCount = _TickCount;
 
     if ((CfgPlaybackMode == PlaybackModes::Loop) || (CfgPlaybackMode == PlaybackModes::LoopWithFadeOut))
-        TotalEventCount += (_LoopEventCount * _MaxLoopNumber);
+        TotalTickCount += (_LoopTickCount * _MaxLoopNumber);
 
-    if (!IsBusy() || ((CfgPlaybackMode != LoopForever) && (GetEventNumber() > TotalEventCount)))
+    if (!IsBusy() || ((CfgPlaybackMode != LoopForever) && ((uint32_t) _PMD->GetPositionInTicks() > TotalTickCount)))
     {
         _PMD->Stop();
 
@@ -204,14 +201,6 @@ void PMDDecoder::SetPosition(uint32_t milliseconds) const noexcept
 {
     _PMD->SetPosition(milliseconds);
 };
-
-/// <summary>
-/// Gets the number of the current event.
-/// </summary>
-uint32_t PMDDecoder::GetEventNumber() const noexcept
-{
-    return (uint32_t) _PMD->GetEventNumber();
-}
 
 /// <summary>
 /// Gets the number of the current loop. 0 if not looped yet.

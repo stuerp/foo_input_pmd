@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.h (2023.07.19) P. Stuer **/
+/** $VER: PMDDecoder.h (2023.10.07) P. Stuer **/
 
 #pragma once
 
@@ -32,7 +32,6 @@ public:
     uint32_t GetPosition() const noexcept;
     void SetPosition(uint32_t seconds) const noexcept;
 
-    uint32_t GetEventNumber() const noexcept;
     uint32_t GetLoopNumber() const noexcept;
 
     uint32_t GetBlockSize() const noexcept { return BlockSize; }
@@ -44,8 +43,8 @@ public:
     uint32_t GetLength() const noexcept { return _Length; }
     uint32_t GetLoopLength() const noexcept { return _LoopLength; }
 
-    uint32_t GetEventCount() const noexcept { return _EventCount; }
-    uint32_t GetLoopEventCount() const noexcept { return _LoopEventCount; }
+    uint32_t GetTickCount() const noexcept { return _TickCount; }
+    uint32_t GetLoopTickCount() const noexcept { return _LoopTickCount; }
 
     const pfc::string8 & GetTitle() const noexcept { return _Title; }
     const pfc::string8 & GetComposer() const noexcept { return _Composer; }
@@ -75,8 +74,8 @@ private:
     uint32_t _Length;           // Length of the song in ms.
     uint32_t _LoopLength;       // Length of the loop part of the song in ms. 0 if no loop defined.
 
-    uint32_t _EventCount;       // Number of events in the song
-    uint32_t _LoopEventCount;   // Number of events in the loop part of the song
+    uint32_t _TickCount;        // Number of ticks in the song.
+    uint32_t _LoopTickCount;    // Number of ticks in the loop part of the song.
 
     pfc::string8 _Title;
     pfc::string8 _Composer;

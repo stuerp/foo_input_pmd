@@ -1,5 +1,5 @@
 ﻿
-// PMD driver (Based on PMDWin code by C60)
+// $VER: PMD.cpp (2023.10.07) PMD driver (Based on PMDWin code by C60)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -398,11 +398,98 @@ int PMD::Load(const uint8_t * data, size_t size)
 /// <summary>
 /// Gets the length of the song and loop part (in ms).
 /// </summary>
+bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * loopTickCount)
+{
+    DriverStart();
+
+    _Position = 0;
+    *songLength = 0;
+
+    int FMDelay = _OPNAW->GetFMDelay();
+    int SSGDelay = _OPNAW->GetSSGDelay();
+    int ADPCMDelay = _OPNAW->GetADPCMDelay();
+    int RSSDelay = _OPNAW->GetRSSDelay();
+
+    _OPNAW->SetFMDelay(0);
+    _OPNAW->SetSSGDelay(0);
+    _OPNAW->SetADPCMDelay(0);
+    _OPNAW->SetRhythmDelay(0);
+
+    do
+    {
+        {
+            if (_OPNAW->ReadStatus() & 0x01)
+                HandleTimerA();
+
+            if (_OPNAW->ReadStatus() & 0x02)
+                HandleTimerB();
+
+            _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Reset both timer A and B.
+
+            uint32_t TickCount = _OPNAW->GetNextTick();
+
+            _OPNAW->Count(TickCount);
+            _Position += TickCount;
+        }
+
+        if ((_State.LoopCount == 1) && (*songLength == 0)) // When looping
+        {
+            *songLength = (int) (_Position / 1000);
+            *tickCount = GetPositionInTicks();
+        }
+        else
+        if (_State.LoopCount == -1) // End without loop
+        {
+            *songLength = (int) (_Position / 1000);
+            *loopLength = 0;
+
+            *tickCount = GetPositionInTicks();
+            *loopTickCount = 0;
+
+            DriverStop();
+
+            _OPNAW->SetFMDelay(FMDelay);
+            _OPNAW->SetSSGDelay(SSGDelay);
+            _OPNAW->SetADPCMDelay(ADPCMDelay);
+            _OPNAW->SetRhythmDelay(RSSDelay);
+
+            return true;
+        }
+        else
+        if (GetPositionInTicks() >= 65536) // Forced termination.
+        {
+            *songLength = (int) (_Position / 1000);
+            *loopLength = *songLength;
+
+            *tickCount = GetPositionInTicks();
+            *loopTickCount = *tickCount;
+
+            return true;
+        }
+    }
+    while (_State.LoopCount < 2);
+
+    *loopLength = (int) (_Position / 1000) - *songLength;
+    *loopTickCount = GetPositionInTicks() - *tickCount;
+
+    DriverStop();
+
+    _OPNAW->SetFMDelay(FMDelay);
+    _OPNAW->SetSSGDelay(SSGDelay);
+    _OPNAW->SetADPCMDelay(ADPCMDelay);
+    _OPNAW->SetRhythmDelay(RSSDelay);
+
+    return true;
+}
+
+/// <summary>
+/// Gets the length of the song and loop part (in ms).
+/// </summary>
 bool PMD::GetLength(int * songLength, int * loopLength)
 {
     DriverStart();
 
-    _Position = 0; // Time from start of playing (μs)
+    _Position = 0;
     *songLength = 0;
 
     int FMDelay = _OPNAW->GetFMDelay();
@@ -426,10 +513,10 @@ bool PMD::GetLength(int * songLength, int * loopLength)
 
             _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
 
-            uint32_t us = _OPNAW->GetNextEvent();
+            uint32_t TickCount = _OPNAW->GetNextTick();
 
-            _OPNAW->Count(us);
-            _Position += us;
+            _OPNAW->Count(TickCount);
+            _Position += TickCount;
         }
 
         if ((_State.LoopCount == 1) && (*songLength == 0)) // When looping
@@ -452,7 +539,7 @@ bool PMD::GetLength(int * songLength, int * loopLength)
             return true;
         }
         else
-        if (GetEventNumber() >= 65536) // Forced termination if 65536 clocks or more
+        if (GetPositionInTicks() >= 65536)
         {
             *songLength = (int) (_Position / 1000);
             *loopLength = *songLength;
@@ -475,14 +562,14 @@ bool PMD::GetLength(int * songLength, int * loopLength)
 }
 
 /// <summary>
-/// Gets the number of events in the song and loop part.
+/// Gets the number of ticks in the song and loop part.
 /// </summary>
-bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
+bool PMD::GetLengthInTicks(int * tickCount, int * loopTickCount)
 {
     DriverStart();
 
-    _Position = 0; // Time from start of playing (μs)
-    *eventCount = 0;
+    _Position = 0;
+    *tickCount = 0;
 
     int FMDelay = _OPNAW->GetFMDelay();
     int SSGDelay = _OPNAW->GetSSGDelay();
@@ -505,21 +592,21 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
 
             _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30);  // Timer Reset (Both timer A and B)
 
-            uint32_t us = _OPNAW->GetNextEvent();
+            uint32_t TickCount = _OPNAW->GetNextTick();
 
-            _OPNAW->Count(us);
-            _Position += us;
+            _OPNAW->Count(TickCount);
+            _Position += TickCount;
         }
 
-        if ((_State.LoopCount == 1) && (*eventCount == 0)) // When looping
+        if ((_State.LoopCount == 1) && (*tickCount == 0)) // When looping
         {
-            *eventCount = GetEventNumber();
+            *tickCount = GetPositionInTicks();
         }
         else
         if (_State.LoopCount == -1) // End without loop
         {
-            *eventCount = GetEventNumber();
-            *loopEventCount = 0;
+            *tickCount = GetPositionInTicks();
+            *loopTickCount = 0;
 
             DriverStop();
 
@@ -531,17 +618,17 @@ bool PMD::GetLengthInEvents(int * eventCount, int * loopEventCount)
             return true;
         }
         else
-        if (GetEventNumber() >= 65536) // Forced termination if 65536 clocks or more
+        if (GetPositionInTicks() >= 65536) // Forced termination if 65536 clocks or more
         {
-            *eventCount = GetEventNumber();
-            *loopEventCount = *eventCount;
+            *tickCount = GetPositionInTicks();
+            *loopTickCount = *tickCount;
 
             return true;
         }
     }
     while (_State.LoopCount < 2);
 
-    *loopEventCount = GetEventNumber() - *eventCount;
+    *loopTickCount = GetPositionInTicks() - *tickCount;
 
     DriverStop();
 
@@ -568,7 +655,7 @@ uint32_t PMD::GetPosition()
 // Sets the playback position (in ms)
 void PMD::SetPosition(uint32_t position)
 {
-    int64_t NewPosition = (int64_t) position * 1000; // (ms -> conversion to usec)
+    int64_t NewPosition = (int64_t) position * 1000; // Convert ms to μs.
 
     if (_Position > NewPosition)
     {
@@ -590,10 +677,48 @@ void PMD::SetPosition(uint32_t position)
 
         _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
 
-        uint32_t us = _OPNAW->GetNextEvent();
+        uint32_t TickCount = _OPNAW->GetNextTick();
 
-        _OPNAW->Count(us);
-        _Position += us;
+        _OPNAW->Count(TickCount);
+        _Position += TickCount;
+    }
+
+    if (_State.LoopCount == -1)
+        Silence();
+
+    _OPNAW->ClearBuffer();
+}
+
+// Gets the playback position (in ticks)
+int PMD::GetPositionInTicks()
+{
+    return (_State.BarLength * _State.BarCounter) + _State.OpsCounter;
+}
+
+// Sets the playback position (in ticks).
+void PMD::SetPositionInTicks(int tickCount)
+{
+    if (((_State.BarLength * _State.BarCounter) + _State.OpsCounter) > tickCount)
+    {
+        DriverStart();
+
+        _SamplePtr = _SampleSrc;
+        _SamplesToDo = 0;
+    }
+
+    while (((_State.BarLength * _State.BarCounter) + _State.OpsCounter) < tickCount)
+    {
+        if (_OPNAW->ReadStatus() & 0x01)
+            HandleTimerA();
+
+        if (_OPNAW->ReadStatus() & 0x02)
+            HandleTimerB();
+
+        _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
+
+        uint32_t TickCount = _OPNAW->GetNextTick();
+
+        _OPNAW->Count(TickCount);
     }
 
     if (_State.LoopCount == -1)
@@ -637,11 +762,11 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
                 _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
             }
 
-            uint32_t us = _OPNAW->GetNextEvent(); // in microseconds
+            uint32_t TickCount = _OPNAW->GetNextTick(); // in microseconds
 
             {
-                _SamplesToDo = (size_t) ((double) us * _State.OPNARate / 1000000.0);
-                _OPNAW->Count(us);
+                _SamplesToDo = (size_t) ((double) TickCount * _State.OPNARate / 1000000.0);
+                _OPNAW->Count(TickCount);
 
                 ::memset(_SampleDst, 0, _SamplesToDo * sizeof(Stereo32bit));
 
@@ -681,7 +806,7 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
             }
 
             {
-                _Position += us;
+                _Position += TickCount;
 
                 if (_State.FadeOutSpeedHQ > 0)
                 {
@@ -832,44 +957,6 @@ void PMD::SetFadeOutDurationHQ(int speed)
     }
     else
         _State.FadeOutSpeedHQ = 0; // Fadeout forced stop
-}
-
-// Sets the playback position (in ticks).
-void PMD::SetEventNumber(int eventNumber)
-{
-    if (((_State.BarLength * _State.BarCounter) + _State.OpsCounter) > eventNumber)
-    {
-        DriverStart();
-
-        _SamplePtr = _SampleSrc;
-        _SamplesToDo = 0;
-    }
-
-    while (((_State.BarLength * _State.BarCounter) + _State.OpsCounter) < eventNumber)
-    {
-        if (_OPNAW->ReadStatus() & 0x01)
-            HandleTimerA();
-
-        if (_OPNAW->ReadStatus() & 0x02)
-            HandleTimerB();
-
-        _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
-
-        uint32_t us = _OPNAW->GetNextEvent();
-
-        _OPNAW->Count(us);
-    }
-
-    if (_State.LoopCount == -1)
-        Silence();
-
-    _OPNAW->ClearBuffer();
-}
-
-// Gets the playback position (in ticks)
-int PMD::GetEventNumber()
-{
-    return (_State.BarLength * _State.BarCounter) + _State.OpsCounter;
 }
 
 // Gets PPC / P86 filename.

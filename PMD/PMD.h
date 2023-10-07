@@ -63,8 +63,9 @@ public:
 
     uint32_t GetLoopNumber();
 
+    bool GetLength(int * songLength, int * loopLength, int * tickCount, int * loopTickCount);
     bool GetLength(int * songlength, int * loopLength);
-    bool GetLengthInEvents(int * songLength, int * loopLength);
+    bool GetLengthInTicks(int * songLength, int * loopLength);
 
     uint32_t GetPosition();
     void SetPosition(uint32_t position);
@@ -85,8 +86,8 @@ public:
     void SetFadeOutSpeed(int speed);
     void SetFadeOutDurationHQ(int speed);
 
-    void SetEventNumber(int pos);
-    int GetEventNumber();
+    void SetPositionInTicks(int pos);
+    int GetPositionInTicks();
 
     WCHAR * GetPCMFileName(WCHAR * fileName);
     WCHAR * GetPPZFileName(WCHAR * fileName, int bufnum);

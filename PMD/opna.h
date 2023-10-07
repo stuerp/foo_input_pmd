@@ -58,8 +58,8 @@ public:
     uint32_t ReadStatus() { return _Chip.read_status(); }       // Reads the status register.
     uint32_t ReadStatusEx() { return _Chip.read_status_hi(); }  // Reads the status register (extended addressing).
 
-    bool Count(uint32_t us);
-    uint32_t GetNextEvent();
+    bool Count(uint32_t tickCount);
+    uint32_t GetNextTick();
     
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
     
