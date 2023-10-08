@@ -1,5 +1,5 @@
 ﻿
-// 8 Channel PCM Driver「PPZ8」Unit (Light Version) / Programmed by UKKY / Windows Converted by C60
+// PC-98's 86 soundboard's 8 PCM driver / Programmed by UKKY / Windows Converted by C60
 
 #pragma once
 
@@ -14,36 +14,37 @@
 
 #define PPZ_OUT_OF_MEMORY   99
 
-#define SOUND_44K   44100
+#define SOUND_44K           44100
 
-#define RATE_DEF    SOUND_44K
-#define VNUM_DEF    12
-#define PCM_CNL_MAX 8
-#define X_N0        0x80
-#define DELTA_N0    127
+#define DefaultSampleRate   SOUND_44K
+#define DefaultVolume       12
+#define MaxPPZChannels      8
+
+#define X_N0                0x80
+#define DELTA_N0            0x7F
 
 typedef int32_t Sample;
 
-struct CHANNELWORK
+struct PPZChannel
 {
-    int        PCM_ADD_L;                // アドレス増加量 LOW
-    int        PCM_ADD_H;                // アドレス増加量 HIGH
-    int        PCM_ADDS_L;                // アドレス増加量 LOW（元の値）
-    int        PCM_ADDS_H;                // アドレス増加量 HIGH（元の値）
-    int        PCM_SORC_F;                // 元データの再生レート
-    int        PCM_FLG;                // 再生フラグ
-    int        PCM_VOL;                // ボリューム
-    int        PCM_PAN;                // PAN
-    int        PCM_NUM;                // PCM番号
-    int        PCM_LOOP_FLG;            // ループ使用フラグ
+    int PCM_ADD_L;                // アドレス増加量 LOW
+    int PCM_ADD_H;                // アドレス増加量 HIGH
+    int PCM_ADDS_L;                // アドレス増加量 LOW（元の値）
+    int PCM_ADDS_H;                // アドレス増加量 HIGH（元の値）
+    int PCM_SORC_F;                // 元データの再生レート
+    int PCM_FLG;                // 再生フラグ
+    int PCM_VOL;                // ボリューム
+    int PanValue;
+    int PCM_NUM;                // PCM番号
+    int PCM_LOOP_FLG;            // ループ使用フラグ
     uint8_t * PCM_NOW;                // 現在の値
-    int        PCM_NOW_XOR;            // 現在の値（小数部）
+    int PCM_NOW_XOR;            // 現在の値（小数部）
     uint8_t * PCM_END;                // 現在の終了アドレス
     uint8_t * PCM_END_S;                // 本当の終了アドレス
     uint8_t * PCM_LOOP;                // ループ開始アドレス
-    uint32_t    PCM_LOOP_START;            // リニアなループ開始アドレス
-    uint32_t    PCM_LOOP_END;            // リニアなループ終了アドレス
-    bool    pviflag;                // PVI なら true
+    uint32_t PCM_LOOP_START;            // リニアなループ開始アドレス
+    uint32_t PCM_LOOP_END;            // リニアなループ終了アドレス
+    bool _HasPVI;                // PVI なら true
 };
 
 #pragma pack(push)
@@ -61,85 +62,83 @@ struct PZIHEADER
         uint32_t LoopStart;
         uint32_t LoopEnd;
         uint16_t SampleRate;
-    } pcmnum[128];
+    } PZIItem[128];
 };
 
 struct PVIHEADER
 {
     char ID[4];                     // 'PVI2'
-    char dummy1[0x0b - 4];
-    uint8_t pvinum;                 // Number of PVI entries available
-    char dummy2[0x10 - 0x0b - 1];
+    char Dummy1[0x0b - 4];
+    uint8_t Count;                  // Number of PVI entries available
+    char Dummy2[0x10 - 0x0b - 1];
     struct
     {
-        uint16_t startaddress;      // Address
-        uint16_t endaddress;        // Size of data
-    } pcmnum[128];
+        uint16_t Start;
+        uint16_t End;
+    } PVIItem[128];
 };
 #pragma pack(pop)
 
 /// <summary>
-/// Implements a Rhythm Sound Source module, a six-channel ADPCM system, enabling playback of six percussion "rhythm tones" from a built-in ROM.
+/// Implements a driver that synthesizes up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit aside from the user's PC98 setup.
+/// It supports 2 kinds of PCM banks: .PVI and .PZI
 /// </summary>
-class PPZ8
+class PPZDriver
 {
 public:
-    PPZ8(File * fileio);
-    virtual ~PPZ8();
+    PPZDriver(File * file);
+    virtual ~PPZDriver();
 
-    bool __cdecl Init(uint32_t rate, bool ip);            // 00H 初期化
-    bool __cdecl Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop);
-    // 01H PCM 発音
-    bool __cdecl Stop(int ch);                            // 02H PCM 停止
-    int  __cdecl Load(const WCHAR * filePath, int bufnum);
-    bool __cdecl SetVolume(int ch, int vol);                // 07H ﾎﾞﾘｭｰﾑ設定
-    bool __cdecl SetPitchFrequency(int ch, uint32_t ontei);        // 0BH 音程周波数の設定
-    bool __cdecl SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);
-    // 0EH ﾙｰﾌﾟﾎﾟｲﾝﾀの設定
-    void __cdecl AllStop(void);                            // 12H (PPZ8)全停止
-    bool __cdecl SetPan(int ch, int pan);                // 13H (PPZ8)PAN指定
-    bool __cdecl SetRate(uint32_t rate, bool ip);        // 14H (PPZ8)ﾚｰﾄ設定
-    bool __cdecl SetSourceRate(int ch, int rate);        // 15H (PPZ8)元ﾃﾞｰﾀ周波数設定
-    void __cdecl SetAllVolume(int vol);                    // 16H (PPZ8)全体ﾎﾞﾘﾕｰﾑの設定（86B Mixer)
-    void __cdecl SetVolume(int vol);
-    //PCMTMP_SET        ;17H PCMﾃﾝﾎﾟﾗﾘ設定
-    void __cdecl ADPCM_EM_SET(bool flag);                // 18H (PPZ8)ADPCMエミュレート
-    //REMOVE_FSET        ;19H (PPZ8)常駐解除ﾌﾗｸﾞ設定
-    //FIFOBUFF_SET        ;1AH (PPZ8)FIFOﾊﾞｯﾌｧの変更
-    //RATE_SET        ;1BH (PPZ8)WSS詳細ﾚｰﾄ設定
+    bool Initialize(uint32_t sampleRate, bool useInterpolation);
+    bool Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop);
+    bool Stop(int ch);
+    int  Load(const WCHAR * filePath, int bufnum);
+    bool SetVolume(int ch, int volume);
+    bool SetPitch(int channelNumber, uint32_t pitch);
+    bool SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);
+    void AllStop();
+    bool SetPan(int ch, int value);
+    bool SetSampleRate(uint32_t sampleRate, bool useInterpolation);
+    bool SetSourceRate(int ch, int sampleRate);
+    void SetAllVolume(int volume);
+    void SetVolume(int volume);
+    void ADPCM_EM_SET(bool flag);
+//  REMOVE_FSET; // 19H (PPZ8)常駐解除ﾌﾗｸﾞ設定
+//  FIFOBUFF_SET; // 1AH (PPZ8)FIFOﾊﾞｯﾌｧの変更
+//  RATE_SET; // 1BH (PPZ8)WSS詳細ﾚｰﾄ設定
 
-    void Mix(Sample * dest, int nsamples);
+    void Mix(Sample * sampleData, size_t sampleCount) noexcept;
 
-    PZIHEADER PCME_WORK[2];                        // PCMの音色ヘッダー
-    bool    pviflag[2];                            // PVI なら true
-    TCHAR    PVI_FILE[2][_MAX_PATH];                // ファイル名
+public:
+    PZIHEADER PCME_WORK[2];
+    bool _HasPVI[2];
+    std::wstring _FilePath[2];
 
 private:
-    File * _File;                        // ファイルアクセス関連のクラスライブラリ
+    void Reset();
 
-    void    WORK_INIT(void);                    // ﾜｰｸ初期化
-    bool    ADPCM_EM_FLG;                        // CH8 でADPCM エミュレートするか？
-    bool    interpolation;                        // 補完するか？
-    int        AVolume;
-    CHANNELWORK    channelwork[PCM_CNL_MAX];        // 各チャンネルのワーク
-    uint8_t * XMS_FRAME_ADR[2];                    // XMSで確保したメモリアドレス（リニア）
-    int        XMS_FRAME_SIZE[2];                    // PZI or PVI 内部データサイズ
-    int        PCM_VOLUME;                            // 86B Mixer全体ボリューム
-    // (DEF=12)
-    int        volume;                                // 全体ボリューム
-    // (opna unit 互換)
-    int        DIST_F;                                // 再生周波数
+    void InitializeInternal();
+    void CreateVolumeTable(int volume);
+    void ReadHeader(File * file, PZIHEADER & pziheader);
+    void ReadHeader(File * file, PVIHEADER & pviheader);
 
-    //    static Sample VolumeTable[16][256];            // 音量テーブル
-    Sample VolumeTable[16][256];                // 音量テーブル
-
-    void    InitializeInternal(void);                        // 初期化(内部処理)
-    void    MakeVolumeTable(int vol);            // 音量テーブルの作成
-    void     ReadHeader(File * file, PZIHEADER & pziheader);
-    void     ReadHeader(File * file, PVIHEADER & pviheader);
-
-    inline int Limit(int v, int max, int min)
+    inline int Limit(int v, int max, int min) const noexcept
     {
         return v > max ? max : (v < min ? min : v);
     }
+
+private:
+    File * _File;
+
+    bool _EmulateADPCM; // Should channel 8 emulate ADPCM?
+    bool _UseInterpolation;
+
+    PPZChannel _Channel[MaxPPZChannels];
+    uint8_t * XMS_FRAME_ADR[2]; // Memory allocated by XMS
+    int XMS_FRAME_SIZE[2]; // PZI or PVI internal state
+    int _PCMVolume; // Overall 86B Mixer volume
+    int _Volume;
+    int _SampleRate; // Playback frequency
+
+    Sample _VolumeTable[16][256];
 };

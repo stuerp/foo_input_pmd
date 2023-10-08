@@ -1,5 +1,5 @@
 
-/** $VER: Configuration.cpp (2023.07.18) **/
+/** $VER: Configuration.cpp (2023.09.27) **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -19,6 +19,9 @@ static const GUID CfgFadeOutDurationGUID = {0xdd824b3e,0x65ce,0x451d,{0x8e,0xbc,
 
 static const GUID CfgSynthesisRateGUID = {0x9dfe9ae3,0xd80c,0x48f8,{0xa9,0xf5,0x81,0x9d,0xf7,0x55,0xad,0xdc}}; // {9dfe9ae3-d80c-48f8-a9f5-819df755addc}
 
+static const GUID CfgUsePPSGUID = {0x21f735d9,0x60da,0x4d0e,{0xbb,0x1b,0x53,0x70,0x01,0xf4,0x1e,0x89}}; // {21f735d9-60da-4d0e-bb1b-537001f41e89}
+static const GUID CfgUseSSGGUID = {0xd1995716,0xc1db,0x4ee4,{0xad,0xdb,0xd0,0xe0,0xd3,0x35,0x00,0x48}}; // {d1995716-c1db-4ee4-addb-d0e0d3350048}
+
 cfg_string CfgSamplesPath(CfgSamplesPathGUID, DefaultSamplesPath);
 
 cfg_uint CfgPlaybackMode(CfgPlaybackModeGUID, DefaultPlaybackMode);
@@ -26,3 +29,6 @@ cfg_uint CfgLoopCount(CfgLoopCountGUID, DefaultLoopCount);
 cfg_uint CfgFadeOutDuration(CfgFadeOutDurationGUID, DefaultFadeOutDuration);
 
 cfg_uint CfgSynthesisRate(CfgSynthesisRateGUID, DefaultSynthesisRate);
+
+cfg_bool CfgUsePPS(CfgUsePPSGUID, DefaultUsePPS);
+cfg_bool CfgUseRhythm(CfgUseSSGGUID, DefaultUseRhythm);

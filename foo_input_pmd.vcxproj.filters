@@ -22,6 +22,13 @@
     <ClInclude Include="PMD\PPZ.h" />
     <ClInclude Include="PMD\Table.h" />
     <ClInclude Include="PMD\Utility.h" />
+    <ClInclude Include="PMD\RIFF.h" />
+    <ClInclude Include="PMD\RIFFReader.h" />
+    <ClInclude Include="PMD\WAVEReader.h" />
+    <ClInclude Include="PMD\Effect.h" />
+    <ClInclude Include="PMD\Driver.h" />
+    <ClInclude Include="PMD\Channel.h" />
+    <ClInclude Include="PMD\State.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
@@ -41,19 +48,23 @@
     <ClCompile Include="PMD\PPZ.cpp" />
     <ClCompile Include="PMD\Table.cpp" />
     <ClCompile Include="PMD\Utility.cpp" />
+    <ClCompile Include="PMD\PMDEffect.cpp" />
+    <ClCompile Include="PMD\PMDFM.cpp" />
+    <ClCompile Include="PMD\PMDRhythm.cpp" />
+    <ClCompile Include="PMD\PMDSSG.cpp" />
+    <ClCompile Include="PMD\PDMP86.cpp" />
+    <ClCompile Include="PMD\PMDADPCM.cpp" />
+    <ClCompile Include="PMD\PMDLFO.cpp" />
+    <ClCompile Include="PMD\PMDPPZ.cpp" />
+    <ClCompile Include="PMD\PMDSoftwareEnvelope.cpp" />
+    <ClCompile Include="PMD\Driver.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Build-FB2KComponent.ps1" />
-    <None Include="README.md" />
-    <None Include=".gitattributes" />
-    <None Include=".gitignore" />
     <None Include="PMD\ymfm\LICENSE" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="LICENSE.txt" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\Screenshot.png" />

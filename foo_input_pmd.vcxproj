@@ -178,6 +178,9 @@
     <ClInclude Include="Configuration.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="PMDDecoder.h" />
+    <ClInclude Include="PMD\Channel.h" />
+    <ClInclude Include="PMD\Driver.h" />
+    <ClInclude Include="PMD\Effect.h" />
     <ClInclude Include="PMD\File.h" />
     <ClInclude Include="PMD\PMDPrivate.h" />
     <ClInclude Include="PMD\OPNA.h" />
@@ -187,6 +190,7 @@
     <ClInclude Include="PMD\PPS.h" />
     <ClInclude Include="PMD\PPZ.h" />
     <ClInclude Include="PMD\RIFF.h" />
+    <ClInclude Include="PMD\State.h" />
     <ClInclude Include="PMD\Table.h" />
     <ClInclude Include="PMD\Utility.h" />
     <ClInclude Include="PMD\ymfm\ymfm.h" />
@@ -205,11 +209,21 @@
     <ClCompile Include="Configuration.cpp" />
     <ClCompile Include="InputDecoder.cpp" />
     <ClCompile Include="PMDDecoder.cpp" />
+    <ClCompile Include="PMD\Driver.cpp" />
     <ClCompile Include="PMD\File.cpp" />
     <ClCompile Include="PMD\OPNA.cpp" />
     <ClCompile Include="PMD\OPNAW.cpp" />
     <ClCompile Include="PMD\P86.cpp" />
+    <ClCompile Include="PMD\PMDSoftwareEnvelope.cpp" />
+    <ClCompile Include="PMD\PDMP86.cpp" />
     <ClCompile Include="PMD\PMD.cpp" />
+    <ClCompile Include="PMD\PMDADPCM.cpp" />
+    <ClCompile Include="PMD\PMDEffect.cpp" />
+    <ClCompile Include="PMD\PMDFM.cpp" />
+    <ClCompile Include="PMD\PMDLFO.cpp" />
+    <ClCompile Include="PMD\PMDPPZ.cpp" />
+    <ClCompile Include="PMD\PMDRhythm.cpp" />
+    <ClCompile Include="PMD\PMDSSG.cpp" />
     <ClCompile Include="PMD\PPS.cpp" />
     <ClCompile Include="PMD\PPZ.cpp" />
     <ClCompile Include="PMD\Table.cpp" />
@@ -220,11 +234,8 @@
     <ClCompile Include="Preferences.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include=".gitattributes" />
-    <None Include=".gitignore" />
     <None Include="Build-FB2KComponent.ps1" />
     <None Include="PMD\ymfm\LICENSE" />
-    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources.rc" />
@@ -245,9 +256,6 @@
     <ProjectReference Include="..\sdk\pfc\pfc.vcxproj">
       <Project>{ebfffb4e-261d-44d3-b89c-957b31a0bf9c}</Project>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="LICENSE.txt" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resources\Screenshot.png" />

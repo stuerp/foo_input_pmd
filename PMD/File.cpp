@@ -1,5 +1,5 @@
 ﻿
-// Based on PMDWin code by C60
+// $VER: File.cpp (2023.10.08) P. Stuer - File manipulation
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -15,7 +15,9 @@ bool HasExtension(const WCHAR * filePath, size_t size, const WCHAR * fileExtensi
 {
     const WCHAR * FileExtension = nullptr;
 
-    if (!SUCCEEDED(::PathCchFindExtension(filePath, size, &FileExtension)))
+    HRESULT hResult = ::PathCchFindExtension(filePath, size, &FileExtension);
+
+    if (!SUCCEEDED(hResult))
         return false;
 
     return (FileExtension && (::_wcsicmp(FileExtension, fileExtension) == 0));

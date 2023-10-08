@@ -31,7 +31,16 @@ or
 
 ### Configuration
 
+#### Drum Samples
+
 You can specify the directory that contains the [YM2608 (OPNA)](https://en.wikipedia.org/wiki/Yamaha_YM2608) drum samples in the preferences.
+
+The sample files should meet the following conditions:
+
+* RIFF WAVE PCM Format (1), 1 channel, Sample Rate 44100Hz, 16 bits per sample
+* Filenames: 2608_bd.wav, 2608_sd.wav, 2608_top.wav, 2608_hh.wav, 2608_tom.wav and 2608_rim.wav or 2608_rym.wav.
+
+A "ym2608_adpcm_rom.bin" ROM file in the same directory takes precedence over the WAV sample files and will be used when found.
 
 ### Tags
 
@@ -103,6 +112,17 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
+v0.4.0, 2023-10-08, *"Rough edges, be gone!"*
+
+* Added: Checkbox to enable or disable the use of PPS samples (default: false).
+* Added: Checkbox to enable or disable the use of the Rhythm instead of the SSG (Software-controlled Sound Generator) sound source (default: false).
+* Improved: Doubled the startup speed of each song.
+* Improved: Tweaked the Shift JIS to UTF-8 conversion a little bit.
+* Improved: The driver outputs a couple of diagnostics messages to the console about the external files (sample banks or files) that are expected for a song to play correctly.
+* Fixed: Various path error conditions that prevented the correct sample banks from loading.
+* Fixed: Some settings weren't reset by the Reset button.
+* Builds with foobar2000 SDK 2023-09-06.
+
 v0.3.0, 2023-07-22, *"What's your preference?"*
 
 * Improved: Added all configuration parameters to the Preferences page.
@@ -132,43 +152,50 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 
 ## Reference Material
 
-* foobar2000
-  * [foobar2000 Development](https://wiki.hydrogenaud.io/index.php?title=Foobar2000:Development:Overview)
+### foobar2000
 
-* Windows User Interface
-  * [Desktop App User Interface](https://learn.microsoft.com/en-us/windows/win32/windows-application-ui-development)
-  * [Windows User Experience Interaction Guidelines](https://learn.microsoft.com/en-us/windows/win32/uxguide/guidelines)
-  * [Windows Controls](https://learn.microsoft.com/en-us/windows/win32/controls/window-controls)
-  * [Control Library](https://learn.microsoft.com/en-us/windows/win32/controls/individual-control-info)
-  * [Resource-Definition Statements](https://learn.microsoft.com/en-us/windows/win32/menurc/resource-definition-statements)
-  * [Visuals, Layout](https://learn.microsoft.com/en-us/windows/win32/uxguide/vis-layout)
+* [foobar2000 Development](https://wiki.hydrogenaud.io/index.php?title=Foobar2000:Development:Overview)
 
-* Professional Music Driver
-  * [Help Solve the File Format Problem](http://justsolve.archiveteam.org/wiki/Professional_Music_Driver_PMD)
-  * [PMD Documentation](https://pigu-a.github.io/pmddocs/)
-  * [pmdmini](https://github.com/gzaffin/pmdmini)
-  * [pmdmini](https://github.com/mistydemeo/pmdmini)
-  * [FMP/PMD plugin for KbMediaPlayer 1.0r6](https://www.purose.net/befis/download/kmp/)
+### Windows User Interface
 
-* Music Macro Language
-  * [PMD MML Command Manual](https://pigu-a.github.io/pmddocs/pmdmml.htm)
-  * [Video Game Music Preservation](http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language)
-  * [Pedipanol](https://mml-guide.readthedocs.io/pmd/intro/)
+* [Desktop App User Interface](https://learn.microsoft.com/en-us/windows/win32/windows-application-ui-development)
+* [Windows User Experience Interaction Guidelines](https://learn.microsoft.com/en-us/windows/win32/uxguide/guidelines)
+* [Windows Controls](https://learn.microsoft.com/en-us/windows/win32/controls/window-controls)
+* [Control Library](https://learn.microsoft.com/en-us/windows/win32/controls/individual-control-info)
+* [Resource-Definition Statements](https://learn.microsoft.com/en-us/windows/win32/menurc/resource-definition-statements)
+* [Visuals, Layout](https://learn.microsoft.com/en-us/windows/win32/uxguide/vis-layout)
 
-* Songs
-  * [Hoot Archive](http://hoot.joshw.info/pc98/)
-  * [Modland FTP server](https://www.exotica.org.uk/wiki/Modland)
-  * [Touhou 7: Perfect Cherry Blossom](https://www.youtube.com/watch?v=7k8BBweVxcw). Check the notes for links to the .M and .MML files.
-  * [Zun](http://www16.big.or.jp/~zun/html/pmd.html)
+### Professional Music Driver
 
-* Various
-  * [RetroPie BIOS Collection](https://github.com/archtaurus/RetroPieBIOS)
+* [Help Solve the File Format Problem](http://justsolve.archiveteam.org/wiki/Professional_Music_Driver_PMD)
+* [PMD Documentation](https://pigu-a.github.io/pmddocs/)
+* [pmdmini](https://github.com/gzaffin/pmdmini)
+* [pmdmini](https://github.com/mistydemeo/pmdmini)
+* [FMP/PMD plugin for KbMediaPlayer 1.0r6](https://www.purose.net/befis/download/kmp/)
+* [Kaja Tools](http://www5.airnet.ne.jp/kajapon/tool.html)
+
+### Music Macro Language
+
+* [PMD MML Command Manual](https://pigu-a.github.io/pmddocs/pmdmml.htm)
+* [Video Game Music Preservation](http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language)
+* [Pedipanol](https://mml-guide.readthedocs.io/pmd/intro/)
+
+### Songs
+
+* [Hoot Archive](http://hoot.joshw.info/pc98/)
+* [Modland FTP server](https://www.exotica.org.uk/wiki/Modland)
+* [Touhou 7: Perfect Cherry Blossom](https://www.youtube.com/watch?v=7k8BBweVxcw). Check the notes for links to the .M and .MML files.
+* [Zun](http://www16.big.or.jp/~zun/html/pmd.html)
+
+### Various
+
+* [RetroPie BIOS Collection](https://github.com/archtaurus/RetroPieBIOS)
 
 ## Links
 
-* Home page: https://github.com/stuerp/foo_input_pmd
-* Repository: https://github.com/stuerp/foo_input_pmd.git
-* Issue tracker: https://github.com/stuerp/foo_input_pmd/issues
+* Home page: [https://github.com/stuerp/foo_input_pmd](https://github.com/stuerp/foo_input_pmd)
+* Repository: [https://github.com/stuerp/foo_input_pmd.git](https://github.com/stuerp/foo_input_pmd.git)
+* Issue tracker: [https://github.com/stuerp/foo_input_pmd/issues](https://github.com/stuerp/foo_input_pmd/issues)
 
 ## License
 

@@ -1,5 +1,5 @@
 ﻿
-// Based on PMDWin code by C60
+// OPNA emulator (Based on PMDWin code by C60)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -25,6 +25,8 @@ OPNA::OPNA(File * file) :
     _TickCount(0U),
 
     _Instrument{},
+    _InstrumentCounter(0),
+
     _MasterVolume(0),
     _InstrumentTL(0),
     _InstrumentMask(0),
@@ -43,17 +45,13 @@ OPNA::OPNA(File * file) :
 
 OPNA::~OPNA()
 {
-    for (int i = 0; i < _countof(_Instrument); ++i)
-    {
-        _Instrument[i].Wave.Reset();
-        _Instrument[i].Samples = nullptr;
-    }
+    DeleteInstruments();
 }
 
 /// <summary>
 /// Initializes the module.
 /// </summary>
-bool OPNA::Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath)
+bool OPNA::Initialize(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath)
 {
     if (!SetRate(clock, synthesisRate, useInterpolation))
         return false;
@@ -65,12 +63,12 @@ bool OPNA::Init(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, c
     _Chip.reset();
 
     SetFMVolume(0);
-    SetPSGVolume(0);
+    SetSSGVolume(0);
     SetADPCMVolume(0);
-    SetRhythmMasterVolume(0);
+    SetRhythmVolume(0);
 
-    for (int i = 0; i < _countof(_Instrument); i++)
-        SetRhythmVolume(i, 0);
+    for (int i = 0; i < _countof(_Instrument); ++i)
+        SetInstrumentVolume(i, 0);
 
     LoadInstruments(directoryPath);
 
@@ -98,95 +96,9 @@ bool OPNA::SetRate(uint32_t synthesisRate)
     return true;
 }
 
+#pragma region(Volume)
 /// <summary>
-/// Loads the rythm samples.
-/// </summary>
-bool OPNA::LoadInstruments(const WCHAR * directoryPath)
-{
-    _HasADPCMROM = false;
-
-    WCHAR FilePath[_MAX_PATH] = { 0 };
-
-    CombinePath(FilePath, _countof(FilePath), directoryPath, L"ym2608_adpcm_rom.bin");
-
-    int64_t FileSize = _File->GetFileSize(FilePath);
-
-    if (FileSize > 0 && _File->Open(FilePath))
-    {
-        std::vector<uint8_t> temp((size_t) FileSize);
-
-        _File->Read(temp.data(), (uint32_t) FileSize);
-        _File->Close();
-
-        write_data(ymfm::ACCESS_ADPCM_A, 0, (uint32_t) FileSize, temp.data());
-
-        _HasADPCMROM = true;
-
-        return true;
-    }
- 
-    static const WCHAR * InstrumentName[_countof(_Instrument)] =
-    {
-        L"bd", L"sd", L"top", L"hh", L"tom", L"rim",
-    };
-
-    int i;
-
-    for (i = 0; i < _countof(_Instrument); i++)
-        _Instrument[i].Pos = ~0U;
-
-    for (i = 0; i < _countof(_Instrument); i++)
-    {
-        FilePath[0] = '\0';
-
-        ::StringCbPrintfW(FilePath, _countof(FilePath), L"%s2608_%s.wav", directoryPath, InstrumentName[i]);
-
-        WAVEReader & wr = _Instrument[i].Wave;
-
-        {
-            wr.Reset();
-
-            if (!wr.Open(FilePath))
-            {
-                if (i != 5)
-                    break;
-
-                CombinePath(FilePath, _countof(FilePath), directoryPath, L"2608_rym.wav");
-
-                if (!wr.Open(FilePath))
-                    break;
-            }
-
-            wr.Close();
-
-            if (!(wr.Format() == 1) && (wr.ChannelCount() == 1) && (wr.SampleRate() == 44100) && (wr.BitsPerSample() == 16))
-                break;
-        }
-
-        uint32_t SampleCount = wr.Size() / 2;
-
-        _Instrument[i].Samples = (const int16_t *) wr.Data();
-        _Instrument[i].Size    = SampleCount * 1024;
-        _Instrument[i].Step    = wr.SampleRate() * 1024 / _SynthesisRate;
-        _Instrument[i].Pos     = 0U;
-    }
-
-    if (i != _countof(_Instrument))
-    {
-        for (i = 0; i < _countof(_Instrument); i++)
-        {
-            _Instrument[i].Wave.Reset();
-            _Instrument[i].Samples = nullptr;
-        }
-
-        return false;
-    }
-
-    return true;
-}
-
-/// <summary>
-/// Sets the FM volume.
+/// Sets the FM sound source volume, in dB.
 /// </summary>
 void OPNA::SetFMVolume(int dB)
 {
@@ -198,9 +110,9 @@ void OPNA::SetFMVolume(int dB)
 }
 
 /// <summary>
-/// Sets the PSG volume.
+/// Sets the SSG (Software-Controlled Sound Generator) sound source volume, in dB.
 /// </summary>
-void OPNA::SetPSGVolume(int dB)
+void OPNA::SetSSGVolume(int dB)
 {
     dB = (std::min)(dB, 20);
 
@@ -210,7 +122,7 @@ void OPNA::SetPSGVolume(int dB)
 }
 
 /// <summary>
-/// Sets the ADPCM volume.
+/// Sets the ADPCM sound source volume, in dB.
 /// </summary>
 void OPNA::SetADPCMVolume(int dB)
 {
@@ -222,9 +134,9 @@ void OPNA::SetADPCMVolume(int dB)
 }
 
 /// <summary>
-/// Sets the Rhythm master volume.
+/// Sets the Rhythm sound source master volume, in dB.
 /// </summary>
-void OPNA::SetRhythmMasterVolume(int dB)
+void OPNA::SetRhythmVolume(int dB)
 {
     dB = (std::min)(dB, 20);
 
@@ -236,29 +148,31 @@ void OPNA::SetRhythmMasterVolume(int dB)
 }
 
 /// <summary>
-/// Sets the Rhythm volume of the specified instrument.
+/// Sets the volume of the specified instrument, in dB.
 /// </summary>
-void OPNA::SetRhythmVolume(int index, int dB)
+void OPNA::SetInstrumentVolume(int index, int dB)
 {
     dB = (std::min)(dB, 20);
 
     _Instrument[index].Volume = -(dB * 2 / 3);
 }
+#pragma endregion
 
+#pragma region(Registers)
 /// <summary>
 /// Sets the value of a register.
 /// </summary>
 void OPNA::SetReg(uint32_t addr, uint32_t value)
 {
-    if ((addr >= 0x10) && (addr <= 0x1f) && !_HasADPCMROM)
+    if ((0x10 <= addr) && (addr <= 0x1F) && !_HasADPCMROM)
     {
-        // UsePPS WAV files to play percussion.
+        // Use PPS WAV files to play percussion.
         switch (addr)
         {
             case 0x10: // DM / KEYON
                 if (!(value & 0x80)) // Key On
                 {
-                    _InstrumentMask |= value & 0x3f;
+                    _InstrumentMask |= value & 0x3F;
 
                     if (value & 0x01) _Instrument[0].Pos = 0;
                     if (value & 0x02) _Instrument[1].Pos = 0;
@@ -272,7 +186,7 @@ void OPNA::SetReg(uint32_t addr, uint32_t value)
                 break;
 
             case 0x11:
-                _InstrumentTL = (int8_t) (~value & 63);
+                _InstrumentTL = (int8_t) (~value & 0x3F);
                 break;
 
             case 0x18: // Bass Drum
@@ -281,8 +195,8 @@ void OPNA::SetReg(uint32_t addr, uint32_t value)
             case 0x1b: // Hihat
             case 0x1c: // Tom-tom
             case 0x1d: // Rim shot
-                _Instrument[addr & 7].Pan   = (value >> 6) & 3;
-                _Instrument[addr & 7].Level = (int8_t) (~value & 31);
+                _Instrument[addr & 7].Pan   = (value >> 6) & 0x03;
+                _Instrument[addr & 7].Level = (int8_t) (~value & 0x1F);
                 break;
         }
     }
@@ -325,27 +239,29 @@ uint32_t OPNA::GetReg(uint32_t addr)
 
     return result;
 }
+#pragma endregion
 
+#pragma region(Timer)
 /// <summary>
 /// Timer processing
 /// </summary>
-bool OPNA::Count(uint32_t us)
+bool OPNA::Count(uint32_t tickCount)
 {
     bool result = false;
 
     if (reg27 & 1)
     {
         if (timer_count[0] > 0)
-            timer_count[0] -= ((emulated_time) us << (48 - 6)) / (1000000 >> 6);
+            timer_count[0] -= ((emulated_time) tickCount << (48 - 6)) / (1000000 >> 6);
     }
 
     if (reg27 & 2)
     {
         if (timer_count[1] > 0)
-            timer_count[1] -= ((emulated_time) us << (48 - 6)) / (1000000 >> 6);
+            timer_count[1] -= ((emulated_time) tickCount << (48 - 6)) / (1000000 >> 6);
     }
 
-    for (int i = 0; i < sizeof(timer_count) / sizeof(emulated_time); i++)
+    for (int i = 0; i < _countof(timer_count); ++i)
     {
         if ((reg27 & (4 << i)) && timer_count[i] < 0)
         {
@@ -365,16 +281,16 @@ bool OPNA::Count(uint32_t us)
 }
 
 /// <summary>
-/// Gets the next event.
+/// Gets the next timer tick.
 /// </summary>
-uint32_t OPNA::GetNextEvent()
+uint32_t OPNA::GetNextTick()
 {
     if (timer_count[0] == 0 && timer_count[1] == 0)
         return 0;
 
     emulated_time result = INT64_MAX;
 
-    for (int i = 0; i < sizeof(timer_count) / sizeof(emulated_time); i++)
+    for (int i = 0; i < _countof(timer_count); ++i)
     {
         if (timer_count[i] > 0)
             result = (std::min)(result, timer_count[i]);
@@ -382,14 +298,16 @@ uint32_t OPNA::GetNextEvent()
 
     return (uint32_t) ((result + ((emulated_time) 1 << 48) / 1000000) * (1000000 >> 6) >> (48 - 6));
 }
+#pragma endregion
 
+#pragma region(Sample Mixing)
 /// <summary>
 /// Synthesizes a buffer of rhythm samples.
 /// </summary>
-void OPNA::Mix(Sample * sampleData, int sampleCount)
+void OPNA::Mix(Sample * sampleData, size_t sampleCount) noexcept
 {
     Sample * SampleData = sampleData;
-    int SampleCount = sampleCount;
+    size_t SampleCount = sampleCount;
 
     while (SampleCount-- != 0)
     {
@@ -404,39 +322,39 @@ void OPNA::Mix(Sample * sampleData, int sampleCount)
     }
 
     if (!_HasADPCMROM)
-        RhythmMix(sampleData, (uint32_t) sampleCount);
+        MixRhythmSamples(sampleData, sampleCount);
 }
 
 /// <summary>
-/// Synthesizes a buffer of rhythm samples using WAV.
+/// Mixes the rythm instrument samples with the existing synthesized samples.
 /// </summary>
-void OPNA::RhythmMix(Sample * sampleData, uint32_t sampleCount)
+void OPNA::MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept
 {
-    if (_Instrument[0].Samples && (_MasterVolume < 128) && (_InstrumentMask & 0x3f))
+    if (!((_InstrumentMask & 0x3F) && _Instrument[0].Samples && (_MasterVolume < 128)))
+        return;
+
+    Sample * SampleDataEnd = sampleData + (sampleCount * 2);
+
+    for (size_t i = 0; i < _countof(_Instrument); ++i)
     {
-        Sample * SampleDataEnd = sampleData + (sampleCount * 2);
+        Instrument & Ins = _Instrument[i];
 
-        for (int i = 0; i < _countof(_Instrument); i++)
+        if ((_InstrumentMask & (1 << i)))
         {
-            Instrument & Ins = _Instrument[i];
+            int dB = Limit(_InstrumentTL + _MasterVolume + Ins.Level + Ins.Volume, 127, -31);
 
-            if ((_InstrumentMask & (1 << i)))
+            int Vol   = tltable[FM_TLPOS + (dB << (FM_TLBITS - 7))] >> 4;
+            int MaskL = -((Ins.Pan >> 1) & 1);
+            int MaskR = - (Ins.Pan       & 1);
+
+            for (Sample * SampleData = sampleData; (SampleData < SampleDataEnd) && (Ins.Pos < Ins.Size); SampleData += 2)
             {
-                int dB = Limit(_InstrumentTL + _MasterVolume + Ins.Level + Ins.Volume, 127, -31);
+                int32_t Sample = (Ins.Samples[Ins.Pos / 1024] * Vol) >> 12;
 
-                int Vol   = tltable[FM_TLPOS + (dB << (FM_TLBITS - 7))] >> 4;
-                int MaskL = -((Ins.Pan >> 1) & 1);
-                int MaskR = - (Ins.Pan       & 1);
+                StoreSample(SampleData[0], Sample & MaskL);
+                StoreSample(SampleData[1], Sample & MaskR);
 
-                for (Sample * SampleData = sampleData; (SampleData < SampleDataEnd) && (Ins.Pos < Ins.Size); SampleData += 2)
-                {
-                    int Sample = (Ins.Samples[Ins.Pos / 1024] * Vol) >> 12;
-
-                    Ins.Pos += Ins.Step;
-
-                    StoreSample(SampleData[0], Sample & MaskL);
-                    StoreSample(SampleData[1], Sample & MaskR);
-                }
+                Ins.Pos += Ins.Step;
             }
         }
     }
@@ -445,13 +363,117 @@ void OPNA::RhythmMix(Sample * sampleData, uint32_t sampleCount)
 /// <summary>
 /// Stores the sample.
 /// </summary>
-void OPNA::StoreSample(Sample & dest, ISample data)
+void OPNA::StoreSample(Sample & sampleData, int32_t sampleValue)
 {
     if constexpr(sizeof(Sample) == 2)
-        dest = (Sample) Limit(dest + data, 0x7fff, -0x8000);
+        sampleData = (Sample) Limit(sampleData + sampleValue, 0x7fff, -0x8000);
     else
-        dest += data;
+        sampleData += sampleValue;
 }
+#pragma endregion
+
+#pragma region(Rhythm Instruments)
+/// <summary>
+/// Loads the rhythm instrument samples.
+/// </summary>
+bool OPNA::LoadInstruments(const WCHAR * directoryPath)
+{
+    _HasADPCMROM = false;
+
+    WCHAR FilePath[_MAX_PATH] = { 0 };
+
+    CombinePath(FilePath, _countof(FilePath), directoryPath, L"ym2608_adpcm_rom.bin");
+
+    {
+        int64_t FileSize = _File->GetFileSize(FilePath);
+
+        if (FileSize > 0 && _File->Open(FilePath))
+        {
+            std::vector<uint8_t> temp((size_t) FileSize);
+
+            _File->Read(temp.data(), (uint32_t) FileSize);
+            _File->Close();
+
+            write_data(ymfm::ACCESS_ADPCM_A, 0, (uint32_t) FileSize, temp.data());
+
+            _HasADPCMROM = true;
+
+            return true;
+        }
+    }
+ 
+    static const WCHAR * InstrumentName[_countof(_Instrument)] =
+    {
+        L"bd", L"sd", L"top", L"hh", L"tom", L"rim",
+    };
+
+    DeleteInstruments(); 
+
+    for (int i = 0; i < _countof(_Instrument); ++i)
+    {
+        FilePath[0] = '\0';
+
+        WCHAR FileName[_MAX_PATH] = { 0 };
+
+        ::StringCbPrintfW(FileName, _countof(FileName), L"2608_%s.wav", InstrumentName[i]);
+
+        WAVEReader & wr = _Instrument[i].Wave;
+
+        {
+            CombinePath(FilePath, _countof(FilePath), directoryPath, FileName);
+
+            if (!wr.Open(FilePath))
+            {
+                if (i != 5)
+                    break;
+
+                CombinePath(FilePath, _countof(FilePath), directoryPath, L"2608_rym.wav");
+
+                if (!wr.Open(FilePath))
+                    break;
+            }
+
+            wr.Close();
+
+            if (!(wr.Format() == 1) && (wr.ChannelCount() == 1) && (wr.SampleRate() == 44100) && (wr.BitsPerSample() == 16))
+                break;
+        }
+
+        uint32_t SampleCount = wr.Size() / 2;
+
+        _Instrument[i].Samples = (const int16_t *) wr.Data();
+        _Instrument[i].Size    = SampleCount * 1024;
+        _Instrument[i].Step    = wr.SampleRate() * 1024 / _SynthesisRate;
+        _Instrument[i].Pos     = 0U;
+
+        _InstrumentCounter++;
+    }
+
+    if (_InstrumentCounter != _countof(_Instrument))
+    {
+        DeleteInstruments(); 
+
+        return false;
+    }
+
+    return true;
+}
+
+/// <summary>
+/// Deletes the rhythm instrument samples.
+/// </summary>
+void OPNA::DeleteInstruments() noexcept
+{
+    for (int i = 0; i < _countof(_Instrument); ++i)
+    {
+        _Instrument[i].Wave.Reset();
+        _Instrument[i].Samples = nullptr;
+        _Instrument[i].Pos = ~0U;
+    }
+
+    _InstrumentCounter = 0;
+}
+#pragma endregion
 
 #pragma region(ymfm_interface)
 /// <summary>
