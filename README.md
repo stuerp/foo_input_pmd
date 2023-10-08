@@ -112,11 +112,14 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
-v0.4.0, 2023-10-xx, *""*
+v0.4.0, 2023-10-08, *"Rough edges, be gone!"*
 
-* Added: Checkboxes to enable or disable the use of PPS and the SSG (Software-controlled Sound Generator).
-* Improved: Doubled the startup time of each song.
+* Added: Checkbox to enable or disable the use of PPS samples (default: false).
+* Added: Checkbox to enable or disable the use of the Rhythm instead of the SSG (Software-controlled Sound Generator) sound source (default: false).
+* Improved: Doubled the startup speed of each song.
 * Improved: Tweaked the Shift JIS to UTF-8 conversion a little bit.
+* Improved: The driver outputs a couple of diagnostics messages to the console about the external files (sample banks or files) that are expected for a song to play correctly.
+* Fixed: Various path error conditions that prevented the correct sample banks from loading.
 * Fixed: Some settings weren't reset by the Reset button.
 * Builds with foobar2000 SDK 2023-09-06.
 

@@ -129,7 +129,5 @@ public:
     bool IsUsingP86;
 
     int FadeOutSpeedHQ; // Fadeout (High Sound Quality) speed (fadeout at > 0)
-
-    WCHAR _FilePath[MAX_PATH];
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member

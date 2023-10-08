@@ -477,8 +477,8 @@ uint8_t * PMD::SetADPCMInstrumentCommand(Channel * channel, uint8_t * si)
 {
     channel->InstrumentNumber = *si++;
 
-    _State.PCMStart = _SampleInfo.Address[channel->InstrumentNumber][0];
-    _State.PCMStop = _SampleInfo.Address[channel->InstrumentNumber][1];
+    _State.PCMStart = _SampleBank.Address[channel->InstrumentNumber][0];
+    _State.PCMStop = _SampleBank.Address[channel->InstrumentNumber][1];
 
     _Driver.LoopBegin = 0;
     _Driver.LoopEnd = 0;
@@ -837,8 +837,7 @@ uint8_t * PMD::SetADPCMRepeatCommand(Channel *, uint8_t * si)
 
         ax += (ax > 0) ? _State.PCMStart : _State.PCMStop;
 
-        _Driver.LoopEnd
- = ax;
+        _Driver.LoopEnd = ax;
     }
 
     {

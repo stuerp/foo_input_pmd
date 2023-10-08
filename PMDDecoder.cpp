@@ -159,12 +159,23 @@ void PMDDecoder::Initialize() const noexcept
     console::printf("PMDDecoder: ADPCM ROM %sfound.", (_PMD->HasADPCMROM() ? "" : "not "));
     console::printf("PMDDecoder: Percussion samples %sfound.", (_PMD->HasPercussionSamples() ? "" : "not "));
 
-    WCHAR FilePath[MAX_PATH];
+    std::wstring FileName = _PMD->GetPCMFileName();
 
-    console::printf("PMDDecoder: PPC samples file path: \"%s\".", pfc::utf8FromWide(_PMD->GetPCMFilePath(FilePath, _countof(FilePath))).c_str());
+    if (!FileName.empty())
+        console::printf("PMDDecoder: Requires PCM samples from \"%s\": %sfound.", pfc::utf8FromWide(FileName.c_str()).c_str(), (_PMD->GetPCMFilePath().empty() ? "not " : ""));
+
+    FileName = _PMD->GetPPSFileName();
+
+    if (!FileName.empty())
+        console::printf("PMDDecoder: Requires PPS samples from \"%s\": %sfound.", pfc::utf8FromWide(FileName.c_str()).c_str(), (_PMD->GetPPSFilePath().empty() ? "not " : ""));
 
     for (size_t i = 0; i < 2; ++i)
-        console::printf("PMDDecoder: PPZ samples file path %d: \"%s\".", i + 1, pfc::utf8FromWide(_PMD->GetPPZFilePath(FilePath, _countof(FilePath), i)).c_str());
+    {
+        FileName = _PMD->GetPPZFileName(i);
+
+        if (!FileName.empty())
+            console::printf("PMDDecoder: Requires PPZ samples from \"%s\": %sfound.", pfc::utf8FromWide(FileName.c_str()).c_str(), (_PMD->GetPPZFilePath(i).empty() ? "not " : ""));
+    }
 }
 
 /// <summary>

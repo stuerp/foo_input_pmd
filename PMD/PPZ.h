@@ -112,7 +112,7 @@ public:
 public:
     PZIHEADER PCME_WORK[2];
     bool _HasPVI[2];
-    TCHAR _FilePath[2][_MAX_PATH];
+    std::wstring _FilePath[2];
 
 private:
     void Reset();

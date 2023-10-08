@@ -35,7 +35,6 @@ bool P86Driver::Initialize(uint32_t sampleRate, bool useInterpolation)
 
 void P86Driver::InitializeInternal()
 {
-    ::memset(_FilePath, 0, sizeof(_FilePath));
     ::memset(&_Header, 0, sizeof(_Header));
 
     if (_Data)
@@ -87,7 +86,7 @@ int P86Driver::Load(const WCHAR * filePath)
 {
     Stop();
 
-    _FilePath[0] = '\0';
+    _FilePath.clear();
 
     if (*filePath == '\0')
         return P86_OPEN_FAILED;
@@ -100,7 +99,6 @@ int P86Driver::Load(const WCHAR * filePath)
             _Data = nullptr;
 
             ::memset(&_Header, 0, sizeof(_Header));
-            ::memset(_FilePath, 0, sizeof(_FilePath));
         }
 
         return P86_OPEN_FAILED;
@@ -126,7 +124,7 @@ int P86Driver::Load(const WCHAR * filePath)
 
         if (::memcmp(&_Header, &ph, sizeof(_Header)) == 0)
         {
-            ::wcscpy_s(_FilePath, filePath);
+            _FilePath = filePath;
 
             _File->Close();
 
@@ -154,7 +152,7 @@ int P86Driver::Load(const WCHAR * filePath)
 
     _File->Read(_Data, (uint32_t) FileSize);
 
-    ::wcscpy_s(_FilePath, filePath);
+    _FilePath = filePath;
 
     _File->Close();
 

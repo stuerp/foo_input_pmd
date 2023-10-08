@@ -68,7 +68,8 @@ void PPZDriver::InitializeInternal()
     _HasPVI[0] = false;
     _HasPVI[1] = false;
 
-    ::memset(_FilePath, 0, sizeof(_FilePath));
+    _FilePath[0].clear();
+    _FilePath[1].clear();
 
     _EmulateADPCM = false;
     _UseInterpolation = false;
@@ -178,7 +179,8 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
 
     Reset();
 
-    _FilePath[bufnum][0] = '\0';
+    _FilePath[0].clear();
+    _FilePath[1].clear();
 
     if (!_File->Open(filePath))
     {
@@ -209,7 +211,7 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
 
         if (::memcmp(&PCME_WORK[bufnum], &PZIHeader, sizeof(PZIHEADER)) == 0)
         {
-            ::wcscpy(_FilePath[bufnum], filePath);
+            _FilePath[bufnum] = filePath;
 
             _File->Close();
 
@@ -246,7 +248,7 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
         XMS_FRAME_ADR[bufnum] = Data;
         XMS_FRAME_SIZE[bufnum] = Size;
 
-        ::wcscpy(_FilePath[bufnum], filePath);
+        _FilePath[bufnum] = filePath;
         _HasPVI[bufnum] = false;
     }
     else
@@ -288,7 +290,8 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
 
         if (::memcmp(&PCME_WORK[bufnum].PZIItem, &PZIHeader.PZIItem, sizeof(PZIHEADER) - 0x20) == 0)
         {
-            ::wcscpy(_FilePath[bufnum], filePath);
+            _FilePath[bufnum] = filePath;
+
             _File->Close();
 
             return PPZ_ALREADY_LOADED;
@@ -366,7 +369,7 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
             ::free(psrc2);
         }
 
-        ::wcscpy(_FilePath[bufnum], filePath);
+        _FilePath[bufnum] = filePath;
 
         _HasPVI[bufnum] = true;
     }

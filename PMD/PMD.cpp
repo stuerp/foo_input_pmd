@@ -67,46 +67,36 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     if (_OPNAW->Initialize(OPNAClock, SOUND_44K, false, DirectoryPath) == false)
         return false;
 
-    _OPNAW->SetFMDelay(0);
-    _OPNAW->SetSSGDelay(0);
-    _OPNAW->SetRhythmDelay(0);
-    _OPNAW->SetADPCMDelay(0);
-
-    // Initialize the ADPCM RAM.
     {
-        uint8_t Page[0x400]; // 0x400 * 0x100 = 0x40000(256K)
+        _OPNAW->SetFMDelay(0);
+        _OPNAW->SetSSGDelay(0);
+        _OPNAW->SetRhythmDelay(0);
+        _OPNAW->SetADPCMDelay(0);
 
-        ::memset(Page, 0x08, sizeof(Page));
-
-        for (uint16_t i = 0; i < 0x100; ++i)
-            WritePCMData(i * sizeof(Page) / 32, (i + 1) * sizeof(Page) / 32, Page);
-    }
-
-    _OPNAW->SetFMVolume(0);
-    _OPNAW->SetSSGVolume(-18);
-    _OPNAW->SetADPCMVolume(0);
-    _OPNAW->SetRhythmVolume(0);
-
-    _PPZ->SetVolume(0);
-    _PPS->SetVolume(0);
-    _P86->SetVolume(0);
-
-    _OPNAW->SetFMDelay(DEFAULT_REG_WAIT);
-    _OPNAW->SetSSGDelay(DEFAULT_REG_WAIT);
-    _OPNAW->SetADPCMDelay(DEFAULT_REG_WAIT);
-    _OPNAW->SetRhythmDelay(DEFAULT_REG_WAIT);
-
-    {
-        _SampleInfo.Count = 38;
-
-        for (int i = 0; i < 256; ++i)
+        // Initialize the ADPCM RAM.
         {
-            _SampleInfo.Address[i][0] = 0;
-            _SampleInfo.Address[i][1] = 0;
-        }
-    }
+            uint8_t Page[0x400]; // 0x400 * 0x100 = 0x40000(256K)
 
-    _State._FilePath[0] = '\0';
+            ::memset(Page, 0x08, sizeof(Page));
+
+            for (size_t i = 0; i < 0x100; ++i)
+                WritePCMData((uint16_t)(i * sizeof(Page) / 32), (uint16_t)((i + 1) * sizeof(Page) / 32), Page);
+        }
+
+        _OPNAW->SetFMVolume(0);
+        _OPNAW->SetSSGVolume(-18);
+        _OPNAW->SetADPCMVolume(0);
+        _OPNAW->SetRhythmVolume(0);
+
+        _PPZ->SetVolume(0);
+        _PPS->SetVolume(0);
+        _P86->SetVolume(0);
+
+        _OPNAW->SetFMDelay(DEFAULT_REG_WAIT);
+        _OPNAW->SetSSGDelay(DEFAULT_REG_WAIT);
+        _OPNAW->SetADPCMDelay(DEFAULT_REG_WAIT);
+        _OPNAW->SetRhythmDelay(DEFAULT_REG_WAIT);
+    }
 
     // Initial setting of 088/188/288/388 (same INT number only)
     _OPNAW->SetReg(0x29, 0x00);
@@ -134,7 +124,7 @@ void PMD::Reset()
     ::memset(&_EffectChannel, 0, sizeof(_EffectChannel));
     ::memset(_PPZChannel, 0, sizeof(_PPZChannel));
 
-    ::memset(&_SampleInfo, 0, sizeof(_SampleInfo));
+    ::memset(&_SampleBank, 0, sizeof(_SampleBank));
 
     ::memset(_SampleSrc, 0, sizeof(_SampleSrc));
     ::memset(_SampleDst, 0, sizeof(_SampleSrc));
@@ -150,7 +140,6 @@ void PMD::Reset()
     ::memset(_MData, 0, sizeof(_MData));
     ::memset(_VData, 0, sizeof(_VData));
     ::memset(_EData, 0, sizeof(_EData));
-    ::memset(&_SampleInfo, 0, sizeof(_SampleInfo));
 
     // Initialize OPEN_WORK.
     _State.OPNARate = SOUND_44K;
@@ -205,8 +194,8 @@ void PMD::Reset()
     SetFMVolumeDown(fmvd_init);
     SetSSGVolumeDown(0);
     SetADPCMVolumeDown(0);
-    _State.RhythmVolumeDown = 0;       // RHYTHM_VOLDOWN
-    _State.DefaultRhythmVolumeDown = 0;      // RHYTHM_VOLDOWN
+    _State.RhythmVolumeDown = 0;
+    _State.DefaultRhythmVolumeDown = 0;
     SetPPZVolumeDown(0);
 
     _State.RhythmVolume = 0x3C;
@@ -289,105 +278,124 @@ int PMD::Load(const uint8_t * data, size_t size)
     WCHAR FilePath[MAX_PATH] = { 0 };
 
     {
+        _PCMFilePath.clear();
+
         GetText(data, size, 0, FileName);
 
         if (*FileName != '\0')
         {
             ::MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, FileName, -1, FileNameW, _countof(FileNameW));
 
+            _PCMFileName = FileNameW;
+
             // P86 import (ADPCM, 8-bit sample playback, stereo, panning)
             if (HasExtension(FileNameW, _countof(FileNameW), L".P86")) // Is it a Professional Music Driver P86 Samples Pack file?
             {
-                FindFile(FilePath, FileNameW);
+                FindFile(FileNameW, FilePath, _countof(FilePath));
 
                 Result = _P86->Load(FilePath);
 
                 if (Result == P86_SUCCESS || Result == P86_ALREADY_LOADED)
+                {
                     _State.IsUsingP86 = true;
+
+                    _PCMFilePath = FilePath;
+                }
             }
             else
             // PPC import (ADPCM, 4-bit sample playback, 256kB max.)
             if (HasExtension(FileNameW, _countof(FileNameW), L".PPC"))
             {
-                FindFile(FilePath, FileNameW);
+                FindFile(FileNameW, FilePath, _countof(FilePath));
 
                 Result = LoadPPCInternal(FilePath);
 
                 if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
+                {
                     _State.IsUsingP86 = false;
+
+                    _PCMFilePath = FilePath;
+                }
             }
         }
+        else
+            _PCMFileName.clear();
     }
 
     {
+        _PPSFilePath.clear();
+
         GetText(data, size, -1, FileName);
 
         if (*FileName != '\0')
         {
             ::MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, FileName, -1, FileNameW, _countof(FileNameW));
 
+            _PPSFileName = FileNameW;
+
             // PPS import (PCM driver for the SSG, which allows 4-bit 16000Hz PCM playback on the SSG Channel 3. It can also play 2 samples simultanelously, but at a lower quality)
             if (HasExtension(FileNameW, _countof(FileNameW), L".PPS"))
             {
-                FindFile(FilePath, FileNameW);
+                FindFile(FileNameW, FilePath, _countof(FilePath));
 
                 Result = _PPS->Load(FilePath);
+
+                if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
+                    _PPSFilePath = FilePath;
             }
         }
+        else
+            _PPSFileName.clear();
     }
 
-    // 20010120 Ignore if TOWNS
     {
+        _PPZFilePath[0].clear();
+        _PPZFilePath[1].clear();
+
         GetText(data, size, -2, FileName);
 
         if (*FileName != '\0')
         {
             ::MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, FileName, -1, FileNameW, _countof(FileNameW));
 
-            // PZI import (Up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit)
-            if (HasExtension(FileNameW, _countof(FileNameW), L".PZI") && (data[0] != 0xFF))
-            {
-                FindFile(FilePath, FileNameW);
+            WCHAR * p = FileNameW;
 
-                Result = _PPZ->Load(FilePath, 0);
-            }
-            else
-            // PMB import
-            if (HasExtension(FileNameW, _countof(FileNameW), L".PMB") && (data[0] != 0xFF))
+            for (int i = 0; (*p != '\0') && (i < _countof(_PPZFilePath)); ++i)
             {
-                WCHAR * p = ::wcschr(FileNameW, ',');
-
-                if (p == nullptr)
                 {
-                    if ((p = ::wcschr(FileNameW, '.')) == nullptr)
-                        RenameExtension(FileNameW, _countof(FileNameW), L".PZI");
+                    WCHAR * q = ::wcschr(p, ',');
 
-                    FindFile(FilePath, FileNameW);
+                    if (q != nullptr)
+                        *q = '\0';
+                }
+
+                _PPZFileName[i] = p;
+
+                // PZI import (Up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit)
+                if (HasExtension(p, _countof(FileNameW) - ::wcslen(p), L".PZI"))
+                {
+                    FindFile(p, FilePath, _countof(FilePath));
 
                     Result = _PPZ->Load(FilePath, 0);
+
+                    if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
+                        _PPZFilePath[i] = FilePath;
                 }
                 else
+                // PMB import
+                if (HasExtension(p, _countof(FileNameW) - ::wcslen(p), L".PMB"))
                 {
-                    *p = '\0';
+                    RenameExtension(p, _countof(FileNameW) - ::wcslen(p), L".PZI");
 
-                    WCHAR PPZFileName2[MAX_PATH] = { 0 };
-
-                    ::wcscpy(PPZFileName2, p + 1);
-
-                    if ((p = ::wcschr(FileNameW, '.')) == nullptr)
-                        RenameExtension(FileNameW, _countof(FileNameW), L".PZI");
-
-                    if ((p = ::wcschr(PPZFileName2, '.')) == nullptr)
-                        RenameExtension(PPZFileName2, _countof(PPZFileName2), L".PZI");
-
-                    FindFile(FilePath, FileNameW);
+                    FindFile(p, FilePath, _countof(FilePath));
 
                     Result = _PPZ->Load(FilePath, 0);
 
-                    FindFile(FilePath, PPZFileName2);
-
-                    Result = _PPZ->Load(FilePath, 1);
+                    if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
+                        _PPZFilePath[i] = FilePath;
                 }
+
+                p += ::wcslen(p) + 1;
             }
         }
     }
@@ -957,25 +965,6 @@ void PMD::SetFadeOutDurationHQ(int speed)
     }
     else
         _State.FadeOutSpeedHQ = 0; // Fadeout forced stop
-}
-
-// Gets PPC / P86 filename.
-WCHAR * PMD::GetPCMFilePath(WCHAR * filePath, size_t size) const
-{
-    if (_State.IsUsingP86)
-        ::wcscpy_s(filePath, size, _P86->_FilePath);
-    else
-        ::wcscpy_s(filePath, size, _State._FilePath);
-
-    return filePath;
-}
-
-// Gets PPZ filename.
-WCHAR * PMD::GetPPZFilePath(WCHAR * filePath, size_t size, size_t bufferNumber) const
-{
-    ::wcscpy_s(filePath, size, _PPZ->_FilePath[bufferNumber]);
-
-    return filePath;
 }
 
 /// <summary>
@@ -2325,6 +2314,8 @@ void PMD::ConvertTempoToTB()
 /// </summary>
 int PMD::LoadPPCInternal(const WCHAR * filePath)
 {
+    _PCMFilePath.clear();
+
     if (*filePath == '\0')
         return ERR_OPEN_FAILED;
 
@@ -2347,9 +2338,7 @@ int PMD::LoadPPCInternal(const WCHAR * filePath)
     int Result = LoadPPCInternal(Data, (int) Size);
 
     if (Result == ERR_SUCCESS)
-        ::wcscpy(_State._FilePath, filePath);
-    else
-        _State._FilePath[0] = '\0';
+        _PCMFilePath = filePath;
 
     ::free(Data);
 
@@ -2367,105 +2356,110 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
     bool FoundPVI;
 
     int i;
-    uint16_t * pcmdata2;
     int bx = 0;
 
     if ((::strncmp((char *) data, PVIHeader, sizeof(PVIHeader) - 1) == 0) && (data[10] == 2))
     {   // PVI, x8
         FoundPVI = true;
 
-        // Convert from PVI  to PMD format.
+        // Convert from PVI to PMD format.
         for (i = 0; i < 128; ++i)
         {
             if (*((uint16_t *) &data[18 + i * 4]) == 0)
             {
-                _SampleInfo.Address[i][0] = data[16 + i * 4];
-                _SampleInfo.Address[i][1] = 0;
+                _SampleBank.Address[i][0] = data[16 + i * 4];
+                _SampleBank.Address[i][1] = 0;
             }
             else
             {
-                _SampleInfo.Address[i][0] = (uint16_t) (*(uint16_t *) &data[16 + i * 4] + 0x26);
-                _SampleInfo.Address[i][1] = (uint16_t) (*(uint16_t *) &data[18 + i * 4] + 0x26);
+                _SampleBank.Address[i][0] = (uint16_t) (*(uint16_t *) &data[16 + i * 4] + 0x26);
+                _SampleBank.Address[i][1] = (uint16_t) (*(uint16_t *) &data[18 + i * 4] + 0x26);
             }
 
-            if (bx < _SampleInfo.Address[i][1])
-                bx = _SampleInfo.Address[i][1] + 1;
+            if (bx < _SampleBank.Address[i][1])
+                bx = _SampleBank.Address[i][1] + 1;
         }
 
         // The remaining 128 are undefined
         for (i = 128; i < 256; ++i)
         { 
-            _SampleInfo.Address[i][0] = 0;
-            _SampleInfo.Address[i][1] = 0;
+            _SampleBank.Address[i][0] = 0;
+            _SampleBank.Address[i][1] = 0;
         }
 
-        _SampleInfo.Count = (uint16_t) bx;
+        _SampleBank.Count = (uint16_t) bx;
     }
     else
     if (::strncmp((char *) data, PPCHeader, sizeof(PPCHeader) - 1) == 0)
     {   // PPC
         FoundPVI = false;
 
-        pcmdata2 = (uint16_t *) data + 30 / 2;
-
-        if (size < 30 + 4 * 256 + 2)
+        if (size < sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256))
             return ERR_UNKNOWN_FORMAT;
 
-        _SampleInfo.Count = *pcmdata2++;
+        uint16_t * Data = (uint16_t *)(data + (sizeof(PPCHeader) - 1));
+
+        _SampleBank.Count = *Data++;
 
         for (i = 0; i < 256; ++i)
         {
-            _SampleInfo.Address[i][0] = *pcmdata2++;
-            _SampleInfo.Address[i][1] = *pcmdata2++;
+            _SampleBank.Address[i][0] = *Data++;
+            _SampleBank.Address[i][1] = *Data++;
         }
     }
     else
         return ERR_UNKNOWN_FORMAT;
 
-    uint8_t tempbuf[0x26 * 32];
-
-    // Compare PMD work and PCMRAM header
-    ReadPCMData(0, 0x25, tempbuf);
-
-    // Skip the "ADPCM?" header
-    // Ignore file name (PMDWin specification)
-    if (::memcmp(&tempbuf[30], &_SampleInfo, sizeof(_SampleInfo)) == 0)
-        return ERR_ALREADY_LOADED;
-
-    uint8_t tempbuf2[30 + 4 * 256 + 128 + 2];
-
-    // Write PMD work to PCMRAM head
-    ::memcpy(tempbuf2, PPCHeader, sizeof(PPCHeader) - 1);
-    ::memcpy(&tempbuf2[sizeof(PPCHeader) - 1], &_SampleInfo.Count, sizeof(tempbuf2) - (sizeof(PPCHeader) - 1));
-
-    WritePCMData(0, 0x25, tempbuf2);
-
-    // Write PCMDATA to PCMRAM
-    if (FoundPVI)
     {
-        pcmdata2 = (uint16_t *) (data + 0x10 + sizeof(uint16_t) * 2 * 128);
+        uint8_t Data[0x26 * 32];
 
-        if (size < (int) (_SampleInfo.Count - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
-            return ERR_UNKNOWN_FORMAT;
-    }
-    else
-    {
-        pcmdata2 = (uint16_t *) data + (30 + 4 * 256 + 2) / 2;
+        // Compare the data with the PCMRAM header.
+        ReadPCMData(0, 0x25, Data);
 
-        if (size < (_SampleInfo.Count - ((30 + 4 * 256 + 2) / 2)) * 32)
-            return ERR_UNKNOWN_FORMAT;
+        if (::memcmp(Data + sizeof(PPCHeader), &_SampleBank, sizeof(_SampleBank)) == 0)
+            return ERR_ALREADY_LOADED;
     }
 
-    uint16_t pcmstart = 0x26;
-    uint16_t pcmstop = _SampleInfo.Count;
+    {
+        uint8_t Data[sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256) + 128];
 
-    WritePCMData(pcmstart, pcmstop, (uint8_t *) pcmdata2);
+        // Compare the data with the PCMRAM header.
+        ::memcpy(Data, PPCHeader, sizeof(PPCHeader) - 1);
+        ::memcpy(Data + (sizeof(PPCHeader) - 1), &_SampleBank.Count, sizeof(Data) - (sizeof(PPCHeader) - 1));
+
+        WritePCMData(0, 0x25, Data);
+    }
+
+    // Write the data to PCMRAM.
+    {
+        uint16_t * Data;
+
+        if (FoundPVI)
+        {
+            Data = (uint16_t *)(data + 0x10 + (sizeof(uint16_t) * 2 * 128));
+
+            if (size < (int)(_SampleBank.Count - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
+                return ERR_UNKNOWN_FORMAT;
+        }
+        else
+        {
+            Data = (uint16_t *)(data + sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256));
+
+            if (size < (int)(_SampleBank.Count - (sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256) / 2) * 32))
+                return ERR_UNKNOWN_FORMAT;
+        }
+
+        uint16_t pcmstart = 0x26;
+        uint16_t pcmstop = _SampleBank.Count;
+
+        WritePCMData(pcmstart, pcmstop, (const uint8_t *) Data);
+    }
 
     return ERR_SUCCESS;
 }
 
 // Read data from PCM memory to main memory.
-void PMD::ReadPCMData(uint16_t startAddress, uint16_t stopAddress, uint8_t * pcmData)
+void PMD::ReadPCMData(uint16_t startAddress, uint16_t stopAddress, uint8_t * data)
 {
     _OPNAW->SetReg(0x100, 0x01);
     _OPNAW->SetReg(0x110, 0x00);
@@ -2479,19 +2473,19 @@ void PMD::ReadPCMData(uint16_t startAddress, uint16_t stopAddress, uint8_t * pcm
     _OPNAW->SetReg(0x104, 0xff);
     _OPNAW->SetReg(0x105, 0xff);
 
-    *pcmData = (uint8_t) _OPNAW->GetReg(0x108);
-    *pcmData = (uint8_t) _OPNAW->GetReg(0x108);
+    *data = (uint8_t) _OPNAW->GetReg(0x108);
+    *data = (uint8_t) _OPNAW->GetReg(0x108);
 
     for (int i = 0; i < (stopAddress - startAddress) * 32; ++i)
     {
-        *pcmData++ = (uint8_t) _OPNAW->GetReg(0x108);
+        *data++ = (uint8_t) _OPNAW->GetReg(0x108);
 
         _OPNAW->SetReg(0x110, 0x80);
     }
 }
 
 // Send data from main memory to PCM memory (x8, high speed version)
-void PMD::WritePCMData(uint16_t startAddress, uint16_t stopAddress, const uint8_t * pcmData)
+void PMD::WritePCMData(uint16_t startAddress, uint16_t stopAddress, const uint8_t * data)
 {
     _OPNAW->SetReg(0x100, 0x01);
 //  _OPNAW->SetReg(0x110, 0x17); // Mask everything except brdy (=timer interrupt does not occur)
@@ -2506,13 +2500,13 @@ void PMD::WritePCMData(uint16_t startAddress, uint16_t stopAddress, const uint8_
     _OPNAW->SetReg(0x105, 0xff);
 
     for (int i = 0; i < (stopAddress - startAddress) * 32; ++i)
-        _OPNAW->SetReg(0x108, *pcmData++);
+        _OPNAW->SetReg(0x108, *data++);
 }
 
 /// <summary>
 /// Finds a PCM sample in the specified search path.
 /// </summary>
-WCHAR * PMD::FindFile(WCHAR * filePath, const WCHAR * filename)
+void PMD::FindFile(const WCHAR * filename, WCHAR * filePath, size_t size) const noexcept
 {
     WCHAR FilePath[MAX_PATH];
 
@@ -2521,14 +2515,8 @@ WCHAR * PMD::FindFile(WCHAR * filePath, const WCHAR * filename)
         CombinePath(FilePath, _countof(FilePath), _SearchPath[i].c_str(), filename);
 
         if (_File->GetFileSize(FilePath) > 0)
-        {
-            ::wcscpy(filePath, FilePath);
-
-            return filePath;
-        }
+            ::wcscpy_s(filePath, size, FilePath);
     }
-
-    return nullptr;
 }
 
 // Fade In / Out

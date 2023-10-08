@@ -25,7 +25,7 @@ typedef int Sample;
 
 #pragma pack(push)
 #pragma pack(2)
-struct SampleInfo
+struct SampleBank
 {
     uint16_t Count;
     uint16_t Address[256][2];
@@ -89,8 +89,41 @@ public:
     void SetPositionInTicks(int ticks);
     int GetPositionInTicks();
 
-    WCHAR * GetPCMFilePath(WCHAR * filePath, size_t size) const;
-    WCHAR * GetPPZFilePath(WCHAR * filePath, size_t size, size_t bufferNumber) const;
+    // Gets the PCM file path.
+    std::wstring& GetPCMFilePath()
+    {
+        return _PCMFilePath;
+    }
+
+    // Gets the PCM file name.
+    std::wstring& GetPCMFileName()
+    {
+        return _PCMFileName;
+    }
+
+    // Gets the PPS file path.
+    std::wstring& GetPPSFilePath()
+    {
+        return _PPSFilePath;
+    }
+
+    // Gets the PPS file name.
+    std::wstring& GetPPSFileName()
+    {
+        return _PPSFileName;
+    }
+
+    // Gets the PPZ file path.
+    std::wstring& GetPPZFilePath(size_t bufferNumber)
+    {
+        return _PPZ->_FilePath[bufferNumber];
+    }
+
+    // Gets the PPZ file name.
+    std::wstring& GetPPZFileName(size_t bufferNumber)
+    {
+        return _PPZFileName[bufferNumber];
+    }
 
     void UsePPS(bool value) noexcept;
     void UseRhythm(bool value) noexcept;
@@ -426,7 +459,7 @@ private:
     int LoadPPCInternal(const WCHAR * filename);
     int LoadPPCInternal(uint8_t * pcmdata, int size);
 
-    WCHAR * FindFile(WCHAR * dest, const WCHAR * filename);
+    void FindFile(const WCHAR * filename, WCHAR * filePath, size_t size) const noexcept;
 
     inline void Swap(int * a, int * b) const noexcept
     {
@@ -474,7 +507,17 @@ private:
     uint8_t _MData[MAX_MDATA_SIZE * 1024];
     uint8_t _VData[MAX_VDATA_SIZE * 1024];
     uint8_t _EData[MAX_EDATA_SIZE * 1024];
-    SampleInfo _SampleInfo;
+
+    SampleBank _SampleBank;
+
+    std::wstring _PCMFileName;      // P86 or PPC
+    std::wstring _PCMFilePath;
+
+    std::wstring _PPSFileName;      // PPS
+    std::wstring _PPSFilePath;
+
+    std::wstring _PPZFileName[2];   // PVI or PPZ
+    std::wstring _PPZFilePath[2];
 
     #pragma region(Dynamic Settings)
 

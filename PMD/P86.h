@@ -85,7 +85,7 @@ public:
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
 
 public:
-    WCHAR _FilePath[_MAX_PATH];
+    std::wstring _FilePath;
     P86HEADER _Header;
 
 private:
