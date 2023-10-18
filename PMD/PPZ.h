@@ -27,7 +27,7 @@ typedef int32_t Sample;
 
 struct PPZChannel
 {
-    bool HasPVI;
+    bool IsPVI;
     bool HasLoop;
     bool IsPlaying;
     int Volume;
@@ -47,6 +47,7 @@ struct PPZChannel
     uint8_t * PCM_END_S;                // 本当の終了アドレス
 
     uint8_t * PCM_LOOP;                // ループ開始アドレス
+
     uint32_t PCM_LOOP_START;            // リニアなループ開始アドレス
     uint32_t PCM_LOOP_END;            // リニアなループ終了アドレス
 };
@@ -84,6 +85,19 @@ struct PVIHEADER
 #pragma pack(pop)
 
 /// <summary>
+/// Represents a PZI sample.
+/// </summary>
+class PZISample
+{
+public:
+    PZIHEADER _PZIHeader;
+    bool _IsPVI;
+    std::wstring _FilePath;
+    uint8_t * _Data;
+    int _Size;
+};
+
+/// <summary>
 /// Implements a driver that synthesizes up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit aside from the user's PC98 setup.
 /// It supports 2 kinds of PCM banks: .PVI and .PZI
 /// </summary>
@@ -114,9 +128,7 @@ public:
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
 
 public:
-    PZIHEADER PCME_WORK[2];
-    bool _HasPVI[2];
-    std::wstring _FilePath[2];
+    PZISample _PZISample[2];
 
 private:
     void MoveSamplePointer(int i) noexcept;
@@ -140,8 +152,7 @@ private:
     bool _UseInterpolation;
 
     PPZChannel _Channel[MaxPPZChannels];
-    uint8_t * XMS_FRAME_ADR[2]; // Memory allocated by XMS
-    int XMS_FRAME_SIZE[2]; // PZI or PVI internal state
+
     int _PCMVolume; // Overall 86B Mixer volume
     int _Volume;
     int _OutputFrequency;

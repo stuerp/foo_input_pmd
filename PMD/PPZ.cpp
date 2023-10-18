@@ -38,19 +38,19 @@ const int ADPCM_EM_VOL[256] =
 
 PPZDriver::PPZDriver(File * file) : _File(file)
 {
-    XMS_FRAME_ADR[0] = nullptr;
-    XMS_FRAME_ADR[1] = nullptr;
+    _PZISample[0]._Data = nullptr;
+    _PZISample[1]._Data = nullptr;
 
     InitializeInternal();
 }
 
 PPZDriver::~PPZDriver()
 {
-    if (XMS_FRAME_ADR[0])
-        ::free(XMS_FRAME_ADR[0]);
+    if (_PZISample[0]._Data)
+        ::free(_PZISample[0]._Data);
 
-    if (XMS_FRAME_ADR[1])
-        ::free(XMS_FRAME_ADR[1]);
+    if (_PZISample[1]._Data)
+        ::free(_PZISample[1]._Data);
 }
 
 //  00H Initialize
@@ -64,36 +64,36 @@ bool PPZDriver::Initialize(uint32_t outputFrequency, bool useInterpolation)
 // 01H Start PCM
 bool PPZDriver::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
 {
-    if ((ch >= _countof(_Channel)) || (XMS_FRAME_ADR[bufnum] == NULL) || (XMS_FRAME_SIZE[bufnum] == 0))
+    if ((ch >= _countof(_Channel)) || (_PZISample[bufnum]._Data == nullptr) || (_PZISample[bufnum]._Size == 0))
         return false;
 
-    _Channel[ch].HasPVI = _HasPVI[bufnum];
+    _Channel[ch].IsPVI = _PZISample[bufnum]._IsPVI;
     _Channel[ch].IsPlaying = true;
-    _Channel[ch].PCM_NOW_XOR = 0;  // Decimal part
+    _Channel[ch].PCM_NOW_XOR = 0; // Decimal part
     _Channel[ch].PCM_NUM = num;
 
     if ((ch == 7) && _EmulateADPCM && (ch & 0x80) == 0)
     {
-        _Channel[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][Limit(((int) start) * 64, XMS_FRAME_SIZE[bufnum] - 1, 0)];
-        _Channel[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][Limit(((int) stop - 1) * 64, XMS_FRAME_SIZE[bufnum] - 1, 0)];
+        _Channel[ch].PCM_NOW   = &_PZISample[bufnum]._Data[Limit(((int) start)    * 64, _PZISample[bufnum]._Size - 1, 0)];
+        _Channel[ch].PCM_END_S = &_PZISample[bufnum]._Data[Limit(((int) stop - 1) * 64, _PZISample[bufnum]._Size - 1, 0)];
         _Channel[ch].PCM_END   = _Channel[ch].PCM_END_S;
     }
     else
     {
-        _Channel[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start];
-        _Channel[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + PCME_WORK[bufnum].PZIItem[num].Size];
+        _Channel[ch].PCM_NOW   = &_PZISample[bufnum]._Data[_PZISample[bufnum]._PZIHeader.PZIItem[num].Start];
+        _Channel[ch].PCM_END_S = &_PZISample[bufnum]._Data[_PZISample[bufnum]._PZIHeader.PZIItem[num].Start + _PZISample[bufnum]._PZIHeader.PZIItem[num].Size];
 
         if (_Channel[ch].HasLoop)
         {
-            if (_Channel[ch].PCM_LOOP_START >= PCME_WORK[bufnum].PZIItem[num].Size)
-                _Channel[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + PCME_WORK[bufnum].PZIItem[num].Size - 1];
+            if (_Channel[ch].PCM_LOOP_START >= _PZISample[bufnum]._PZIHeader.PZIItem[num].Size)
+                _Channel[ch].PCM_LOOP = &_PZISample[bufnum]._Data[_PZISample[bufnum]._PZIHeader.PZIItem[num].Start + _PZISample[bufnum]._PZIHeader.PZIItem[num].Size - 1];
             else
-                _Channel[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + _Channel[ch].PCM_LOOP_START];
+                _Channel[ch].PCM_LOOP = &_PZISample[bufnum]._Data[_PZISample[bufnum]._PZIHeader.PZIItem[num].Start + _Channel[ch].PCM_LOOP_START];
 
-            if (_Channel[ch].PCM_LOOP_END >= PCME_WORK[bufnum].PZIItem[num].Size)
-                _Channel[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + PCME_WORK[bufnum].PZIItem[num].Size];
+            if (_Channel[ch].PCM_LOOP_END >= _PZISample[bufnum]._PZIHeader.PZIItem[num].Size)
+                _Channel[ch].PCM_END = &_PZISample[bufnum]._Data[_PZISample[bufnum]._PZIHeader.PZIItem[num].Start + _PZISample[bufnum]._PZIHeader.PZIItem[num].Size];
             else
-                _Channel[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + _Channel[ch].PCM_LOOP_END];
+                _Channel[ch].PCM_END = &_PZISample[bufnum]._Data[_PZISample[bufnum]._PZIHeader.PZIItem[num].Start + _Channel[ch].PCM_LOOP_END];
         }
         else
             _Channel[ch].PCM_END = _Channel[ch].PCM_END_S;
@@ -114,41 +114,28 @@ bool PPZDriver::Stop(int ch)
 }
 
 // 03H Read PVI/PZI file
-int PPZDriver::Load(const WCHAR * filePath, int bufnum)
+int PPZDriver::Load(const WCHAR * filePath, int bufferIndex)
 {
     if (filePath == nullptr || (filePath && (*filePath == '\0')))
         return PPZ_OPEN_FAILED;
 
-    static const int table1[16] =
-    {
-          1,   3,   5,   7,   9,  11,  13,  15,
-         -1,  -3,  -5,  -7,  -9, -11, -13, -15,
-    };
-
-    static const int table2[16] =
-    {
-         57,  57,  57,  57,  77, 102, 128, 153,
-         57,  57,  57,  57,  77, 102, 128, 153,
-    };
-
-    bool NOW_PCM_CATE = HasExtension(filePath, MAX_PATH, L".PZI"); // True if PCM format is PZI
-
     Reset();
 
-    _FilePath[0].clear();
-    _FilePath[1].clear();
+    _PZISample[0]._FilePath.clear();
+    _PZISample[1]._FilePath.clear();
 
     if (!_File->Open(filePath))
     {
-        if (XMS_FRAME_ADR[bufnum] != nullptr)
+        if (_PZISample[bufferIndex]._Data != nullptr)
         {
-            ::free(XMS_FRAME_ADR[bufnum]);
+            ::free(_PZISample[bufferIndex]._Data);
 
-            XMS_FRAME_ADR[bufnum] = nullptr;
-            XMS_FRAME_SIZE[bufnum] = 0;
+            _PZISample[bufferIndex]._Data = nullptr;
+            _PZISample[bufferIndex]._Size = 0;
 
-            ::memset(&PCME_WORK[bufnum], 0, sizeof(PZIHEADER));
+            ::memset(&_PZISample[bufferIndex]._PZIHeader, 0, sizeof(PZIHEADER));
         }
+
         return PPZ_OPEN_FAILED;
     }
 
@@ -156,7 +143,7 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
 
     PZIHEADER PZIHeader;
 
-    if (NOW_PCM_CATE)
+    if (HasExtension(filePath, MAX_PATH, L".PZI"))
     {
         ReadHeader(_File, PZIHeader);
 
@@ -167,26 +154,26 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
             return PPZ_UNKNOWN_FORMAT;
         }
 
-        if (::memcmp(&PCME_WORK[bufnum], &PZIHeader, sizeof(PZIHEADER)) == 0)
+        if (::memcmp(&_PZISample[bufferIndex]._PZIHeader, &PZIHeader, sizeof(PZIHEADER)) == 0)
         {
-            _FilePath[bufnum] = filePath;
+            _PZISample[bufferIndex]._FilePath = filePath;
 
             _File->Close();
 
             return PPZ_ALREADY_LOADED;
         }
 
-        if (XMS_FRAME_ADR[bufnum])
+        if (_PZISample[bufferIndex]._Data)
         {
-            ::free(XMS_FRAME_ADR[bufnum]);
+            ::free(_PZISample[bufferIndex]._Data);
 
-            XMS_FRAME_ADR[bufnum] = nullptr;
-            XMS_FRAME_SIZE[bufnum] = 0;
+            _PZISample[bufferIndex]._Data = nullptr;
+            _PZISample[bufferIndex]._Size = 0;
 
-            ::memset(&PCME_WORK[bufnum], 0, sizeof(PZIHEADER));
+            ::memset(&_PZISample[bufferIndex]._PZIHeader, 0, sizeof(PZIHEADER));
         }
 
-        ::memcpy(&PCME_WORK[bufnum], &PZIHeader, sizeof(PZIHEADER));
+        ::memcpy(&_PZISample[bufferIndex]._PZIHeader, &PZIHeader, sizeof(PZIHEADER));
 
         Size -= sizeof(PZIHEADER);
 
@@ -203,11 +190,11 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
 
         _File->Read(Data, (uint32_t) Size);
 
-        XMS_FRAME_ADR[bufnum] = Data;
-        XMS_FRAME_SIZE[bufnum] = Size;
+        _PZISample[bufferIndex]._Data = Data;
+        _PZISample[bufferIndex]._Size = Size;
 
-        _FilePath[bufnum] = filePath;
-        _HasPVI[bufnum] = false;
+        _PZISample[bufferIndex]._FilePath = filePath;
+        _PZISample[bufferIndex]._IsPVI = false;
     }
     else
     {
@@ -228,7 +215,7 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
 
         for (int i = 0; i < PVIHeader.Count; ++i)
         {
-            PZIHeader.PZIItem[i].Start      = (uint32_t) ((                                 PVIHeader.PVIItem[i].Start      << (5 + 1)));
+            PZIHeader.PZIItem[i].Start      = (uint32_t) ((                           PVIHeader.PVIItem[i].Start      << (5 + 1)));
             PZIHeader.PZIItem[i].Size       = (uint32_t) ((PVIHeader.PVIItem[i].End - PVIHeader.PVIItem[i].Start + 1) << (5 + 1));
             PZIHeader.PZIItem[i].LoopStart  = 0xFFFF;
             PZIHeader.PZIItem[i].LoopEnd    = 0xFFFF;
@@ -246,26 +233,26 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
             PZIHeader.PZIItem[i].SampleRate = 0;
         }
 
-        if (::memcmp(&PCME_WORK[bufnum].PZIItem, &PZIHeader.PZIItem, sizeof(PZIHEADER) - 0x20) == 0)
+        if (::memcmp(&_PZISample[bufferIndex]._PZIHeader.PZIItem, &PZIHeader.PZIItem, sizeof(PZIHEADER) - 0x20) == 0)
         {
-            _FilePath[bufnum] = filePath;
+            _PZISample[bufferIndex]._FilePath = filePath;
 
             _File->Close();
 
             return PPZ_ALREADY_LOADED;
         }
 
-        if (XMS_FRAME_ADR[bufnum] != NULL)
+        if (_PZISample[bufferIndex]._Data != nullptr)
         {
-            ::free(XMS_FRAME_ADR[bufnum]);
+            ::free(_PZISample[bufferIndex]._Data);
 
-            XMS_FRAME_ADR[bufnum] = NULL;
-            XMS_FRAME_SIZE[bufnum] = 0;
+            _PZISample[bufferIndex]._Data = nullptr;
+            _PZISample[bufferIndex]._Size = 0;
 
-            ::memset(&PCME_WORK[bufnum], 0, sizeof(PZIHEADER));
+            ::memset(&_PZISample[bufferIndex]._PZIHeader, 0, sizeof(PZIHEADER));
         }
 
-        ::memcpy(&PCME_WORK[bufnum], &PZIHeader, sizeof(PZIHEADER));
+        ::memcpy(&_PZISample[bufferIndex]._PZIHeader, &PZIHeader, sizeof(PZIHEADER));
 
         Size -= sizeof(PVIHEADER);
         PVISize /= 2;
@@ -283,10 +270,22 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
         ::memset(pdst, 0, DstSize);
 
 
-        XMS_FRAME_ADR[bufnum]  = pdst;
-        XMS_FRAME_SIZE[bufnum] = PVISize * 2;
+        _PZISample[bufferIndex]._Data = pdst;
+        _PZISample[bufferIndex]._Size = PVISize * 2;
 
         {
+            static const int table1[16] =
+            {
+                  1,   3,   5,   7,   9,  11,  13,  15,
+                 -1,  -3,  -5,  -7,  -9, -11, -13, -15,
+            };
+
+            static const int table2[16] =
+            {
+                 57,  57,  57,  57,  77, 102, 128, 153,
+                 57,  57,  57,  57,  77, 102, 128, 153,
+            };
+
             size_t SrcSize = (size_t) (std::max)(Size, PVISize);
 
             uint8_t * psrc = (uint8_t *) ::malloc(SrcSize);
@@ -327,9 +326,8 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
             ::free(psrc2);
         }
 
-        _FilePath[bufnum] = filePath;
-
-        _HasPVI[bufnum] = true;
+        _PZISample[bufferIndex]._FilePath = filePath;
+        _PZISample[bufferIndex]._IsPVI = true;
     }
 
     _File->Close();
@@ -512,7 +510,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                         bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
                         *di++ += bx;
-                         di++; // Left only
+                         di++; // Only the left channel
 
                         MoveSamplePointer(i);
                     }
@@ -623,7 +621,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                     {
                         bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
 
-                         di++; // Right only
+                         di++; // Only the right channel
                         *di++ += bx;
 
                         MoveSamplePointer(i);
@@ -645,7 +643,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                         bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCM_NOW];
 
                         *di++ += bx;
-                         di++; // Left only
+                         di++; // Only the left channel
 
                         MoveSamplePointer(i);
                     }
@@ -790,34 +788,34 @@ void PPZDriver::MoveSamplePointer(int i) noexcept
 
 void PPZDriver::InitializeInternal()
 {
-    ::memset(PCME_WORK, 0, sizeof(PCME_WORK));
+    ::memset(_PZISample, 0, sizeof(_PZISample));
 
-    _HasPVI[0] = false;
-    _HasPVI[1] = false;
+    _PZISample[0]._IsPVI = false;
+    _PZISample[1]._IsPVI = false;
 
-    _FilePath[0].clear();
-    _FilePath[1].clear();
+    _PZISample[0]._FilePath.clear();
+    _PZISample[1]._FilePath.clear();
 
     _EmulateADPCM = false;
     _UseInterpolation = false;
 
     Reset();
 
-    if (XMS_FRAME_ADR[0] != nullptr)
+    if (_PZISample[0]._Data != nullptr)
     {
-        ::free(XMS_FRAME_ADR[0]);
-        XMS_FRAME_ADR[0] = nullptr;
+        ::free(_PZISample[0]._Data);
+
+        _PZISample[0]._Data = nullptr;
+        _PZISample[0]._Size = 0;
     }
 
-    XMS_FRAME_SIZE[0] = 0;
-
-    if (XMS_FRAME_ADR[1] != nullptr)
+    if (_PZISample[1]._Data != nullptr)
     {
-        ::free(XMS_FRAME_ADR[1]);
-        XMS_FRAME_ADR[1] = nullptr;
-    }
+        ::free(_PZISample[1]._Data);
 
-    XMS_FRAME_SIZE[1] = 0;
+        _PZISample[1]._Data = nullptr;
+        _PZISample[1]._Size = 0;
+    }
 
     _PCMVolume = 0;
     _Volume = 0;
