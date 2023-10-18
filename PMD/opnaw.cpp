@@ -1,5 +1,5 @@
 ﻿
-/** $VER: OPNAW.h (2023.10.18) OPNA emulator with waiting. Based on PMDWin code by C60 / Masahiro Kajihara **/
+/** $VER: OPNAW.h (2023.10.18) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -112,7 +112,7 @@ void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
 {
     if ((_OutputFrequency != FREQUENCY_55_4K) && _UseLinearInterpolation)
     {
-        for (size_t i = 0; i < sampleCount; i++)
+        for (size_t i = 0; i < sampleCount; ++i)
         {
             size_t Rest = (size_t) _Rest;
 
@@ -160,7 +160,6 @@ void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
         MixInternal(sampleData, sampleCount);
 }
 
-// Clear internal buffer
 void OPNAW::ClearBuffer()
 {
     ::memset(_SrcBuffer, 0, sizeof(_SrcBuffer));
@@ -205,7 +204,7 @@ void OPNAW::CalcWaitPCM(int value)
 
     if (_Counter > 1000)
     {
-        value++;
+        ++value;
         _Counter -= 1000;
     }
 
@@ -228,33 +227,33 @@ void OPNAW::CalcWaitPCM(int value)
 }
 
 /// <summary>
-/// Synthesizes a buffer without primary interpolation.
+/// Fills the sample buffer.
 /// </summary>
 void OPNAW::MixInternal(Sample * sampleData, size_t sampleCount) noexcept
 {
     if (_SrcReadIndex != _SrcWriteIndex)
     {
-        size_t SamplesToDo = (_SrcReadIndex < _SrcWriteIndex) ? _SrcWriteIndex - _SrcReadIndex : _SrcWriteIndex - _SrcReadIndex + SRC_PCM_BUFFER_SIZE;
+        size_t MaxSamplesToDo = (_SrcReadIndex < _SrcWriteIndex) ? _SrcWriteIndex - _SrcReadIndex : _SrcWriteIndex - _SrcReadIndex + SRC_PCM_BUFFER_SIZE;
 
-        if (SamplesToDo > sampleCount)
-            SamplesToDo = sampleCount;
+        if (MaxSamplesToDo > sampleCount)
+            MaxSamplesToDo = sampleCount;
 
         do
         {
-            size_t outsamples = (_SrcReadIndex + SamplesToDo > SRC_PCM_BUFFER_SIZE) ? SRC_PCM_BUFFER_SIZE - _SrcReadIndex : SamplesToDo;
+            size_t SamplesToDo = (_SrcReadIndex + MaxSamplesToDo > SRC_PCM_BUFFER_SIZE) ? SRC_PCM_BUFFER_SIZE - _SrcReadIndex : MaxSamplesToDo;
 
-            for (size_t i = 0; i < outsamples * 2; i++)
+            for (size_t i = 0; i < SamplesToDo * 2; ++i)
                 *sampleData++ += _SrcBuffer[_SrcReadIndex * 2 + i];
 
-            _SrcReadIndex += outsamples;
+            _SrcReadIndex += SamplesToDo;
 
             if (_SrcReadIndex == SRC_PCM_BUFFER_SIZE)
                 _SrcReadIndex = 0;
 
-            sampleCount -= outsamples;
-            SamplesToDo -= outsamples;
+            sampleCount -= SamplesToDo;
+            MaxSamplesToDo -= SamplesToDo;
         }
-        while (SamplesToDo != 0);
+        while (MaxSamplesToDo != 0);
     }
 
     OPNA::Mix(sampleData, sampleCount);

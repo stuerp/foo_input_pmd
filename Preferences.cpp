@@ -31,7 +31,7 @@ const WCHAR * PlaybackModes[] =
     L"Loop forever"
 };
 /*
-const uint32_t SynthesisRates[] =
+const uint32_t OutputFrequencies[] =
 {
     FREQUENCY_55_5K,
     FREQUENCY_55_4K,

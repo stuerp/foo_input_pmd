@@ -1,12 +1,11 @@
 ﻿
-/** $VER: OPNAW.h (2023.10.18) OPNA emulator with waiting. Based on PMDWin code by C60 / Masahiro Kajihara **/
+/** $VER: OPNAW.h (2023.10.18) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
 #include "OPNA.h"
 
 // Composite frequency when primary interpolation is enabled
-#define FREQUENCY_55_5K         55555
 #define FREQUENCY_55_4K         55466
 
 // Buffer size (in samples) to assign the amount calculated by wait

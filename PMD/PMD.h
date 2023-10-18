@@ -1,5 +1,5 @@
 ﻿
-/** $VER: PMD.h (2023.10.18) Based on PMDWin code by C60 / Masahiro Kajihara **/
+/** $VER: PMD.h (2023.10.18) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 

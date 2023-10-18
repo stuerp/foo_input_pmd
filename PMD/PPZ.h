@@ -1,5 +1,5 @@
 ﻿
-// PC-98's 86 soundboard's 8 PCM driver / Programmed by UKKY / Windows Converted by C60
+/** $VER: PPZ.h (2023.10.18) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
 
 #pragma once
 
@@ -14,7 +14,7 @@
 
 #define PPZ_OUT_OF_MEMORY   99
 
-#define FREQUENCY_44_1K           44100
+#define FREQUENCY_44_1K     44100
 
 #define DefaultSampleRate   FREQUENCY_44_1K
 #define DefaultVolume       12
@@ -27,24 +27,28 @@ typedef int32_t Sample;
 
 struct PPZChannel
 {
+    bool HasPVI;
+    bool HasLoop;
+    bool IsPlaying;
+    int Volume;
+    int PanValue;
+
     int PCM_ADD_L;                // アドレス増加量 LOW
     int PCM_ADD_H;                // アドレス増加量 HIGH
     int PCM_ADDS_L;                // アドレス増加量 LOW（元の値）
     int PCM_ADDS_H;                // アドレス増加量 HIGH（元の値）
-    int PCM_SORC_F;                // 元データの再生レート
-    int PCM_FLG;                // 再生フラグ
-    int PCM_VOL;                // ボリューム
-    int PanValue;
-    int PCM_NUM;                // PCM番号
-    int PCM_LOOP_FLG;            // ループ使用フラグ
-    uint8_t * PCM_NOW;                // 現在の値
-    int PCM_NOW_XOR;            // 現在の値（小数部）
+    int SourceFrequency;
+    int PCM_NUM;
+
+    uint8_t * PCM_NOW;                // Current value
+    int PCM_NOW_XOR;            // Current value (decimal part)
+
     uint8_t * PCM_END;                // 現在の終了アドレス
     uint8_t * PCM_END_S;                // 本当の終了アドレス
+
     uint8_t * PCM_LOOP;                // ループ開始アドレス
     uint32_t PCM_LOOP_START;            // リニアなループ開始アドレス
     uint32_t PCM_LOOP_END;            // リニアなループ終了アドレス
-    bool _HasPVI;                // PVI なら true
 };
 
 #pragma pack(push)
@@ -89,7 +93,7 @@ public:
     PPZDriver(File * file);
     virtual ~PPZDriver();
 
-    bool Initialize(uint32_t sampleRate, bool useInterpolation);
+    bool Initialize(uint32_t outputFrequency, bool useInterpolation);
     bool Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop);
     bool Stop(int ch);
     int  Load(const WCHAR * filePath, int bufnum);
@@ -98,8 +102,8 @@ public:
     bool SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);
     void AllStop();
     bool SetPan(int ch, int value);
-    bool SetOutputFrequency(uint32_t sampleRate, bool useInterpolation);
-    bool SetSourceRate(int ch, int sampleRate);
+    bool SetOutputFrequency(uint32_t outputFrequency, bool useInterpolation);
+    bool SetSourceRate(int ch, int sourceFrequency);
     void SetAllVolume(int volume);
     void SetVolume(int volume);
     void ADPCM_EM_SET(bool flag);
@@ -115,9 +119,11 @@ public:
     std::wstring _FilePath[2];
 
 private:
-    void Reset();
+    void MoveSamplePointer(int i) noexcept;
 
     void InitializeInternal();
+    void Reset();
+
     void CreateVolumeTable(int volume);
     void ReadHeader(File * file, PZIHEADER & pziheader);
     void ReadHeader(File * file, PVIHEADER & pviheader);
@@ -138,7 +144,7 @@ private:
     int XMS_FRAME_SIZE[2]; // PZI or PVI internal state
     int _PCMVolume; // Overall 86B Mixer volume
     int _Volume;
-    int _SampleRate; // Playback frequency
+    int _OutputFrequency;
 
     Sample _VolumeTable[16][256];
 };

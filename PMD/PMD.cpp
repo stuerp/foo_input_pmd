@@ -1,5 +1,5 @@
 ﻿
-// $VER: PMD.cpp (2023.10.07) PMD driver (Based on PMDWin code by C60)
+// $VER: PMD.cpp (2023.10.18) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <CppCoreCheck/Warnings.h>
 

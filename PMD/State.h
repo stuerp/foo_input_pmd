@@ -1,5 +1,5 @@
 ﻿
-/** $VER: State.h (2023.10.18) Based on PMDWin code by C60 / Masahiro Kajihara **/
+/** $VER: State.h (2023.10.18) Driver state (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -24,20 +24,18 @@
 #define FREQUENCY_22_0K         22050
 #define FREQUENCY_11_0K         11025
 
-#define PPZ8_i0             44100
-#define PPZ8_i1             33080
-#define PPZ8_i2             22050
-#define PPZ8_i3             16540
-#define PPZ8_i4             11025
-#define PPZ8_i5              8270
-#define PPZ8_i6              5513
-#define PPZ8_i7              4135
+#define PPZ8_i0                 44100
+#define PPZ8_i1                 33080
+#define PPZ8_i2                 22050
+#define PPZ8_i3                 16540
+#define PPZ8_i4                 11025
+#define PPZ8_i5                  8270
+#define PPZ8_i6                  5513
+#define PPZ8_i7                  4135
 
-#define DEFAULT_REG_WAIT    15000
-#define MAX_PCMDIR             64
-#define MAX_MEMO             1024
+#define DEFAULT_REG_WAIT        15000
 
-#define OPNAClock   (3993600 * 2) // in Hz, Clock rate of the FM Sound Source based (on the YM2203), ~4MHz, fixed sample clock division of 72
+#define OPNAClock       (3993600 * 2) // in Hz, Clock rate of the FM Sound Source based (on the YM2203), ~4MHz, fixed sample clock division of 72
 
 #include "Channel.h"
 
@@ -154,7 +152,7 @@ public:
     int rdump_tom; // Rhythm dump inc flag (TOM)
     int rdump_rim; // Rhythm dump inc flag (RIM)
 
-    uint32_t FMChannel3Mode; // ch3 Mode
+    uint32_t FMChannel3Mode;
 
     bool IsTimerABusy;
     int TimerATime;

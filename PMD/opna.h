@@ -1,5 +1,5 @@
 ﻿
-/** $VER: OPNAW.h (2023.10.18) OPNA emulator. Based on PMDWin code by C60 / Masahiro Kajihara **/
+/** $VER: OPNAW.h (2023.10.18) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
