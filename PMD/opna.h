@@ -1,5 +1,5 @@
 ﻿
-// OPNA emulator (Based on PMDWin code by C60)
+/** $VER: OPNAW.h (2023.10.18) OPNA emulator. Based on PMDWin code by C60 / Masahiro Kajihara **/
 
 #pragma once
 
@@ -37,9 +37,9 @@ public:
     OPNA(File * file);
     ~OPNA();
     
-    bool Initialize(uint32_t clock, uint32_t synthesisRate, bool useInterpolation = false, const WCHAR * directoryPath = nullptr);
-    bool SetRate(uint32_t synthesisRate);
-    bool SetRate(uint32_t clock, uint32_t synthesisRate, bool = false);
+    bool Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation = false, const WCHAR * directoryPath = nullptr);
+    void SetOutputFrequency(uint32_t clock, uint32_t outputFrequency, bool = false) noexcept;
+    void SetOutputFrequency(uint32_t outputFrequency) noexcept;
 
     bool LoadInstruments(const WCHAR *);
     bool HasADPCMROM() const noexcept { return _HasADPCMROM; }
@@ -75,16 +75,6 @@ protected:
     File * _File;
 
     // Internal state
-    ymfm::ym2608 _Chip;
-    typename ymfm::ym2608::output_data _Output;
-
-    uint32_t _ClockSpeed;
-    uint32_t _SynthesisRate;
-
-    emulated_time _Step;
-    emulated_time _Pos;
-    uint64_t _TickCount;
-
     static constexpr int32_t FM_TLBITS = 7;
     static constexpr int32_t FM_TLENTS = (1 << FM_TLBITS);
     static constexpr int32_t FM_TLPOS = (FM_TLENTS / 4);
@@ -133,8 +123,6 @@ protected:
 
 protected:
     #pragma region(ymfm_interface)
-    std::vector<uint8_t> m_data[ymfm::ACCESS_CLASSES];
-    
     emulated_time output_step;
     emulated_time output_pos;
     
@@ -146,6 +134,21 @@ protected:
 
 private:
     void DeleteInstruments() noexcept;
+
+private:
+    #pragma region(ymfm_interface)
+    std::vector<uint8_t> _Data[ymfm::ACCESS_CLASSES];
+
+    ymfm::ym2608 _Chip;
+    typename ymfm::ym2608::output_data _Output;
+
+    uint32_t _ClockSpeed;
+    uint32_t _OutputFrequency;
+
+    emulated_time _Pos;
+    emulated_time _Step;
+    uint64_t _TickCount;
+    #pragma endregion
 };
 
 inline int Limit(int value, int max, int min)

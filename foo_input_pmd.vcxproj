@@ -182,7 +182,6 @@
     <ClInclude Include="PMD\Driver.h" />
     <ClInclude Include="PMD\Effect.h" />
     <ClInclude Include="PMD\File.h" />
-    <ClInclude Include="PMD\PMDPrivate.h" />
     <ClInclude Include="PMD\OPNA.h" />
     <ClInclude Include="PMD\OPNAW.h" />
     <ClInclude Include="PMD\P86.h" />

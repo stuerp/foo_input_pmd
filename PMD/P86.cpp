@@ -28,7 +28,7 @@ bool P86Driver::Initialize(uint32_t sampleRate, bool useInterpolation)
 {
     InitializeInternal();
 
-    SetSampleRate(sampleRate, useInterpolation);
+    SetOutputFrequency(sampleRate, useInterpolation);
 
     return true;
 }
@@ -44,7 +44,7 @@ void P86Driver::InitializeInternal()
     }
 
     _UseInterpolation = false;
-    _SampleRate = SOUND_44K;
+    _OutputFrequency = FREQUENCY_44_1K;
     _OrigSampleRate = SampleRates[3]; // 16.54kHz
     _Pitch = 0;
     _Volume = 0;
@@ -160,12 +160,12 @@ int P86Driver::Load(const WCHAR * filePath)
 }
 
 // Playback frequency, primary complement setting
-void P86Driver::SetSampleRate(uint32_t synthesisRate, bool useInterpolation)
+void P86Driver::SetOutputFrequency(uint32_t outputFrequency, bool useInterpolation)
 {
-    _SampleRate = (int) synthesisRate;
+    _OutputFrequency = (int) outputFrequency;
     _UseInterpolation = useInterpolation;
 
-    uint32_t Pitch = (uint32_t) ((uint64_t) _Pitch * _OrigSampleRate / _SampleRate);
+    uint32_t Pitch = (uint32_t) ((uint64_t) _Pitch * _OrigSampleRate / _OutputFrequency);
 
     addsize2 = (int) ((Pitch & 0xffff) >>  4);
     addsize1 = (int) ( Pitch           >> 16);
@@ -213,7 +213,7 @@ bool P86Driver::SetPitch(int sampleRateIndex, uint32_t value)
     _OrigSampleRate = SampleRates[sampleRateIndex];
     _Pitch = value;
 
-    value = (uint32_t) ((uint64_t) value * _OrigSampleRate / _SampleRate);
+    value = (uint32_t) ((uint64_t) value * _OrigSampleRate / _OutputFrequency);
 
     addsize2 = (int) ((value & 0xffff) >> 4);
     addsize1 = (int) (value >> 16);

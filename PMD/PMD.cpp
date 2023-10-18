@@ -64,7 +64,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _PPS->Initialize(_State.OPNARate, false);
     _P86->Initialize(_State.OPNARate, false);
 
-    if (_OPNAW->Initialize(OPNAClock, SOUND_55K, false, DirectoryPath) == false)
+    if (_OPNAW->Initialize(OPNAClock, FREQUENCY_55_5K, false, DirectoryPath) == false)
         return false;
 
     {
@@ -142,8 +142,8 @@ void PMD::Reset()
     ::memset(_EData, 0, sizeof(_EData));
 
     // Initialize OPEN_WORK.
-    _State.OPNARate = SOUND_44K;
-    _State.PPZRate = SOUND_44K;
+    _State.OPNARate = FREQUENCY_44_1K;
+    _State.PPZRate = FREQUENCY_44_1K;
 
     _State.fade_stop_flag = 0;
     _State.IsTimerBBusy = false;
@@ -844,7 +844,7 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
     while (SamplesDone < sampleCount);
 }
 
-bool PMD::LoadRythmSamples(WCHAR * path)
+bool PMD::LoadRhythmSamples(WCHAR * path)
 {
     WCHAR Path[MAX_PATH];
 
@@ -873,48 +873,54 @@ bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
 }
 
 /// <summary>
-/// Sets the rate at which raw PCM data is synthesized (in Hz, for example 44100)
+/// Sets the output frequency at which raw PCM data is synthesized (in Hz, for example 44100).
 /// </summary>
-void PMD::SetSynthesisRate(uint32_t value)
+void PMD::SetOutputFrequency(uint32_t value) noexcept
 {
-    if (value == SOUND_55K || value == SOUND_55K_2)
+    if (value == FREQUENCY_55_5K || value == FREQUENCY_55_4K)
     {
         _State.OPNARate =
-        _State.PPZRate = SOUND_44K;
-        _State.UseFM55kHzSynthesis = true;
+        _State.PPZRate = FREQUENCY_44_1K;
+        _State.UseInterpolation = true;
     }
     else
     {
         _State.OPNARate =
         _State.PPZRate = value;
-        _State.UseFM55kHzSynthesis = false;
+        _State.UseInterpolation = false;
     }
 
-    _OPNAW->SetSampleRate(OPNAClock, _State.OPNARate, _State.UseFM55kHzSynthesis);
+    _OPNAW->SetOutputFrequency(OPNAClock, _State.OPNARate, _State.UseInterpolation);
 
-    _P86->SetSampleRate(_State.OPNARate, _State.UseInterpolationP86);
-    _PPS->SetSampleRate(_State.OPNARate, _State.UseInterpolationPPS);
-    _PPZ->SetSampleRate(_State.PPZRate, _State.UseInterpolationPPZ);
+    _P86->SetOutputFrequency(_State.OPNARate, _State.UseInterpolationP86);
+    _PPS->SetOutputFrequency(_State.OPNARate, _State.UseInterpolationPPS);
+    _PPZ->SetOutputFrequency(_State.PPZRate, _State.UseInterpolationPPZ);
 }
 
 /// <summary>
-/// Enables or disables 55kHz synthesis in FM primary interpolation.
+/// Enables or disables interpolation to 55kHz output frequency.
 /// </summary>
-void PMD::SetFM55kHzSynthesisMode(bool flag)
+void PMD::SetFMInterpolation(bool value)
 {
-    _State.UseFM55kHzSynthesis = flag;
+    if (value == _State.UseInterpolation)
+        return;
 
-    _OPNAW->SetSampleRate(OPNAClock, _State.OPNARate, _State.UseFM55kHzSynthesis);
+    _State.UseInterpolation = value;
+
+    _OPNAW->SetOutputFrequency(OPNAClock, _State.OPNARate, _State.UseInterpolation);
 }
 
 /// <summary>
-/// Sets the rate at which raw PPZ data is synthesized (in Hz, for example 44100)
+/// Sets the output frequency at which raw PPZ data is synthesized (in Hz, for example 44100).
 /// </summary>
-void PMD::SetPPZSynthesisRate(uint32_t frequency)
+void PMD::SetPPZOutputFrequency(uint32_t value) noexcept
 {
-    _State.PPZRate = frequency;
+    if (value == _State.PPZRate)
+        return;
 
-    _PPZ->SetSampleRate(frequency, _State.UseInterpolationPPZ);
+    _State.PPZRate = value;
+
+    _PPZ->SetOutputFrequency(value, _State.UseInterpolationPPZ);
 }
 
 /// <summary>
@@ -924,7 +930,7 @@ void PMD::SetPPZInterpolation(bool flag)
 {
     _State.UseInterpolationPPZ = flag;
 
-    _PPZ->SetSampleRate(_State.PPZRate, flag);
+    _PPZ->SetOutputFrequency(_State.PPZRate, flag);
 }
 
 /// <summary>
@@ -934,7 +940,7 @@ void PMD::SetPPSInterpolation(bool flag)
 {
     _State.UseInterpolationPPS = flag;
 
-    _PPS->SetSampleRate(_State.OPNARate, flag);
+    _PPS->SetOutputFrequency(_State.OPNARate, flag);
 }
 
 /// <summary>
@@ -944,7 +950,7 @@ void PMD::SetP86Interpolation(bool flag)
 {
     _State.UseInterpolationP86 = flag;
 
-    _P86->SetSampleRate(_State.OPNARate, flag);
+    _P86->SetOutputFrequency(_State.OPNARate, flag);
 }
 
 // Fade out (PMD compatible)

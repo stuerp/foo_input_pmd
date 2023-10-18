@@ -13,7 +13,6 @@
     <ClInclude Include="PMD\ymfm\ymfm_opn.h" />
     <ClInclude Include="PMD\ymfm\ymfm_ssg.h" />
     <ClInclude Include="PMD\File.h" />
-    <ClInclude Include="PMD\PMDPrivate.h" />
     <ClInclude Include="PMD\OPNA.h" />
     <ClInclude Include="PMD\OPNAW.h" />
     <ClInclude Include="PMD\P86.h" />

@@ -12,9 +12,9 @@
 #define PPS_ALREADY_LOADED     2
 #define PPZ_OUT_OF_MEMORY     99
 
-#define SOUND_44K     44100
-#define SOUND_22K     22050
-#define SOUND_11K     11025
+#define FREQUENCY_44_1K     44100
+#define FREQUENCY_22_0K     22050
+#define FREQUENCY_11_0K     11025
 
 typedef int32_t Sample;
 
@@ -51,7 +51,7 @@ public:
     bool Play(int num, int shift, int volshift);
 
     bool SetParameter(int index, bool value);
-    bool SetSampleRate(uint32_t r, bool ip);
+    bool SetOutputFrequency(uint32_t r, bool ip);
     void SetVolume(int volume);
 
     void Mix(Sample * sampleData, size_t sampleCount);

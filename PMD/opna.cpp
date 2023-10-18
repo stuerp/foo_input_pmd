@@ -1,5 +1,5 @@
 ﻿
-// OPNA emulator (Based on PMDWin code by C60)
+/** $VER: OPNAW.h (2023.10.18) OPNA emulator. Based on PMDWin code by C60 / Masahiro Kajihara **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -14,16 +14,6 @@
 OPNA::OPNA(File * file) :
     _File(file),
 
-    _Chip(*this),
-    _Output(),
-
-    _ClockSpeed(DEFAULT_CLOCK),
-    _SynthesisRate(8000U),
-
-    _Step(0),
-    _Pos(0),
-    _TickCount(0U),
-
     _Instrument{},
     _InstrumentCounter(0),
 
@@ -32,12 +22,21 @@ OPNA::OPNA(File * file) :
     _InstrumentMask(0),
     _HasADPCMROM(false),
 
-    output_step((emulated_time) (0x1000000000000ull / _SynthesisRate)),
     output_pos(0),
     timer_period{},
     timer_count{},
-    reg27(0U)
+    reg27(0U),
+
+    _Chip(*this),
+    _Output(),
+
+    _Pos(0),
+    _Step(0),
+
+    _TickCount(0U)
 {
+    SetOutputFrequency(DEFAULT_CLOCK, 8000U);
+
     // Create the table.
     for (int i = -FM_TLPOS; i < FM_TLENTS; ++i)
         tltable[i + FM_TLPOS] = (int32_t) (uint32_t(65536. * pow(2.0, i * -16. / (int) FM_TLENTS)) - 1);
@@ -51,13 +50,12 @@ OPNA::~OPNA()
 /// <summary>
 /// Initializes the module.
 /// </summary>
-bool OPNA::Initialize(uint32_t clock, uint32_t synthesisRate, bool useInterpolation, const WCHAR * directoryPath)
+bool OPNA::Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation, const WCHAR * directoryPath)
 {
-    if (!SetRate(clock, synthesisRate, useInterpolation))
-        return false;
+    SetOutputFrequency(clock, outputFrequency, useInterpolation);
 
-    _Step = (emulated_time) (0x1000000000000ull / GetSampleRate());
     _Pos  = 0;
+    _Step = (emulated_time) (0x1000000000000ull / GetSampleRate());
     _TickCount = 0U;
 
     _Chip.reset();
@@ -76,24 +74,25 @@ bool OPNA::Initialize(uint32_t clock, uint32_t synthesisRate, bool useInterpolat
 }
 
 /// <summary>
-/// Sets the synthesis rate.
+/// Sets the output frequency.
 /// </summary>
-bool OPNA::SetRate(uint32_t clockSpeed, uint32_t synthesisRate, bool)
+void OPNA::SetOutputFrequency(uint32_t clockSpeed, uint32_t outputFrequency, bool) noexcept
 {
     _ClockSpeed = clockSpeed;
 
-    return SetRate(synthesisRate);
+    SetOutputFrequency(outputFrequency);
 }
 
 /// <summary>
-/// Sets the synthesis rate.
+/// Sets the output frequency.
 /// </summary>
-bool OPNA::SetRate(uint32_t synthesisRate)
+void OPNA::SetOutputFrequency(uint32_t outputFrequency) noexcept
 {
-    _SynthesisRate = synthesisRate;
-    output_step = (emulated_time) (0x1000000000000ull / _SynthesisRate);
+    if (outputFrequency == 0)
+        return;
 
-    return true;
+    _OutputFrequency = outputFrequency;
+    output_step = (emulated_time) (0x1000000000000ull / _OutputFrequency);
 }
 
 #pragma region(Volume)
@@ -326,7 +325,7 @@ void OPNA::Mix(Sample * sampleData, size_t sampleCount) noexcept
 }
 
 /// <summary>
-/// Mixes the rythm instrument samples with the existing synthesized samples.
+/// Mixes the rhythm instrument samples with the existing synthesized samples.
 /// </summary>
 void OPNA::MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept
 {
@@ -374,7 +373,7 @@ void OPNA::StoreSample(Sample & sampleData, int32_t sampleValue)
 
 #pragma region(Rhythm Instruments)
 /// <summary>
-/// Loads the rhythm instrument samples.
+/// Loads the samples for the rhythm instruments.
 /// </summary>
 bool OPNA::LoadInstruments(const WCHAR * directoryPath)
 {
@@ -443,7 +442,7 @@ bool OPNA::LoadInstruments(const WCHAR * directoryPath)
 
         _Instrument[i].Samples = (const int16_t *) wr.Data();
         _Instrument[i].Size    = SampleCount * 1024;
-        _Instrument[i].Step    = wr.SampleRate() * 1024 / _SynthesisRate;
+        _Instrument[i].Step    = wr.SampleRate() * 1024 / _OutputFrequency;
         _Instrument[i].Pos     = 0U;
 
         _InstrumentCounter++;
@@ -496,35 +495,35 @@ void OPNA::generate(emulated_time output_start, emulated_time, int32_t * buffer)
     _TickCount++;
 }
 
-// Write data to the ADPCM-A buffer
+// Writes data to the ADPCM-A buffer.
 void OPNA::write_data(ymfm::access_class type, uint32_t base, uint32_t length, uint8_t const * src)
 {
     uint32_t end = base + length;
 
-    if (end > m_data[type].size())
-        m_data[type].resize(end);
+    if (end > _Data[type].size())
+        _Data[type].resize(end);
 
-    ::memcpy(&m_data[type][base], src, length);
+    ::memcpy(&_Data[type][base], src, length);
 }
 
-// callback : handle read from the buffer
+// Reads data from the ADPCM-A buffer (Callback).
 uint8_t OPNA::ymfm_external_read(ymfm::access_class type, uint32_t offset)
 {
     if (!_HasADPCMROM && (type == ymfm::ACCESS_ADPCM_A))
         return 0;
 
-    auto & data = m_data[type];
+    auto & data = _Data[type];
 
     return (uint8_t) ((offset < data.size()) ? data[offset] : 0U);
 }
 
-// callback : handle write to the buffer
+// Writes data from the ADPCM-A buffer (Callback).
 void OPNA::ymfm_external_write(ymfm::access_class type, uint32_t address, uint8_t data)
 {
     write_data(type, address, 1, &data);
 }
 
-// callback : clear timer
+// Clears the time (Callback).
 void OPNA::ymfm_sync_mode_write(uint8_t data)
 {
     reg27 = data;
@@ -545,7 +544,7 @@ void OPNA::ymfm_sync_mode_write(uint8_t data)
     ymfm_interface::ymfm_sync_mode_write(reg27);
 }
 
-// callback : set timer
+// Sets the timer (Callback).
 void OPNA::ymfm_set_timer(uint32_t tnum, int32_t duration_in_clocks)
 {
     if (duration_in_clocks >= 0)

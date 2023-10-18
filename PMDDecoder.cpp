@@ -42,7 +42,7 @@ PMDDecoder::~PMDDecoder()
 /// <summary>
 /// Reads the PMD data from memory.
 /// </summary>
-bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size, uint32_t synthesisRate)
+bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size, uint32_t outputFrequency)
 {
     _FilePath = filePath;
 
@@ -60,7 +60,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
         _Size = size;
     }
 
-    _SynthesisRate = synthesisRate;
+    _SynthesisRate = outputFrequency;
 
     delete _PMD;
     _PMD = new PMD();
@@ -78,7 +78,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
         }
 
         _PMD->Initialize(PDXSamplesPath);
-        _PMD->SetSynthesisRate(_SynthesisRate);
+        _PMD->SetOutputFrequency(_SynthesisRate);
 
         {
             WCHAR DirectoryPath[MAX_PATH];
@@ -155,9 +155,8 @@ void PMDDecoder::Initialize() const noexcept
 
     _PMD->EnableChannel(16); // PPZ 1
 */
-
-    console::printf("PMDDecoder: ADPCM ROM %sfound.", (_PMD->HasADPCMROM() ? "" : "not "));
-    console::printf("PMDDecoder: Percussion samples %sfound.", (_PMD->HasPercussionSamples() ? "" : "not "));
+    console::printf("PMDDecoder: ADPCM ROM %sloaded.", (_PMD->HasADPCMROM() ? "" : "not "));
+    console::printf("PMDDecoder: Percussion samples %sloaded.", (_PMD->HasPercussionSamples() ? "" : "not "));
 
     std::wstring FileName = _PMD->GetPCMFileName();
 

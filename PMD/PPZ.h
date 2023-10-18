@@ -14,9 +14,9 @@
 
 #define PPZ_OUT_OF_MEMORY   99
 
-#define SOUND_44K           44100
+#define FREQUENCY_44_1K           44100
 
-#define DefaultSampleRate   SOUND_44K
+#define DefaultSampleRate   FREQUENCY_44_1K
 #define DefaultVolume       12
 #define MaxPPZChannels      8
 
@@ -98,7 +98,7 @@ public:
     bool SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);
     void AllStop();
     bool SetPan(int ch, int value);
-    bool SetSampleRate(uint32_t sampleRate, bool useInterpolation);
+    bool SetOutputFrequency(uint32_t sampleRate, bool useInterpolation);
     bool SetSourceRate(int ch, int sampleRate);
     void SetAllVolume(int volume);
     void SetVolume(int volume);

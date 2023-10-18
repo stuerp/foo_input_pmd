@@ -33,12 +33,12 @@ const WCHAR * PlaybackModes[] =
 /*
 const uint32_t SynthesisRates[] =
 {
-    SOUND_55K,
-    SOUND_55K_2,
-    SOUND_48K,
-    SOUND_44K,
-    SOUND_22K,
-    SOUND_11K,
+    FREQUENCY_55_5K,
+    FREQUENCY_55_4K,
+    FREQUENCY_48_0K,
+    FREQUENCY_44_1K,
+    FREQUENCY_22_0K,
+    FREQUENCY_11_0K,
 };
 */
 /// <summary>

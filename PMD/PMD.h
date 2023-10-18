@@ -1,5 +1,5 @@
 ﻿
-// Based on PMDWin code by C60 / Masahiro Kajihara
+/** $VER: PMD.h (2023.10.18) Based on PMDWin code by C60 / Masahiro Kajihara **/
 
 #pragma once
 
@@ -17,7 +17,7 @@
 #include "PPZ.h"
 #include "P86.h"
 
-#include "PMDPrivate.h"
+#include "State.h"
 #include "Driver.h"
 #include "Effect.h"
 
@@ -65,17 +65,18 @@ public:
 
     bool GetLength(int * songLength, int * loopLength, int * tickCount, int * loopTickCount);
     bool GetLength(int * songlength, int * loopLength);
-    bool GetLengthInTicks(int * songLength, int * loopLength);
+    bool GetLengthInTicks(int * tickCount, int * loopTickCount);
 
     uint32_t GetPosition();
     void SetPosition(uint32_t position);
 
-    bool LoadRythmSamples(WCHAR * path);
+    bool LoadRhythmSamples(WCHAR * path);
     bool SetSearchPaths(std::vector<const WCHAR *> & paths);
     
-    void SetSynthesisRate(uint32_t value);
-    void SetPPZSynthesisRate(uint32_t value);
-    void SetFM55kHzSynthesisMode(bool flag);
+    void SetOutputFrequency(uint32_t value) noexcept;
+    void SetFMInterpolation(bool flag);
+
+    void SetPPZOutputFrequency(uint32_t value) noexcept;
     void SetPPZInterpolation(bool flag);
 
     void SetFMDelay(int nsec);

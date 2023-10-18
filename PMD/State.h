@@ -1,4 +1,43 @@
-﻿#pragma once
+﻿
+/** $VER: State.h (2023.10.18) Based on PMDWin code by C60 / Masahiro Kajihara **/
+
+#pragma once
+
+#define ERR_SUCCESS                 0
+
+#define ERR_OPEN_FAILED             1
+#define ERR_UNKNOWN_FORMAT          2
+#define ERR_ALREADY_LOADED          3
+#define ERR_OUT_OF_MEMORY           4
+
+#define ERR_WRONG_PARTNO           32
+#define ERR_NOT_MASKED             33 // The specified part is not masked.
+#define ERR_EFFECT_USED            34 // The mask cannot be operated because it is being used by sound effects.
+#define ERR_MUSIC_STOPPED          99 // You performed a mask operation while the song was stopped.
+
+#define ERR_UNKNOWN               999
+
+#define FREQUENCY_55_5K         55555
+#define FREQUENCY_55_4K         55466
+#define FREQUENCY_48_0K         48000
+#define FREQUENCY_44_1K         44100
+#define FREQUENCY_22_0K         22050
+#define FREQUENCY_11_0K         11025
+
+#define PPZ8_i0             44100
+#define PPZ8_i1             33080
+#define PPZ8_i2             22050
+#define PPZ8_i3             16540
+#define PPZ8_i4             11025
+#define PPZ8_i5              8270
+#define PPZ8_i6              5513
+#define PPZ8_i7              4135
+
+#define DEFAULT_REG_WAIT    15000
+#define MAX_PCMDIR             64
+#define MAX_MEMO             1024
+
+#define OPNAClock   (3993600 * 2) // in Hz, Clock rate of the FM Sound Source based (on the YM2203), ~4MHz, fixed sample clock division of 72
 
 #include "Channel.h"
 
@@ -41,7 +80,7 @@ public:
     uint16_t * RhythmDataTable; // Rhythm Data table
 
     bool UseRhythm;             // Use Rhythm sound source with K/R part.
-    bool UseFM55kHzSynthesis;
+    bool UseInterpolation;
     bool UseInterpolationPPZ;
     bool UseInterpolationPPS;
     bool UseInterpolationP86;

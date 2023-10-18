@@ -1,5 +1,5 @@
 
-/** $VER: Resources.h (2023.08.30) P. Stuer **/
+/** $VER: Resources.h (2023.10.18) P. Stuer **/
 
 #pragma once
 
@@ -9,7 +9,7 @@
 /** Component specific **/
 
 #define STR_COMPONENT_NAME          "PMD Decoder"
-#define STR_COMPONENT_VERSION       TOSTRING(NUM_FILE_MAJOR) "." TOSTRING(NUM_FILE_MINOR) "." TOSTRING(NUM_FILE_PATCH) "." TOSTRING(NUM_FILE_PRERELEASE)
+#define STR_COMPONENT_VERSION       TOSTRING(NUM_FILE_MAJOR) "." TOSTRING(NUM_FILE_MINOR) "." TOSTRING(NUM_FILE_PATCH) "." TOSTRING(NUM_FILE_PRERELEASE) "-alpha"
 #define STR_COMPONENT_BASENAME      "foo_input_pmd"
 #define STR_COMPONENT_FILENAME      STR_COMPONENT_BASENAME ".dll"
 #define STR_COMPONENT_COMPANY_NAME  ""
@@ -26,7 +26,7 @@
 
 #define NUM_FILE_MAJOR          0
 #define NUM_FILE_MINOR          4
-#define NUM_FILE_PATCH          0
+#define NUM_FILE_PATCH          1
 #define NUM_FILE_PRERELEASE     0
 
 #define STR_FILE_NAME           TEXT(STR_COMPONENT_FILENAME)
@@ -35,7 +35,7 @@
 
 #define NUM_PRODUCT_MAJOR       0
 #define NUM_PRODUCT_MINOR       4
-#define NUM_PRODUCT_PATCH       0
+#define NUM_PRODUCT_PATCH       1
 #define NUM_PRODUCT_PRERELEASE  0
 
 #define STR_PRODUCT_NAME        STR_INTERNAL_NAME

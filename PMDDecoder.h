@@ -21,7 +21,7 @@ public:
     PMDDecoder();
     ~PMDDecoder();
 
-    bool Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size, uint32_t synthesisRate);
+    bool Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size, uint32_t outputFrequency);
 
     void Initialize() const noexcept;
     size_t Render(audio_chunk & audioChunk, size_t sampleCount) noexcept;

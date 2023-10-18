@@ -112,6 +112,10 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
+v0.5.0, 2023-xx-xx, *"Release name missing in action"*
+
+* Fixed: Samples loaded from .WAV files played at the wrong frequency.
+
 v0.4.0, 2023-10-08, *"Rough edges, be gone!"*
 
 * Added: Checkbox to enable or disable the use of PPS samples (default: false).
