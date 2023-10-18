@@ -64,7 +64,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     _PPS->Initialize(_State.OPNARate, false);
     _P86->Initialize(_State.OPNARate, false);
 
-    if (_OPNAW->Initialize(OPNAClock, SOUND_44K, false, DirectoryPath) == false)
+    if (_OPNAW->Initialize(OPNAClock, SOUND_55K, false, DirectoryPath) == false)
         return false;
 
     {
