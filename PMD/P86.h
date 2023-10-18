@@ -80,7 +80,7 @@ public:
     bool SetPitch(int sampleRateIndex, uint32_t pitch);
     bool SetPan(int flag, int value);
     bool SelectSample(int num); // PCM number setting
-    bool SetLoop(int loop_start, int loop_end, int release_start, bool adpcm);
+    bool SetLoop(int loopStart, int loopEnd, int releaseStart, bool isADPCM);
 
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
 

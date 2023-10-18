@@ -414,17 +414,10 @@ uint8_t * PMD::SetPPZInstrumentCommand(Channel * channel, uint8_t * si)
     channel->InstrumentNumber = *si++;
 
     if ((channel->InstrumentNumber & 0x80) == 0)
-    {
-        _PPZ->SetLoop(_Driver.CurrentChannel, _PPZ->_PZISample[0]._PZIHeader.PZIItem[channel->InstrumentNumber].LoopStart, _PPZ->_PZISample[0]._PZIHeader.PZIItem[channel->InstrumentNumber].LoopEnd);
-        _PPZ->SetSourceRate(_Driver.CurrentChannel, _PPZ->_PZISample[0]._PZIHeader.PZIItem[channel->InstrumentNumber].SampleRate);
-    }
+        _PPZ->SetInstrument((size_t) _Driver.CurrentChannel, 0, (size_t) channel->InstrumentNumber);
     else
-    {
-        int i = channel->InstrumentNumber & 0x7F;
+        _PPZ->SetInstrument((size_t) _Driver.CurrentChannel, 1, (size_t) (channel->InstrumentNumber & 0x7F));
 
-        _PPZ->SetLoop(_Driver.CurrentChannel, _PPZ->_PZISample[1]._PZIHeader.PZIItem[i].LoopStart, _PPZ->_PZISample[1]._PZIHeader.PZIItem[i].LoopEnd);
-        _PPZ->SetSourceRate(_Driver.CurrentChannel, _PPZ->_PZISample[1]._PZIHeader.PZIItem[i].SampleRate);
-    }
     return si;
 }
 #pragma endregion
@@ -686,7 +679,7 @@ uint8_t * PMD::SetPPZPanValueCommand(Channel * channel, uint8_t * si)
 
     channel->PanAndVolume = PanValues[*si++];
 
-    _PPZ->SetPan(_Driver.CurrentChannel, channel->PanAndVolume);
+    _PPZ->SetPan((size_t) _Driver.CurrentChannel, channel->PanAndVolume);
 
     return si;
 }
@@ -705,7 +698,7 @@ uint8_t * PMD::SetPPZPanValueExtendedCommand(Channel * channel, uint8_t * si)
 
     channel->PanAndVolume = al + 5; // Scale the value to range 1..9.
 
-    _PPZ->SetPan(_Driver.CurrentChannel, channel->PanAndVolume);
+    _PPZ->SetPan((size_t) _Driver.CurrentChannel, channel->PanAndVolume);
 
     return si;
 }
@@ -728,7 +721,7 @@ uint8_t * PMD::InitializePPZ(Channel *, uint8_t * si)
             _PPZChannel[i].Note = 0xFF;         // Rest
             _PPZChannel[i].DefaultNote = 0xFF;  // Rest
             _PPZChannel[i].Volume = 128;
-            _PPZChannel[i].PanAndVolume = 5;         // Center
+            _PPZChannel[i].PanAndVolume = 5;    // Center
         }
 
         si += 2;
@@ -747,31 +740,21 @@ uint8_t * PMD::SetPPZRepeatCommand(Channel * channel, uint8_t * si)
         LoopBegin = *(int16_t *) si;
         si += 2;
 
-        if (LoopBegin < 0)
-            LoopBegin = (int) (_PPZ->_PZISample[0]._PZIHeader.PZIItem[channel->InstrumentNumber].Size - LoopBegin);
-
         LoopEnd = *(int16_t *) si;
         si += 2;
 
-        if (LoopEnd < 0)
-            LoopEnd = (int) (_PPZ->_PZISample[0]._PZIHeader.PZIItem[channel->InstrumentNumber].Size - LoopBegin);
+        _PPZ->SetLoop((size_t) _Driver.CurrentChannel, 0, (size_t) channel->InstrumentNumber, LoopBegin, LoopEnd);
     }
     else
     {
         LoopBegin = *(int16_t *) si;
         si += 2;
 
-        if (LoopBegin < 0)
-            LoopBegin = (int) (_PPZ->_PZISample[1]._PZIHeader.PZIItem[channel->InstrumentNumber & 0x7f].Size - LoopBegin);
-
         LoopEnd = *(int16_t *) si;
         si += 2;
 
-        if (LoopEnd < 0)
-            LoopEnd = (int) (_PPZ->_PZISample[1]._PZIHeader.PZIItem[channel->InstrumentNumber & 0x7f].Size - LoopEnd);
+        _PPZ->SetLoop((size_t) _Driver.CurrentChannel, 1, (size_t) channel->InstrumentNumber & 0x7F, LoopBegin, LoopEnd);
     }
-
-    _PPZ->SetLoop(_Driver.CurrentChannel, (uint32_t) LoopBegin, (uint32_t) LoopEnd);
 
     return si + 2; // Skip the Loop Release Address.
 }

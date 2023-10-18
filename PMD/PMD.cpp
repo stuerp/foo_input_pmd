@@ -1928,7 +1928,7 @@ void PMD::InitializeOPN()
     _OPNAW->SetReg(0x10c, 0xff);
     _OPNAW->SetReg(0x10d, 0xff);
 
-    for (int i = 0; i < MaxPPZChannels; ++i)
+    for (size_t i = 0; i < MaxPPZChannels; ++i)
         _PPZ->SetPan(i, 5);
 }
 

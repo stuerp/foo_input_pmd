@@ -222,7 +222,7 @@ bool P86Driver::SetPitch(int sampleRateIndex, uint32_t value)
 }
 
 //  リピート設定
-bool P86Driver::SetLoop(int loop_start, int loop_end, int release_start, bool adpcm)
+bool P86Driver::SetLoop(int loopStart, int loopEnd, int releaseStart, bool isADPCM)
 {
     repeat_flag = true;
     release_flag1 = false;
@@ -231,12 +231,12 @@ bool P86Driver::SetLoop(int loop_start, int loop_end, int release_start, bool ad
     int _dx = _size;
 
     // 一個目 = リピート開始位置
-    int ax = loop_start;
+    int ax = loopStart;
 
     if (ax >= 0)
     {
         // 正の場合
-        if (adpcm) ax *= 32;
+        if (isADPCM) ax *= 32;
         if (ax >= _size - 1) ax = _size - 2;    // アクセス違反対策
         if (ax < 0) ax = 0;
 
@@ -247,7 +247,7 @@ bool P86Driver::SetLoop(int loop_start, int loop_end, int release_start, bool ad
     {
         // 負の場合
         ax = -ax;
-        if (adpcm) ax *= 32;
+        if (isADPCM) ax *= 32;
         dx -= ax;
         if (dx < 0)
         {              // アクセス違反対策
@@ -260,12 +260,12 @@ bool P86Driver::SetLoop(int loop_start, int loop_end, int release_start, bool ad
     }
 
     // ２個目 = リピート終了位置
-    ax = loop_end;
+    ax = loopEnd;
 
     if (ax > 0)
     {
         // 正の場合
-        if (adpcm) ax *= 32;
+        if (isADPCM) ax *= 32;
         if (ax >= _size - 1) ax = _size - 2;    // アクセス違反対策
         if (ax < 0) ax = 0;
 
@@ -279,14 +279,14 @@ bool P86Driver::SetLoop(int loop_start, int loop_end, int release_start, bool ad
     {
         // 負の場合
         ax = -ax;
-        if (adpcm) ax *= 32;
+        if (isADPCM) ax *= 32;
         if (ax > repeat_size) ax = repeat_size;
         repeat_size -= ax;  // リピートサイズからneg(指定値)を引く
         _size -= ax;      // 本来のサイズから指定値を引く
     }
 
     // ３個目 = リリース開始位置
-    ax = release_start;
+    ax = releaseStart;
 
     if ((uint16_t) ax != 0x8000)
     {        // 8000Hなら設定しない
@@ -302,7 +302,7 @@ bool P86Driver::SetLoop(int loop_start, int loop_end, int release_start, bool ad
         if (ax > 0)
         {
             // 正の場合
-            if (adpcm) ax *= 32;
+            if (isADPCM) ax *= 32;
             if (ax >= _size - 1) ax = _size - 2;    // アクセス違反対策
             if (ax < 0) ax = 0;
 
@@ -316,7 +316,7 @@ bool P86Driver::SetLoop(int loop_start, int loop_end, int release_start, bool ad
         {
             // 負の場合
             ax = -ax;
-            if (adpcm) ax *= 32;
+            if (isADPCM) ax *= 32;
             if (ax > _size) ax = _size;
 
             // リリースサイズ＝neg(指定値)

@@ -117,7 +117,7 @@ public:
     // Gets the PPZ file path.
     std::wstring& GetPPZFilePath(size_t bufferNumber)
     {
-        return _PPZ->_PZISample[bufferNumber]._FilePath;
+        return _PPZ->_PPZBank[bufferNumber]._FilePath;
     }
 
     // Gets the PPZ file name.

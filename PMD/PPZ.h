@@ -38,36 +38,38 @@ struct PPZChannel
     int PCM_ADDS_L;                // アドレス増加量 LOW（元の値）
     int PCM_ADDS_H;                // アドレス増加量 HIGH（元の値）
     int SourceFrequency;
-    int PCM_NUM;
+    int SampleNumber;
 
-    uint8_t * PCM_NOW;                // Current value
+    uint8_t * PCMStart;                // Current value
     int PCM_NOW_XOR;            // Current value (decimal part)
 
-    uint8_t * PCM_END;                // 現在の終了アドレス
-    uint8_t * PCM_END_S;                // 本当の終了アドレス
+    uint8_t * PCMEnd;                // 現在の終了アドレス
+    uint8_t * PCMEndRounded;                // 本当の終了アドレス
 
     uint8_t * PCM_LOOP;                // ループ開始アドレス
 
-    uint32_t PCM_LOOP_START;            // リニアなループ開始アドレス
-    uint32_t PCM_LOOP_END;            // リニアなループ終了アドレス
+    uint32_t PCMLoopStart;            // リニアなループ開始アドレス
+    uint32_t PCMLoopEnd;            // リニアなループ終了アドレス
 };
 
 #pragma pack(push)
 #pragma pack(1)
+struct PZIITEM
+{
+    uint32_t Start;
+    uint32_t Size;
+    uint32_t LoopStart;
+    uint32_t LoopEnd;
+    uint16_t SampleRate;
+};
+
 struct PZIHEADER
 {
     char ID[4];                     // 'PZI1'
     char Dummy1[7];
     uint8_t Count;                  // Number of PCM entries available
     char Dummy2[22];
-    struct
-    {
-        uint32_t Start;
-        uint32_t Size;
-        uint32_t LoopStart;
-        uint32_t LoopEnd;
-        uint16_t SampleRate;
-    } PZIItem[128];
+    PZIITEM PZIItem[128];
 };
 
 struct PVIHEADER
@@ -85,16 +87,44 @@ struct PVIHEADER
 #pragma pack(pop)
 
 /// <summary>
-/// Represents a PZI sample.
+/// Represents a PPZ sample.
 /// </summary>
-class PZISample
+class PPZBank
 {
 public:
-    PZIHEADER _PZIHeader;
-    bool _IsPVI;
+    PPZBank() : _PZIHeader(), _Data(), _Size(), _IsPVI()
+    {
+    }
+
+    virtual ~PPZBank()
+    {
+        Reset();
+    }
+
+    void Reset()
+    {
+        _FilePath.clear();
+
+        ::memset(&_PZIHeader, 0, sizeof(_PZIHeader));
+
+        if (_Data)
+        {
+            ::free(_Data);
+            _Data = nullptr;
+        }
+
+        _Size = 0;
+        _IsPVI = false;
+    }
+
+    bool IsEmpty() const { return _Data == nullptr; }
+
     std::wstring _FilePath;
+
+    PZIHEADER _PZIHeader;
     uint8_t * _Data;
     int _Size;
+    bool _IsPVI;
 };
 
 /// <summary>
@@ -108,16 +138,18 @@ public:
     virtual ~PPZDriver();
 
     bool Initialize(uint32_t outputFrequency, bool useInterpolation);
-    bool Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop);
-    bool Stop(int ch);
-    int  Load(const WCHAR * filePath, int bufnum);
-    bool SetVolume(int ch, int volume);
+    bool Play(int channelNumber, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop);
+    bool Stop(int channelNumber);
+    int  Load(const WCHAR * filePath, size_t bankNumber);
+    void SetInstrument(size_t ch, size_t bankNumber, size_t instrumentNumber);
+    bool SetVolume(int channelNumber, int volume);
     bool SetPitch(int channelNumber, uint32_t pitch);
-    bool SetLoop(int ch, uint32_t loop_start, uint32_t loop_end);
+    bool SetLoop(size_t channelNumber, size_t bankNumber, size_t instrumentNumber);
+    bool SetLoop(size_t channelNumber, size_t bankNumber, size_t instrumentNumber, int loopStart, int loopEnd);
     void AllStop();
-    bool SetPan(int ch, int value);
+    bool SetPan(size_t channelNumber, int value);
     bool SetOutputFrequency(uint32_t outputFrequency, bool useInterpolation);
-    bool SetSourceRate(int ch, int sourceFrequency);
+    bool SetSourceFrequency(size_t channelNumber, int sourceFrequency);
     void SetAllVolume(int volume);
     void SetVolume(int volume);
     void ADPCM_EM_SET(bool flag);
@@ -128,7 +160,7 @@ public:
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
 
 public:
-    PZISample _PZISample[2];
+    PPZBank _PPZBank[2];
 
 private:
     void MoveSamplePointer(int i) noexcept;
