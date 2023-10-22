@@ -126,8 +126,6 @@ public:
     // bit 3: none / bit 4: For PPZ/ADE / bit 5: s0 time / bit 6: m / bit 7: temporary
     int KeyOnFlag; // 1 After processing new scale/rest data, inc
     int KeyOffFlag;  // 1 Flag indicating whether keyoff has been performed
-    int qdata;  // 1 value of q
-    int qdatb;  // 1 value of q
 
     int HardwareLFODelay;
     int HardwareLFODelayCounter;
@@ -144,5 +142,8 @@ public:
 
     int qdat; // 1 gatetime (value calculated from q/Q value)
     int qdat2;  // 1 q minimum guaranteed value
-    int qdat3;  // 1 q Random
+
+    int EarlyKeyOffTimeout;
+    int EarlyKeyOffTimeoutPercentage;
+    int EarlyKeyOffTimeoutRandomRange;
 };

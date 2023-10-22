@@ -71,7 +71,8 @@ void PMD::FMMain(Channel * channel)
                         break;
                 }
 
-                si = channel->LoopData; // When there was an "L"
+                si = channel->LoopData;
+
                 channel->loopcheck = 1;
             }
             else
@@ -219,20 +220,21 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
 
     switch (al)
     {
-        case 0xff:
+        case 0xFF:
             si = SetFMInstrumentCommand(channel, si);
             break;
 
-        case 0xfe:
-            channel->qdata = *si++;
-            channel->qdat3 = 0;
+        // Set Early Key Off Timeout.
+        case 0xFE:
+            channel->EarlyKeyOffTimeout = *si++;
+            channel->EarlyKeyOffTimeoutRandomRange = 0;
             break;
 
         case 0xFD:
             channel->Volume = *si++;
             break;
 
-        case 0xfc:
+        case 0xFC:
             si = ChangeTempoCommand(si);
             break;
 
@@ -241,24 +243,29 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
             _Driver.TieMode |= 1;
             break;
 
-        case 0xfa:
+        // Set detune.
+        case 0xFA:
             channel->DetuneValue = *(int16_t *) si;
             si += 2;
             break;
 
-        case 0xf9:
+        // Set loop start.
+        case 0xF9:
             si = SetStartOfLoopCommand(channel, si);
             break;
 
-        case 0xf8:
+        // Set loop end.
+        case 0xF8:
             si = SetEndOfLoopCommand(channel, si);
             break;
 
-        case 0xf7:
+        // Exit loop.
+        case 0xF7:
             si = ExitLoopCommand(channel, si);
             break;
 
-        case 0xf6:
+        // Command "L": Set the loop data.
+        case 0xF6:
             channel->LoopData = si;
             break;
 
@@ -447,8 +454,9 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
             si = SetFMVolumeMaskSlotCommand(channel, si);
             break;
 
-        case 0xc4:
-            channel->qdatb = *si++;
+        // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
+        case 0xC4:
+            channel->EarlyKeyOffTimeoutPercentage = *si++;
             break;
 
         case 0xc3:
@@ -462,7 +470,7 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
 
         case 0xc1: break;
 
-        case 0xc0:
+        case 0xC0:
             si = SetFMMaskCommand(channel, si);
             break;
 
@@ -545,8 +553,9 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
             channel->shift_def = *(int8_t *) si++;
             break;
 
-        case 0xb1:
-            channel->qdat3 = *si++;
+        // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
+        case 0xB1:
+            channel->EarlyKeyOffTimeoutRandomRange = *si++;
             break;
 
         default:

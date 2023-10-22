@@ -84,7 +84,6 @@ void PMD::RhythmMain(Channel * channel)
 
             bx = channel->LoopData;
 
-            // Command "L"
             if (bx != nullptr)
             {
                 si = bx;
@@ -113,14 +112,14 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
 
     switch (al)
     {
-        case 0xff: si++; break;
-        case 0xfe: si++; break;
+        case 0xFF: si++; break;
+        case 0xFE: si++; break;
 
         case 0xFD:
             channel->Volume = *si++;
             break;
 
-        case 0xfc:
+        case 0xFC:
             si = ChangeTempoCommand(si);
             break;
 
@@ -129,15 +128,32 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
             _Driver.TieMode |= 1;
             break;
 
-        case 0xfa:
+        // Set detune.
+        case 0xFA:
             channel->DetuneValue = *(int16_t *) si;
             si += 2;
             break;
 
-        case 0xf9: si = SetStartOfLoopCommand(channel, si); break;
-        case 0xf8: si = SetEndOfLoopCommand(channel, si); break;
-        case 0xf7: si = ExitLoopCommand(channel, si); break;
-        case 0xf6: channel->LoopData = si; break;
+        // Set loop start.
+        case 0xF9:
+            si = SetStartOfLoopCommand(channel, si);
+            break;
+
+        // Set loop end.
+        case 0xF8:
+            si = SetEndOfLoopCommand(channel, si);
+            break;
+
+        // Exit loop.
+        case 0xF7:
+            si = ExitLoopCommand(channel, si);
+            break;
+
+        // Command "L": Set the loop data.
+        case 0xF6:
+            channel->LoopData = si;
+            break;
+
         case 0xf5: si++; break;
         case 0xf4: if (channel->Volume < 15) channel->Volume++; break;
         case 0xf3: if (channel->Volume > 0) channel->Volume--; break;
@@ -211,7 +227,11 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xc3: si += 2; break;
         case 0xc2: si++; break;
         case 0xc1: break;
-        case 0xc0: si = SetRhythmMaskCommand(channel, si); break;
+
+        case 0xc0:
+            si = SetRhythmMaskCommand(channel, si);
+            break;
+
         case 0xbf: si += 4; break;
         case 0xbe: si++; break;
         case 0xbd: si += 2; break;
@@ -226,7 +246,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xb4: si += 16; break;
         case 0xb3: si++; break;
         case 0xb2: si++; break;
-        case 0xb1: si++; break;
+        case 0xB1: si++; break;
 
         default:
             si--;

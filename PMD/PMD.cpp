@@ -245,7 +245,7 @@ bool PMD::IsPMD(const uint8_t * data, size_t size) noexcept
     if (size > sizeof(_MData))
         return false;
 
-    if (data[0] > 0x0F && data[0] != 0xFF)
+    if (data[0] > 0x0F && data[0] != 0xFF) // 0xFF = FM Towns
         return false;
 
     if (data[1] != 0x18 && data[1] != 0x1A)
@@ -1296,11 +1296,11 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
 {
     switch (value)
     {
-        case 0xff:
+        case 0xFF:
             _State.FMVolumeDown = *si++;
             break;
 
-        case 0xfe:
+        case 0xFE:
             si = DecreaseFMVolumeCommand(channel, si);
             break;
 
@@ -1308,32 +1308,31 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
             _State.SSGVolumeDown = *si++;
             break;
 
-        case 0xfc:
+        case 0xFC:
             si = DecreaseSSGVolumeCommand(channel, si);
             break;
 
-        // Command "&": Tie notes together.
         case 0xFB:
             _State.ADPCMVolumeDown = *si++;
             break;
 
-        case 0xfa:
+        case 0xFA:
             si = DecreaseADPCMVolumeCommand(channel, si);
             break;
 
-        case 0xf9:
+        case 0xF9:
             _State.RhythmVolumeDown = *si++;
             break;
 
-        case 0xf8:
+        case 0xF8:
             si = DecreaseRhythmVolumeCommand(channel, si);
             break;
 
-        case 0xf7:
+        case 0xF7:
             _State.PMDB2CompatibilityMode = ((*si++ & 0x01) == 0x01);
             break;
 
-        case 0xf6:
+        case 0xF6:
             _State.PPZVolumeDown = *si++;
             break;
 
@@ -1386,17 +1385,19 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
 {
     int al = *si++;
 
-    if (al < 251)
+    // Add to Ticks per Quarter (T (FC)).
+    if (al < 0xFB)
     {
-        _State.tempo_d = al;    // T (FC)
+        _State.tempo_d = al;
         _State.tempo_d_push = al;
 
         ConvertTBToTempo();
     }
     else
+    // Set Ticks per Quarter (t (FC FF)).
     if (al == 0xFF)
     {
-        al = *si++;          // t (FC FF)
+        al = *si++;
 
         if (al < 18)
             al = 18;
@@ -1407,9 +1408,10 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
         ConvertTempoToTB();
     }
     else
+    // Add to Tempo (T± (FC FE)).
     if (al == 0xFE)
     {
-        al = *si++;      // T± (FC FE)
+        al = *si++;
 
         if (al >= 0)
             al += _State.tempo_d_push;
@@ -1421,17 +1423,18 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
                 al = 0;
         }
 
-        if (al > 250)
-            al = 250;
+        if (al > 0xFA)
+            al = 0xFA;
 
         _State.tempo_d = al;
         _State.tempo_d_push = al;
 
         ConvertTBToTempo();
     }
+    // Set Tempo to ticks (t± (FC FD)).
     else
     {
-        al = *si++;      // t± (FC FD)
+        al = *si++;
 
         if (al >= 0)
         {
@@ -1460,9 +1463,9 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
 // Command '[': Set start of loop
 uint8_t * PMD::SetStartOfLoopCommand(Channel * channel, uint8_t * si)
 {
-    uint8_t * ax = (channel == &_EffectChannel) ? _State.EData : _State.MData;
+    uint8_t * Data = (channel == &_EffectChannel) ? _State.EData : _State.MData;
 
-    ax[*(uint16_t *) si + 1] = 0;
+    Data[*(uint16_t *) si + 1] = 0;
 
     si += 2;
 
@@ -1472,50 +1475,49 @@ uint8_t * PMD::SetStartOfLoopCommand(Channel * channel, uint8_t * si)
 // Command ']': Set end of loop
 uint8_t * PMD::SetEndOfLoopCommand(Channel * channel, uint8_t * si)
 {
-    int ah = *si++;
+    int MaxLoopCount = *si++;
 
-    if (ah != 0)
+    if (MaxLoopCount != 0)
     {
-        (*si)++;
+        (*si)++; // Increase loop count.
 
-        int al = *si++;
+        int LoopCount = *si++;
 
-        if (ah == al)
+        if (LoopCount == MaxLoopCount)
         {
-            si += 2;
+            si += 2; // Skip offset.
+
             return si;
         }
     }
-    else
-    {   // 0 Nara Mujouken Loop
-        si++;
+    else // Loop endlessly.
+    {
+        si++; // Skip loop count.
         channel->loopcheck = 1;
     }
 
-    int ax = *(uint16_t *) si + 2;
+    // Jump to offset + 2.
+    int Offset = *(uint16_t *) si + 2;
 
-    if (channel == &_EffectChannel)
-        si = _State.EData + ax;
-    else
-        si = _State.MData + ax;
+    si = ((channel == &_EffectChannel) ? _State.EData : _State.MData) + Offset;
 
     return si;
 }
 
-// Command ':': Loop dash
+// Command ':': Exit Loop
 uint8_t * PMD::ExitLoopCommand(Channel * channel, uint8_t * si)
 {
-    uint8_t * bx = (channel == &_EffectChannel) ? _State.EData : _State.MData;
+    uint8_t * Data = (channel == &_EffectChannel) ? _State.EData : _State.MData;
 
-    bx += *(uint16_t *) si;
+    Data += *(uint16_t *) si;
     si += 2;
 
-    int dl = *bx++ - 1;
+    int dl = *Data++ - 1;
 
-    if (dl != *bx)
+    if (dl != *Data)
         return si;
 
-    si = bx + 3;
+    si = Data + 3;
 
     return si;
 }
@@ -1726,24 +1728,24 @@ int PMD::oshift(Channel * channel, int al)
 
 uint8_t * PMD::CalculateQ(Channel * channel, uint8_t * si)
 {
-    if (*si == 0xc1)
+    if (*si == 0xC1)
     {
-        si++; // &&
+        si++;
         channel->qdat = 0;
 
         return si;
     }
 
-    int dl = channel->qdata;
+    int dl = channel->EarlyKeyOffTimeout;
 
-    if (channel->qdatb != 0)
-        dl += (channel->Length * channel->qdatb) >> 8;
+    if (channel->EarlyKeyOffTimeoutPercentage != 0)
+        dl += (channel->Length * channel->EarlyKeyOffTimeoutPercentage) >> 8;
 
-    if (channel->qdat3 != 0)
+    if (channel->EarlyKeyOffTimeoutRandomRange != 0)
     {
-        int ax = rnd((channel->qdat3 & 0x7f) + 1); // Random-Q
+        int ax = rnd((channel->EarlyKeyOffTimeoutRandomRange & 0x7F) + 1);
 
-        if ((channel->qdat3 & 0x80) == 0)
+        if ((channel->EarlyKeyOffTimeoutRandomRange & 0x80) == 0)
         {
             dl += ax;
         }
@@ -1767,10 +1769,7 @@ uint8_t * PMD::CalculateQ(Channel * channel, uint8_t * si)
             return si;
         }
 
-        if (dl < dh)
-            channel->qdat = dl;
-        else
-            channel->qdat = dh;
+        channel->qdat = (dl < dh) ? dl : dh;
     }
     else
         channel->qdat = dl;

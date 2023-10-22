@@ -69,8 +69,9 @@ void PMD::PPZMain(Channel * channel)
                         break;
                     }
                 }
-                // "L"があった時
+
                 si = channel->LoopData;
+
                 channel->loopcheck = 1;
             }
             else
@@ -193,19 +194,20 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
 
     switch (al)
     {
-        case 0xff:
+        case 0xFF:
             si = SetPPZInstrumentCommand(channel, si);
             break;
 
-        case 0xfe:
-            channel->qdata = *si++;
+        // Set early Key Off Timeout
+        case 0xFE:
+            channel->EarlyKeyOffTimeout = *si++;
             break;
 
         case 0xFD:
             channel->Volume = *si++;
             break;
 
-        case 0xfc:
+        case 0xFC:
             si = ChangeTempoCommand(si);
             break;
 
@@ -214,15 +216,32 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
             _Driver.TieMode |= 1;
             break;
 
-        case 0xfa:
+        // Set detune.
+        case 0xFA:
             channel->DetuneValue = *(int16_t *) si;
             si += 2;
             break;
 
-        case 0xf9: si = SetStartOfLoopCommand(channel, si); break;
-        case 0xf8: si = SetEndOfLoopCommand(channel, si); break;
-        case 0xf7: si = ExitLoopCommand(channel, si); break;
-        case 0xf6: channel->LoopData = si; break;
+        // Set loop start.
+        case 0xF9:
+            si = SetStartOfLoopCommand(channel, si);
+            break;
+
+        // Set loop end.
+        case 0xF8:
+            si = SetEndOfLoopCommand(channel, si);
+            break;
+
+        // Exit loop.
+        case 0xF7:
+            si = ExitLoopCommand(channel, si);
+            break;
+
+        // Command "L": Set the loop data.
+        case 0xF6:
+            channel->LoopData = si;
+            break;
+
         case 0xf5: channel->shift = *(int8_t *) si++; break;
         case 0xf4:
             if (channel->Volume < (255 - 16))
@@ -325,14 +344,23 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xc7: si += 3; break;
         case 0xc6: si += 6; break;
         case 0xc5: si++; break;
-        case 0xc4: channel->qdatb = *si++; break;
+
+        // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
+        case 0xC4:
+            channel->EarlyKeyOffTimeoutPercentage = *si++;
+            break;
+
         case 0xc3:
             si = SetPPZPanValueExtendedCommand(channel, si);
             break;
 
         case 0xc2: channel->delay = channel->delay2 = *si++; lfoinit_main(channel); break;
         case 0xc1: break;
-        case 0xc0: si = SetPPZMaskCommand(channel, si); break;
+
+        case 0xC0:
+            si = SetPPZMaskCommand(channel, si);
+            break;
+
         case 0xbf:
             SwapLFO(channel);
 
@@ -396,7 +424,11 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
 
         case 0xb3: channel->qdat2 = *si++; break;
         case 0xb2: channel->shift_def = *(int8_t *) si++; break;
-        case 0xb1: channel->qdat3 = *si++; break;
+
+        // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
+        case 0xB1:
+            channel->EarlyKeyOffTimeoutRandomRange = *si++;
+            break;
 
         default:
             si--;
