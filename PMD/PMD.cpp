@@ -371,25 +371,25 @@ int PMD::Load(const uint8_t * data, size_t size)
 
                 _PPZFileName[i] = p;
 
-                // PZI import (Up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit) / PVI import (ADPCM)
-                if (HasExtension(p, ::wcslen(p) + 1, L".PZI") || HasExtension(p, ::wcslen(p) + 1, L".PVI"))
+                // PZI import (Up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit)
+                if (HasExtension(p, _countof(FileNameW) - ::wcslen(p), L".PZI"))
                 {
                     FindFile(p, FilePath, _countof(FilePath));
 
-                    Result = _PPZ->Load(FilePath, i);
+                    Result = _PPZ->Load(FilePath, 0);
 
                     if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
                         _PPZFilePath[i] = FilePath;
                 }
                 else
                 // PMB import
-                if (HasExtension(p, ::wcslen(p) + 1, L".PMB"))
+                if (HasExtension(p, _countof(FileNameW) - ::wcslen(p), L".PMB"))
                 {
                     RenameExtension(p, _countof(FileNameW) - ::wcslen(p), L".PZI");
 
                     FindFile(p, FilePath, _countof(FilePath));
 
-                    Result = _PPZ->Load(FilePath, i);
+                    Result = _PPZ->Load(FilePath, 0);
 
                     if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
                         _PPZFilePath[i] = FilePath;

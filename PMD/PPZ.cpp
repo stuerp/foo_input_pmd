@@ -319,7 +319,10 @@ void PPZDriver::SetPitch(size_t ch, uint32_t pitch)
     if ((ch == 7) && _EmulateADPCM)
         pitch = (pitch & 0xFFFF) * 0x8000 / 0x49BA;
 
-    _Channel[ch].PCMAddH = (int) pitch * 2 * _Channel[ch].SourceFrequency / _OutputFrequency;
+    int AddsL = (int) (pitch & 0xFFFF);
+    int AddsH = (int) (pitch >> 16);
+
+    _Channel[ch].PCMAddH = (int) ((((int64_t) (AddsH) << 16) + AddsL) * 2 * _Channel[ch].SourceFrequency / _OutputFrequency);
 
     _Channel[ch].PCMAddL = _Channel[ch].PCMAddH & 0xFFFF;
     _Channel[ch].PCMAddH = _Channel[ch].PCMAddH >> 16;
