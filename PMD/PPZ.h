@@ -166,7 +166,6 @@ private:
     void MoveSamplePointer(int i) noexcept;
 
     void Initialize();
-    void Reset();
 
     void CreateVolumeTable(int volume);
     void ReadHeader(File * file, PZIHEADER & pziheader);

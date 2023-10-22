@@ -1,5 +1,5 @@
 ﻿
-// $VER: PMD.cpp (2023.10.18) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMD.cpp (2023.10.22) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -360,7 +360,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
             WCHAR * p = FileNameW;
 
-            for (int i = 0; (*p != '\0') && (i < _countof(_PPZFilePath)); ++i)
+            for (size_t i = 0; (*p != '\0') && (i < _countof(_PPZFilePath)); ++i)
             {
                 {
                     WCHAR * q = ::wcschr(p, ',');
@@ -371,12 +371,12 @@ int PMD::Load(const uint8_t * data, size_t size)
 
                 _PPZFileName[i] = p;
 
-                // PZI import (Up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit)
-                if (HasExtension(p, _countof(FileNameW) - ::wcslen(p), L".PZI"))
+                // PZI import (Up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit) / PVI import (ADPCM)
+                if (HasExtension(p, _countof(FileNameW) - ::wcslen(p), L".PZI") || HasExtension(p, _countof(FileNameW) - ::wcslen(p), L".PVI"))
                 {
                     FindFile(p, FilePath, _countof(FilePath));
 
-                    Result = _PPZ->Load(FilePath, 0);
+                    Result = _PPZ->Load(FilePath, i);
 
                     if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
                         _PPZFilePath[i] = FilePath;
@@ -389,7 +389,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 
                     FindFile(p, FilePath, _countof(FilePath));
 
-                    Result = _PPZ->Load(FilePath, 0);
+                    Result = _PPZ->Load(FilePath, i);
 
                     if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
                         _PPZFilePath[i] = FilePath;
@@ -2525,6 +2525,8 @@ void PMD::WritePCMData(uint16_t startAddress, uint16_t stopAddress, const uint8_
 /// </summary>
 void PMD::FindFile(const WCHAR * filename, WCHAR * filePath, size_t size) const noexcept
 {
+    filePath[0] = '\0';
+
     WCHAR FilePath[MAX_PATH];
 
     for (size_t i = 0; i < _SearchPath.size(); ++i)

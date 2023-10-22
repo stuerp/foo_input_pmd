@@ -15,8 +15,8 @@
 
 #include "PPZ.h"
 
-//  Constant table (ADPCM Volume to PPZ8 Volume)
-const int ADPCM_EM_VOL[256] =
+// ADPCM to PPZ Volume mapping
+static const int ADPCMEmulationVolume[256] =
 {
      0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4,
      4, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6,
@@ -67,7 +67,7 @@ void PPZDriver::Play(size_t ch, int bankNumber, int sampleNumber, uint16_t start
 
     if ((ch == 7) && _EmulateADPCM)
     {
-        _Channel[ch].PCMStartH      = &pb._Data[Clamp(((int) start)    * 64, 0, pb._Size - 1)];
+        _Channel[ch].PCMStartH     = &pb._Data[Clamp(((int) start)    * 64, 0, pb._Size - 1)];
         _Channel[ch].PCMEndRounded = &pb._Data[Clamp(((int) stop - 1) * 64, 0, pb._Size - 1)];
         _Channel[ch].PCMEnd        = _Channel[ch].PCMEndRounded;
     }
@@ -75,7 +75,7 @@ void PPZDriver::Play(size_t ch, int bankNumber, int sampleNumber, uint16_t start
     {
         PZIITEM& pi = pb._PZIHeader.PZIItem[sampleNumber];
 
-        _Channel[ch].PCMStartH      = &pb._Data[pi.Start];
+        _Channel[ch].PCMStartH     = &pb._Data[pi.Start];
         _Channel[ch].PCMEndRounded = &pb._Data[pi.Start + pi.Size];
 
         if (_Channel[ch].HasLoop)
@@ -109,8 +109,6 @@ int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
 {
     if (filePath == nullptr || (filePath && (*filePath == '\0')))
         return PPZ_OPEN_FAILED;
-
-    Reset();
 
     if (!_File->Open(filePath))
     {
@@ -305,7 +303,7 @@ void PPZDriver::SetVolume(size_t ch, int volume)
         return;
 
     if ((ch == 7) && _EmulateADPCM)
-        _Channel[ch].Volume = ADPCM_EM_VOL[volume & 0xFF];
+        _Channel[ch].Volume = ADPCMEmulationVolume[volume & 0xFF];
     else
         _Channel[ch].Volume = volume;
 }
@@ -318,11 +316,13 @@ void PPZDriver::SetPitch(size_t ch, uint32_t pitch)
 
     if ((ch == 7) && _EmulateADPCM)
         pitch = (pitch & 0xFFFF) * 0x8000 / 0x49BA;
-
+/*
     int AddsL = (int) (pitch & 0xFFFF);
     int AddsH = (int) (pitch >> 16);
 
-    _Channel[ch].PCMAddH = (int) ((((int64_t) (AddsH) << 16) + AddsL) * 2 * _Channel[ch].SourceFrequency / _OutputFrequency);
+    _Channel[ch].PCMAddH = (int) ((((int64_t) AddsH << 16) + AddsL) * 2 * _Channel[ch].SourceFrequency / _OutputFrequency);
+*/
+    _Channel[ch].PCMAddH = (int) (sizeof(int16_t) * (int64_t) pitch * _Channel[ch].SourceFrequency / _OutputFrequency);
 
     _Channel[ch].PCMAddL = _Channel[ch].PCMAddH & 0xFFFF;
     _Channel[ch].PCMAddH = _Channel[ch].PCMAddH >> 16;
@@ -774,24 +774,6 @@ void PPZDriver::MoveSamplePointer(int i) noexcept
 
 void PPZDriver::Initialize()
 {
-    _PPZBank[0].Reset();
-    _PPZBank[1].Reset();
-
-    _EmulateADPCM = false;
-    _UseInterpolation = false;
-
-    Reset();
-
-    _PCMVolume = 0;
-    _Volume = 0;
-
-    SetAllVolume(DefaultVolume);
-
-    _OutputFrequency = DefaultSampleRate;
-}
-
-void PPZDriver::Reset()
-{
     ::memset(_Channel, 0, sizeof(_Channel));
 
     for (size_t i = 0; i < _countof(_Channel); ++i)
@@ -802,6 +784,19 @@ void PPZDriver::Reset()
         _Channel[i].PanValue = 5; // Pan Center
         _Channel[i].Volume = 8; // Default volume
     }
+
+    _PPZBank[0].Reset();
+    _PPZBank[1].Reset();
+
+    _EmulateADPCM = false;
+    _UseInterpolation = false;
+
+    _PCMVolume = 0;
+    _Volume = 0;
+
+    SetAllVolume(DefaultVolume);
+
+    _OutputFrequency = DefaultSampleRate;
 }
 
 void PPZDriver::CreateVolumeTable(int volume)
