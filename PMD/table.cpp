@@ -7,9 +7,9 @@
 
 #include "table.h"
 
-const int ChannelTable[][3] = // for PMDB2
+const int ChannelTable[][3] =
 {
-    //  Part number, Part B, Sound Source number
+    //  Part number, Channel nummber, Sound Source number
     {  0, 1, 0 }, // A
     {  1, 2, 0 }, // B
     {  2, 3, 0 }, // C

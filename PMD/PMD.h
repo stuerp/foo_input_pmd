@@ -1,5 +1,5 @@
 ﻿
-/** $VER: PMD.h (2023.10.18) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: PMD.h (2023.10.22) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -78,11 +78,6 @@ public:
 
     void SetPPZOutputFrequency(uint32_t value) noexcept;
     void SetPPZInterpolation(bool flag);
-
-    void SetFMDelay(int nsec);
-    void SetSSGDelay(int nsec);
-    void SetADPCMDelay(int nsec);
-    void SetRhythmDelay(int nsec);
 
     void SetFadeOutSpeed(int speed);
     void SetFadeOutDurationHQ(int speed);
@@ -288,18 +283,6 @@ private:
 
     int MuteFMChannel(Channel * channel);
 
-    void SetFMKeyOff(Channel * channel);
-    void SetSSGKeyOff(Channel * channel);
-    void SetADPCMKeyOff(Channel * channel);
-    void SetP86KeyOff(Channel * channel);
-    void SetPPZKeyOff(Channel * channel);
-
-    void SetFMTone(Channel * channel, int al);
-    void SetSSGTone(Channel * channel, int al);
-    void SetADPCMTone(Channel * channel, int al);
-    void SetP86Tone(Channel * channel, int al);
-    void SetPPZTone(Channel * channel, int al);
-
     bool CheckSSGDrum(Channel * channel, int al);
 
     uint8_t * ExecuteFMCommand(Channel * channel, uint8_t * si);
@@ -322,6 +305,9 @@ private:
     void SetFMVolumeCommand(Channel * channel);
     void SetFMPitch(Channel * channel);
     void SetFMKeyOn(Channel * channel);
+    void SetFMKeyOff(Channel * channel);
+    void SetFMDelay(int nsec);
+    void SetFMTone(Channel * channel, int al);
 
     uint8_t * GetFMInstrumentDefinition(Channel * channel, int dl);
     void ResetFMInstrument(Channel * channel);
@@ -338,6 +324,9 @@ private:
     void SetSSGVolume(Channel * channel);
     void SetSSGPitch(Channel * channel);
     void SetSSGKeyOn(Channel * channel);
+    void SetSSGKeyOff(Channel * channel);
+    void SetSSGDelay(int nsec);
+    void SetSSGTone(Channel * channel, int al);
 
     uint8_t * ExecuteADPCMCommand(Channel * channel, uint8_t * si);
     uint8_t * DecreaseADPCMVolumeCommand(Channel * channel, uint8_t * si);
@@ -351,6 +340,9 @@ private:
     void SetADPCMVolumeCommand(Channel * channel);
     void SetADPCMPitch(Channel * channel);
     void SetADPCMKeyOn(Channel * channel);
+    void SetADPCMKeyOff(Channel * channel);
+    void SetADPCMDelay(int nsec);
+    void SetADPCMTone(Channel * channel, int al);
 
     uint8_t * ExecuteRhythmCommand(Channel * channel, uint8_t * si);
     uint8_t * DecreaseRhythmVolumeCommand(Channel * channel, uint8_t * si);
@@ -363,6 +355,8 @@ private:
     uint8_t * SetRhythmVolume(uint8_t * si);
     uint8_t * SetRhythmPanValue(uint8_t * si);
 
+    void SetRhythmDelay(int nsec);
+
     uint8_t * ExecuteP86Command(Channel * channel, uint8_t * si);
     uint8_t * SetP86InstrumentCommand(Channel * channel, uint8_t * si);
     uint8_t * SetP86PanValueCommand(Channel * channel, uint8_t * si);
@@ -373,6 +367,8 @@ private:
     void SetPCM86Volume(Channel * channel);
     void SetPCM86Pitch(Channel * channel);
     void SetP86KeyOn(Channel * channel);
+    void SetP86KeyOff(Channel * channel);
+    void SetP86Tone(Channel * channel, int al);
 
     uint8_t * ExecutePPZCommand(Channel * channel, uint8_t * si);
     uint8_t * DecreasePPZVolumeCommand(Channel * channel, uint8_t * si);
@@ -386,6 +382,8 @@ private:
     void SetPPZVolume(Channel * channel);
     void SetPPZPitch(Channel * channel);
     void SetPPZKeyOn(Channel * channel);
+    void SetPPZKeyOff(Channel * channel);
+    void SetPPZTone(Channel * channel, int al);
 
     uint8_t * SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8_t value);
     uint8_t * ChangeTempoCommand(uint8_t * si);

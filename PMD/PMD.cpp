@@ -1008,50 +1008,61 @@ int PMD::DisableChannel(int channel)
 
     int OldFMSelector = _Driver.FMSelector;
 
-    if ((_State.Channel[channel]->MuteMask == 0x00) && IsPlaying())
+    if (IsPlaying() && (_State.Channel[channel]->MuteMask == 0x00))
     {
-        if (ChannelTable[channel][2] == 0)
+        switch (ChannelTable[channel][2])
         {
-            _Driver.CurrentChannel = ChannelTable[channel][1];
-            _Driver.FMSelector = 0;
+            case 0:
+            {
+                _Driver.CurrentChannel = ChannelTable[channel][1];
+                _Driver.FMSelector = 0;
 
-            MuteFMChannel(_State.Channel[channel]);
-        }
-        else
-        if (ChannelTable[channel][2] == 1)
-        {
-            _Driver.CurrentChannel = ChannelTable[channel][1];
-            _Driver.FMSelector = 0x100;
+                MuteFMChannel(_State.Channel[channel]);
+                break;
+            }
 
-            MuteFMChannel(_State.Channel[channel]);
-        }
-        else
-        if (ChannelTable[channel][2] == 2)
-        {
-            _Driver.CurrentChannel = ChannelTable[channel][1];
+            case 1:
+            {
+                _Driver.CurrentChannel = ChannelTable[channel][1];
+                _Driver.FMSelector = 0x100;
 
-            int ah = 1 << (_Driver.CurrentChannel - 1);
+                MuteFMChannel(_State.Channel[channel]);
+                break;
+            }
 
-            ah |= (ah << 3);
+            case 2:
+            {
+                _Driver.CurrentChannel = ChannelTable[channel][1];
 
-            // SSG SetFMKeyOff
-            _OPNAW->SetReg(0x07, ah | _OPNAW->GetReg(0x07));
+                int ah = 1 << (_Driver.CurrentChannel - 1);
+
+                ah |= (ah << 3);
+
+                // SSG SetFMKeyOff
+                _OPNAW->SetReg(0x07, ah | _OPNAW->GetReg(0x07));
+                break;
+            }
+
+            case 3:
+            {
+                _OPNAW->SetReg(0x101, 0x02);    // PAN=0 / x8 bit mode
+                _OPNAW->SetReg(0x100, 0x01);    // PCM RESET
+                break;
+            }
+
+            case 4:
+            {
+                if (_Effect.Number < 11)
+                    StopEffect();
+                break;
+            }
+
+            case 5:
+            {
+                _PPZ->Stop((size_t) ChannelTable[(size_t) channel][1]);
+                break;
+            }
         }
-        else
-        if (ChannelTable[channel][2] == 3)
-        {
-            _OPNAW->SetReg(0x101, 0x02);    // PAN=0 / x8 bit mode
-            _OPNAW->SetReg(0x100, 0x01);    // PCM RESET
-        }
-        else
-        if (ChannelTable[channel][2] == 4)
-        {
-            if (_Effect.Number < 11)
-                StopEffect();
-        }
-        else
-        if (ChannelTable[channel][2] == 5)
-            _PPZ->Stop(ChannelTable[channel][1]);
     }
 
     _State.Channel[channel]->MuteMask |= 0x01;
@@ -2004,7 +2015,7 @@ void PMD::Silence()
     _OPNAW->SetReg(0x110, 0x80);  // TA/TB/EOS を RESET
     _OPNAW->SetReg(0x110, 0x18);  // Bit change only for TIMERB/A/EOS
 
-    for (int i = 0; i < MaxPPZChannels; ++i)
+    for (size_t i = 0; i < MaxPPZChannels; ++i)
         _PPZ->Stop(i);
 }
 

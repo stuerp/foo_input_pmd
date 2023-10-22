@@ -33,23 +33,20 @@ struct PPZChannel
     int Volume;
     int PanValue;
 
-    int PCM_ADD_L;                // アドレス増加量 LOW
-    int PCM_ADD_H;                // アドレス増加量 HIGH
-    int PCM_ADDS_L;                // アドレス増加量 LOW（元の値）
-    int PCM_ADDS_H;                // アドレス増加量 HIGH（元の値）
     int SourceFrequency;
     int SampleNumber;
 
-    uint8_t * PCMStart;                // Current value
-    int PCM_NOW_XOR;            // Current value (decimal part)
+    int PCMStartL;
+    int PCMAddL;
+    int PCMAddH;
 
-    uint8_t * PCMEnd;                // 現在の終了アドレス
-    uint8_t * PCMEndRounded;                // 本当の終了アドレス
+    uint8_t * PCMStartH;
+    uint8_t * PCMEnd;
+    uint8_t * PCMEndRounded;
+    uint8_t * PCMLoopStart;
 
-    uint8_t * PCM_LOOP;                // ループ開始アドレス
-
-    uint32_t PCMLoopStart;            // リニアなループ開始アドレス
-    uint32_t PCMLoopEnd;            // リニアなループ終了アドレス
+    uint32_t LoopStartOffset;
+    uint32_t LoopEndOffset;
 };
 
 #pragma pack(push)
@@ -67,9 +64,15 @@ struct PZIHEADER
 {
     char ID[4];                     // 'PZI1'
     char Dummy1[7];
-    uint8_t Count;                  // Number of PCM entries available
+    uint8_t Count;                  // Number of PZI entries available
     char Dummy2[22];
     PZIITEM PZIItem[128];
+};
+
+struct PVIITEM
+{
+    uint16_t Start;
+    uint16_t End;
 };
 
 struct PVIHEADER
@@ -78,16 +81,12 @@ struct PVIHEADER
     char Dummy1[0x0b - 4];
     uint8_t Count;                  // Number of PVI entries available
     char Dummy2[0x10 - 0x0b - 1];
-    struct
-    {
-        uint16_t Start;
-        uint16_t End;
-    } PVIItem[128];
+    PVIITEM PVIItem[128];
 };
 #pragma pack(pop)
 
 /// <summary>
-/// Represents a PPZ sample.
+/// Represents a bank of PPZ samples.
 /// </summary>
 class PPZBank
 {
@@ -119,6 +118,7 @@ public:
 
     bool IsEmpty() const { return _Data == nullptr; }
 
+public:
     std::wstring _FilePath;
 
     PZIHEADER _PZIHeader;
@@ -137,22 +137,22 @@ public:
     PPZDriver(File * file);
     virtual ~PPZDriver();
 
-    bool Initialize(uint32_t outputFrequency, bool useInterpolation);
-    bool Play(int channelNumber, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop);
-    bool Stop(int channelNumber);
-    int  Load(const WCHAR * filePath, size_t bankNumber);
+    void Initialize(uint32_t outputFrequency, bool useInterpolation);
+    void Play(size_t channelNumber, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop);
+    void Stop(size_t channelNumber);
+    int Load(const WCHAR * filePath, size_t bankNumber);
     void SetInstrument(size_t ch, size_t bankNumber, size_t instrumentNumber);
-    bool SetVolume(int channelNumber, int volume);
-    bool SetPitch(int channelNumber, uint32_t pitch);
-    bool SetLoop(size_t channelNumber, size_t bankNumber, size_t instrumentNumber);
-    bool SetLoop(size_t channelNumber, size_t bankNumber, size_t instrumentNumber, int loopStart, int loopEnd);
+    void SetVolume(size_t channelNumber, int volume);
+    void SetPitch(size_t channelNumber, uint32_t pitch);
+    void SetLoop(size_t channelNumber, size_t bankNumber, size_t instrumentNumber);
+    void SetLoop(size_t channelNumber, size_t bankNumber, size_t instrumentNumber, int loopStart, int loopEnd);
     void AllStop();
-    bool SetPan(size_t channelNumber, int value);
-    bool SetOutputFrequency(uint32_t outputFrequency, bool useInterpolation);
-    bool SetSourceFrequency(size_t channelNumber, int sourceFrequency);
+    void SetPan(size_t channelNumber, int value);
+    void SetOutputFrequency(uint32_t outputFrequency, bool useInterpolation);
+    void SetSourceFrequency(size_t channelNumber, int sourceFrequency);
     void SetAllVolume(int volume);
     void SetVolume(int volume);
-    void ADPCM_EM_SET(bool flag);
+    void EmulateADPCM(bool flag);
 //  REMOVE_FSET; // 19H (PPZ8)常駐解除ﾌﾗｸﾞ設定
 //  FIFOBUFF_SET; // 1AH (PPZ8)FIFOﾊﾞｯﾌｧの変更
 //  RATE_SET; // 1BH (PPZ8)WSS詳細ﾚｰﾄ設定
@@ -165,16 +165,16 @@ public:
 private:
     void MoveSamplePointer(int i) noexcept;
 
-    void InitializeInternal();
+    void Initialize();
     void Reset();
 
     void CreateVolumeTable(int volume);
     void ReadHeader(File * file, PZIHEADER & pziheader);
     void ReadHeader(File * file, PVIHEADER & pviheader);
 
-    inline int Limit(int v, int max, int min) const noexcept
+    inline int Clamp(int value, int min, int max) const noexcept
     {
-        return v > max ? max : (v < min ? min : v);
+        return value > max ? max : (value < min ? min : value);
     }
 
 private:

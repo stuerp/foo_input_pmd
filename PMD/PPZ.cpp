@@ -1,5 +1,5 @@
 ﻿
-/** $VER: PPZ.cpp (2023.10.18) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
+/** $VER: PPZ.cpp (2023.10.22) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -38,7 +38,7 @@ const int ADPCM_EM_VOL[256] =
 
 PPZDriver::PPZDriver(File * file) : _File(file)
 {
-    InitializeInternal();
+    Initialize();
 }
 
 PPZDriver::~PPZDriver()
@@ -46,67 +46,62 @@ PPZDriver::~PPZDriver()
 }
 
 //  00H Initialize
-bool PPZDriver::Initialize(uint32_t outputFrequency, bool useInterpolation)
+void PPZDriver::Initialize(uint32_t outputFrequency, bool useInterpolation)
 {
-    InitializeInternal();
-
-    return SetOutputFrequency(outputFrequency, useInterpolation);
+    Initialize();
+    SetOutputFrequency(outputFrequency, useInterpolation);
 }
 
 // 01H Start PCM
-bool PPZDriver::Play(int ch, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop)
+void PPZDriver::Play(size_t ch, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop)
 {
     PPZBank& pb = _PPZBank[bankNumber];
 
     if ((ch >= _countof(_Channel)) || pb.IsEmpty())
-        return false;
+        return;
 
     _Channel[ch].IsPVI = pb._IsPVI;
     _Channel[ch].IsPlaying = true;
     _Channel[ch].SampleNumber = sampleNumber;
-    _Channel[ch].PCM_NOW_XOR = 0; // Decimal part
+    _Channel[ch].PCMStartL = 0;
 
-    if ((ch == 7) && _EmulateADPCM && (ch & 0x80) == 0)
+    if ((ch == 7) && _EmulateADPCM)
     {
-        _Channel[ch].PCMStart      = &pb._Data[Limit(((int) start)    * 64, pb._Size - 1, 0)];
-        _Channel[ch].PCMEndRounded = &pb._Data[Limit(((int) stop - 1) * 64, pb._Size - 1, 0)];
+        _Channel[ch].PCMStartH      = &pb._Data[Clamp(((int) start)    * 64, 0, pb._Size - 1)];
+        _Channel[ch].PCMEndRounded = &pb._Data[Clamp(((int) stop - 1) * 64, 0, pb._Size - 1)];
         _Channel[ch].PCMEnd        = _Channel[ch].PCMEndRounded;
     }
     else
     {
         PZIITEM& pi = pb._PZIHeader.PZIItem[sampleNumber];
 
-        _Channel[ch].PCMStart      = &pb._Data[pi.Start];
+        _Channel[ch].PCMStartH      = &pb._Data[pi.Start];
         _Channel[ch].PCMEndRounded = &pb._Data[pi.Start + pi.Size];
 
         if (_Channel[ch].HasLoop)
         {
-            if (_Channel[ch].PCMLoopStart < pi.Size)
-                _Channel[ch].PCM_LOOP = &pb._Data[pi.Start + _Channel[ch].PCMLoopStart];
+            if (_Channel[ch].LoopStartOffset < pi.Size)
+                _Channel[ch].PCMLoopStart = &pb._Data[pi.Start + _Channel[ch].LoopStartOffset];
             else
-                _Channel[ch].PCM_LOOP = &pb._Data[pi.Start + pi.Size - 1];
+                _Channel[ch].PCMLoopStart = &pb._Data[pi.Start + pi.Size - 1];
 
-            if (_Channel[ch].PCMLoopEnd < pi.Size)
-                _Channel[ch].PCMEnd = &pb._Data[pi.Start + _Channel[ch].PCMLoopEnd];
+            if (_Channel[ch].LoopEndOffset < pi.Size)
+                _Channel[ch].PCMEnd = &pb._Data[pi.Start + _Channel[ch].LoopEndOffset];
             else
                 _Channel[ch].PCMEnd = &pb._Data[pi.Start + pi.Size];
         }
         else
             _Channel[ch].PCMEnd = _Channel[ch].PCMEndRounded;
     }
-
-    return true;
 }
 
 // 02H Stop PCM
-bool PPZDriver::Stop(int ch)
+void PPZDriver::Stop(size_t ch)
 {
-    if (ch >= MaxPPZChannels)
-        return false;
+    if (ch >= _countof(_Channel))
+        return;
 
     _Channel[ch].IsPlaying = false;
-
-    return true;
 }
 
 // 03H Read PVI/PZI file
@@ -162,8 +157,6 @@ int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
 
             return PPZ_OUT_OF_MEMORY;
         }
-
-        ::memset(Data, 0, (size_t) Size);
 
         _File->Read(Data, (uint32_t) Size);
 
@@ -229,18 +222,18 @@ int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
 
         size_t DstSize = (size_t) (std::max)(Size, PVISize) * 2;
 
-        uint8_t * Data = (uint8_t *) ::malloc(DstSize);
+        uint8_t * DstData = (uint8_t *) ::malloc(DstSize);
 
-        if (Data == nullptr)
+        if (DstData == nullptr)
         {
             _File->Close();
 
             return PPZ_OUT_OF_MEMORY;
         }
 
-        ::memset(Data, 0, DstSize);
+        ::memset(DstData, 0, DstSize);
 
-        _PPZBank[bankNumber]._Data = Data;
+        _PPZBank[bankNumber]._Data = DstData;
         _PPZBank[bankNumber]._Size = PVISize * 2;
 
         {
@@ -260,9 +253,10 @@ int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
 
             uint8_t * psrc = (uint8_t *) ::malloc(SrcSize);
 
-            if (psrc == NULL)
+            if (psrc == nullptr)
             {
                 _File->Close();
+
                 return PPZ_OUT_OF_MEMORY;
             }
 
@@ -272,24 +266,23 @@ int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
 
             uint8_t * psrc2 = psrc;
 
-            // ADPCM > PCM に変換
-            for (int i = 0; i < PVIHeader.Count; ++i)
+            // Convert ADPCM to PCM.
+            for (size_t i = 0; i < PVIHeader.Count; ++i)
             {
-                int X_N     = X_N0;     // Xn (ADPCM>PCM 変換用)
-                int DELTA_N = DELTA_N0; // DELTA_N(ADPCM>PCM 変換用)
+                int X_N     = X_N0;
+                int DELTA_N = DELTA_N0;
 
-                for (int j = 0; j < (int) PZIHeader.PZIItem[i].Size / 2; ++j)
+                for (size_t j = 0; j < PZIHeader.PZIItem[i].Size / 2; ++j)
                 {
+                    X_N     = Clamp(X_N     + table1[(*psrc >> 4) & 0x0F] * DELTA_N /  8, -32768, 32767);
+                    DELTA_N = Clamp(DELTA_N * table2[(*psrc >> 4) & 0x0F]           / 64,    127, 24576);
 
-                    X_N     = Limit(X_N + table1[(*psrc >> 4) & 0x0f] * DELTA_N / 8, 32767, -32768);
-                    DELTA_N = Limit(DELTA_N * table2[(*psrc >> 4) & 0x0f] / 64, 24576, 127);
+                    *DstData++ = (uint8_t) (X_N / (32768 / 128) + 128);
 
-                    *Data++ = (uint8_t) (X_N / (32768 / 128) + 128);
+                    X_N     = Clamp(X_N     + table1[*psrc   & 0x0F] * DELTA_N /  8, -32768, 32767);
+                    DELTA_N = Clamp(DELTA_N * table2[*psrc++ & 0x0F]           / 64,    127, 24576);
 
-                    X_N     = Limit(X_N + table1[*psrc & 0x0f] * DELTA_N / 8, 32767, -32768);
-                    DELTA_N = Limit(DELTA_N * table2[*psrc++ & 0x0f] / 64, 24576, 127);
-
-                    *Data++ = (uint8_t) (X_N / (32768 / 128) + 128);
+                    *DstData++ = (uint8_t) (X_N / (32768 / 128) + 128);
                 }
             }
 
@@ -306,66 +299,60 @@ int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
 }
 
 // 07H Volume
-bool PPZDriver::SetVolume(int channelNumber, int volume)
+void PPZDriver::SetVolume(size_t ch, int volume)
 {
-    if (channelNumber >= MaxPPZChannels)
-        return false;
+    if (ch >= _countof(_Channel))
+        return;
 
-    if (channelNumber != 7 || !_EmulateADPCM)
-        _Channel[channelNumber].Volume = volume;
+    if ((ch == 7) && _EmulateADPCM)
+        _Channel[ch].Volume = ADPCM_EM_VOL[volume & 0xFF];
     else
-        _Channel[channelNumber].Volume = ADPCM_EM_VOL[volume & 0xff];
-
-    return true;
+        _Channel[ch].Volume = volume;
 }
 
 // 0BH Pitch Frequency
-bool PPZDriver::SetPitch(int channelNumber, uint32_t pitch)
+void PPZDriver::SetPitch(size_t ch, uint32_t pitch)
 {
-    if (channelNumber >= _countof(_Channel))
-        return false;
+    if (ch >= _countof(_Channel))
+        return;
 
-    if (channelNumber == 7 && _EmulateADPCM) // Emulating ADPCM?
-        pitch = (pitch & 0xFFFF) * 0x8000 / 0x49ba;
+    if ((ch == 7) && _EmulateADPCM)
+        pitch = (pitch & 0xFFFF) * 0x8000 / 0x49BA;
 
-    _Channel[channelNumber].PCM_ADDS_L = (int) (pitch & 0xFFFF);
-    _Channel[channelNumber].PCM_ADDS_H = (int) (pitch >> 16);
+    int AddsL = (int) (pitch & 0xFFFF);
+    int AddsH = (int) (pitch >> 16);
 
-    _Channel[channelNumber].PCM_ADD_H = (int) ((((int64_t) (_Channel[channelNumber].PCM_ADDS_H) << 16) + _Channel[channelNumber].PCM_ADDS_L) * 2 * _Channel[channelNumber].SourceFrequency / _OutputFrequency);
+    _Channel[ch].PCMAddH = (int) ((((int64_t) (AddsH) << 16) + AddsL) * 2 * _Channel[ch].SourceFrequency / _OutputFrequency);
 
-    _Channel[channelNumber].PCM_ADD_L = _Channel[channelNumber].PCM_ADD_H & 0xFFFF;
-    _Channel[channelNumber].PCM_ADD_H = _Channel[channelNumber].PCM_ADD_H >> 16;
-
-    return true;
+    _Channel[ch].PCMAddL = _Channel[ch].PCMAddH & 0xFFFF;
+    _Channel[ch].PCMAddH = _Channel[ch].PCMAddH >> 16;
 }
 
 // 0EH Set loop pointer
-bool PPZDriver::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber)
+void PPZDriver::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber)
 {
-    if ((ch >= MaxPPZChannels) || (bankNumber > 1) || (sampleNumber > 127))
-        return false;
+    if ((ch >= _countof(_Channel)) || (bankNumber > 1) || (sampleNumber > 127))
+        return;
 
     const PZIITEM& pi = _PPZBank[bankNumber]._PZIHeader.PZIItem[sampleNumber];
 
     if ((pi.LoopStart != ~0U) && (pi.LoopStart < pi.LoopEnd))
     {
         _Channel[ch].HasLoop = true;
-        _Channel[ch].PCMLoopStart = pi.LoopStart;
-        _Channel[ch].PCMLoopEnd = pi.LoopEnd;
+        _Channel[ch].LoopStartOffset = pi.LoopStart;
+        _Channel[ch].LoopEndOffset = pi.LoopEnd;
     }
     else
     {
         _Channel[ch].HasLoop = false;
         _Channel[ch].PCMEnd = _Channel[ch].PCMEndRounded;
     }
-
-    return true;
 }
 
-bool PPZDriver::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber, int loopStart, int loopEnd)
+void PPZDriver::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber, int loopStart, int loopEnd)
 {
-    if ((ch >= MaxPPZChannels) || (bankNumber > 1) || (sampleNumber > 127))
-        return false;
+    if ((ch >= _countof(_Channel)) || (bankNumber > 1) || (sampleNumber > 127))
+        return;
 
     const PZIITEM& pi = _PPZBank[bankNumber]._PZIHeader.PZIItem[sampleNumber];
 
@@ -378,59 +365,51 @@ bool PPZDriver::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber, int l
     if (loopStart < loopEnd)
     {
         _Channel[ch].HasLoop = true;
-        _Channel[ch].PCMLoopStart = (uint32_t) loopStart;
-        _Channel[ch].PCMLoopEnd = (uint32_t) loopEnd;
+        _Channel[ch].LoopStartOffset = (uint32_t) loopStart;
+        _Channel[ch].LoopEndOffset = (uint32_t) loopEnd;
     }
     else
     {
         _Channel[ch].HasLoop = false;
         _Channel[ch].PCMEnd = _Channel[ch].PCMEndRounded;
     }
-
-    return true;
 }
 
 // 12H Stop all channels.
 void PPZDriver::AllStop()
 {
-    for (int i = 0; i < MaxPPZChannels; i++)
+    for (size_t i = 0; i < _countof(_Channel); ++i)
         Stop(i);
 }
 
 // 13H Set the pan value.
-bool PPZDriver::SetPan(size_t ch, int value)
+void PPZDriver::SetPan(size_t ch, int value)
 {
     static const int PanValues[4] = { 0, 9, 1, 5 }; // { Left, Right, Leftwards, Rightwards }
 
-    if (ch >= MaxPPZChannels)
-        return false;
+    if (ch >= _countof(_Channel))
+        return;
 
-    if (ch != 7 || !_EmulateADPCM)
-        _Channel[ch].PanValue = value;
-    else
+    if ((ch == 7) && _EmulateADPCM)
         _Channel[ch].PanValue = PanValues[value & 3];
-
-    return true;
+    else
+        _Channel[ch].PanValue = value;
 }
 
 // 14H Sets the output sample rate.
-bool PPZDriver::SetOutputFrequency(uint32_t outputFrequency, bool useInterpolation)
+void PPZDriver::SetOutputFrequency(uint32_t outputFrequency, bool useInterpolation)
 {
     _OutputFrequency = (int) outputFrequency;
     _UseInterpolation = useInterpolation;
-
-    return true;
 }
 
 // 15H Sets the original sample rate.
-bool PPZDriver::SetSourceFrequency(size_t channelNumber, int sourceFrequency)
+void PPZDriver::SetSourceFrequency(size_t ch, int sourceFrequency)
 {
-    if (channelNumber >= MaxPPZChannels)
-        return false;
+    if (ch >= _countof(_Channel))
+        return;
 
-    _Channel[channelNumber].SourceFrequency = sourceFrequency;
-
-    return true;
+    _Channel[ch].SourceFrequency = sourceFrequency;
 }
 
 // 16H Set the overal volume（86B Mixer)
@@ -450,8 +429,8 @@ void PPZDriver::SetVolume(int volume)
         CreateVolumeTable(volume);
 }
 
-// 18H ADPCM Emulation
-void PPZDriver::ADPCM_EM_SET(bool flag)
+// 18H Enables or disables ADPCM emulation.
+void PPZDriver::EmulateADPCM(bool flag)
 {
     _EmulateADPCM = flag;
 }
@@ -468,7 +447,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
     Sample * di;
     Sample  bx;
 
-    for (int i = 0; i < MaxPPZChannels; i++)
+    for (int i = 0; i < _countof(_Channel); ++i)
     {
         if (_PCMVolume == 0)
             break;
@@ -479,15 +458,15 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
         if (_Channel[i].Volume == 0)
         {
             // Update the position in the sample buffer.
-            _Channel[i].PCM_NOW_XOR += (int) (_Channel[i].PCM_ADD_L * sampleCount);
-            _Channel[i].PCMStart    += _Channel[i].PCM_ADD_H * sampleCount + _Channel[i].PCM_NOW_XOR / 0x10000;
-            _Channel[i].PCM_NOW_XOR %= 0x10000;
+            _Channel[i].PCMStartL += (int) (_Channel[i].PCMAddL * sampleCount);
+            _Channel[i].PCMStartH +=        _Channel[i].PCMAddH * sampleCount + _Channel[i].PCMStartL / 0x10000;
+            _Channel[i].PCMStartL %= 0x10000;
 
-            while (_Channel[i].PCMStart >= _Channel[i].PCMEnd - 1)
+            while (_Channel[i].PCMStartH >= _Channel[i].PCMEnd - 1)
             {
                 if (_Channel[i].HasLoop)
                 {
-                    _Channel[i].PCMStart -= (_Channel[i].PCMEnd - 1 - _Channel[i].PCM_LOOP);
+                    _Channel[i].PCMStartH -= (_Channel[i].PCMEnd - 1 - _Channel[i].PCMLoopStart);
                 }
                 else
                 {
@@ -514,7 +493,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart] * (0x10000 - _Channel[i].PCM_NOW_XOR) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStart + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
 
                         *di++ += bx;
                          di++; // Only the left channel
@@ -528,7 +507,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart] * (0x10000 - _Channel[i].PCM_NOW_XOR) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStart + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
 
                         *di++ += bx;
                         *di++ += bx / 4;
@@ -542,7 +521,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart] * (0x10000 - _Channel[i].PCM_NOW_XOR) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStart + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
 
                         *di++ += bx;
                         *di++ += bx / 2;
@@ -556,7 +535,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart] * (0x10000 - _Channel[i].PCM_NOW_XOR) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStart + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
 
                         *di++ += bx;
                         *di++ += bx * 3 / 4;
@@ -570,7 +549,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart] * (0x10000 - _Channel[i].PCM_NOW_XOR) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStart + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
 
                         *di++ += bx;
                         *di++ += bx;
@@ -584,7 +563,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart] * (0x10000 - _Channel[i].PCM_NOW_XOR) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStart + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
 
                         *di++ += bx * 3 / 4;
                         *di++ += bx;
@@ -598,7 +577,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart] * (0x10000 - _Channel[i].PCM_NOW_XOR) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStart + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
 
                         *di++ += bx / 2;
                         *di++ += bx;
@@ -612,7 +591,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart] * (0x10000 - _Channel[i].PCM_NOW_XOR) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStart + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
 
                         *di++ += bx / 4;
                         *di++ += bx;
@@ -626,7 +605,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart] * (0x10000 - _Channel[i].PCM_NOW_XOR) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStart + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
 
                          di++; // Only the right channel
                         *di++ += bx;
@@ -647,7 +626,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart];
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
 
                         *di++ += bx;
                          di++; // Only the left channel
@@ -661,7 +640,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart];
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
 
                         *di++ += bx;
                         *di++ += bx / 4;
@@ -675,7 +654,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart];
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
 
                         *di++ += bx;
                         *di++ += bx / 2;
@@ -689,7 +668,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart];
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
 
                         *di++ += bx;
                         *di++ += bx * 3 / 4;
@@ -703,7 +682,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart];
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
 
                         *di++ += bx;
                         *di++ += bx;
@@ -717,7 +696,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart];
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
 
                         *di++ += bx * 3 / 4;
                         *di++ += bx;
@@ -731,7 +710,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart];
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
 
                         *di++ += bx / 2;
                         *di++ += bx;
@@ -745,7 +724,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart];
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
 
                         *di++ += bx / 4;
                         *di++ += bx;
@@ -759,7 +738,7 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 {
                     while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStart];
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
 
                          di++; // Only the right channel
                         *di++ += bx;
@@ -775,25 +754,25 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
 
 void PPZDriver::MoveSamplePointer(int i) noexcept
 {
-    _Channel[i].PCMStart    += _Channel[i].PCM_ADD_H;
-    _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
+    _Channel[i].PCMStartH += _Channel[i].PCMAddH;
+    _Channel[i].PCMStartL += _Channel[i].PCMAddL;
 
-    if (_Channel[i].PCM_NOW_XOR > 0xFFFF)
+    if (_Channel[i].PCMStartL > 0xFFFF)
     {
-        _Channel[i].PCM_NOW_XOR -= 0x10000;
-        _Channel[i].PCMStart++;
+        _Channel[i].PCMStartL -= 0x10000;
+        _Channel[i].PCMStartH++;
     }
 
-    if (_Channel[i].PCMStart >= _Channel[i].PCMEnd - 1)
+    if (_Channel[i].PCMStartH >= _Channel[i].PCMEnd - 1)
     {
         if (_Channel[i].HasLoop)
-            _Channel[i].PCMStart = _Channel[i].PCM_LOOP;
+            _Channel[i].PCMStartH = _Channel[i].PCMLoopStart;
         else
             _Channel[i].IsPlaying = false;
     }
 }
 
-void PPZDriver::InitializeInternal()
+void PPZDriver::Initialize()
 {
     _PPZBank[0].Reset();
     _PPZBank[1].Reset();
@@ -817,10 +796,8 @@ void PPZDriver::Reset()
 
     for (size_t i = 0; i < _countof(_Channel); ++i)
     {
-        _Channel[i].PCM_ADD_H = 1;
-        _Channel[i].PCM_ADD_L = 0;
-        _Channel[i].PCM_ADDS_H = 1;
-        _Channel[i].PCM_ADDS_L = 0;
+        _Channel[i].PCMAddH = 1;
+        _Channel[i].PCMAddL = 0;
         _Channel[i].SourceFrequency = 16000; // in Hz
         _Channel[i].PanValue = 5; // Pan Center
         _Channel[i].Volume = 8; // Default volume
@@ -833,11 +810,11 @@ void PPZDriver::CreateVolumeTable(int volume)
 
     int AVolume = (int) (0x1000 * ::pow(10.0, volume / 40.0));
 
-    for (int i = 0; i < 16; i++)
+    for (int i = 0; i < 16; ++i)
     {
-        double Value = ::pow(2.0, ((double) (i) + _PCMVolume) / 2.0) * AVolume / 0x18000;
+        double Value = ::pow(2.0, ((double) i + _PCMVolume) / 2.0) * AVolume / 0x18000;
 
-        for (int j = 0; j < 256; j++)
+        for (int j = 0; j < 256; ++j)
             _VolumeTable[i][j] = (Sample) ((j - 128) * Value);
     }
 }
@@ -845,7 +822,7 @@ void PPZDriver::CreateVolumeTable(int volume)
 /// <summary>
 /// Reads the PZI header.
 /// </summary>
-void PPZDriver::ReadHeader(File * file, PZIHEADER & ph)
+void PPZDriver::ReadHeader(File * file, PZIHEADER& ph)
 {
     uint8_t Data[2336];
 
@@ -859,7 +836,7 @@ void PPZDriver::ReadHeader(File * file, PZIHEADER & ph)
 
     ::memcpy(ph.Dummy2, &Data[0x0C], sizeof(ph.Dummy2));
 
-    for (int i = 0; i < 128; i++)
+    for (int i = 0; i < 128; ++i)
     {
         ph.PZIItem[i].Start      = (uint32_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
         ph.PZIItem[i].Size       = (uint32_t) ((Data[0x24 + i * 18]) | (Data[0x25 + i * 18] << 8) | (Data[0x26 + i * 18] << 16) | (Data[0x27 + i * 18] << 24));
@@ -885,7 +862,7 @@ void PPZDriver::ReadHeader(File * file, PVIHEADER & ph)
 
     ::memcpy(ph.Dummy2, &Data[0x0c], (size_t) 0x10 - 0x0b - 1);
 
-    for (int i = 0; i < 128; i++)
+    for (int i = 0; i < 128; ++i)
     {
         ph.PVIItem[i].Start = (uint16_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
 //FIXME: Why is startaddress overwritten here?
@@ -893,4 +870,3 @@ void PPZDriver::ReadHeader(File * file, PVIHEADER & ph)
         ph.PVIItem[i].End   = (uint16_t) ((Data[0x12 + i * 4]) | (Data[0x13 + i * 4] << 8));
     }
 }
-
