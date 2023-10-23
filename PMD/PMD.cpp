@@ -150,7 +150,6 @@ void PMD::Reset()
 
     _State.IsTimerABusy = false;
     _State.TimerBTempo = 0x100;
-    _State.port22h = 0;
 
     _State.IsUsingP86 = false;
 
@@ -1277,17 +1276,34 @@ uint8_t * PMD::PDRSwitchCommand(Channel *, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::IncreasePCMVolumeCommand(Channel * channel, uint8_t * si)
+/// <summary>
+/// Increases the volume for the next note only (Command "v").
+/// </summary>
+uint8_t * PMD::IncreaseVolumeForNextNote(Channel * channel, uint8_t * si, int maxVolume)
 {
-    int al = (int) *si++ + channel->Volume;
+    int Volume = (int) channel->Volume + *si++ + 1;
 
-    if (al > 254)
-        al = 254;
+    if (Volume > maxVolume)
+        Volume = maxVolume;
 
-    al++;
+    channel->VolumeBoost = Volume;
+    _Driver.IsVolumeBoostSet = 1;
 
-    channel->VolumePush = al;
-    _Driver.IsVolumePushSet = 1;
+    return si;
+}
+
+/// <summary>
+/// Decreases the volume for the next note only.
+/// </summary>
+uint8_t * PMD::DecreaseVolumeForNextNote(Channel * channel, uint8_t * si)
+{
+    int Volume = channel->Volume - *si++;
+
+    if (Volume < 1)
+        Volume = 1;
+
+    channel->VolumeBoost = Volume;
+    _Driver.IsVolumeBoostSet = 1;
 
     return si;
 }
@@ -1336,7 +1352,7 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
             _State.PPZVolumeDown = *si++;
             break;
 
-        case 0xf5:
+        case 0xF5:
             si = DecreasePPZVolumeCommand(channel, si);
             break;
 
@@ -1351,7 +1367,7 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
 // Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
 uint8_t * PMD::SetHardwareLFOSwitchCommand(Channel * channel, uint8_t * si)
 {
-    channel->LFOSwitch = (channel->LFOSwitch & 0x8F) | ((*si++ & 0x07) << 4);
+    channel->ModulationMode = (channel->ModulationMode & 0x8F) | ((*si++ & 0x07) << 4);
 
     SwapLFO(channel);
 
@@ -1522,8 +1538,10 @@ uint8_t * PMD::ExitLoopCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Sets an LFO parameter.
-uint8_t * PMD::SetLFOParameter(Channel * channel, uint8_t * si)
+/// <summary>
+/// Sets the modulation parameters.
+/// </summary>
+uint8_t * PMD::SetModulation(Channel * channel, uint8_t * si)
 {
     channel->delay = *si;
     channel->delay2 = *si++;
@@ -1535,28 +1553,6 @@ uint8_t * PMD::SetLFOParameter(Channel * channel, uint8_t * si)
     channel->time2 = *si++;
 
     lfoinit_main(channel);
-
-    return si;
-}
-
-/// <summary>
-/// Decreases the volume of the specified sound source.
-/// </summary>
-/// <param name="channel"></param>
-/// <param name="si"></param>
-/// <returns></returns>
-uint8_t * PMD::DecreaseVolumeCommand(Channel * channel, uint8_t * si)
-{
-    int al = channel->Volume - *si++;
-
-    if (al < 0)
-        al = 0;
-    else
-    if (al >= 255)
-        al = 254;
-
-    channel->VolumePush = ++al;
-    _Driver.IsVolumePushSet = 1;
 
     return si;
 }
@@ -1631,46 +1627,6 @@ int PMD::MuteFMChannel(Channel * channel)
     return 0;
 }
 
-uint8_t * PMD::SetRhythmPanValue(uint8_t * si)
-{
-    int * bx = &_State.RhythmPanAndVolume[*si - 1];
-
-    int dh = *si++ + 0x18 - 1;
-
-    int dl = *bx & 0x1F;
-    int al = (*(int8_t *) si++ + dl);
-
-    if (al > 31)
-        al = 31;
-    else
-    if (al < 0)
-        al = 0;
-
-    dl = (al &= 0x1F);
-    dl = *bx = ((*bx & 0xE0) | dl);
-
-    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
-
-    return si;
-}
-
-uint8_t * PMD::SetRhythmVolume(uint8_t * si)
-{
-    int dl = _State.RhythmVolume + *(int8_t *) si++;
-
-    if (dl >= 64)
-        dl = (dl & 0x80) ? 0 : 63;
-
-    _State.RhythmVolume = dl;
-
-    if (_State.FadeOutVolume != 0)
-        dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
-
-    _OPNAW->SetReg(0x11, (uint32_t) dl);
-
-    return si;
-}
-
 //  SHIFT[di] transpose
 int PMD::oshiftp(Channel * channel, int al)
 {
@@ -1682,7 +1638,7 @@ int PMD::oshift(Channel * channel, int al)
     if (al == 0x0f)
         return al;
 
-    int dl = channel->shift + channel->shift_def;
+    int dl = channel->Transposition + channel->shift_def;
 
     if (dl == 0)
         return al;
@@ -1812,9 +1768,9 @@ int PMD::rnd(int ax)
 /// </summary>
 void PMD::SwapLFO(Channel * channel)
 {
-    Swap(&channel->lfodat, &channel->_lfodat);
+    Swap(&channel->LFODat1, &channel->LFODat2);
 
-    channel->LFOSwitch  = ((channel->LFOSwitch & 0x0F) << 4) + (channel->LFOSwitch >> 4);
+    channel->ModulationMode  = ((channel->ModulationMode & 0x0F) << 4) + (channel->ModulationMode >> 4);
     channel->extendmode = ((channel->extendmode & 0x0F) << 4) + (channel->extendmode >> 4);
 
     Swap(&channel->delay, &channel->_delay);
@@ -1911,7 +1867,7 @@ void PMD::InitializeOPN()
             _OPNAW->SetReg(i, 0x00);
     }
 
-    // PAN/HARDLFO DEFAULT
+    // Initialize the hardware LFO.
     _OPNAW->SetReg(0x0b4, 0xc0);
     _OPNAW->SetReg(0x0b5, 0xc0);
     _OPNAW->SetReg(0x0b6, 0xc0);
@@ -1919,9 +1875,7 @@ void PMD::InitializeOPN()
     _OPNAW->SetReg(0x1b5, 0xc0);
     _OPNAW->SetReg(0x1b6, 0xc0);
 
-    _State.port22h = 0x00;
-
-    _OPNAW->SetReg(0x22, 0x00);
+    _OPNAW->SetReg(0x22, 0x00); // Hardware LFO speed
 
     //  Rhythm Default = Pan : 0xC0 (3 << 6, Center) , Volume : 0x0F
     for (int i = 0; i < 6; ++i)
@@ -2219,7 +2173,7 @@ void PMD::InitializeChannels()
         _SSGChannel[i].Note = 0xFF;         // Rest
         _SSGChannel[i].DefaultNote = 0xFF;  // Rest
         _SSGChannel[i].Volume = 8;
-        _SSGChannel[i].SSGPattern = 7;      // Tone
+        _SSGChannel[i].SSGMask = 0x07;      // Tone
         _SSGChannel[i].envf = 3;            // SSG ENV = NONE/normal
 
         Offsets++;

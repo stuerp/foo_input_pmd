@@ -56,7 +56,7 @@ void PMD::RhythmMain(Channel * channel)
                 channel->KeyOnFlag++;
 
                 _Driver.TieMode = 0;
-                _Driver.IsVolumePushSet = 0;
+                _Driver.IsVolumeBoostSet = 0;
                 _Driver.loop_work &= channel->loopcheck;
 
                 return;
@@ -95,7 +95,7 @@ void PMD::RhythmMain(Channel * channel)
                 _State.RhythmData = &_State.DummyRhythmData;
 
                 _Driver.TieMode = 0;
-                _Driver.IsVolumePushSet = 0;
+                _Driver.IsVolumeBoostSet = 0;
                 _Driver.loop_work &= channel->loopcheck;
 
                 return;
@@ -154,41 +154,97 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
             channel->LoopData = si;
             break;
 
-        case 0xf5: si++; break;
-        case 0xf4: if (channel->Volume < 15) channel->Volume++; break;
-        case 0xf3: if (channel->Volume > 0) channel->Volume--; break;
-        case 0xf2: si += 4; break;
-        case 0xf1: si = PDRSwitchCommand(channel, si); break;
-        case 0xf0: si += 4; break;
+        case 0xF5: si++; break;
 
-        case 0xef: _OPNAW->SetReg(*si, *(si + 1)); si += 2; break;
-        case 0xee: si++; break;
-        case 0xed: si++; break;
-
-        case 0xec: si++; break;
-        case 0xeb: si = RhythmInstrumentCommand(si); break;
-        case 0xea: si = SetRhythmInstrumentVolumeCommand(si); break;
-        case 0xe9: si = SetRhythmPanCommand(si); break;
-        case 0xe8: si = SetRhythmMasterVolumeCommand(si); break;
-
-        case 0xe7: si++; break;
-        case 0xe6: si = SetRhythmVolume(si); break;
-        case 0xe5: si = SetRhythmPanValue(si); break;
-
-        case 0xe4: si++; break;
-
-        case 0xe3: if ((channel->Volume + *si) < 16) channel->Volume += *si; si++; break;
-        case 0xe2: if ((channel->Volume - *si) >= 0) channel->Volume -= *si; si++; break;
-
-        case 0xe1: si++; break;
-        case 0xe0: si++; break;
-
-        case 0xdf:
-            _State.BarLength = *si++; // Command "Z number"
+        // Increase volume by 3dB.
+        case 0xF4:
+            if (channel->Volume < 15)
+                channel->Volume++;
             break;
 
-        case 0xde: si = SetSSGVolumeCommand(channel, si); break;
-        case 0xdd: si = DecreaseVolumeCommand(channel, si); break;
+        // Decrease volume by 3dB.
+        case 0xF3:
+            if (channel->Volume > 0)
+                channel->Volume--;
+            break;
+
+        case 0xF2: si += 4; break;
+
+        case 0xF1:
+            si = PDRSwitchCommand(channel, si);
+            break;
+
+        case 0xF0: si += 4; break;
+
+        // Set SSG envelope.
+        case 0xEF:
+            _OPNAW->SetReg(*si, *(si + 1));
+            si += 2;
+            break;
+
+        case 0xEE: si++; break;
+        case 0xED: si++; break;
+        case 0xEC: si++; break;
+
+        case 0xEB:
+            si = OPNARhythmKeyOn(si);
+            break;
+
+        case 0xEA:
+            si = SetOPNARhythmVolumeCommand(si);
+            break;
+
+        case 0xE9:
+            si = SetOPNARhythmPanningCommand(si);
+            break;
+
+        case 0xE8:
+            si = SetOPNARhythmMasterVolumeCommand(si);
+            break;
+
+        case 0xE7: si++; break;
+
+        case 0xE6:
+            si = ModifyOPNARhythmMasterVolume(si);
+            break;
+
+        case 0xE5:
+            si = ModifyOPNARhythmVolume(si);
+            break;
+
+        case 0xE4: si++; break;
+
+        // Increase volume.
+        case 0xE3:
+            channel->Volume += *si++;
+
+            if (channel->Volume > 16)
+                channel->Volume = 16;
+            break;
+
+        // Decrease volume.
+        case 0xE2:
+            channel->Volume -= *si++;
+
+            if (channel->Volume < 0)
+                channel->Volume = 0;
+            break;
+
+        case 0xE1: si++; break;
+        case 0xE0: si++; break;
+
+        // Command "Z number": Set ticks per measure.
+        case 0xDF:
+            _State.BarLength = *si++;
+            break;
+
+        case 0xDE:
+            si = IncreaseVolumeForNextNote(channel, si, 15);
+            break;
+
+        case 0xDD:
+            si = DecreaseVolumeForNextNote(channel, si);
+            break;
 
         case 0xdc: _State.status = *si++; break;
         case 0xdb: _State.status += *si++; break;
@@ -360,8 +416,39 @@ void PMD::SetRhythmDelay(int nsec)
     _OPNAW->SetRhythmDelay(nsec);
 }
 
-//  Command "\?" / "\?p"
-uint8_t * PMD::RhythmInstrumentCommand(uint8_t * si)
+// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+uint8_t * PMD::SetRhythmMaskCommand(Channel * channel, uint8_t * si)
+{
+    uint8_t Value = *si++;
+
+    if (Value != 0)
+    {
+        if (Value < 2)
+            channel->MuteMask |= 0x40;
+        else
+            si = SpecialC0ProcessingCommand(channel, si, Value);
+    }
+    else
+        channel->MuteMask &= 0xBF;
+
+    return si;
+}
+
+uint8_t * PMD::DecreaseRhythmVolumeCommand(Channel *, uint8_t * si)
+{
+    int al = *(int8_t *) si++;
+
+    if (al)
+        _State.RhythmVolumeDown = Limit(al + _State.RhythmVolumeDown, 255, 0);
+    else
+        _State.RhythmVolumeDown = _State.DefaultRhythmVolumeDown;
+
+    return si;
+}
+
+#pragma region(OPNA Rhythm)
+// Command "\?" / "\?p"
+uint8_t * PMD::OPNARhythmKeyOn(uint8_t * si)
 {
     int dl = *si++ & _State.RhythmMask;
 
@@ -414,7 +501,7 @@ uint8_t * PMD::RhythmInstrumentCommand(uint8_t * si)
 }
 
 // Command "\V"
-uint8_t * PMD::SetRhythmMasterVolumeCommand(uint8_t * si)
+uint8_t * PMD::SetOPNARhythmMasterVolumeCommand(uint8_t * si)
 {
     int dl = *si++;
 
@@ -432,7 +519,7 @@ uint8_t * PMD::SetRhythmMasterVolumeCommand(uint8_t * si)
 }
 
 // Command "\v?"
-uint8_t * PMD::SetRhythmInstrumentVolumeCommand(uint8_t * si)
+uint8_t * PMD::SetOPNARhythmVolumeCommand(uint8_t * si)
 {
     int dl = *si & 0x1f;
     int dh = *si++ >> 5;
@@ -448,7 +535,7 @@ uint8_t * PMD::SetRhythmInstrumentVolumeCommand(uint8_t * si)
 }
 
 // Command "\p?"
-uint8_t * PMD::SetRhythmPanCommand(uint8_t * si)
+uint8_t * PMD::SetOPNARhythmPanningCommand(uint8_t * si)
 {
     int dl = (*si & 0x03) << 6;     // Pan value
     int dh = (*si++ >> 5) & 0x07;   // Instrument
@@ -466,32 +553,43 @@ uint8_t * PMD::SetRhythmPanCommand(uint8_t * si)
     return si;
 }
 
-// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
-uint8_t * PMD::SetRhythmMaskCommand(Channel * channel, uint8_t * si)
+uint8_t * PMD::ModifyOPNARhythmMasterVolume(uint8_t * si)
 {
-    uint8_t Value = *si++;
+    int dl = _State.RhythmVolume + *(int8_t *) si++;
 
-    if (Value != 0)
-    {
-        if (Value < 2)
-            channel->MuteMask |= 0x40;
-        else
-            si = SpecialC0ProcessingCommand(channel, si, Value);
-    }
-    else
-        channel->MuteMask &= 0xBF;
+    if (dl >= 64)
+        dl = (dl & 0x80) ? 0 : 63;
+
+    _State.RhythmVolume = dl;
+
+    if (_State.FadeOutVolume != 0)
+        dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
+
+    _OPNAW->SetReg(0x11, (uint32_t) dl);
 
     return si;
 }
 
-uint8_t * PMD::DecreaseRhythmVolumeCommand(Channel *, uint8_t * si)
+uint8_t * PMD::ModifyOPNARhythmVolume(uint8_t * si)
 {
-    int al = *(int8_t *) si++;
+    int * bx = &_State.RhythmPanAndVolume[*si - 1];
 
-    if (al)
-        _State.RhythmVolumeDown = Limit(al + _State.RhythmVolumeDown, 255, 0);
+    int dh = *si++ + 0x18 - 1;
+
+    int dl = *bx & 0x1F;
+    int al = (*(int8_t *) si++ + dl);
+
+    if (al > 31)
+        al = 31;
     else
-        _State.RhythmVolumeDown = _State.DefaultRhythmVolumeDown;
+    if (al < 0)
+        al = 0;
+
+    dl = (al &= 0x1F);
+    dl = *bx = ((*bx & 0xE0) | dl);
+
+    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
 
     return si;
 }
+#pragma endregion

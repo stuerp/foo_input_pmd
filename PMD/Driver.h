@@ -42,10 +42,10 @@ public:
     int FMSelector;         // Head (0x000) or tail (0x100)
 
     int CurrentChannel;
-    int IsVolumePushSet;    // Flag for next one note volume down (1 : voldown)
+    int IsVolumeBoostSet;   // Set when a modified volume for the next note has been set.
     int loop_work;          // Loop Work
     bool UsePPS;
     int music_flag;         // B0: Next MSTART 1: Next MSTOP Flag
-    int lfo_switch;         // Local LFO switch
+    int ModulationMode;         // Local LFO switch
 };
 #pragma warning(default: 4820)

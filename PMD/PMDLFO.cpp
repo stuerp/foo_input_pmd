@@ -37,7 +37,7 @@ void PMD::LFOMain(Channel * channel)
         else
             ax = channel->step;
 
-        if ((channel->lfodat += ax) == 0)
+        if ((channel->LFODat1 += ax) == 0)
             SetStepUsingMDValue(channel);
 
         al = channel->time;
@@ -64,7 +64,7 @@ void PMD::LFOMain(Channel * channel)
     if (channel->LFOWaveform == 2)
     {
         // Square wave
-        channel->lfodat = (channel->step * channel->time);
+        channel->LFODat1 = (channel->step * channel->time);
 
         SetStepUsingMDValue(channel);
 
@@ -80,14 +80,14 @@ void PMD::LFOMain(Channel * channel)
             if (channel->time != 255)
                 channel->time--;
 
-            channel->lfodat += channel->step;
+            channel->LFODat1 += channel->step;
         }
     }
     else
     if (channel->LFOWaveform == 1)
     {
         // Sawtooth wave
-        channel->lfodat += channel->step;
+        channel->LFODat1 += channel->step;
 
         al = channel->time;
 
@@ -97,7 +97,7 @@ void PMD::LFOMain(Channel * channel)
 
             if (al == 0)
             {
-                channel->lfodat = -channel->lfodat;
+                channel->LFODat1 = -channel->LFODat1;
 
                 SetStepUsingMDValue(channel);
 
@@ -112,7 +112,7 @@ void PMD::LFOMain(Channel * channel)
         // Random wave
         ax = abs(channel->step) * channel->time;
 
-        channel->lfodat = ax - rnd(ax * 2);
+        channel->LFODat1 = ax - rnd(ax * 2);
 
         SetStepUsingMDValue(channel);
     }
@@ -225,10 +225,10 @@ int PMD::StartPCMLFO(Channel * channel, int al)
 
 void PMD::StopLFO(Channel * channel)
 {
-    if ((channel->LFOSwitch & 0x03) != 0)
+    if ((channel->ModulationMode & 0x03) != 0)
         lfo(channel); // Only execute the LFO once when preceded by a "&" command (Tie).
 
-    if ((channel->LFOSwitch & 0x30) != 0)
+    if ((channel->ModulationMode & 0x30) != 0)
     {
         // Only execute the LFO once when preceded by a "&" command (Tie).
         SwapLFO(channel);
@@ -249,17 +249,17 @@ void PMD::InitializeLFO(Channel * channel)
 
     channel->sdelay_c = channel->sdelay;
 
-    if ((channel->LFOSwitch & 0x03) != 0)
+    if ((channel->ModulationMode & 0x03) != 0)
     {   // LFO not used
-        if ((channel->LFOSwitch & 4) == 0)
+        if ((channel->ModulationMode & 0x04) == 0)
             lfoinit_main(channel); // Is keyon asynchronous?
 
         lfo(channel);
     }
 
-    if ((channel->LFOSwitch & 0x30) != 0)
+    if ((channel->ModulationMode & 0x30) != 0)
     {   // LFO not used
-        if ((channel->LFOSwitch & 0x40) == 0)
+        if ((channel->ModulationMode & 0x40) == 0)
         {
             SwapLFO(channel); // Is keyon asynchronous?
 
@@ -278,7 +278,7 @@ void PMD::InitializeLFO(Channel * channel)
 
 void PMD::lfoinit_main(Channel * channel)
 {
-    channel->lfodat = 0;
+    channel->LFODat1 = 0;
     channel->delay = channel->delay2;
     channel->speed = channel->speed2;
     channel->step = channel->step2;
@@ -318,31 +318,31 @@ int PMD::SetSSGLFO(Channel * channel)
         if (ch == 0)
             return 0;
 
-        ax = channel->lfodat;
+        ax = channel->LFODat1;
 
         for (; ch > 0; ch--)
             LFOMain(channel);
     }
     else
     {
-        ax = channel->lfodat;
+        ax = channel->LFODat1;
 
         LFOMain(channel);
     }
 
-    return (ax == channel->lfodat) ? 0 : 1;
+    return (ax == channel->LFODat1) ? 0 : 1;
 }
 
-uint8_t * PMD::lfoswitch(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetModulationMask(Channel * channel, uint8_t * si)
 {
     int al = *si++;
 
-    if (al & 0xf8)
+    if (al & 0xF8)
         al = 1;
 
     al &= 7;
 
-    channel->LFOSwitch = (channel->LFOSwitch & 0xf8) | al;
+    channel->ModulationMode = (channel->ModulationMode & 0xF8) | al;
 
     lfoinit_main(channel);
 

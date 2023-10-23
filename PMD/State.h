@@ -133,7 +133,6 @@ public:
 
     int fadeout_flag;  // When calling Fade from inside 1
     int BarCounter;
-    int port22h; // Last value output to OPN-PORT 22H (hlfo)
 
     int rshot_dat; // Rhythm shot flag
     int RhythmPanAndVolume[6]; // Pan value and volume

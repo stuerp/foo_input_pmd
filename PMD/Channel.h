@@ -15,7 +15,7 @@ public:
         Data = si;
 
         if (isVolumePushSet)
-            VolumePush = 0;
+            VolumeBoost = 0;
 
         return si;
     }
@@ -28,11 +28,11 @@ public:
     uint32_t fnum;  // 2 Power BLOCK/FNUM
     int DetuneValue;
 
-    int LFOSwitch;  // bit 0: tone, bit 1: vol,  bit 2: same period, bit 3: portamento
+    int ModulationMode;  // bit 0: Tone, bit 1: Volume, bit 2: Same period, bit 3: Portamento
     int extendmode; // bit 1: Detune, bit 2: LFO, bit 3: Env Normal/Extend
 
     // LFO 1
-    int lfodat;  // 2 LFO DATA
+    int LFODat1;  // 2 LFO DATA
 
     int delay;  // 1 LFO [DELAY]
     int delay2;  // 1 [DELAY_2]
@@ -56,7 +56,7 @@ public:
     int mdc2;  // 1 M depth Counter
 
     // LFO 2
-    int _lfodat; // 2 LFO DATA
+    int LFODat2; // 2 LFO DATA
 
     int _delay;  // 1 LFO [DELAY]
     int _delay2; // 1  [DELAY_2]
@@ -85,10 +85,10 @@ public:
     int porta_num3; // 2 Portamento adjustment value (remainder)
 
     int Volume;  // 1 VOLUME
-    int shift;  // 1 ｵﾝｶｲ ｼﾌﾄ ﾉ ｱﾀｲ
+    int Transposition;  // 1 ｵﾝｶｲ ｼﾌﾄ ﾉ ｱﾀｲ
 
     // bit 4: tone / bit 5: vol / bit 6: same period
-    int VolumePush; // 1 Volume PUSHarea
+    int VolumeBoost;
 
     int envf;  // 1 SSG ENV. [START_FLAG] / -1でextend
     int ExtendedCount; // None=0 AR=1 DR=2 SR=3 RR=4
@@ -107,7 +107,7 @@ public:
     int ExtendedAttackLevel;  // 1 /Volume値(0?15)/旧penv
 
     int PanAndVolume;
-    int SSGPattern;         // Tone / Noise / Mix
+    int SSGMask;         // Tone / Noise / Mix
     int InstrumentNumber;
     int loopcheck; // 1 When the loop ends 1 When the loop ends 3
 
