@@ -283,7 +283,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
         case 0xED: si++; break;
 
         case 0xEC:
-            si = SetADPCMPanningCommand(channel, si);
+            si = SetADPCMPanning(channel, si);
             break;
 /*
         case 0xEB:
@@ -432,7 +432,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
             break;
 */
         case 0xC3:
-            si = SetADPCMPanningExtendCommand(channel, si);
+            si = SetADPCMPanningExtend(channel, si);
             break;
 /*
         case 0xC2:
@@ -539,6 +539,9 @@ void PMD::SetADPCMDelay(int nsec)
 }
 
 #pragma region(Commands)
+/// <summary>
+///
+/// </summary>
 void PMD::SetADPCMTone(Channel * channel, int tone)
 {
     if ((tone & 0x0F) != 0x0F)
@@ -581,6 +584,9 @@ void PMD::SetADPCMTone(Channel * channel, int tone)
     }
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SetADPCMVolumeCommand(Channel * channel)
 {
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->Volume;
@@ -672,6 +678,9 @@ void PMD::SetADPCMVolumeCommand(Channel * channel)
     }
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SetADPCMPitch(Channel * channel)
 {
     if (channel->Factor == 0)
@@ -708,6 +717,9 @@ void PMD::SetADPCMPitch(Channel * channel)
     _OPNAW->SetReg(0x10a, (uint32_t) HIBYTE(Pitch));
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::ADPCMKeyOn(Channel * channel)
 {
     if (channel->Tone == 0xFF)
@@ -738,6 +750,9 @@ void PMD::ADPCMKeyOn(Channel * channel)
     }
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::ADPCMKeyOff(Channel * channel)
 {
     if (channel->SSGEnvelopFlag != -1)
@@ -786,18 +801,21 @@ uint8_t * PMD::SetADPCMInstrument(Channel * channel, uint8_t * si)
 
     return si;
 }
-#pragma endregion
 
-// Command "p <value>" (1: right, 2: left, 3: center (default))
-uint8_t * PMD::SetADPCMPanningCommand(Channel * channel, uint8_t * si)
+/// <summary>
+/// Command "p <value>" (1: right, 2: left, 3: center (default))
+/// </summary>
+uint8_t * PMD::SetADPCMPanning(Channel * channel, uint8_t * si)
 {
     channel->PanAndVolume = (*si << 6) & 0xC0;
 
     return si + 1;  // Skip the Phase flag
 }
 
-// Command "px <value 1>, <value 2>" (value 1: < 0 (pan to the right), 0 (Center), > 0 (pan to the left), value 2: 0 (In phase) or 1 (Reverse phase)).
-uint8_t * PMD::SetADPCMPanningExtendCommand(Channel * channel, uint8_t * si)
+/// <summary>
+/// Command "px <value 1>, <value 2>" (value 1: < 0 (pan to the right), 0 (Center), > 0 (pan to the left), value 2: 0 (In phase) or 1 (Reverse phase)).
+/// </summary>
+uint8_t * PMD::SetADPCMPanningExtend(Channel * channel, uint8_t * si)
 {
     if (*si == 0)
         channel->PanAndVolume = 0xC0; // Center
@@ -809,7 +827,11 @@ uint8_t * PMD::SetADPCMPanningExtendCommand(Channel * channel, uint8_t * si)
 
     return si + 2; // Skip the Phase flag.
 }
+#pragma endregion
 
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::SetADPCMPortamentoCommand(Channel * channel, uint8_t * si)
 {
     if (channel->MuteMask)
@@ -882,7 +904,9 @@ uint8_t * PMD::SetADPCMPortamentoCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command "@[@] insnum[,number1[,number2[,number3]]]"
+/// <summary>
+/// Command "@[@] insnum[,number1[,number2[,number3]]]"
+/// </summary>
 uint8_t * PMD::SetADPCMRepeatCommand(Channel *, uint8_t * si)
 {
     int ax = *(int16_t *) si;
@@ -920,7 +944,9 @@ uint8_t * PMD::SetADPCMRepeatCommand(Channel *, uint8_t * si)
     return si;
 }
 
-// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+/// <summary>
+/// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+/// </summary>
 uint8_t * PMD::SetADPCMMaskCommand(Channel * channel, uint8_t * si)
 {
     uint8_t Value = *si++;
@@ -946,6 +972,9 @@ uint8_t * PMD::SetADPCMMaskCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::DecreaseADPCMVolumeCommand(Channel *, uint8_t * si)
 {
     int  al = *(int8_t *) si++;

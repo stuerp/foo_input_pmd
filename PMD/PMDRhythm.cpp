@@ -356,6 +356,9 @@ void PMD::SetRhythmDelay(int nsec)
 }
 
 #pragma region(Commands)
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool * success)
 {
     if (al & 0x40)
@@ -472,6 +475,9 @@ uint8_t * PMD::SetRhythmMaskCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::DecreaseRhythmVolumeCommand(Channel *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
@@ -484,6 +490,9 @@ uint8_t * PMD::DecreaseRhythmVolumeCommand(Channel *, uint8_t * si)
     return si;
 }
 
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::PDRSwitchCommand(Channel *, uint8_t * si)
 {
     if (!_Driver.UsePPS)

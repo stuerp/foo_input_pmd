@@ -288,7 +288,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xED: si++; break;
 
         case 0xEC:
-            si = SetPPZPanningCommand(channel, si);
+            si = SetPPZPanning(channel, si);
             break;
 /*
         case 0xEB:
@@ -437,7 +437,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
             break;
 */
         case 0xC3:
-            si = SetPPZPanningExtendCommand(channel, si);
+            si = SetPPZPanningExtend(channel, si);
             break;
 /*
         case 0xC2:
@@ -533,6 +533,9 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
 }
 
 #pragma region(Commands)
+/// <summary>
+///
+/// </summary>
 void PMD::SetPPZTone(Channel * channel, int tone)
 {
     if ((tone & 0x0F) != 0x0F)
@@ -565,6 +568,9 @@ void PMD::SetPPZTone(Channel * channel, int tone)
     }
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SetPPZVolume(Channel * channel)
 {
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->Volume;
@@ -654,6 +660,9 @@ void PMD::SetPPZVolume(Channel * channel)
         _PPZ->Stop((size_t) _Driver.CurrentChannel);
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SetPPZPitch(Channel * channel)
 {
     uint32_t Pitch = channel->Factor;
@@ -685,6 +694,9 @@ void PMD::SetPPZPitch(Channel * channel)
     _PPZ->SetPitch((size_t) _Driver.CurrentChannel, Pitch);
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::PPZKeyOn(Channel * channel)
 {
     if (channel->Tone == 0xFF)
@@ -696,6 +708,9 @@ void PMD::PPZKeyOn(Channel * channel)
         _PPZ->Play((size_t) _Driver.CurrentChannel, 1, channel->InstrumentNumber & 0x7F, 0, 0);
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::PPZKeyOff(Channel * channel)
 {
     if (channel->SSGEnvelopFlag != -1)
@@ -726,9 +741,46 @@ uint8_t * PMD::SetPPZInstrument(Channel * channel, uint8_t * si)
 
     return si;
 }
+
+/// <summary>
+/// Command "p <value>" (1: right, 2: left, 3: center (default))
+/// </summary>
+uint8_t * PMD::SetPPZPanning(Channel * channel, uint8_t * si)
+{
+    static const int PanValues[4] = { 0, 9, 1, 5 }; // { Left, Right, Leftwards, Rightwards }
+
+    channel->PanAndVolume = PanValues[*si++];
+
+    _PPZ->SetPan((size_t) _Driver.CurrentChannel, channel->PanAndVolume);
+
+    return si;
+}
+
+/// <summary>
+/// Command "px <value 1>, <value 2>" (value 1: -128 to -4 (Pan to the left), -3 to -1 (Leftwards), 0 (Center), 1 to 3 (Rightwards), 4 to 127 (Pan to the right), value 2: 0 (In phase) or 1 (Reverse phase)).
+/// </summary>
+uint8_t * PMD::SetPPZPanningExtend(Channel * channel, uint8_t * si)
+{
+    int al = *(int8_t *) si++;
+    si++; // Skip the Phase flag.
+
+    if (al >  4)
+        al = 4;
+    else
+    if (al < -4)
+        al = -4;
+
+    channel->PanAndVolume = al + 5; // Scale the value to range 1..9.
+
+    _PPZ->SetPan((size_t) _Driver.CurrentChannel, channel->PanAndVolume);
+
+    return si;
+}
 #pragma endregion
 
-// Command "{interval1 interval2} [length1] [.] [,length2]"
+/// <summary>
+/// Command "{interval1 interval2} [length1] [.] [,length2]"
+/// </summary>
 uint8_t * PMD::SetPPZPortamentoCommand(Channel * channel, uint8_t * si)
 {
     if (channel->MuteMask)
@@ -802,65 +854,9 @@ uint8_t * PMD::SetPPZPortamentoCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command "p <value>" (1: right, 2: left, 3: center (default))
-uint8_t * PMD::SetPPZPanningCommand(Channel * channel, uint8_t * si)
-{
-    static const int PanValues[4] = { 0, 9, 1, 5 }; // { Left, Right, Leftwards, Rightwards }
-
-    channel->PanAndVolume = PanValues[*si++];
-
-    _PPZ->SetPan((size_t) _Driver.CurrentChannel, channel->PanAndVolume);
-
-    return si;
-}
-
-// Command "px <value 1>, <value 2>" (value 1: -128 to -4 (Pan to the left), -3 to -1 (Leftwards), 0 (Center), 1 to 3 (Rightwards), 4 to 127 (Pan to the right), value 2: 0 (In phase) or 1 (Reverse phase)).
-uint8_t * PMD::SetPPZPanningExtendCommand(Channel * channel, uint8_t * si)
-{
-    int al = *(int8_t *) si++;
-    si++; // Skip the Phase flag.
-
-    if (al >  4)
-        al = 4;
-    else
-    if (al < -4)
-        al = -4;
-
-    channel->PanAndVolume = al + 5; // Scale the value to range 1..9.
-
-    _PPZ->SetPan((size_t) _Driver.CurrentChannel, channel->PanAndVolume);
-
-    return si;
-}
-
-uint8_t * PMD::InitializePPZ(Channel *, uint8_t * si)
-{
-    for (size_t i = 0; i < _countof(_PPZChannel); ++i)
-    {
-        int16_t Offset = *(int16_t *) si;
-
-        if (Offset != 0)
-        {
-            _PPZChannel[i].Data = &_State.MData[Offset];
-            _PPZChannel[i].Length = 1;
-            _PPZChannel[i].KeyOffFlag = 0xFF;
-            _PPZChannel[i].LFO1MDepthCount1 = -1;        // LFO1MDepth Counter (Infinite)
-            _PPZChannel[i].LFO1MDepthCount2 = -1;
-            _PPZChannel[i].LFO2MDepthCount1 = -1;
-            _PPZChannel[i].LFO2MDepthCount2 = -1;
-            _PPZChannel[i].Tone = 0xFF;         // Rest
-            _PPZChannel[i].DefaultTone = 0xFF;  // Rest
-            _PPZChannel[i].Volume = 128;
-            _PPZChannel[i].PanAndVolume = 5;    // Center
-        }
-
-        si += 2;
-    }
-
-    return si;
-}
-
-// Command "@[@] insnum[,number1[,number2[,number3]]]"
+/// <summary>
+/// Command "@[@] insnum[,number1[,number2[,number3]]]"
+/// </summary>
 uint8_t * PMD::SetPPZRepeatCommand(Channel * channel, uint8_t * si)
 {
     int LoopBegin, LoopEnd;
@@ -889,7 +885,9 @@ uint8_t * PMD::SetPPZRepeatCommand(Channel * channel, uint8_t * si)
     return si + 2; // Skip the Loop Release Address.
 }
 
-// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+/// <summary>
+/// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+/// </summary>
 uint8_t * PMD::SetPPZMaskCommand(Channel * channel, uint8_t * si)
 {
     uint8_t Value = *si++;
@@ -912,6 +910,39 @@ uint8_t * PMD::SetPPZMaskCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+///
+/// </summary>
+uint8_t * PMD::InitializePPZ(Channel *, uint8_t * si)
+{
+    for (size_t i = 0; i < _countof(_PPZChannel); ++i)
+    {
+        int16_t Offset = *(int16_t *) si;
+
+        if (Offset != 0)
+        {
+            _PPZChannel[i].Data = &_State.MData[Offset];
+            _PPZChannel[i].Length = 1;
+            _PPZChannel[i].KeyOffFlag = 0xFF;
+            _PPZChannel[i].LFO1MDepthCount1 = -1;        // LFO1MDepth Counter (Infinite)
+            _PPZChannel[i].LFO1MDepthCount2 = -1;
+            _PPZChannel[i].LFO2MDepthCount1 = -1;
+            _PPZChannel[i].LFO2MDepthCount2 = -1;
+            _PPZChannel[i].Tone = 0xFF;         // Rest
+            _PPZChannel[i].DefaultTone = 0xFF;  // Rest
+            _PPZChannel[i].Volume = 128;
+            _PPZChannel[i].PanAndVolume = 5;    // Center
+        }
+
+        si += 2;
+    }
+
+    return si;
+}
+
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::DecreasePPZVolumeCommand(Channel *, uint8_t * si)
 {
     int al = *(int8_t *) si++;

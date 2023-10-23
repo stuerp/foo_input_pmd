@@ -277,8 +277,8 @@ private:
     uint8_t * ExecuteFMCommand(Channel * channel, uint8_t * si);
     uint8_t * DecreaseFMVolumeCommand(Channel * channel, uint8_t * si);
     uint8_t * SetFMInstrument(Channel * channel, uint8_t * si);
-    uint8_t * SetFMPanningCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetFMPanningExtendCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetFMPanning(Channel * channel, uint8_t * si);
+    uint8_t * SetFMPanningExtend(Channel * channel, uint8_t * si);
     uint8_t * SetFMPortamentoCommand(Channel * channel, uint8_t * si);
     uint8_t * SetFMVolumeMaskSlotCommand(Channel * channel, uint8_t * si);
     uint8_t * SetFMMaskCommand(Channel * channel, uint8_t * si);
@@ -300,7 +300,7 @@ private:
     uint8_t * GetFMInstrumentDefinition(Channel * channel, int dl);
     void ResetFMInstrument(Channel * channel);
 
-    void SetFMPanValueInternal(Channel * channel, int al);
+    void SetFMPannningInternal(Channel * channel, int al);
     #pragma endregion
 
     #pragma region(SSG Sound Source)
@@ -329,10 +329,10 @@ private:
     uint8_t * DecreaseADPCMVolumeCommand(Channel * channel, uint8_t * si);
     uint8_t * SetADPCMInstrument(Channel * channel, uint8_t * si);
     uint8_t * SetADPCMPortamentoCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetADPCMPanningCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetADPCMPanning(Channel * channel, uint8_t * si);
     uint8_t * SetADPCMRepeatCommand(Channel * channel, uint8_t * si);
     uint8_t * SetADPCMMaskCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetADPCMPanningExtendCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetADPCMPanningExtend(Channel * channel, uint8_t * si);
 
     void SetADPCMVolumeCommand(Channel * channel);
     void SetADPCMPitch(Channel * channel);
@@ -362,9 +362,9 @@ private:
     void P86Main(Channel * channel);
     uint8_t * ExecuteP86Command(Channel * channel, uint8_t * si);
     uint8_t * SetP86Instrument(Channel * channel, uint8_t * si);
-    uint8_t * SetP86PanningCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetP86Panning(Channel * channel, uint8_t * si);
     uint8_t * SetP86RepeatCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetP86PanningExtendCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetP86PanningExtend(Channel * channel, uint8_t * si);
     uint8_t * SetP86MaskCommand(Channel * channel, uint8_t * si);
 
     void SetP86Volume(Channel * channel);
@@ -380,8 +380,8 @@ private:
     uint8_t * DecreasePPZVolumeCommand(Channel * channel, uint8_t * si);
     uint8_t * SetPPZInstrument(Channel * channel, uint8_t * si);
     uint8_t * SetPPZPortamentoCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetPPZPanningCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetPPZPanningExtendCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetPPZPanning(Channel * channel, uint8_t * si);
+    uint8_t * SetPPZPanningExtend(Channel * channel, uint8_t * si);
     uint8_t * SetPPZRepeatCommand(Channel * channel, uint8_t * si);
     uint8_t * SetPPZMaskCommand(Channel * channel, uint8_t * si);
 

@@ -275,7 +275,7 @@ uint8_t * PMD::ExecuteP86Command(Channel * channel, uint8_t * si)
         case 0xED: si++; break;
 
         case 0xEC:
-            si = SetP86PanningCommand(channel, si);
+            si = SetP86Panning(channel, si);
             break;
 /*
         case 0xEB:
@@ -423,7 +423,7 @@ uint8_t * PMD::ExecuteP86Command(Channel * channel, uint8_t * si)
             break;
 */
         case 0xC3:
-            si = SetP86PanningExtendCommand(channel, si);
+            si = SetP86PanningExtend(channel, si);
             break;
 /*
         case 0xC2:
@@ -481,6 +481,9 @@ uint8_t * PMD::ExecuteP86Command(Channel * channel, uint8_t * si)
 }
 
 #pragma region(Commands)
+/// <summary>
+///
+/// </summary>
 void PMD::SetP86Tone(Channel * channel, int tone)
 {
     int ah = tone & 0x0F;
@@ -510,6 +513,9 @@ void PMD::SetP86Tone(Channel * channel, int tone)
     }
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SetP86Volume(Channel * channel)
 {
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->Volume;
@@ -593,6 +599,9 @@ void PMD::SetP86Volume(Channel * channel)
     _P86->SelectVolume(al);
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SetP86Pitch(Channel * channel)
 {
     if (channel->Factor == 0)
@@ -607,6 +616,9 @@ void PMD::SetP86Pitch(Channel * channel)
     _P86->SetPitch(SampleRateIndex, (uint32_t) Pitch);
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::P86KeyOn(Channel * channel)
 {
     if (channel->Tone == 0xFF)
@@ -615,6 +627,9 @@ void PMD::P86KeyOn(Channel * channel)
     _P86->Play();
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::P86KeyOff(Channel * channel)
 {
     _P86->Keyoff();
@@ -642,10 +657,11 @@ uint8_t * PMD::SetP86Instrument(Channel * channel, uint8_t * si)
 
     return si;
 }
-#pragma endregion
 
-// Command "p <value>" (1: right, 2: left, 3: center (default), 0: Reverse Phase)
-uint8_t * PMD::SetP86PanningCommand(Channel *, uint8_t * si)
+/// <summary>
+/// Command "p <value>" (1: right, 2: left, 3: center (default), 0: Reverse Phase)
+/// </summary>
+uint8_t * PMD::SetP86Panning(Channel *, uint8_t * si)
 {
     switch (*si++)
     {
@@ -668,8 +684,10 @@ uint8_t * PMD::SetP86PanningCommand(Channel *, uint8_t * si)
     return si;
 }
 
-// Command "px <value 1>, <value 2>" (value 1: < 0 (Pan to the right), > 0 (Pan to the left), 0 (Center), value 2: 0 (In phase) or 1 (Reverse phase)).
-uint8_t * PMD::SetP86PanningExtendCommand(Channel * channel, uint8_t * si)
+/// <summary>
+/// Command "px <value 1>, <value 2>" (value 1: < 0 (Pan to the right), > 0 (Pan to the left), 0 (Center), value 2: 0 (In phase) or 1 (Reverse phase)).
+/// </summary>
+uint8_t * PMD::SetP86PanningExtend(Channel * channel, uint8_t * si)
 {
     int flag, value;
 
@@ -700,6 +718,7 @@ uint8_t * PMD::SetP86PanningExtendCommand(Channel * channel, uint8_t * si)
 
     return si;
 }
+#pragma endregion
 
 // Command "@[@] insnum[,number1[,number2[,number3]]]"
 uint8_t * PMD::SetP86RepeatCommand(Channel *, uint8_t * si)

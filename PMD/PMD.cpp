@@ -683,12 +683,18 @@ bool PMD::GetLengthInTicks(int * tickCount, int * loopTickCount)
 }
 
 // Gets the playback position (in ms)
+/// <summary>
+///
+/// </summary>
 uint32_t PMD::GetPosition()
 {
     return (uint32_t) (_Position / 1000);
 }
 
 // Sets the playback position (in ms)
+/// <summary>
+///
+/// </summary>
 void PMD::SetPosition(uint32_t position)
 {
     int64_t NewPosition = (int64_t) position * 1000; // Convert ms to μs.
@@ -726,12 +732,18 @@ void PMD::SetPosition(uint32_t position)
 }
 
 // Gets the playback position (in ticks)
+/// <summary>
+///
+/// </summary>
 int PMD::GetPositionInTicks()
 {
     return (_State.BarLength * _State.BarCounter) + _State.OpsCounter;
 }
 
 // Sets the playback position (in ticks).
+/// <summary>
+///
+/// </summary>
 void PMD::SetPositionInTicks(int tickCount)
 {
     if (((_State.BarLength * _State.BarCounter) + _State.OpsCounter) > tickCount)
@@ -764,6 +776,9 @@ void PMD::SetPositionInTicks(int tickCount)
 }
 
 // Sets the PCM search directory
+/// <summary>
+///
+/// </summary>
 bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
 {
     for (std::vector<const WCHAR *>::iterator iter = paths.begin(); iter < paths.end(); iter++)
@@ -779,6 +794,9 @@ bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
     return true;
 }
 
+/// <summary>
+///
+/// </summary>
 bool PMD::LoadRhythmSamples(WCHAR * path)
 {
     WCHAR Path[MAX_PATH];
@@ -873,12 +891,18 @@ void PMD::SetP86Interpolation(bool flag)
 }
 
 // Fade out (PMD compatible)
+/// <summary>
+///
+/// </summary>
 void PMD::SetFadeOutSpeed(int speed)
 {
     _State.FadeOutSpeed = speed;
 }
 
 // Fade out (High quality sound)
+/// <summary>
+///
+/// </summary>
 void PMD::SetFadeOutDurationHQ(int value)
 {
     if (value > 0)
@@ -1709,6 +1733,9 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
 
 
 
+/// <summary>
+///
+/// </summary>
 void PMD::GetText(const uint8_t * data, size_t size, int index, char * text) const noexcept
 {
     *text = '\0';
@@ -1783,6 +1810,9 @@ void PMD::GetText(const uint8_t * data, size_t size, int index, char * text) con
         ::strcpy(text, (char *) &Data[Offset]);
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::HandleTimerA()
 {
     _State.IsTimerABusy = true;
@@ -1797,6 +1827,9 @@ void PMD::HandleTimerA()
     _State.IsTimerABusy = false;
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::HandleTimerB()
 {
     _State.IsTimerBBusy = true;
@@ -2132,7 +2165,9 @@ uint8_t * PMD::SetMDepthCountCommand(Channel * channel, uint8_t * si)
 }
 #pragma endregion
 
-// Completely muting the [PartB] part (TL=127 and RR=15 and KEY-OFF). cy=1 ･･･ All slots are neiromasked
+/// <summary>
+/// Completely muting the [PartB] part (TL=127 and RR=15 and KEY-OFF). cy=1 ･･･ All slots are neiromasked
+/// </summary>
 int PMD::MuteFMChannel(Channel * channel)
 {
     if (channel->ToneMask == 0)
@@ -2175,11 +2210,17 @@ int PMD::MuteFMChannel(Channel * channel)
     return 0;
 }
 
+/// <summary>
+///
+/// </summary>
 int PMD::TransposeSSG(Channel * channel, int srcTone)
 {
     return Transpose(channel, srcTone);
 }
 
+/// <summary>
+///
+/// </summary>
 int PMD::Transpose(Channel * channel, int srcTone)
 {
     if (srcTone == 0x0F)
@@ -2226,6 +2267,9 @@ int PMD::Transpose(Channel * channel, int srcTone)
     }
 }
 
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::CalculateQ(Channel * channel, uint8_t * si)
 {
     if (*si == 0xC1)
@@ -2277,6 +2321,9 @@ uint8_t * PMD::CalculateQ(Channel * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::CalculatePortamento(Channel * channel)
 {
     channel->Portamento += channel->PortamentoQuotient;
@@ -2333,7 +2380,9 @@ void PMD::SwapLFO(Channel * channel)
     Swap(&channel->LFO1MDepthCount2, &channel->LFO2MDepthCount2);
 }
 
-// Tempo setting
+/// <summary>
+/// Set the tempo.
+/// </summary>
 void PMD::SetTimerBTempo()
 {
     if (_State.TimerBTempo != _State.Tempo)
@@ -2358,7 +2407,9 @@ void PMD::IncreaseBarCounter()
         _State.OpsCounter++;
 }
 
-//  Interrupt settings. FM tone generator only
+/// <summary>
+/// Interrupt settings. FM tone generator only
+/// </summary>
 void PMD::InitializeInterrupt()
 {
     // OPN interrupt initial setting
@@ -2378,6 +2429,9 @@ void PMD::InitializeInterrupt()
     _State.BarLength = 96;
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::Silence()
 {
     _OPNAW->SetReg(0x80, 0xff); // FM Release = 15
@@ -2737,7 +2791,9 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
     return ERR_SUCCESS;
 }
 
-// Read data from PCM memory to main memory.
+/// <summary>
+/// Read data from PCM memory to main memory.
+/// </summary>
 void PMD::ReadPCMData(uint16_t startAddress, uint16_t stopAddress, uint8_t * data)
 {
     _OPNAW->SetReg(0x100, 0x01);
@@ -2763,7 +2819,9 @@ void PMD::ReadPCMData(uint16_t startAddress, uint16_t stopAddress, uint8_t * dat
     }
 }
 
-// Send data from main memory to PCM memory (x8, high speed version)
+/// <summary>
+/// Send data from main memory to PCM memory (x8, high speed version)
+/// </summary>
 void PMD::WritePCMData(uint16_t startAddress, uint16_t stopAddress, const uint8_t * data)
 {
     _OPNAW->SetReg(0x100, 0x01);
@@ -2800,7 +2858,9 @@ void PMD::FindFile(const WCHAR * filename, WCHAR * filePath, size_t size) const 
     }
 }
 
-// Fade In / Out
+/// <summary>
+/// Fade In / Out
+/// </summary>
 void PMD::Fade()
 {
     if (_State.FadeOutSpeed == 0)

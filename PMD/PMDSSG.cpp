@@ -562,6 +562,9 @@ void PMD::SetSSGDelay(int nsec)
 }
 
 #pragma region(Commands)
+/// <summary>
+///
+/// </summary>
 void PMD::SetSSGTone(Channel * channel, int tone)
 {
     if ((tone & 0x0F) != 0x0F)
@@ -597,6 +600,9 @@ void PMD::SetSSGTone(Channel * channel, int tone)
     }
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SetSSGVolume(Channel * channel)
 {
     if ((channel->SSGEnvelopFlag == 3) || ((channel->SSGEnvelopFlag == -1) && (channel->ExtendedCount == 0)))
@@ -668,6 +674,9 @@ void PMD::SetSSGVolume(Channel * channel)
     }
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SetSSGPitch(Channel * channel)
 {
     if (channel->Factor == 0)
@@ -737,6 +746,9 @@ void PMD::SetSSGPitch(Channel * channel)
     _OPNAW->SetReg((uint32_t) ((_Driver.CurrentChannel - 1) * 2 + 1), (uint32_t) HIBYTE(Pitch));
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SSGKeyOn(Channel * channel)
 {
     if (channel->Tone == 0xFF)
@@ -759,6 +771,9 @@ void PMD::SSGKeyOn(Channel * channel)
     }
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SSGKeyOff(Channel * channel)
 {
     if (channel->Tone == 0xFF)
@@ -771,7 +786,7 @@ void PMD::SSGKeyOff(Channel * channel)
 }
 
 /// <summary>
-/// Command "@ number": Sets the instrument to be used. Range 0-255.
+///
 /// </summary>
 void PMD::SetSSGInstrument(Channel * channel, int instrumentNumber)
 {
