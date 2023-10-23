@@ -1,5 +1,5 @@
 ﻿
-// $VER: PMDPPZ.cpp (2023.10.22) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMDPPZ.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -31,9 +31,9 @@ void PMD::PPZMain(Channel * channel)
     else
     if ((channel->KeyOffFlag & 0x03) == 0)
     {
-        if (channel->Length <= channel->qdat)
+        if (channel->Length <= channel->GateTime)
         {
-            SetPPZKeyOff(channel);
+            PPZKeyOff(channel);
 
             channel->KeyOffFlag = 0xFF;
         }
@@ -53,13 +53,13 @@ void PMD::PPZMain(Channel * channel)
             {
                 channel->Data = si;
                 channel->loopcheck = 3;
-                channel->Note = 0xFF;
+                channel->Tone = 0xFF;
 
                 if (channel->LoopData == nullptr)
                 {
                     if (channel->MuteMask)
                     {
-                        _Driver.TieMode = 0;
+                        _Driver.TieNotesTogether = false;
                         _Driver.IsVolumeBoostSet = 0;
                         _Driver.loop_work &= channel->loopcheck;
                         return;
@@ -103,19 +103,19 @@ void PMD::PPZMain(Channel * channel)
 */
                     si = channel->Rest(++si, (--_Driver.IsVolumeBoostSet) != 0);
 
-                    _Driver.TieMode = 0;
+                    _Driver.TieNotesTogether = false;
                     _Driver.IsVolumeBoostSet = 0;
                     break;
                 }
 
                 //  TONE SET
-                SetPPZTone(channel, oshift(channel, StartPCMLFO(channel, *si++)));
+                SetPPZTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
 
                 si = CalculateQ(channel, si);
 
-                if ((channel->VolumeBoost != 0) && (channel->Note != 0xFF))
+                if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
                 {
                     if (--_Driver.IsVolumeBoostSet)
                     {
@@ -128,12 +128,12 @@ void PMD::PPZMain(Channel * channel)
                 SetPPZPitch(channel);
 
                 if (channel->KeyOffFlag & 0x01)
-                    SetPPZKeyOn(channel);
+                    PPZKeyOn(channel);
 
                 channel->KeyOnFlag++;
                 channel->Data = si;
 
-                _Driver.TieMode = 0;
+                _Driver.TieNotesTogether = false;
                 _Driver.IsVolumeBoostSet = 0;
 
                 // Don't perform Key Off if a "&" command (Tie) follows immediately.
@@ -152,7 +152,7 @@ void PMD::PPZMain(Channel * channel)
     {
         if (channel->ModulationMode & 0x03)
         {
-            if (lfo(channel))
+            if (SetLFO(channel))
             {
                 _Driver.ModulationMode |= (channel->ModulationMode & 0x03);
             }
@@ -193,19 +193,19 @@ void PMD::PPZMain(Channel * channel)
 
 uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
 {
-    int al = *si++;
+    uint8_t Command = *si++;
 
-    switch (al)
+    switch (Command)
     {
         case 0xFF:
-            si = SetPPZInstrumentCommand(channel, si);
+            si = SetPPZInstrument(channel, si);
             break;
 
         // Set early Key Off Timeout
         case 0xFE:
             channel->EarlyKeyOffTimeout = *si++;
             break;
-
+/*
         case 0xFD:
             channel->Volume = *si++;
             break;
@@ -216,7 +216,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
 
         // Command "&": Tie notes together.
         case 0xFB:
-            _Driver.TieMode |= 1;
+            _Driver.TieNotesTogether = true;
             break;
 
         // Set detune.
@@ -277,10 +277,10 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xF0:
             si = SetSSGEnvelopeFormat1Command(channel, si);
             break;
-
+*/
         // Set SSG envelope.
         case 0xEF:
-            _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + *si), (uint32_t) *(si + 1));
+            _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + si[0]), si[1]);
             si += 2;
             break;
 
@@ -290,7 +290,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xEC:
             si = SetPPZPanningCommand(channel, si);
             break;
-
+/*
         case 0xEB:
             si = OPNARhythmKeyOn(si);
             break;
@@ -321,7 +321,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xE4: si++; break;
-
+*/
         // Increase volume.
         case 0xE3:
             channel->Volume += *si++;
@@ -337,7 +337,7 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
             if (channel->Volume < 0)
                 channel->Volume = 0;
             break;
-
+/*
         case 0xE1: si++; break;
         case 0xE0: si++; break;
 
@@ -345,200 +345,223 @@ uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
         case 0xDF:
             _State.BarLength = *si++;
             break;
-
+*/
         case 0xDE:
             si = IncreaseVolumeForNextNote(channel, si, 255);
             break;
-
+/*
         case 0xDD:
             si = DecreaseVolumeForNextNote(channel, si);
             break;
 
-        case 0xdc: _State.status = *si++; break;
-        case 0xdb: _State.status += *si++; break;
-
-        case 0xda: si = SetPPZPortamentoCommand(channel, si); break;
-
-        case 0xd9: si++; break;
-        case 0xd8: si++; break;
-        case 0xd7: si++; break;
-
-        case 0xd6:
-            channel->MDepthSpeedA = channel->MDepthSpeedB = *si++;
-            channel->MDepth = *(int8_t *) si++;
+        // Set status.
+        case 0xDC:
+            _State.Status = *si++;
             break;
 
-        case 0xd5:
-            channel->DetuneValue += *(int16_t *) si; si += 2; break;
+        // Increment status.
+        case 0xDB:
+            _State.Status += *si++;
+            break;
+*/
+        // Set portamento.
+        case 0xDA:
+            si = SetPPZPortamentoCommand(channel, si);
+            break;
+/*
+        case 0xD9: si++; break;
+        case 0xD8: si++; break;
+        case 0xD7: si++; break;
 
-        case 0xd4: si = SetSSGEffect(channel, si); break;
-        case 0xd3: si = SetFMEffect(channel, si); break;
-        case 0xd2:
-            _State.fadeout_flag = 1;
+        case 0xD6:
+            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
+            channel->LFO1MDepth = *(int8_t *) si++;
+            break;
+
+        case 0xD5:
+            channel->DetuneValue += *(int16_t *) si;
+            si += 2;
+            break;
+
+        case 0xD4:
+            si = SetSSGEffect(channel, si);
+            break;
+
+        case 0xD3:
+            si = SetFMEffect(channel, si);
+            break;
+
+        case 0xD2:
             _State.FadeOutSpeed = *si++;
+            _State.FadeOutSpeedSet = true;
             break;
 
-        case 0xd1: si++; break;
-        case 0xd0: si++; break;
-
-        case 0xcf: si++; break;
-        case 0xce:
+        case 0xD1: si++; break;
+        case 0xD0: si++; break;
+        case 0xCF: si++; break;
+*/
+        // Set PCM Repeat.
+        case 0xCE:
             si = SetPPZRepeatCommand(channel, si);
             break;
-
-        case 0xcd: si = SetSSGEnvelopeFormat2Command(channel, si); break;
-        case 0xcc: si++; break;
-        case 0xcb: channel->LFOWaveform = *si++; break;
-        case 0xca:
-            channel->extendmode = (channel->extendmode & 0xFD) | ((*si++ & 1) << 1);
+/*
+        case 0xCD:
+            si = SetSSGEnvelopeFormat2Command(channel, si);
             break;
 
-        case 0xc9:
-            channel->extendmode = (channel->extendmode & 0xFB) | ((*si++ & 1) << 2);
+        // Set SSG Extend Mode (bit 0).
+        case 0xCC: si++; break;
+
+        case 0xCB:
+            channel->LFO1Waveform = *si++;
+            break;
+*/
+        // Set SSG Extend Mode (bit 1).
+        case 0xCA:
+            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
             break;
 
-        case 0xc8: si += 3; break;
-        case 0xc7: si += 3; break;
-        case 0xc6: si += 6; break;
-        case 0xc5: si++; break;
+        // Set SSG Extend Mode (bit 2).
+        case 0xC9:
+            channel->ExtendMode = (channel->ExtendMode & 0xFB) | ((*si++ & 0x01) << 2);
+            break;
+/*
+        case 0xC8: si += 3; break;
+        case 0xC7: si += 3; break;
+        case 0xC6: si += 6; break;
+        case 0xC5: si++; break;
 
         // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
         case 0xC4:
             channel->EarlyKeyOffTimeoutPercentage = *si++;
             break;
-
-        case 0xc3:
-            si = SetPPZPanValueExtendedCommand(channel, si);
+*/
+        case 0xC3:
+            si = SetPPZPanningExtendCommand(channel, si);
             break;
-
-        case 0xc2: channel->delay = channel->delay2 = *si++; lfoinit_main(channel); break;
-        case 0xc1: break;
+/*
+        case 0xC2:
+            channel->Delay1 = channel->Delay2 = *si++;
+            InitializeLFOMain(channel);
+            break;
+*/
+        case 0xC1: break;
 
         case 0xC0:
             si = SetPPZMaskCommand(channel, si);
             break;
-
-        case 0xbf:
+/*
+        case 0xBF:
             SwapLFO(channel);
 
             si = SetModulation(channel, si);
 
             SwapLFO(channel);
             break;
-
-        case 0xbe:
+*/
+        case 0xBE:
             si = SetHardwareLFOSwitchCommand(channel, si);
             break;
-
-        case 0xbd:
+/*
+        case 0xBD:
             SwapLFO(channel);
 
-            channel->MDepthSpeedA = channel->MDepthSpeedB = *si++;
-            channel->MDepth = *(int8_t *) si++;
-
-            SwapLFO(channel);
-            break;
-
-        case 0xbc:
-            SwapLFO(channel);
-
-            channel->LFOWaveform = *si++;
+            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
+            channel->LFO1MDepth = *(int8_t *) si++;
 
             SwapLFO(channel);
             break;
 
-        case 0xbb:
+        case 0xBC:
             SwapLFO(channel);
 
-            channel->extendmode = (channel->extendmode & 0xFD) | ((*si++ & 1) << 1);
+            channel->LFO1Waveform = *si++;
 
             SwapLFO(channel);
             break;
 
-        case 0xba:
+        case 0xBB:
+            SwapLFO(channel);
+
+            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
+
+            SwapLFO(channel);
+            break;
+
+        case 0xBA:
             si = SetVolumeMask(channel, si);
             break;
-
-        case 0xb9:
+*
+        case 0xB9:
             SwapLFO(channel);
 
-            channel->delay = channel->delay2 = *si++;
-            lfoinit_main(channel);
-// FIXME     break;
+            channel->LFO1Delay1 = channel->LFO1Delay2 = *si++;
+            InitializeLFOMain(channel);
 
             SwapLFO(channel);
             break;
 
-        case 0xb8: si += 2; break;
+        case 0xB8: si += 2; break;
 
-        case 0xb7:
+        case 0xB7:
             si = SetMDepthCountCommand(channel, si);
             break;
 
-        case 0xb6: si++; break;
-        case 0xb5: si += 2; break;
-        case 0xb4: si += 16; break;
+        case 0xB6: si++; break;
+        case 0xB5: si += 2; break;
+        case 0xB4: si += 16; break;
 
-        case 0xb3: channel->qdat2 = *si++; break;
-        case 0xb2: channel->shift_def = *(int8_t *) si++; break;
+        // Set Early Key Off Timeout 2. Stop note after n ticks or earlier depending on the result of B1/C4/FE happening first.
+        case 0xB3:
+            channel->EarlyKeyOffTimeout2 = *si++;
+            break;
+
+        case 0xB2:
+            channel->Transposition2 = *(int8_t *) si++;
+            break;
 
         // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
         case 0xB1:
             channel->EarlyKeyOffTimeoutRandomRange = *si++;
             break;
-
+*/
         default:
-            si--;
-            *si = 0x80;
+            si = ExecuteCommand(channel, si, Command);
     }
 
     return si;
 }
 
 #pragma region(Commands)
-// Command "@ number": Sets the number of the instrument to be used. Range 0-255.
-uint8_t * PMD::SetPPZInstrumentCommand(Channel * channel, uint8_t * si)
+void PMD::SetPPZTone(Channel * channel, int tone)
 {
-    channel->InstrumentNumber = *si++;
-
-    if ((channel->InstrumentNumber & 0x80) == 0)
-        _PPZ->SetInstrument((size_t) _Driver.CurrentChannel, 0, (size_t) channel->InstrumentNumber);
-    else
-        _PPZ->SetInstrument((size_t) _Driver.CurrentChannel, 1, (size_t) (channel->InstrumentNumber & 0x7F));
-
-    return si;
-}
-#pragma endregion
-
-void PMD::SetPPZTone(Channel * channel, int al)
-{
-    if ((al & 0x0f) != 0x0f)
+    if ((tone & 0x0F) != 0x0F)
     {
-        // Music Note
-        channel->Note = al;
+        channel->Tone = tone;
 
-        int bx = al & 0x0F;
-        int cl = (al >> 4) & 0x0F;
+        int Block = tone & 0x0F;
 
-        uint32_t ax = (uint32_t) ppz_tune_data[bx];
+        int cl = (tone >> 4) & 0x0F;
+
+        uint32_t Factor = (uint32_t) PPZScaleFactor[Block];
 
         if ((cl -= 4) < 0)
         {
             cl = -cl;
-            ax >>= cl;
+            Factor >>= cl;
         }
         else
-            ax <<= cl;
+            Factor <<= cl;
 
-        channel->fnum = ax;
+        channel->Factor = Factor;
     }
     else
     {
         // Rest
-        channel->Note = 0xFF;
+        channel->Tone = 0xFF;
 
         if ((channel->ModulationMode & 0x11) == 0)
-            channel->fnum = 0;
+            channel->Factor = 0; // Don't use LFO pitch.
     }
 }
 
@@ -546,14 +569,13 @@ void PMD::SetPPZVolume(Channel * channel)
 {
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->Volume;
 
-    //  音量down計算
+    // Calculate volume down.
     al = ((256 - _State.PPZVolumeDown) * al) >> 8;
 
-    //  Fadeout計算
+    // Calculate fade out.
     if (_State.FadeOutVolume != 0)
         al = ((256 - _State.FadeOutVolume) * al) >> 8;
 
-    //  ENVELOPE 計算
     if (al == 0)
     {
         _PPZ->SetVolume((size_t) _Driver.CurrentChannel, 0);
@@ -562,9 +584,10 @@ void PMD::SetPPZVolume(Channel * channel)
         return;
     }
 
-    if (channel->envf == -1)
+    // Calculate envelope.
+    if (channel->SSGEnvelopFlag == -1)
     {
-        // Extended version: Volume = al*(eenv_vol+1)/16
+        // Extended version: Volume = al * (eenv_vol + 1) / 16
         if (channel->ExtendedAttackLevel == 0)
         {
         //  _PPZ->SetVol((Size_t) _Driver._CurrentChannel, 0);
@@ -577,6 +600,7 @@ void PMD::SetPPZVolume(Channel * channel)
     }
     else
     {
+        // Extended envelope volume
         if (channel->ExtendedAttackLevel < 0)
         {
             int ah = -channel->ExtendedAttackLevel * 16;
@@ -605,10 +629,10 @@ void PMD::SetPPZVolume(Channel * channel)
     // Calculate the LFO volume.
     if ((channel->ModulationMode & 0x22))
     {
-        int dx = (channel->ModulationMode & 0x02) ? channel->LFODat1 : 0;
+        int dx = (channel->ModulationMode & 0x02) ? channel->LFO1Data : 0;
 
         if (channel->ModulationMode & 0x20)
-            dx += channel->LFODat2;
+            dx += channel->LFO2Data;
 
         al += dx;
 
@@ -632,36 +656,38 @@ void PMD::SetPPZVolume(Channel * channel)
 
 void PMD::SetPPZPitch(Channel * channel)
 {
-    uint32_t cx = channel->fnum;
+    uint32_t Pitch = channel->Factor;
 
-    if (cx == 0)
+    if (Pitch == 0)
         return;
 
-    cx += channel->porta_num * 16;
+    Pitch += channel->Portamento * 16;
 
-    int ax = (channel->ModulationMode & 0x01) ? channel->LFODat1 : 0;
+    {
+        int ax = (channel->ModulationMode & 0x01) ? channel->LFO1Data : 0;
 
-    if (channel->ModulationMode & 0x10)
-        ax += channel->LFODat2;
+        if (channel->ModulationMode & 0x10)
+            ax += channel->LFO2Data;
 
-    ax += channel->DetuneValue;
+        ax += channel->DetuneValue;
 
-    int64_t cx2 = cx + ((int64_t) cx) / 256 * ax;
+        int64_t cx2 = Pitch + ((int64_t) Pitch) / 256 * ax;
 
-    if (cx2 > 0xffffffff)
-        cx = 0xffffffff;
-    else
-    if (cx2 < 0)
-        cx = 0;
-    else
-        cx = (uint32_t) cx2;
+        if (cx2 > 0xffffffff)
+            Pitch = 0xffffffff;
+        else
+        if (cx2 < 0)
+            Pitch = 0;
+        else
+            Pitch = (uint32_t) cx2;
+    }
 
-    _PPZ->SetPitch((size_t) _Driver.CurrentChannel, cx);
+    _PPZ->SetPitch((size_t) _Driver.CurrentChannel, Pitch);
 }
 
-void PMD::SetPPZKeyOn(Channel * channel)
+void PMD::PPZKeyOn(Channel * channel)
 {
-    if (channel->Note == 0xFF)
+    if (channel->Tone == 0xFF)
         return;
 
     if ((channel->InstrumentNumber & 0x80) == 0)
@@ -670,11 +696,11 @@ void PMD::SetPPZKeyOn(Channel * channel)
         _PPZ->Play((size_t) _Driver.CurrentChannel, 1, channel->InstrumentNumber & 0x7F, 0, 0);
 }
 
-void PMD::SetPPZKeyOff(Channel * channel)
+void PMD::PPZKeyOff(Channel * channel)
 {
-    if (channel->envf != -1)
+    if (channel->SSGEnvelopFlag != -1)
     {
-        if (channel->envf == 2)
+        if (channel->SSGEnvelopFlag == 2)
             return;
     }
     else
@@ -683,8 +709,24 @@ void PMD::SetPPZKeyOff(Channel * channel)
             return;
     }
 
-    SetSSGKeyOff(channel);
+    SSGKeyOff(channel);
 }
+
+/// <summary>
+/// Command "@ number": Sets the instrument to be used. Range 0-255.
+/// </summary>
+uint8_t * PMD::SetPPZInstrument(Channel * channel, uint8_t * si)
+{
+    channel->InstrumentNumber = *si++;
+
+    if ((channel->InstrumentNumber & 0x80) == 0)
+        _PPZ->SetInstrument((size_t) _Driver.CurrentChannel, 0, (size_t) channel->InstrumentNumber);
+    else
+        _PPZ->SetInstrument((size_t) _Driver.CurrentChannel, 1, (size_t) (channel->InstrumentNumber & 0x7F));
+
+    return si;
+}
+#pragma endregion
 
 // Command "{interval1 interval2} [length1] [.] [,length2]"
 uint8_t * PMD::SetPPZPortamentoCommand(Channel * channel, uint8_t * si)
@@ -692,8 +734,8 @@ uint8_t * PMD::SetPPZPortamentoCommand(Channel * channel, uint8_t * si)
     if (channel->MuteMask)
     {
         // Set to 'rest'.
-        channel->fnum = 0;
-        channel->Note = 0xFF;
+        channel->Factor = 0;
+        channel->Tone = 0xFF;
         channel->Length = si[2];
         channel->KeyOnFlag++;
         channel->Data = si + 3;
@@ -701,24 +743,24 @@ uint8_t * PMD::SetPPZPortamentoCommand(Channel * channel, uint8_t * si)
         if (--_Driver.IsVolumeBoostSet)
             channel->VolumeBoost = 0;
 
-        _Driver.TieMode = 0;
+        _Driver.TieNotesTogether = false;
         _Driver.IsVolumeBoostSet = 0;
         _Driver.loop_work &= channel->loopcheck;
 
         return si + 3; // Skip when muted.
     }
 
-    SetPPZTone(channel, oshift(channel, StartPCMLFO(channel, *si++)));
+    SetPPZTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
 
-    int bx_ = (int) channel->fnum;
-    int al_ = channel->Note;
+    int bx_ = (int) channel->Factor;
+    int al_ = channel->Tone;
 
-    SetPPZTone(channel, oshift(channel, *si++));
+    SetPPZTone(channel, Transpose(channel, *si++));
 
-    int ax = (int) channel->fnum;
+    int ax = (int) channel->Factor;
 
-    channel->Note = al_;
-    channel->fnum = (uint32_t) bx_;
+    channel->Tone = al_;
+    channel->Factor = (uint32_t) bx_;
 
     ax -= bx_;
     ax /= 16;
@@ -727,11 +769,11 @@ uint8_t * PMD::SetPPZPortamentoCommand(Channel * channel, uint8_t * si)
 
     si = CalculateQ(channel, si);
 
-    channel->porta_num2 = ax / channel->Length;
-    channel->porta_num3 = ax % channel->Length;
-    channel->ModulationMode |= 8; // Enable portamento.
+    channel->PortamentoQuotient = ax / channel->Length;
+    channel->PortamentoRemainder = ax % channel->Length;
+    channel->ModulationMode |= 0x08; // Enable portamento.
 
-    if ((channel->VolumeBoost != 0) && (channel->Note != 0xFF))
+    if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
     {
         if (--_Driver.IsVolumeBoostSet)
         {
@@ -744,12 +786,12 @@ uint8_t * PMD::SetPPZPortamentoCommand(Channel * channel, uint8_t * si)
     SetPPZPitch(channel);
 
     if (channel->KeyOffFlag & 0x01)
-        SetPPZKeyOn(channel);
+        PPZKeyOn(channel);
 
     channel->KeyOnFlag++;
     channel->Data = si;
 
-    _Driver.TieMode = 0;
+    _Driver.TieNotesTogether = false;
     _Driver.IsVolumeBoostSet = 0;
 
     // Don't perform Key Off if a "&" command (Tie) follows immediately.
@@ -773,7 +815,7 @@ uint8_t * PMD::SetPPZPanningCommand(Channel * channel, uint8_t * si)
 }
 
 // Command "px <value 1>, <value 2>" (value 1: -128 to -4 (Pan to the left), -3 to -1 (Leftwards), 0 (Center), 1 to 3 (Rightwards), 4 to 127 (Pan to the right), value 2: 0 (In phase) or 1 (Reverse phase)).
-uint8_t * PMD::SetPPZPanValueExtendedCommand(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetPPZPanningExtendCommand(Channel * channel, uint8_t * si)
 {
     int al = *(int8_t *) si++;
     si++; // Skip the Phase flag.
@@ -795,19 +837,19 @@ uint8_t * PMD::InitializePPZ(Channel *, uint8_t * si)
 {
     for (size_t i = 0; i < _countof(_PPZChannel); ++i)
     {
-        int16_t ax = *(int16_t *) si;
+        int16_t Offset = *(int16_t *) si;
 
-        if (ax)
+        if (Offset != 0)
         {
-            _PPZChannel[i].Data = &_State.MData[ax];
+            _PPZChannel[i].Data = &_State.MData[Offset];
             _PPZChannel[i].Length = 1;
             _PPZChannel[i].KeyOffFlag = 0xFF;
-            _PPZChannel[i].mdc = -1;            // MDepth Counter (無限)
-            _PPZChannel[i].mdc2 = -1;
-            _PPZChannel[i]._mdc = -1;
-            _PPZChannel[i]._mdc2 = -1;
-            _PPZChannel[i].Note = 0xFF;         // Rest
-            _PPZChannel[i].DefaultNote = 0xFF;  // Rest
+            _PPZChannel[i].LFO1MDepthCount1 = -1;        // LFO1MDepth Counter (Infinite)
+            _PPZChannel[i].LFO1MDepthCount2 = -1;
+            _PPZChannel[i].LFO2MDepthCount1 = -1;
+            _PPZChannel[i].LFO2MDepthCount2 = -1;
+            _PPZChannel[i].Tone = 0xFF;         // Rest
+            _PPZChannel[i].DefaultTone = 0xFF;  // Rest
             _PPZChannel[i].Volume = 128;
             _PPZChannel[i].PanAndVolume = 5;    // Center
         }

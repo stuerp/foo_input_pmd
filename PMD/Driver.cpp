@@ -7,14 +7,6 @@
 
 #include "PMD.h"
 
-//#include "Utility.h"
-//#include "Table.h"
-
-//#include "OPNAW.h"
-//#include "PPZ.h"
-//#include "PPS.h"
-//#include "P86.h"
-
 void PMD::DriverMain()
 {
     int i;
@@ -57,7 +49,7 @@ void PMD::DriverMain()
         RhythmMain(&_RhythmChannel);
 
         if (_State.IsUsingP86)
-            PCM86Main(&_ADPCMChannel);
+            P86Main(&_ADPCMChannel);
         else
             ADPCMMain(&_ADPCMChannel);
     }
@@ -118,7 +110,7 @@ void PMD::DriverMain()
 void PMD::DriverStart()
 {
     // Set Timer B = 0 and Timer Reset (to match the length of the song every time)
-    _State.tempo_d = 0;
+    _State.Tempo = 0;
 
     SetTimerBTempo();
 

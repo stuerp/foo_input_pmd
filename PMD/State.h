@@ -65,19 +65,19 @@ public:
     }
 
 public:
-    uint8_t * MData;            // Address of MML data + 1
+    uint8_t * MData;                    // Address of MML data + 1
 
-    uint8_t * VData;            // Voice data
-    uint8_t * EData;            // FM Effect data
+    uint8_t * VData;                    // Voice data
+    uint8_t * EData;                    // FM Effect data
 
     uint8_t * RhythmData;
     uint8_t * InstrumentDefinitions;    // Address of the FM instrument definitions, if any.
 
     uint8_t DummyRhythmData;
 
-    uint16_t * RhythmDataTable; // Rhythm Data table
+    uint16_t * RhythmDataTable;         // Rhythm Data table
 
-    bool UseRhythm;             // Use Rhythm sound source with K/R part.
+    bool UseRhythm;                     // Use Rhythm sound source with K/R part.
     bool UseInterpolation;
     bool UseInterpolationPPZ;
     bool UseInterpolationPPS;
@@ -85,8 +85,8 @@ public:
 
     Channel * Channel[MaxChannels];
 
-    int RhythmMask;             // Rhythm sound source mask. Compatible with x8c/10h bit
-    int RhythmVolume;           // Rhythm volume
+    int RhythmMask;                     // Rhythm sound source mask. Compatible with x8c/10h bit
+    int RhythmVolume;                   // Rhythm volume
 
     int FMVolumeDown, DefaultFMVolumeDown;
     int SSGVolumeDown, DefaultSSGVolumeDown;
@@ -99,11 +99,13 @@ public:
     // MData characteristics
     uint8_t x68_flg;    // OPM flag
 
-    int status;
+    int Status; // Unused
 
     int LoopCount;
 
     int FadeOutSpeed;
+    bool IsFadeOutSpeedSet;
+    int FadeOutSpeedHQ;     // Fadeout speed (High Sound Quality)
     int FadeOutVolume;
 
     int BarLength;  // Time signature 4/4 = 96 (default); E.g. time signature 3/4 = 72
@@ -116,11 +118,11 @@ public:
     int PCMStart;
     int PCMStop;
 
-    int tempo_d; // Tempo (TIMER-B)
-    int tempo_d_push;  // Tempo (TIMER-B) / for saving
+    int Tempo;              // Timer B Tempo
+    int TempoPush;          // Timer B Tempo (for saving)
 
-    int tempo_48; // Current tempo (value of clock = 48 t)
-    int tempo_48_push;  // Current tempo (same as above / for saving)
+    int MetronomeTempo;     // Duration of a quarter note (in ticks)
+    int MetronomeTempoPush; // Duration of a quarter note (in ticks) (for saving)
 
     int kshot_dat; // SSG rhythm shot flag
     int fade_stop_flag;  // Flag for whether to MSTOP after Fadeout
@@ -131,7 +133,6 @@ public:
     int slot_detune3;  // FM3 Slot Detune値 slot3
     int slot_detune4;  // FM3 Slot Detune値 slot4
 
-    int fadeout_flag;  // When calling Fade from inside 1
     int BarCounter;
 
     int rshot_dat; // Rhythm shot flag
@@ -163,7 +164,5 @@ public:
     uint32_t PPZRate; // PPZ output frequency
 
     bool IsUsingP86;
-
-    int FadeOutSpeedHQ; // Fadeout (High Sound Quality) speed (fadeout at > 0)
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member

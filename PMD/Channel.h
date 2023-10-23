@@ -6,8 +6,8 @@ public:
     uint8_t * Rest(uint8_t * si, bool isVolumePushSet) noexcept
     {
         // Set to "rest".
-        fnum = 0;
-        Note = 0xFF;
+        Factor = 0;
+        Tone = 0xFF;
     //  DefaultNote = 0xFF;
 
         Length = *si;
@@ -25,72 +25,50 @@ public:
     uint8_t * LoopData;
     int Length;
 
-    uint32_t fnum;  // 2 Power BLOCK/FNUM
+    uint32_t Factor;  // 2 Power BLOCK/FNUM
     int DetuneValue;
 
     int ModulationMode;  // bit 0: Tone, bit 1: Volume, bit 2: Same period, bit 3: Portamento
-    int extendmode; // bit 1: Detune, bit 2: LFO, bit 3: Env Normal/Extend
+    int ExtendMode; // bit 1: Detune, bit 2: LFO, bit 3: Env Normal/Extend
 
     // LFO 1
-    int LFODat1;  // 2 LFO DATA
+    int LFO1Data;
+    int LFO1Waveform;
 
-    int delay;  // 1 LFO [DELAY]
-    int delay2;  // 1 [DELAY_2]
+    int LFO1Delay1, LFO1Delay2;
+    int LFO1Speed1, LFO1Speed2;
+    int LFO1Step1, LFO1Step2;
+    int LFO1Time1, LFO1Time2;
 
-    int speed;  // 1 [SPEED]
-    int speed2;  // 1 [SPEED_2]
-
-    int step;  // 1 [STEP]
-    int step2;  // 1 [STEP_2]
-
-    int time;  // 1 [TIME]
-    int time2;  // 1 [TIME_2]
-
-    int MDepthSpeedA;
-    int MDepthSpeedB;
-    int MDepth;
-
-    int LFOWaveform;
-
-    int mdc;  // 1 M depth Counter (Fluctuation value)
-    int mdc2;  // 1 M depth Counter
+    int LFO1MDepth;
+    int LFO1MDepthSpeed1, LFO1MDepthSpeed2;
+    int LFO1MDepthCount1, LFO1MDepthCount2;
 
     // LFO 2
-    int LFODat2; // 2 LFO DATA
+    int LFO2Data;
+    int LFO2Waveform;
 
-    int _delay;  // 1 LFO [DELAY]
-    int _delay2; // 1  [DELAY_2]
+    int LFO2Delay1, LFO2Delay2;
+    int LFO2Speed1, LFO2Speed2;
+    int LFO2Step1, LFO2Step2;
+    int LFO2Time1, LFO2Time2;
 
-    int _speed;  // 1  [SPEED]
-    int _speed2; // 1  [SPEED_2]
+    int LFO2MDepth;
+    int LFO2MDepthSpeed1, LFO2MDepthSpeed2;
+    int LFO2MDepthCount1, LFO2MDepthCount2;
 
-    int _step;  // 1  [STEP]
-    int _step2;  // 1  [STEP_2]
+    // Portamento
+    int Portamento;
+    int PortamentoQuotient;
+    int PortamentoRemainder;
 
-    int _time;  // 1  [TIME]
-    int _time2;  // 1  [TIME_2]
+    int Volume;
+    int Transposition1;
+    int Transposition2;
 
-    int _mdepth; // 1 M depth
+    int VolumeBoost; // bit 4: tone / bit 5: vol / bit 6: same period
 
-    int _mdspd;  // 1 M speed
-    int _mdspd2; // 1 M speed_2
-
-    int _LFOWaveform;
-
-    int _mdc;  // 1 M depth Counter (Fluctuation value)
-    int _mdc2;  // 1 M depth Counter
-
-    int porta_num; // 2 Portamento adjustment value (overall)
-    int porta_num2; // 2 Portamento adjustment value (once)
-    int porta_num3; // 2 Portamento adjustment value (remainder)
-
-    int Volume;  // 1 VOLUME
-    int Transposition;  // 1 ｵﾝｶｲ ｼﾌﾄ ﾉ ｱﾀｲ
-
-    // bit 4: tone / bit 5: vol / bit 6: same period
-    int VolumeBoost;
-
-    int envf;  // 1 SSG ENV. [START_FLAG] / -1でextend
+    int SSGEnvelopFlag; // -1 to extend
     int ExtendedCount; // None=0 AR=1 DR=2 SR=3 RR=4
 
     int AttackDuration;
@@ -111,14 +89,15 @@ public:
     int InstrumentNumber;
     int loopcheck; // 1 When the loop ends 1 When the loop ends 3
 
-    int carrier; // 1 FM Carrier
-    int slot1;  // 1 SLOT 1 ﾉ TL
-    int slot3;  // 1 SLOT 3 ﾉ TL
-    int slot2;  // 1 SLOT 2 ﾉ TL
-    int slot4;  // 1 SLOT 4 ﾉ TL
-
+    int FMCarrier;
+    int FMSlot1;
+    int FMSlot3;
+    int FMSlot2;
+    int FMSlot4;
     int FMSlotMask; // 1 FM slotmask
+
     int ToneMask; // 1 maskdata for FM tone definition
+
     int MuteMask; // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
     int VolumeMask1; // Volume LFO mask
     int VolumeMask2; // Volume LFO mask
@@ -130,20 +109,19 @@ public:
     int HardwareLFODelay;
     int HardwareLFODelayCounter;
 
-    int Note;  // Scale data being played (0xFF = rest)
-    int DefaultNote; // 1 Scale data being played (before modulation processing / ?fh: rest)
+    int Tone;           // High nibble = octave, low nibble = note, 0xFF = rest
+    int DefaultTone;
 
-    int sdelay;  // 1 Slot delay
-    int sdelay_c; // 1 Slot delay counter
-    int sdelay_m; // 1 Slot delay Mask
+    int SlotDelay;
+    int SlotDelayCounter;
+    int SlotDelayMask;
 
     int alg_fb;  // 1 Tone alg/fb
-    int shift_def; // 1 Master modulation value
 
-    int qdat; // 1 gatetime (value calculated from q/Q value)
-    int qdat2;  // 1 q minimum guaranteed value
+    int GateTime; // Calculated from q/Q value
 
     int EarlyKeyOffTimeout;
     int EarlyKeyOffTimeoutPercentage;
     int EarlyKeyOffTimeoutRandomRange;
+    int EarlyKeyOffTimeout2;
 };

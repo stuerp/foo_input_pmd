@@ -23,7 +23,7 @@ private:
     }
 
 public:
-    int TieMode;        // 1: Tie notes together ("&" command)
+    bool TieNotesTogether;       // True if notes should be tied together ("&" command)
     int OldTimerATime;  // TimerATime value at the previous interrupt
 
     int omote_key[3];   // FM keyondata table (=0)

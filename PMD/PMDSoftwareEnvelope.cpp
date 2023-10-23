@@ -17,7 +17,7 @@
 
 int PMD::SSGPCMSoftwareEnvelope(Channel * channel)
 {
-    if (channel->extendmode & 0x04)
+    if (channel->ExtendMode & 0x04)
     {
         if (_State.TimerATime == _Driver.OldTimerATime)
             return 0;
@@ -38,7 +38,7 @@ int PMD::SSGPCMSoftwareEnvelope(Channel * channel)
 
 int PMD::SSGPCMSoftwareEnvelopeMain(Channel * channel)
 {
-    if (channel->envf == -1)
+    if (channel->SSGEnvelopFlag == -1)
         return ExtendedSSGPCMSoftwareEnvelopeMain(channel);
 
     int dl = channel->ExtendedAttackLevel;
@@ -53,19 +53,19 @@ int PMD::SSGPCMSoftwareEnvelopeMain(Channel * channel)
 
 int PMD::SSGPCMSoftwareEnvelopeSub(Channel * channel)
 {
-    if (channel->envf == 0)
+    if (channel->SSGEnvelopFlag == 0)
     {
         // Attack
         if (--channel->AttackDuration != 0)
             return 0;
 
-        channel->envf = 1;
+        channel->SSGEnvelopFlag = 1;
         channel->ExtendedAttackLevel = channel->DecayDepth;
 
         return 1;
     }
 
-    if (channel->envf != 2)
+    if (channel->SSGEnvelopFlag != 2)
     {
         // Decay
         if (channel->SustainRate == 0)

@@ -1,5 +1,5 @@
 ﻿
-// PMD driver (Based on PMDWin code by C60)
+// $VER: PMDADPCM.cpp (2023.10.22) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -31,9 +31,9 @@ void PMD::ADPCMMain(Channel * channel)
     else
     if ((channel->KeyOffFlag & 0x03) == 0)
     {
-        if (channel->Length <= channel->qdat)
+        if (channel->Length <= channel->GateTime)
         {
-            SetADPCMKeyOff(channel);
+            ADPCMKeyOff(channel);
 
             channel->KeyOffFlag = 0xFF;
         }
@@ -54,13 +54,13 @@ void PMD::ADPCMMain(Channel * channel)
             {
                 channel->Data = si;
                 channel->loopcheck = 3;
-                channel->Note = 0xFF;
+                channel->Tone = 0xFF;
 
                 if (channel->LoopData == nullptr)
                 {
                     if (channel->MuteMask)
                     {
-                        _Driver.TieMode = 0;
+                        _Driver.TieNotesTogether = false;
                         _Driver.IsVolumeBoostSet = 0;
                         _Driver.loop_work &= channel->loopcheck;
 
@@ -104,18 +104,18 @@ void PMD::ADPCMMain(Channel * channel)
 */
                     si = channel->Rest(++si, (--_Driver.IsVolumeBoostSet) != 0);
 
-                    _Driver.TieMode = 0;
+                    _Driver.TieNotesTogether = false;
                     _Driver.IsVolumeBoostSet = 0;
                     break;
                 }
 
-                SetADPCMTone(channel, oshift(channel, StartPCMLFO(channel, *si++)));
+                SetADPCMTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
 
                 si = CalculateQ(channel, si);
 
-                if ((channel->VolumeBoost != 0) && (channel->Note != 0xFF))
+                if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
                 {
                     if (--_Driver.IsVolumeBoostSet)
                     {
@@ -128,12 +128,12 @@ void PMD::ADPCMMain(Channel * channel)
                 SetADPCMPitch(channel);
 
                 if (channel->KeyOffFlag & 0x01)
-                    SetADPCMKeyOn(channel);
+                    ADPCMKeyOn(channel);
 
                 channel->KeyOnFlag++;
                 channel->Data = si;
 
-                _Driver.TieMode = 0;
+                _Driver.TieNotesTogether = false;
                 _Driver.IsVolumeBoostSet = 0;
 
                 // Don't perform Key Off if a "&" command (Tie) follows immediately.
@@ -152,7 +152,7 @@ void PMD::ADPCMMain(Channel * channel)
     {
         if (channel->ModulationMode & 0x03)
         {
-            if (lfo(channel))
+            if (SetLFO(channel))
                 _Driver.ModulationMode |= (channel->ModulationMode & 0x03);
         }
 
@@ -188,19 +188,19 @@ void PMD::ADPCMMain(Channel * channel)
 
 uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
 {
-    int al = *si++;
+    uint8_t Command = *si++;
 
-    switch (al)
+    switch (Command)
     {
         case 0xFF:
-            si = SetADPCMInstrumentCommand(channel, si);
+            si = SetADPCMInstrument(channel, si);
             break;
 
         // Set Early Key Off Timeout.
         case 0xFE:
             channel->EarlyKeyOffTimeout = *si++;
             break;
-
+/*
         case 0xFD:
             channel->Volume = *si++;
             break;
@@ -211,7 +211,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
 
         // Command "&": Tie notes together.
         case 0xFB:
-            _Driver.TieMode |= 1;
+            _Driver.TieNotesTogether = true;
             break;
 
         // Set detune.
@@ -272,10 +272,10 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
         case 0xF0:
             si = SetSSGEnvelopeFormat1Command(channel, si);
             break;
-
+*/
         // Set SSG envelope.
         case 0xEF:
-            _OPNAW->SetReg((uint32_t) (0x100 + si[0]), (uint32_t) si[1]);
+            _OPNAW->SetReg((uint32_t) (0x100 + si[0]), si[1]);
             si += 2;
             break;
 
@@ -285,7 +285,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
         case 0xEC:
             si = SetADPCMPanningCommand(channel, si);
             break;
-
+/*
         case 0xEB:
             si = OPNARhythmKeyOn(si);
             break;
@@ -316,7 +316,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xE4: si++; break;
-
+*/
         // Increase volume.
         case 0xE3:
             channel->Volume += *si++;
@@ -332,7 +332,7 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
             if (channel->Volume < 0)
                 channel->Volume = 0;
             break;
-
+/*
         case 0xE1: si++; break;
         case 0xE0: si++; break;
 
@@ -340,232 +340,244 @@ uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
         case 0xDF:
             _State.BarLength = *si++;
             break;
-
+*/
         case 0xDE:
             si = IncreaseVolumeForNextNote(channel, si, 255);
             break;
-
+/*
         case 0xDD:
             si = DecreaseVolumeForNextNote(channel, si);
             break;
 
-        case 0xdc:
-            _State.status = *si++;
+        // Set status.
+        case 0xDC:
+            _State.Status = *si++;
             break;
 
-        case 0xdb: _State.status += *si++;
+        // Increment status.
+        case 0xDB:
+            _State.Status += *si++;
             break;
-
-        case 0xda:
+*/
+        // Set portamento.
+        case 0xDA:
             si = SetADPCMPortamentoCommand(channel, si);
             break;
+/*
+        case 0xD9: si++; break;
+        case 0xD8: si++; break;
+        case 0xD7: si++; break;
 
-        case 0xd9: si++; break;
-        case 0xd8: si++; break;
-        case 0xd7: si++; break;
-
-        case 0xd6:
-            channel->MDepthSpeedA = channel->MDepthSpeedB = *si++;
-            channel->MDepth = *(int8_t *) si++;
+        case 0xD6:
+            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
+            channel->LFO1MDepth = *(int8_t *) si++;
             break;
 
-        case 0xd5:
+        case 0xD5:
             channel->DetuneValue += *(int16_t *) si;
             si += 2;
             break;
 
-        case 0xd4:
+        case 0xD4:
             si = SetSSGEffect(channel, si);
             break;
 
-        case 0xd3:
+        case 0xD3:
             si = SetFMEffect(channel, si);
             break;
 
-        case 0xd2:
-            _State.fadeout_flag = 1;
+        case 0xD2:
             _State.FadeOutSpeed = *si++;
+            _State.FadeOutSpeedSet = true;
             break;
 
-        case 0xd1: si++; break;
-        case 0xd0: si++; break;
-
-        case 0xcf: si++; break;
-        case 0xce:
+        case 0xD1: si++; break;
+        case 0xD0: si++; break;
+        case 0xCF: si++; break;
+*/
+        // Set PCM Repeat.
+        case 0xCE:
             si = SetADPCMRepeatCommand(channel, si);
             break;
-
-        case 0xcd:
+/*
+        case 0xCD:
             si = SetSSGEnvelopeFormat2Command(channel, si);
             break;
 
-        case 0xcc: si++; break;
+        // Set SSG Extend Mode (bit 0).
+        case 0xCC: si++; break;
 
-        case 0xcb:
-            channel->LFOWaveform = *si++;
+        case 0xCB:
+            channel->LFO1Waveform = *si++;
+            break;
+*/
+        // Set SSG Extend Mode (bit 1).
+        case 0xCA:
+            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
             break;
 
-        case 0xca:
-            channel->extendmode = (channel->extendmode & 0xFD) | ((*si++ & 1) << 1);
+        // Set SSG Extend Mode (bit 2).
+        case 0xC9:
+            channel->ExtendMode = (channel->ExtendMode & 0xFB) | ((*si++ & 0x01) << 2);
             break;
-
-        case 0xc9:
-            channel->extendmode = (channel->extendmode & 0xFB) | ((*si++ & 1) << 2);
-            break;
-
-        case 0xc8: si += 3; break;
-        case 0xc7: si += 3; break;
-        case 0xc6: si += 6; break;
-        case 0xc5: si++; break;
+/*
+        case 0xC8: si += 3; break;
+        case 0xC7: si += 3; break;
+        case 0xC6: si += 6; break;
+        case 0xC5: si++; break;
 
         // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
         case 0xC4:
             channel->EarlyKeyOffTimeoutPercentage = *si++;
             break;
-
-        case 0xc3:
+*/
+        case 0xC3:
             si = SetADPCMPanningExtendCommand(channel, si);
             break;
-
-        case 0xc2:
-            channel->delay = channel->delay2 = *si++;
-            lfoinit_main(channel);
+/*
+        case 0xC2:
+            channel->Delay1 = channel->Delay2 = *si++;
+            InitializeLFOMain(channel);
             break;
-
-        case 0xc1: break;
+*/
+        case 0xC1: break;
 
         case 0xC0:
             si = SetADPCMMaskCommand(channel, si);
             break;
-
-        case 0xbf:
+/*
+        case 0xBF:
             SwapLFO(channel);
 
             si = SetModulation(channel, si);
 
             SwapLFO(channel);
             break;
-
-        case 0xbe:
+*/
+        case 0xBE:
             si = SetHardwareLFOSwitchCommand(channel, si);
             break;
-
-        case 0xbd:
+/*
+        case 0xBD:
             SwapLFO(channel);
 
-            channel->MDepthSpeedA = channel->MDepthSpeedB = *si++;
-            channel->MDepth = *(int8_t *) si++;
-
-            SwapLFO(channel);
-            break;
-
-        case 0xbc:
-            SwapLFO(channel);
-
-            channel->LFOWaveform = *si++;
+            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
+            channel->LFO1MDepth = *(int8_t *) si++;
 
             SwapLFO(channel);
             break;
 
-        case 0xbb:
+        case 0xBC:
             SwapLFO(channel);
 
-            channel->extendmode = (channel->extendmode & 0xFD) | ((*si++ & 1) << 1);
+            channel->LFO1Waveform = *si++;
 
             SwapLFO(channel);
             break;
 
-        case 0xba:
+        case 0xBB:
+            SwapLFO(channel);
+
+            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
+
+            SwapLFO(channel);
+            break;
+
+        case 0xBA:
             si = SetVolumeMask(channel, si);
             break;
 
-        case 0xb9:
+        case 0xB9:
             SwapLFO(channel);
 
-            channel->delay = channel->delay2 = *si++;
-            lfoinit_main(channel);
-// FIXME    break;
+            channel->LFO1Delay1 = channel->LFO1Delay2 = *si++;
+            InitializeLFOMain(channel);
 
             SwapLFO(channel);
             break;
 
-        case 0xb8: si += 2; break;
-        case 0xb7: si = SetMDepthCountCommand(channel, si); break;
-        case 0xb6: si++; break;
-        case 0xb5: si += 2; break;
-        case 0xb4: si = InitializePPZ(channel, si); break;
-        case 0xb3: channel->qdat2 = *si++; break;
-        case 0xb2: channel->shift_def = *(int8_t *) si++; break;
+        case 0xB8: si += 2; break;
+
+        case 0xB7:
+            si = SetMDepthCountCommand(channel, si);
+            break;
+
+        case 0xB6: si++; break;
+        case 0xB5: si += 2; break;
+*/
+        case 0xB4:
+            si = InitializePPZ(channel, si);
+            break;
+/*
+        // Set Early Key Off Timeout 2. Stop note after n ticks or earlier depending on the result of B1/C4/FE happening first.
+        case 0xB3:
+            channel->EarlyKeyOffTimeout2 = *si++;
+            break;
+
+        case 0xB2:
+            channel->Transposition2 = *(int8_t *) si++;
+            break;
 
         // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
         case 0xB1:
             channel->EarlyKeyOffTimeoutRandomRange = *si++;
             break;
-
+*/
         default:
-            si--;
-            *si = 0x80;
+            si = ExecuteCommand(channel, si, Command);
     }
 
     return si;
 }
 
-#pragma region(Commands)
-// Command "@ number": Sets the number of the instrument to be used. Range 0-255.
-uint8_t * PMD::SetADPCMInstrumentCommand(Channel * channel, uint8_t * si)
+/// <summary>
+/// Sets ADPCM Wait after register output.
+/// </summary>
+void PMD::SetADPCMDelay(int nsec)
 {
-    channel->InstrumentNumber = *si++;
-
-    _State.PCMStart = _SampleBank.Address[channel->InstrumentNumber][0];
-    _State.PCMStop = _SampleBank.Address[channel->InstrumentNumber][1];
-
-    _Driver.LoopBegin = 0;
-    _Driver.LoopEnd = 0;
-    _Driver.LoopRelease = 0x8000;
-
-    return si;
+    _OPNAW->SetADPCMDelay(nsec);
 }
-#pragma endregion
 
-void PMD::SetADPCMTone(Channel * channel, int al)
+#pragma region(Commands)
+void PMD::SetADPCMTone(Channel * channel, int tone)
 {
-    if ((al & 0x0F) != 0x0F)
+    if ((tone & 0x0F) != 0x0F)
     {
-        // Music Note
-        channel->Note = al;
+        channel->Tone = tone;
 
-        int bx = al & 0x0F;
-        int ch = (al >> 4) & 0x0F;
+        int Block = tone & 0x0F;
+
+        int ch = (tone >> 4) & 0x0F;
         int cl = ch;
 
         cl = (cl > 5) ? 0 : 5 - cl;
 
-        int ax = pcm_tune_data[bx];
+        int Factor = PCMScaleFactor[Block];
 
         if (ch >= 6)
         {
             ch = 0x50;
 
-            if (ax < 0x8000)
+            if (Factor < 0x8000)
             {
-                ax *= 2;
+                Factor *= 2;
                 ch = 0x60;
             }
 
-            channel->Note = (channel->Note & 0x0F) | ch;
+            channel->Tone = (channel->Tone & 0x0F) | ch;
         }
         else
-            ax >>= cl;
+            Factor >>= cl;
 
-        channel->fnum = (uint32_t) ax;
+        channel->Factor = (uint32_t) Factor;
     }
     else
     {
         // Rest
-        channel->Note = 0xFF;
+        channel->Tone = 0xFF;
 
         if ((channel->ModulationMode & 0x11) == 0)
-            channel->fnum = 0;
+            channel->Factor = 0; // Don't use LFO pitch.
     }
 }
 
@@ -573,14 +585,13 @@ void PMD::SetADPCMVolumeCommand(Channel * channel)
 {
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->Volume;
 
-    //  音量down計算
+    // Calculate volume down.
     al = ((256 - _State.ADPCMVolumeDown) * al) >> 8;
 
-    //  Fadeout計算
+    // Calculate fade out.
     if (_State.FadeOutVolume)
         al = (((256 - _State.FadeOutVolume) * (256 - _State.FadeOutVolume) >> 8) * al) >> 8;
 
-    //  ENVELOPE 計算
     if (al == 0)
     {
         _OPNAW->SetReg(0x10b, 0);
@@ -588,9 +599,10 @@ void PMD::SetADPCMVolumeCommand(Channel * channel)
         return;
     }
 
-    if (channel->envf == -1)
+    // Calculate envelope.
+    if (channel->SSGEnvelopFlag == -1)
     {
-        //  拡張版 音量=al*(eenv_vol+1)/16
+        // Extended version: Volume = al * (eenv_vol + 1) / 16
         if (channel->ExtendedAttackLevel == 0)
         {
             _OPNAW->SetReg(0x10b, 0);
@@ -602,6 +614,7 @@ void PMD::SetADPCMVolumeCommand(Channel * channel)
     }
     else
     {
+        // Extended envelope volume
         if (channel->ExtendedAttackLevel < 0)
         {
             int ah = -channel->ExtendedAttackLevel * 16;
@@ -633,10 +646,11 @@ void PMD::SetADPCMVolumeCommand(Channel * channel)
         return;
     }
 
-    int dx = (channel->ModulationMode & 0x02) ? channel->LFODat1 : 0;
+    // Calculate the LFO volume.
+    int dx = (channel->ModulationMode & 0x02) ? channel->LFO1Data : 0;
 
     if (channel->ModulationMode & 0x20)
-        dx += channel->LFODat2;
+        dx += channel->LFO2Data;
 
     if (dx >= 0)
     {
@@ -660,43 +674,43 @@ void PMD::SetADPCMVolumeCommand(Channel * channel)
 
 void PMD::SetADPCMPitch(Channel * channel)
 {
-    if (channel->fnum == 0)
+    if (channel->Factor == 0)
         return;
 
-    // Portament/LFO/Detune SET
-    int bx = (int) (channel->fnum + channel->porta_num);
-    int dx = (int) (((channel->ModulationMode & 0x11) && (channel->ModulationMode & 0x01)) ? dx = channel->LFODat1 : 0);
+    int Pitch = (int) (channel->Factor + channel->Portamento);
 
-    if (channel->ModulationMode & 0x10)
-        dx += channel->LFODat2;
-
-    dx *= 4;  // PCM ﾊ LFO ｶﾞ ｶｶﾘﾆｸｲ ﾉﾃﾞ depth ｦ 4ﾊﾞｲ ｽﾙ
-
-    dx += channel->DetuneValue;
-
-    if (dx >= 0)
     {
-        bx += dx;
+        int dx = (int) (((channel->ModulationMode & 0x11) && (channel->ModulationMode & 0x01)) ? dx = channel->LFO1Data : 0);
 
-        if (bx > 0xffff)
-            bx = 0xffff;
+        if (channel->ModulationMode & 0x10)
+            dx += channel->LFO2Data;
+
+        dx *= 4;
+        dx += channel->DetuneValue;
+
+        if (dx >= 0)
+        {
+            Pitch += dx;
+
+            if (Pitch > 0xffff)
+                Pitch = 0xffff;
+        }
+        else
+        {
+            Pitch += dx;
+
+            if (Pitch < 0)
+                Pitch = 0;
+        }
     }
-    else
-    {
-        bx += dx;
 
-        if (bx < 0)
-            bx = 0;
-    }
-
-    // TONE SET
-    _OPNAW->SetReg(0x109, (uint32_t) LOBYTE(bx));
-    _OPNAW->SetReg(0x10a, (uint32_t) HIBYTE(bx));
+    _OPNAW->SetReg(0x109, (uint32_t) LOBYTE(Pitch));
+    _OPNAW->SetReg(0x10a, (uint32_t) HIBYTE(Pitch));
 }
 
-void PMD::SetADPCMKeyOn(Channel * channel)
+void PMD::ADPCMKeyOn(Channel * channel)
 {
-    if (channel->Note == 0xFF)
+    if (channel->Tone == 0xFF)
         return;
 
     _OPNAW->SetReg(0x101, 0x02);  // PAN=0 / x8 bit mode
@@ -724,11 +738,11 @@ void PMD::SetADPCMKeyOn(Channel * channel)
     }
 }
 
-void PMD::SetADPCMKeyOff(Channel * channel)
+void PMD::ADPCMKeyOff(Channel * channel)
 {
-    if (channel->envf != -1)
+    if (channel->SSGEnvelopFlag != -1)
     {
-        if (channel->envf == 2)
+        if (channel->SSGEnvelopFlag == 2)
             return;
     }
     else
@@ -753,14 +767,26 @@ void PMD::SetADPCMKeyOff(Channel * channel)
         _OPNAW->SetReg(0x100, 0xa0);
     }
 
-    SetSSGKeyOff(channel);
+    SSGKeyOff(channel);
 }
 
-// Sets ADPCM Wait after register output.
-void PMD::SetADPCMDelay(int nsec)
+/// <summary>
+/// Command "@ number": Sets the instrument to be used. Range 0-255.
+/// </summary>
+uint8_t * PMD::SetADPCMInstrument(Channel * channel, uint8_t * si)
 {
-    _OPNAW->SetADPCMDelay(nsec);
+    channel->InstrumentNumber = *si++;
+
+    _State.PCMStart = _SampleBank.Address[channel->InstrumentNumber][0];
+    _State.PCMStop = _SampleBank.Address[channel->InstrumentNumber][1];
+
+    _Driver.LoopBegin = 0;
+    _Driver.LoopEnd = 0;
+    _Driver.LoopRelease = 0x8000;
+
+    return si;
 }
+#pragma endregion
 
 // Command "p <value>" (1: right, 2: left, 3: center (default))
 uint8_t * PMD::SetADPCMPanningCommand(Channel * channel, uint8_t * si)
@@ -788,33 +814,33 @@ uint8_t * PMD::SetADPCMPortamentoCommand(Channel * channel, uint8_t * si)
 {
     if (channel->MuteMask)
     {
-        channel->fnum = 0;
-        channel->Note = 0xFF;
-        channel->Length = *(si + 2);
+        channel->Factor = 0;
+        channel->Tone = 0xFF;
+        channel->Length = si[2];
         channel->KeyOnFlag++;
         channel->Data = si + 3;
 
         if (--_Driver.IsVolumeBoostSet)
             channel->VolumeBoost = 0;
 
-        _Driver.TieMode = 0;
+        _Driver.TieNotesTogether = false;
         _Driver.IsVolumeBoostSet = 0;
         _Driver.loop_work &= channel->loopcheck;
 
         return si + 3; // Skip when muted
     }
 
-    SetADPCMTone(channel, oshift(channel, StartPCMLFO(channel, *si++)));
+    SetADPCMTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
 
-    int bx_ = (int) channel->fnum;
-    int al_ = (int) channel->Note;
+    int bx_ = (int) channel->Factor;
+    int al_ = (int) channel->Tone;
 
-    SetADPCMTone(channel, oshift(channel, *si++));
+    SetADPCMTone(channel, Transpose(channel, *si++));
 
-    int ax = (int) channel->fnum;
+    int ax = (int) channel->Factor;
 
-    channel->Note = al_;
-    channel->fnum = (uint32_t) bx_;
+    channel->Tone = al_;
+    channel->Factor = (uint32_t) bx_;
 
     ax -= bx_;
 
@@ -822,11 +848,11 @@ uint8_t * PMD::SetADPCMPortamentoCommand(Channel * channel, uint8_t * si)
 
     si = CalculateQ(channel, si);
 
-    channel->porta_num2 = ax / channel->Length;
-    channel->porta_num3 = ax % channel->Length;
+    channel->PortamentoQuotient = ax / channel->Length;
+    channel->PortamentoRemainder = ax % channel->Length;
     channel->ModulationMode |= 0x08; // Enable portamento.
 
-    if ((channel->VolumeBoost != 0) && (channel->Note != 0xFF))
+    if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
     {
         if (--_Driver.IsVolumeBoostSet)
         {
@@ -840,12 +866,12 @@ uint8_t * PMD::SetADPCMPortamentoCommand(Channel * channel, uint8_t * si)
     SetADPCMPitch(channel);
 
     if (channel->KeyOffFlag & 0x01)
-        SetADPCMKeyOn(channel);
+        ADPCMKeyOn(channel);
 
     channel->KeyOnFlag++;
     channel->Data = si;
 
-    _Driver.TieMode = 0;
+    _Driver.TieNotesTogether = false;
     _Driver.IsVolumeBoostSet = 0;
 
     // Don't perform Key Off if a "&" command (Tie) follows immediately.

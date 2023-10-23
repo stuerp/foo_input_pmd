@@ -44,8 +44,8 @@ const int ChannelTable[][3] =
     { 21, 7, 5 }  // PPZ8
 };
 
-// FM Scale data
-const int fnum_data[] =
+// FM Scale Factor
+const int FMScaleFactor[] =
 {
     0x026a, // C
     0x028f, // D-
@@ -64,8 +64,8 @@ const int fnum_data[] =
     0x0d48 // 0x0e
 };
 
-// SSG Scale data
-const int psg_tune_data[] =
+// SSG Scale Factor
+const int SSGScaleFactor[] =
 {
     0x0ee8, // C
     0x0e12, // D-
@@ -84,8 +84,8 @@ const int psg_tune_data[] =
     0xe0a0 // 0x0e
 };
 
-// ADPCM Scale data
-const int pcm_tune_data[] =
+// ADPCM Scale Factor
+const int PCMScaleFactor[] =
 {
     0x3132 * 2, // C
     0x3420 * 2, // C+
@@ -104,8 +104,8 @@ const int pcm_tune_data[] =
     0x7400  // 0x0e
 };
 
-// PMD86 Scale data
-const uint32_t p86_tune_data[] =
+// P86 Scale Factor
+const uint32_t P86ScaleFactor[] =
 {
     0xff002AB7, // o1c
     0xff002D41, // o1c+
@@ -185,8 +185,6 @@ const uint32_t p86_tune_data[] =
     0xffE130C7, // o7d+
     0xffE142E7, // o7e
 
-    // ここまで？
-
     0xffE1561C, // o7f
     0xffE16A72, // o7f+
     0xffE18000, // o7g
@@ -214,8 +212,8 @@ const uint32_t p86_tune_data[] =
 };
 
 
-// PPZ Scale data
-const int ppz_tune_data[] =
+// PPZ Scale Factor
+const int PPZScaleFactor[] =
 {
     0x8000, // C
     0x87a6, // C+
@@ -234,8 +232,8 @@ const int ppz_tune_data[] =
     0x7400 // 0x0e
 };
 
-// FM tone carrier table
-const int carrier_table[] =
+// FM Tone Carrier table
+const int FMToneCarrier[] =
 {
     0x80, 0x80, 0x80, 0x80, 0xa0, 0xe0, 0xe0, 0xf0,
     0xee, 0xee, 0xee, 0xee, 0xcc, 0x88, 0x88, 0x00

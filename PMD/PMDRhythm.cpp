@@ -1,5 +1,5 @@
 
-// PMD driver (Based on PMDWin code by C60)
+// $VER: PMDRhythm.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -40,7 +40,7 @@ void PMD::RhythmMain(Channel * channel)
             {
                 if (al & 0x80)
                 {
-                    bx = RhythmOn(channel, al, bx, &Success);
+                    bx = RhythmKeyOn(channel, al, bx, &Success);
 
                     if (!Success)
                         continue;
@@ -55,7 +55,7 @@ void PMD::RhythmMain(Channel * channel)
                 channel->Length = al;
                 channel->KeyOnFlag++;
 
-                _Driver.TieMode = 0;
+                _Driver.TieNotesTogether = false;
                 _Driver.IsVolumeBoostSet = 0;
                 _Driver.loop_work &= channel->loopcheck;
 
@@ -94,7 +94,7 @@ void PMD::RhythmMain(Channel * channel)
             {
                 _State.RhythmData = &_State.DummyRhythmData;
 
-                _Driver.TieMode = 0;
+                _Driver.TieNotesTogether = false;
                 _Driver.IsVolumeBoostSet = 0;
                 _Driver.loop_work &= channel->loopcheck;
 
@@ -108,13 +108,13 @@ void PMD::RhythmMain(Channel * channel)
 
 uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
 {
-    int al = *si++;
+    uint8_t Command = *si++;
 
-    switch (al)
+    switch (Command)
     {
         case 0xFF: si++; break;
         case 0xFE: si++; break;
-
+/*
         case 0xFD:
             channel->Volume = *si++;
             break;
@@ -125,7 +125,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
 
         // Command "&": Tie notes together.
         case 0xFB:
-            _Driver.TieMode |= 1;
+            _Driver.TieNotesTogether = true;
             break;
 
         // Set detune.
@@ -153,7 +153,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xF6:
             channel->LoopData = si;
             break;
-
+*/
         case 0xF5: si++; break;
 
         // Increase volume by 3dB.
@@ -178,14 +178,14 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
 
         // Set SSG envelope.
         case 0xEF:
-            _OPNAW->SetReg(*si, *(si + 1));
+            _OPNAW->SetReg(si[0], si[1]);
             si += 2;
             break;
 
         case 0xEE: si++; break;
         case 0xED: si++; break;
         case 0xEC: si++; break;
-
+/*
         case 0xEB:
             si = OPNARhythmKeyOn(si);
             break;
@@ -201,9 +201,9 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xE8:
             si = SetOPNARhythmMasterVolumeCommand(si);
             break;
-
+*/
         case 0xE7: si++; break;
-
+/*
         case 0xE6:
             si = ModifyOPNARhythmMasterVolume(si);
             break;
@@ -213,7 +213,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xE4: si++; break;
-
+*/
         // Increase volume.
         case 0xE3:
             channel->Volume += *si++;
@@ -229,7 +229,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
             if (channel->Volume < 0)
                 channel->Volume = 0;
             break;
-
+/*
         case 0xE1: si++; break;
         case 0xE0: si++; break;
 
@@ -237,92 +237,133 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xDF:
             _State.BarLength = *si++;
             break;
-
+*/
         case 0xDE:
             si = IncreaseVolumeForNextNote(channel, si, 15);
             break;
-
+/*
         case 0xDD:
             si = DecreaseVolumeForNextNote(channel, si);
             break;
 
-        case 0xdc: _State.status = *si++; break;
-        case 0xdb: _State.status += *si++; break;
-
-        case 0xda: si++; break;
-
-        case 0xd9: si++; break;
-        case 0xd8: si++; break;
-        case 0xd7: si++; break;
-
-        case 0xd6: si += 2; break;
-        case 0xd5: channel->DetuneValue += *(int16_t *) si; si += 2; break;
-
-        case 0xd4: si = SetSSGEffect(channel, si); break;
-        case 0xd3: si = SetFMEffect(channel, si); break;
-        case 0xd2:
-            _State.fadeout_flag = 1;
-            _State.FadeOutSpeed = *si++;
+        // Set status.
+        case 0xDC:
+            _State.Status = *si++;
             break;
 
-        case 0xd1: si++; break;
-        case 0xd0: si++; break;
+        // Increment status.
+        case 0xDB:
+            _State.Status += *si++;
+            break;
+*/
+        // Set portamento.
+        case 0xDA: si++; break;
+/*
+        case 0xD9: si++; break;
+        case 0xD8: si++; break;
+        case 0xD7: si++; break;
+*/
+        case 0xD6: si += 2; break;
+/*
+        case 0xD5:
+            channel->DetuneValue += *(int16_t *) si;
+            si += 2;
+            break;
 
-        case 0xcf: si++; break;
-        case 0xce: si += 6; break;
-        case 0xcd: si += 5; break;
-        case 0xcc: si++; break;
-        case 0xcb: si++; break;
-        case 0xca: si++; break;
-        case 0xc9: si++; break;
-        case 0xc8: si += 3; break;
-        case 0xc7: si += 3; break;
-        case 0xc6: si += 6; break;
-        case 0xc5: si++; break;
-        case 0xc4: si++; break;
-        case 0xc3: si += 2; break;
-        case 0xc2: si++; break;
-        case 0xc1: break;
+        case 0xD4:
+            si = SetSSGEffect(channel, si);
+            break;
 
-        case 0xc0:
+        case 0xD3:
+            si = SetFMEffect(channel, si);
+            break;
+
+        case 0xD2:
+            _State.FadeOutSpeed = *si++;
+            _State.FadeOutSpeedSet = true;
+            break;
+
+        case 0xD1: si++; break;
+        case 0xD0: si++; break;
+        case 0xCF: si++; break;
+
+        // Set PCM Repeat.
+        case 0xCE: si += 6; break;
+*/
+        case 0xCD: si += 5; break;
+/*
+        // Set SSG Extend Mode (bit 0).
+        case 0xCC: si++; break;
+*/
+        case 0xCB: si++; break;
+
+        // Set SSG Extend Mode (bit 1).
+        case 0xCA: si++; break;
+
+        // Set SSG Extend Mode (bit 2).
+        case 0xC9: si++; break;
+/*
+        case 0xC8: si += 3; break;
+        case 0xC7: si += 3; break;
+        case 0xC6: si += 6; break;
+        case 0xC5: si++; break;
+*/
+        case 0xC4: si++; break;
+        case 0xC3: si += 2; break;
+        case 0xC2: si++; break;
+        case 0xC1: break;
+
+        case 0xC0:
             si = SetRhythmMaskCommand(channel, si);
             break;
 
-        case 0xbf: si += 4; break;
-        case 0xbe: si++; break;
-        case 0xbd: si += 2; break;
-        case 0xbc: si++; break;
-        case 0xbb: si++; break;
-        case 0xba: si++; break;
-        case 0xb9: si++; break;
-        case 0xb8: si += 2; break;
-        case 0xb7: si++; break;
-        case 0xb6: si++; break;
-        case 0xb5: si += 2; break;
-        case 0xb4: si += 16; break;
-        case 0xb3: si++; break;
-        case 0xb2: si++; break;
+        case 0xBF: si += 4; break;
+        case 0xBE: si++; break;
+        case 0xBD: si += 2; break;
+        case 0xBC: si++; break;
+        case 0xBB: si++; break;
+        case 0xBA: si++; break;
+        case 0xB9: si++; break;
+/*
+        case 0xB8: si += 2; break;
+*/
+        case 0xB7: si++; break;
+/*
+        case 0xB6: si++; break;
+        case 0xB5: si += 2; break;
+        case 0xB4: si += 16; break;
+*/
+        // Set Early Key Off Timeout 2. Stop note after n ticks or earlier depending on the result of B1/C4/FE happening first.
+        case 0xB3: si++; break;
+        // Set secondary transposition
+        case 0xB2: si++; break;
+        // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
         case 0xB1: si++; break;
 
         default:
-            si--;
-            *si = 0x80;
+            si = ExecuteCommand(channel, si, Command);
     }
 
     return si;
 }
 
 /// <summary>
-/// Start playing a sound using the Rhythm channel.
+/// Sets Rhythm Wait after register output.
 /// </summary>
-uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
+void PMD::SetRhythmDelay(int nsec)
+{
+    _OPNAW->SetRhythmDelay(nsec);
+}
+
+#pragma region(Commands)
+uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool * success)
 {
     if (al & 0x40)
     {
-        bx = ExecuteRhythmCommand(channel, bx - 1);
+        rhythmData = ExecuteRhythmCommand(channel, rhythmData - 1);
         *success = false;
 
-        return bx;
+        return rhythmData;
     }
 
     *success = true;
@@ -331,17 +372,19 @@ uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
     {
         _State.kshot_dat = 0x00;
 
-        return ++bx;
+        return ++rhythmData;
     }
 
-    al = ((al << 8) + *bx++) & 0x3fff;
+    {
+        al = ((al << 8) + *rhythmData++) & 0x3fff;
 
-    _State.kshot_dat = al;
+        _State.kshot_dat = al;
 
-    if (al == 0)
-        return bx;
+        if (al == 0)
+            return rhythmData;
 
-    _State.RhythmData = bx;
+        _State.RhythmData = rhythmData;
+    }
 
     if (_State.UseRhythm)
     {
@@ -387,34 +430,29 @@ uint8_t * PMD::RhythmOn(Channel * channel, int al, uint8_t * bx, bool * success)
     }
 
     {
-        int bx_ = al;
+        int Bits = al;
 
-        al = 0;
+        int i = 0;
 
         do
         {
             // Count the number of zero bits.
-            while ((bx_ & 1) == 0)
+            while ((Bits & 1) == 0)
             {
-                bx_ >>= 1;
-                al++;
+                Bits >>= 1;
+                i++;
             }
 
-            SSGPlayEffect(channel, al);
+            SetSSGInstrument(channel, i);
 
-            bx_ >>= 1;
+            Bits >>= 1;
         }
-        while (_Driver.UsePPS && (bx_ != 0)); // If PPS is used, try playing the second or more notes.
+        while (_Driver.UsePPS && (Bits != 0)); // If PPS is used, try playing the second or more notes.
     }
 
     return _State.RhythmData;
 }
-
-// Sets Rhythm Wait after register output.
-void PMD::SetRhythmDelay(int nsec)
-{
-    _OPNAW->SetRhythmDelay(nsec);
-}
+#pragma endregion
 
 // Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
 uint8_t * PMD::SetRhythmMaskCommand(Channel * channel, uint8_t * si)
@@ -442,6 +480,17 @@ uint8_t * PMD::DecreaseRhythmVolumeCommand(Channel *, uint8_t * si)
         _State.RhythmVolumeDown = Limit(al + _State.RhythmVolumeDown, 255, 0);
     else
         _State.RhythmVolumeDown = _State.DefaultRhythmVolumeDown;
+
+    return si;
+}
+
+uint8_t * PMD::PDRSwitchCommand(Channel *, uint8_t * si)
+{
+    if (!_Driver.UsePPS)
+        return si + 1;
+
+//  ppsdrv->SetParameter((*si & 1) << 1, *si & 1); // Preliminary
+    si++;
 
     return si;
 }

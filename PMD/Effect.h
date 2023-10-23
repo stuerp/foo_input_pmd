@@ -26,7 +26,7 @@ public:
 
     int Priority;
     int Number;
-    int PreviousNumber;
+    int PreviousInstrumentNumber;
 
     int Flags; // 0x01: Pitch correction / 0x02: Volume correction
 };

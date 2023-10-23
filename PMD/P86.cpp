@@ -202,21 +202,21 @@ bool P86Driver::SetPan(int flag, int value)
     return true;
 }
 
-bool P86Driver::SetPitch(int sampleRateIndex, uint32_t value)
+bool P86Driver::SetPitch(int sampleRateIndex, uint32_t pitch)
 {
     if (sampleRateIndex < 0 || sampleRateIndex >= _countof(SampleRates))
         return false;
 
-    if (value > 0x1fffff)
+    if (pitch > 0x1fffff)
         return false;
 
     _OrigSampleRate = SampleRates[sampleRateIndex];
-    _Pitch = value;
+    _Pitch = pitch;
 
-    value = (uint32_t) ((uint64_t) value * _OrigSampleRate / _OutputFrequency);
+    pitch = (uint32_t) ((uint64_t) pitch * _OrigSampleRate / _OutputFrequency);
 
-    addsize2 = (int) ((value & 0xffff) >> 4);
-    addsize1 = (int) (value >> 16);
+    addsize2 = (int) ((pitch & 0xffff) >> 4);
+    addsize1 = (int) (pitch >> 16);
 
     return true;
 }
