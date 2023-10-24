@@ -74,7 +74,6 @@ public:
     void SetPositionInTicks(int ticks);
 
     bool SetSearchPaths(std::vector<const WCHAR *> & paths);
-    bool LoadRhythmSamples(WCHAR * path);
     
     void SetOutputFrequency(uint32_t value) noexcept;
     void SetFMInterpolation(bool flag);
@@ -287,7 +286,7 @@ private:
     uint8_t * SetFMRelativeDetuneCommand(Channel * channel, uint8_t * si);
     uint8_t * SetFMChannel3ModeEx(Channel * channel, uint8_t * si);
     uint8_t * SetFMTLSettingCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetFMFBSettingCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetFMFeedbackLoops(Channel * channel, uint8_t * si);
     uint8_t * SetFMEffect(Channel * channel, uint8_t * si);
 
     void SetFMVolumeCommand(Channel * channel);
@@ -297,6 +296,7 @@ private:
     void SetFMDelay(int nsec);
     void SetFMTone(Channel * channel, int al);
 
+    void InitializeFMInstrument(Channel * channel, int instrumentNumber, bool setFM3 = false);
     uint8_t * GetFMInstrumentDefinition(Channel * channel, int dl);
     void ResetFMInstrument(Channel * channel);
 
@@ -438,14 +438,12 @@ private:
 
     uint8_t * PDRSwitchCommand(Channel * channel, uint8_t * si);
 
-    void ActivateFMInstrument(Channel * channel, int dl);
-
     int Transpose(Channel * channel, int al);
     int TransposeSSG(Channel * channel, int al);
 
     uint8_t CalcPanOut(Channel * channel);
     void CalcFMBlock(int * cx, int * ax);
-    int SetFMChannel3Mode(Channel * channel);
+    bool SetFMChannel3Mode(Channel * channel);
     void SetFMChannel3Mode2(Channel * channel);
     void ClearFM3(int& ah, int& al);
     void InitializeFMChannel3(Channel * channel, uint8_t * ax);

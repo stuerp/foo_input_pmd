@@ -23,19 +23,18 @@ private:
     }
 
 public:
-    bool TieNotesTogether;       // True if notes should be tied together ("&" command)
-    int OldTimerATime;  // TimerATime value at the previous interrupt
+    bool TieNotesTogether;  // True if notes should be tied together ("&" command)
+    int OldTimerATime;      // TimerATime value at the previous interrupt
 
-    int omote_key[3];   // FM keyondata table (=0)
+    int omote_key[3];       // FM keyondata table (=0)
 
-    int ura_key[3];     // FM keyondata back (=0x100)
+    int ura_key[3];         // FM keyondata back (=0x100)
 
-    int fm3_alg_fb;     // alg/fb of the tone defined at the end of FM3ch
-    int af_check;       // Whether to set alg/fb of FM3ch flag
+    int AlgorithmAndFeedbackLoopsFM3; // Algorithm and feedback loops defined at the end of FM channel 3.
 
-    int LoopBegin;      // PCM loop begin address
-    int LoopEnd;        // PCM loop end address
-    int LoopRelease;    // PCM loop release address
+    int LoopBegin;          // PCM loop begin address
+    int LoopEnd;            // PCM loop end address
+    int LoopRelease;        // PCM loop release address
 
     int slotdetune_flag;    // Are you using FM3 Slot Detune?
     int slot3_flag;         // Required sound effect mode flag for each FM3 slot

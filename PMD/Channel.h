@@ -90,10 +90,10 @@ public:
     int loopcheck; // 1 When the loop ends 1 When the loop ends 3
 
     int FMCarrier;
-    int FMSlot1;
-    int FMSlot3;
-    int FMSlot2;
-    int FMSlot4;
+    int FMOperator1;
+    int FMOperator3;
+    int FMOperator2;
+    int FMOperator4;
     int FMSlotMask; // 1 FM slotmask
 
     int ToneMask; // 1 maskdata for FM tone definition
@@ -116,7 +116,7 @@ public:
     int SlotDelayCounter;
     int SlotDelayMask;
 
-    int alg_fb;  // 1 Tone alg/fb
+    int AlgorithmAndFeedbackLoops;  // 1 Tone alg/fb
 
     int GateTime; // Calculated from q/Q value
 

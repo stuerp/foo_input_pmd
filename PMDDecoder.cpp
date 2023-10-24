@@ -18,7 +18,7 @@
 
 #pragma hdrstop
 
-static bool ConvertShiftJIToUTF8(const char * text, pfc::string8 & utf8);
+static bool ConvertShiftJISToUTF8(const char * text, pfc::string8 & utf8);
 
 /// <summary>
 /// Initializes a new instance.
@@ -114,19 +114,19 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
             char Memo[1024] = { 0 };
 
             _PMD->GetMemo(data, size, 1, Memo, _countof(Memo));
-            ConvertShiftJIToUTF8(Memo, _Title);
+            ConvertShiftJISToUTF8(Memo, _Title);
 
             Memo[0] = '\0';
             _PMD->GetMemo(data, size, 2, Memo, _countof(Memo));
-            ConvertShiftJIToUTF8(Memo, _Composer);
+            ConvertShiftJISToUTF8(Memo, _Composer);
 
             Memo[0] = '\0';
             _PMD->GetMemo(data, size, 3, Memo, _countof(Memo));
-            ConvertShiftJIToUTF8(Memo, _Arranger);
+            ConvertShiftJISToUTF8(Memo, _Arranger);
 
             Memo[0] = '\0';
             _PMD->GetMemo(data, size, 4, Memo, _countof(Memo));
-            ConvertShiftJIToUTF8(Memo, _Memo);
+            ConvertShiftJISToUTF8(Memo, _Memo);
         }
     }
 
@@ -240,7 +240,7 @@ bool PMDDecoder::IsBusy() const noexcept
 /// <summary>
 /// Converts a Shift-JIS character array to an UTF-8 string.
 /// </summary>
-static bool ConvertShiftJIToUTF8(const char * text, pfc::string8 & textDst)
+static bool ConvertShiftJISToUTF8(const char * text, pfc::string8 & textDst)
 {
     textDst.clear();
 

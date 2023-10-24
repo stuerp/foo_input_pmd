@@ -795,21 +795,6 @@ bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
 }
 
 /// <summary>
-///
-/// </summary>
-bool PMD::LoadRhythmSamples(WCHAR * path)
-{
-    WCHAR Path[MAX_PATH];
-
-    ::wcscpy(Path, path);
-    AddBackslash(Path, _countof(Path));
-
-    Stop();
-
-    return _OPNAW->LoadInstruments(Path);
-}
-
-/// <summary>
 /// Sets the output frequency at which raw PCM data is synthesized (in Hz, for example 44100).
 /// </summary>
 void PMD::SetOutputFrequency(uint32_t value) noexcept
@@ -890,18 +875,16 @@ void PMD::SetP86Interpolation(bool flag)
     _P86->SetOutputFrequency(_State.OPNARate, flag);
 }
 
-// Fade out (PMD compatible)
 /// <summary>
-///
+/// Sets the fade out speed (PMD compatible)
 /// </summary>
 void PMD::SetFadeOutSpeed(int speed)
 {
     _State.FadeOutSpeed = speed;
 }
 
-// Fade out (High quality sound)
 /// <summary>
-///
+/// Sets the fade out speed (High quality sound)
 /// </summary>
 void PMD::SetFadeOutDurationHQ(int value)
 {
@@ -1736,83 +1719,6 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
 /// <summary>
 ///
 /// </summary>
-void PMD::GetText(const uint8_t * data, size_t size, int index, char * text) const noexcept
-{
-    *text = '\0';
-
-    if (data == nullptr || size < 0x19)
-        return;
-
-    const uint8_t * Data = &data[1];
-    size_t Size = size - 1;
-
-    if (Data[0] != 0x1a || Data[1] != 0x00)
-        return;
-
-    size_t Offset = (size_t) *(uint16_t *) &Data[0x18] - 4;
-
-    if (Offset + 3 >= Size)
-        return;
-
-    const uint8_t * Src = &Data[Offset];
-
-    {
-        if (Src[2] != 0x40)
-        {
-            if (Src[3] != 0xFE || Src[2] < 0x41)
-                return;
-        }
-
-        if (Src[2] >= 0x42)
-            index++;
-
-        if (Src[2] >= 0x48)
-            index++;
-
-        if (index < 0)
-            return;
-    }
-
-    Src = &Data[*(uint16_t *) Src];
-
-    size_t i;
-
-    {
-        Offset = 0;
-
-        for (i = 0; i <= (size_t) index; ++i)
-        {
-            if ((size_t)(Src - Data + 1) >= Size)
-                return;
-
-            Offset = *(uint16_t *) Src;
-
-            if ((Offset == 0) || ((size_t) Offset >= Size))
-                return;
-
-            if (Data[Offset] == '/')
-                return;
-
-            Src += 2;
-        }
-
-        // Determine the offset of the terminating '\0', if any.
-        for (i = Offset; (i < Size) && Data[i]; ++i)
-            ;
-    }
-
-    if (i == Size)
-    {
-        ::memcpy(text, &Data[Offset], (size_t) Size - Offset);
-        text[Size - Offset - 1] = '\0';
-    }
-    else
-        ::strcpy(text, (char *) &Data[Offset]);
-}
-
-/// <summary>
-///
-/// </summary>
 void PMD::HandleTimerA()
 {
     _State.IsTimerABusy = true;
@@ -2489,6 +2395,45 @@ void PMD::Silence()
 }
 
 /// <summary>
+/// Fade In / Out
+/// </summary>
+void PMD::Fade()
+{
+    if (_State.FadeOutSpeed == 0)
+        return;
+
+    if (_State.FadeOutSpeed > 0)
+    {
+        if ((_State.FadeOutVolume + _State.FadeOutSpeed) < 256)
+        {
+            _State.FadeOutVolume += _State.FadeOutSpeed;
+        }
+        else
+        {
+            _State.FadeOutVolume = 255;
+            _State.FadeOutSpeed  =   0;
+
+            if (_State.fade_stop_flag == 1)
+                _Driver.music_flag |= 0x02;
+        }
+    }
+    else
+    {   // Fade in
+        if ((_State.FadeOutVolume + _State.FadeOutSpeed) > 255)
+        {
+            _State.FadeOutVolume += _State.FadeOutSpeed;
+        }
+        else
+        {
+            _State.FadeOutVolume = 0;
+            _State.FadeOutSpeed  = 0;
+
+            _OPNAW->SetReg(0x11, (uint32_t) _State.RhythmVolume);
+        }
+    }
+}
+
+/// <summary>
 /// Sets the start address and initial value of each track.
 /// </summary>
 void PMD::InitializeChannels()
@@ -2859,40 +2804,77 @@ void PMD::FindFile(const WCHAR * filename, WCHAR * filePath, size_t size) const 
 }
 
 /// <summary>
-/// Fade In / Out
+/// Gets the text with the specified index from PMD data.
 /// </summary>
-void PMD::Fade()
+void PMD::GetText(const uint8_t * data, size_t size, int index, char * text) const noexcept
 {
-    if (_State.FadeOutSpeed == 0)
+    *text = '\0';
+
+    if (data == nullptr || size < 0x0019)
         return;
 
-    if (_State.FadeOutSpeed > 0)
-    {
-        if ((_State.FadeOutVolume + _State.FadeOutSpeed) < 256)
-        {
-            _State.FadeOutVolume += _State.FadeOutSpeed;
-        }
-        else
-        {
-            _State.FadeOutVolume = 255;
-            _State.FadeOutSpeed  =   0;
+    const uint8_t * Data = &data[1];
+    size_t Size = size - 1;
 
-            if (_State.fade_stop_flag == 1)
-                _Driver.music_flag |= 0x02;
+    // The first offset should be 0x001A.
+    if (Data[0] != 0x1A || Data[1] != 0x00)
+        return;
+
+    // Get the 13th offset.
+    size_t Offset = (size_t) *(uint16_t *) &Data[sizeof(uint16_t) * 12] - 4;
+
+    if (Offset + 3 >= Size)
+        return;
+
+    const uint8_t * Src = &Data[Offset];
+
+    {
+        if ((Src[2] != 0x40) && ((Src[2] < 0x41) || (Src[3] != 0xFE)))
+            return;
+
+        if (Src[2] >= 0x42)
+            index++;
+
+        if (Src[2] >= 0x48)
+            index++;
+
+        if (index < 0)
+            return;
+    }
+
+    Src = &Data[*(uint16_t *) Src];
+
+    size_t i;
+
+    {
+        Offset = 0;
+
+        for (i = 0; i <= (size_t) index; ++i)
+        {
+            if ((size_t)(Src - Data + 1) >= Size)
+                return;
+
+            Offset = *(uint16_t *) Src;
+
+            if ((Offset == 0) || ((size_t) Offset >= Size))
+                return;
+
+            if (Data[Offset] == '/')
+                return;
+
+            Src += 2;
         }
+
+        // Determine the offset of the terminating '\0', if any.
+        for (i = Offset; (i < Size) && Data[i]; ++i)
+            ;
+    }
+
+    if (i == Size)
+    {
+        ::memcpy(text, &Data[Offset], (size_t) Size - Offset);
+        text[Size - Offset - 1] = '\0';
     }
     else
-    {   // Fade in
-        if ((_State.FadeOutVolume + _State.FadeOutSpeed) > 255)
-        {
-            _State.FadeOutVolume += _State.FadeOutSpeed;
-        }
-        else
-        {
-            _State.FadeOutVolume = 0;
-            _State.FadeOutSpeed  = 0;
-
-            _OPNAW->SetReg(0x11, (uint32_t) _State.RhythmVolume);
-        }
-    }
+        ::strcpy(text, (char *) &Data[Offset]);
 }
