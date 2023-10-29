@@ -1721,48 +1721,48 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
     else
         al = 8;
 
-    int ah;
+    int Mode;
 
     if ((channel->FMSlotMask & 0xF0) == 0)
-        ClearFM3(ah, al); // s0
+        ClearFM3(Mode, al); // s0
     else
     if (channel->FMSlotMask != 0xF0)
     {
         _Driver.slot3_flag |= al;
-        ah = 0x7F;
+        Mode = 0x7F;
     }
     else
 
     if ((channel->VolumeMask1 & 0x0F) == 0)
-        ClearFM3(ah, al);
+        ClearFM3(Mode, al);
     else
     if ((channel->ModulationMode & 0x01) != 0)
     {
         _Driver.slot3_flag |= al;
-        ah = 0x7F;
+        Mode = 0x7F;
     }
     else
 
     if ((channel->VolumeMask2 & 0x0F) == 0)
-        ClearFM3(ah, al);
+        ClearFM3(Mode, al);
     else
     if (channel->ModulationMode & 0x10)
     {
         _Driver.slot3_flag |= al;
-        ah = 0x7F;
+        Mode = 0x7F;
     }
     else
-        ClearFM3(ah, al);
+        ClearFM3(Mode, al);
 
-    if ((uint32_t) ah == _State.FMChannel3Mode)
+    if ((uint32_t) Mode == _State.FMChannel3Mode)
         return;
 
-    _State.FMChannel3Mode = (uint32_t) ah;
+    _State.FMChannel3Mode = (uint32_t) Mode;
 
-    _OPNAW->SetReg(0x27, (uint32_t) (ah & 0xCF)); // Don't reset.
+    _OPNAW->SetReg(0x27, (uint32_t) (Mode & 0xCF)); // Don't reset.
 
     // When moving to sound effect mode, the pitch is rewritten with the previous FM3 part
-    if (ah == 0x3F || channel == &_FMChannel[2])
+    if (Mode == 0x3F || channel == &_FMChannel[2])
         return;
 
     if (_FMChannel[2].MuteMask == 0x00)
@@ -1800,17 +1800,17 @@ void PMD::ClearFM3(int& ah, int& al)
 void PMD::InitializeFMChannel3(Channel * channel, uint8_t * ax)
 {
     channel->Data = ax;
-    channel->Length = 1;          // ｱﾄ 1ｶｳﾝﾄ ﾃﾞ ｴﾝｿｳ ｶｲｼ
+    channel->Length = 1;
     channel->KeyOffFlag = 0xFF;
-    channel->LFO1MDepthCount1 = -1;          // LFO1MDepth Counter (無限)
-    channel->LFO1MDepthCount2 = -1;          //
-    channel->LFO2MDepthCount1 = -1;          //
-    channel->LFO2MDepthCount2 = -1;          //
-    channel->Tone = 0xFF;        // rest
-    channel->DefaultTone = 0xFF;      // rest
-    channel->Volume = 108;        // FM  VOLUME DEFAULT= 108
-    channel->PanAndVolume = _FMChannel[2].PanAndVolume;  // FM PAN = CH3と同じ
-    channel->MuteMask |= 0x20;      // s0用 partmask
+    channel->LFO1MDepthCount1 = -1; // Infinity
+    channel->LFO1MDepthCount2 = -1; // Infinity
+    channel->LFO2MDepthCount1 = -1; // Infinity
+    channel->LFO2MDepthCount2 = -1; // Infinity
+    channel->Tone = 0xFF;           // Rest
+    channel->DefaultTone = 0xFF;    // Rest
+    channel->Volume = 108;
+    channel->PanAndVolume = _FMChannel[2].PanAndVolume; // Use FM channel 3 value
+    channel->MuteMask |= 0x20;
 }
 
 /// <summary>
