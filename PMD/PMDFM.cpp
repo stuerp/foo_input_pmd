@@ -46,7 +46,7 @@ void PMD::FMMain(Channel * channel)
 
         while (1)
         {
-            if (*si > 0x80 && *si != 0xDA)
+            if ((*si != 0xDA) && (*si > 0x80))
             {
                 si = ExecuteFMCommand(channel, si);
             }
@@ -630,35 +630,36 @@ void PMD::SetFMVolumeCommand(Channel * channel)
     if (channel->FMSlotMask == 0)
         return;
 
-    int cl = (channel->VolumeBoost) ? channel->VolumeBoost - 1 : channel->Volume;
+    int Volume = (channel->VolumeBoost) ? channel->VolumeBoost - 1 : channel->Volume;
 
     if (channel != &_EffectChannel)
     {
-        // Calculate volume down.
-        if (_State.FMVolumeDown)
-            cl = ((256 - _State.FMVolumeDown) * cl) >> 8;
+        // Calculates the effect of volume down.
+        if (_State.FMVolumeAdjust != 0)
+            Volume = ((256 - _State.FMVolumeAdjust) * Volume) >> 8;
 
-        // Calculate fade out.
+        // Calculates the effect of fade out.
         if (_State.FadeOutVolume >= 2)
-            cl = ((256 - (_State.FadeOutVolume >> 1)) * cl) >> 8;
+            Volume = ((256 - (_State.FadeOutVolume >> 1)) * Volume) >> 8;
     }
 
-    // Set volume to carrier & volume LFO processing.
-    int bh = 0;          // Vol Slot Mask
-    int bl = channel->FMSlotMask;
+    Volume = 255 - Volume;
 
+    // Set volume to carrier & volume LFO processing.
     uint8_t SlotVolume[4] = { 0x80, 0x80, 0x80, 0x80 };
 
-    cl = 255 - cl;      // Volume set to cl=carrier+80H(add)
+    int bl = channel->FMSlotMask;
+
     bl &= channel->FMCarrier;    // bl=Set volume SLOT xxxx0000b
-    bh |= bl;
 
-    if (bl & 0x80) SlotVolume[0] = (uint8_t) cl;
-    if (bl & 0x40) SlotVolume[1] = (uint8_t) cl;
-    if (bl & 0x20) SlotVolume[2] = (uint8_t) cl;
-    if (bl & 0x10) SlotVolume[3] = (uint8_t) cl;
+    int bh = bl;
 
-    if (cl != 255)
+    if (bl & 0x80) SlotVolume[0] = (uint8_t) Volume;
+    if (bl & 0x40) SlotVolume[1] = (uint8_t) Volume;
+    if (bl & 0x20) SlotVolume[2] = (uint8_t) Volume;
+    if (bl & 0x10) SlotVolume[3] = (uint8_t) Volume;
+
+    if (Volume != 255)
     {
         if (channel->ModulationMode & 0x02)
         {
@@ -883,9 +884,9 @@ uint8_t * PMD::DecreaseFMVolumeCommand(Channel *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _State.FMVolumeDown = Limit(al + _State.FMVolumeDown, 255, 0);
+        _State.FMVolumeAdjust = Limit(al + _State.FMVolumeAdjust, 255, 0);
     else
-        _State.FMVolumeDown = _State.DefaultFMVolumeDown;
+        _State.FMVolumeAdjust = _State.DefaultFMVolumeAdjust;
 
     return si;
 }
@@ -1136,38 +1137,35 @@ uint8_t * PMD::SetHardwareLFOCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command "D number": Set the detune (frequency shift) value. Range -32768-32767.
 /// <summary>
-///
+/// Command "sd number": Set the detune (frequency shift) value. Range -32768-32767.
 /// </summary>
 uint8_t * PMD::SetFMAbsoluteDetuneCommand(Channel * channel, uint8_t * si)
 {
     if ((_Driver.CurrentChannel != 3) || (_Driver.FMSelector != 0))
         return si + 3;
 
-    int bl = *si++;
-    int ax = *(int16_t *) si;
+    int SlotNumber = *si++;
+    int Value = *(int16_t *) si; si += 2;
 
-    si += 2;
+    if (SlotNumber & 1)
+        _State.FMSlot1Detune = Value;
 
-    if (bl & 1)
-        _State.slot_detune1 = ax;
+    if (SlotNumber & 2)
+        _State.FMSlot2Detune = Value;
 
-    if (bl & 2)
-        _State.slot_detune2 = ax;
+    if (SlotNumber & 4)
+        _State.FMSlot3Detune = Value;
 
-    if (bl & 4)
-        _State.slot_detune3 = ax;
+    if (SlotNumber & 8)
+        _State.FMSlot4Detune = Value;
 
-    if (bl & 8)
-        _State.slot_detune4 = ax;
-
-    if (_State.slot_detune1 || _State.slot_detune2 || _State.slot_detune3 || _State.slot_detune4)
-        _Driver.slotdetune_flag = 1;
+    if (_State.FMSlot1Detune || _State.FMSlot2Detune || _State.FMSlot3Detune || _State.FMSlot4Detune)
+        _Driver.IsFMSlotDetuneSet = 1;
     else
     {
-        _Driver.slotdetune_flag = 0;
-        _State.slot_detune1 = 0;
+        _Driver.IsFMSlotDetuneSet = 0;
+        _State.FMSlot1Detune = 0;
     }
 
     SetFMChannel3Mode2(channel);
@@ -1175,38 +1173,35 @@ uint8_t * PMD::SetFMAbsoluteDetuneCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command "DD number": Set the detune (frequency shift) value relative to the previouse detune. Range -32768-32767.
 /// <summary>
-///
+/// Command "sdd number": Set the detune (frequency shift) value to the previouse detune. Range -32768-32767.
 /// </summary>
 uint8_t * PMD::SetFMRelativeDetuneCommand(Channel * channel, uint8_t * si)
 {
     if ((_Driver.CurrentChannel != 3) || (_Driver.FMSelector != 0))
         return si + 3;
 
-    int bl = *si++;
-    int ax = *(int16_t *) si;
+    int SlotNumber = *si++;
+    int Value = *(int16_t *) si; si += 2;
 
-    si += 2;
+    if (SlotNumber & 1)
+        _State.FMSlot1Detune += Value;
 
-    if (bl & 1)
-        _State.slot_detune1 += ax;
+    if (SlotNumber & 2)
+        _State.FMSlot2Detune += Value;
 
-    if (bl & 2)
-        _State.slot_detune2 += ax;
+    if (SlotNumber & 4)
+        _State.FMSlot3Detune += Value;
 
-    if (bl & 4)
-        _State.slot_detune3 += ax;
+    if (SlotNumber & 8)
+        _State.FMSlot4Detune += Value;
 
-    if (bl & 8)
-        _State.slot_detune4 += ax;
-
-    if (_State.slot_detune1 || _State.slot_detune2 || _State.slot_detune3 || _State.slot_detune4)
-        _Driver.slotdetune_flag = 1;
+    if (_State.FMSlot1Detune || _State.FMSlot2Detune || _State.FMSlot3Detune || _State.FMSlot4Detune)
+        _Driver.IsFMSlotDetuneSet = 1;
     else
     {
-        _Driver.slotdetune_flag = 0;
-        _State.slot_detune1 = 0;
+        _Driver.IsFMSlotDetuneSet = 0;
+        _State.FMSlot1Detune = 0;
     }
 
     SetFMChannel3Mode2(channel);
@@ -1693,14 +1688,12 @@ void PMD::InitializeFMInstrument(Channel * channel, int instrumentNumber, bool s
 /// </summary>
 bool PMD::SetFMChannel3Mode(Channel * channel)
 {
-    if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
-    {
-        SetFMChannel3Mode2(channel);
+    if ((_Driver.CurrentChannel != 3) || (_Driver.FMSelector != 0))
+        return false;
 
-        return true;
-    }
+    SetFMChannel3Mode2(channel);
 
-    return false;
+    return true;
 }
 
 /// <summary>
@@ -1789,7 +1782,7 @@ void PMD::ClearFM3(int& ah, int& al)
     al ^= 0xFF;
 
     if ((_Driver.slot3_flag &= al) == 0)
-        ah = (_Driver.slotdetune_flag != 1) ? 0x3F : 0x7F;
+        ah = (_Driver.IsFMSlotDetuneSet != 1) ? 0x3F : 0x7F;
     else
         ah = 0x7F;
 }
@@ -1908,7 +1901,7 @@ void PMD::SpecialFM3Processing(Channel * channel, int ax, int cx)
     if (channel->FMSlotMask & 0x80)
     {
         ax_ = ax;
-        ax += _State.slot_detune4;
+        ax += _State.FMSlot4Detune;
 
         if ((bh & shiftmask) && (channel->ModulationMode & 0x01))  ax += channel->LFO1Data;
         if ((ch & shiftmask) && (channel->ModulationMode & 0x10))  ax += channel->LFO2Data;
@@ -1930,7 +1923,7 @@ void PMD::SpecialFM3Processing(Channel * channel, int ax, int cx)
     if (channel->FMSlotMask & 0x40)
     {
         ax_ = ax;
-        ax += _State.slot_detune3;
+        ax += _State.FMSlot3Detune;
 
         if ((bh & shiftmask) && (channel->ModulationMode & 0x01))  ax += channel->LFO1Data;
         if ((ch & shiftmask) && (channel->ModulationMode & 0x10))  ax += channel->LFO2Data;
@@ -1952,7 +1945,7 @@ void PMD::SpecialFM3Processing(Channel * channel, int ax, int cx)
     if (channel->FMSlotMask & 0x20)
     {
         ax_ = ax;
-        ax += _State.slot_detune2;
+        ax += _State.FMSlot2Detune;
 
         if ((bh & shiftmask) && (channel->ModulationMode & 0x01))
             ax += channel->LFO1Data;
@@ -1978,7 +1971,7 @@ void PMD::SpecialFM3Processing(Channel * channel, int ax, int cx)
     if (channel->FMSlotMask & 0x10)
     {
         ax_ = ax;
-        ax += _State.slot_detune1;
+        ax += _State.FMSlot1Detune;
 
         if ((bh & shiftmask) && (channel->ModulationMode & 0x01)) 
             ax += channel->LFO1Data;

@@ -45,11 +45,12 @@ void PMD::PPZMain(Channel * channel)
 
         while (1)
         {
-            if (*si > 0x80 && *si != 0xda)
+            if ((*si != 0xDA) && (*si > 0x80))
             {
                 si = ExecutePPZCommand(channel, si);
             }
-            else if (*si == 0x80)
+            else
+            if (*si == 0x80)
             {
                 channel->Data = si;
                 channel->loopcheck = 3;
@@ -76,7 +77,7 @@ void PMD::PPZMain(Channel * channel)
             }
             else
             {
-                if (*si == 0xda)
+                if (*si == 0xDA)
                 {
                     si = SetPPZPortamentoCommand(channel, ++si);
 
@@ -140,8 +141,8 @@ void PMD::PPZMain(Channel * channel)
                 channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
 
                 _Driver.loop_work &= channel->loopcheck;
-                return;
 
+                return;
             }
         }
     }
@@ -576,7 +577,7 @@ void PMD::SetPPZVolume(Channel * channel)
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->Volume;
 
     // Calculate volume down.
-    al = ((256 - _State.PPZVolumeDown) * al) >> 8;
+    al = ((256 - _State.PPZVolumeAdjust) * al) >> 8;
 
     // Calculate fade out.
     if (_State.FadeOutVolume != 0)
@@ -948,9 +949,9 @@ uint8_t * PMD::DecreasePPZVolumeCommand(Channel *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _State.PPZVolumeDown = Limit(al + _State.PPZVolumeDown, 255, 0);
+        _State.PPZVolumeAdjust = Limit(al + _State.PPZVolumeAdjust, 255, 0);
     else
-        _State.PPZVolumeDown = _State.DefaultPPZVolumeDown;
+        _State.PPZVolumeAdjust = _State.DefaultPPZVolumeAdjust;
 
     return si;
 }

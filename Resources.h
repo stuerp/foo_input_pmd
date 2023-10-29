@@ -60,7 +60,7 @@
 #define IDC_SYNTHESIS_RATE          IDC_FADE_OUT_DURATION + 1
 
 #define IDC_USE_PPS                 IDC_SYNTHESIS_RATE + 1
-#define IDC_USE_RHYTHM                 IDC_USE_PPS + 1
+#define IDC_USE_SSG                 IDC_USE_PPS + 1
 
 #pragma region("Layout")
 

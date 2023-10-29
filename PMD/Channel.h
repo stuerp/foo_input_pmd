@@ -1,4 +1,7 @@
-﻿#pragma once
+﻿
+/** $VER: Channel.h (2023.10.29) Represents a sound source channel (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+
+#pragma once
 
 class Channel
 {
@@ -78,11 +81,11 @@ public:
     int SustainLevel;
     int AttackLevel;    // Specifies the level at which the attack starts.
 
-    int ExtendedAttackDuration; // 1 /ARのカウンタ /旧patb
-    int ExtendedDecayDepth; // 1 /DRのカウンタ
-    int ExtendedSustainRate; // 1 /SRのカウンタ /旧pr1b
-    int ExtendedReleaseRate; // 1 /RRのカウンタ /旧pr2b
-    int ExtendedAttackLevel;  // 1 /Volume値(0?15)/旧penv
+    int ExtendedAttackDuration;
+    int ExtendedDecayDepth;
+    int ExtendedSustainRate;
+    int ExtendedReleaseRate;
+    int ExtendedAttackLevel;
 
     int PanAndVolume;
     int SSGMask;         // Tone / Noise / Mix

@@ -20,6 +20,6 @@ extern const int PCMScaleFactor[];
 extern const uint32_t P86ScaleFactor[];
 extern const int PPZScaleFactor[];
 extern const int FMToneCarrier[];
-extern const int rhydat[][3];
+extern const int SSGRhythmDefinitions[][3];
 
 extern const SSGEffect SSGEffects[];

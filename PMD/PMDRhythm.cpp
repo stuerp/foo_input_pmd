@@ -1,5 +1,5 @@
 
-// $VER: PMDRhythm.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMDRhythm.cpp (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -24,7 +24,7 @@ void PMD::RhythmMain(Channel * channel)
 
     if (--channel->Length == 0)
     {
-        uint8_t * bx = _State.RhythmData;
+        uint8_t * Data = _State.RhythmData;
 
         bool Success = false;
         int al;
@@ -32,25 +32,25 @@ void PMD::RhythmMain(Channel * channel)
     rhyms00:
         do
         {
-            Success = 1;
+            Success = true;
 
-            al = *bx++;
+            al = *Data++;
 
             if (al != 0xFF)
             {
                 if (al & 0x80)
                 {
-                    bx = RhythmKeyOn(channel, al, bx, &Success);
+                    Data = RhythmKeyOn(channel, al, Data, &Success);
 
                     if (!Success)
                         continue;
                 }
                 else
-                    _State.kshot_dat = 0;  //rest
+                    _State.UseRhythmChannel = false;
 
-                al = *bx++;
+                al = *Data++;
 
-                _State.RhythmData = bx;
+                _State.RhythmData = Data;
 
                 channel->Length = al;
                 channel->KeyOnFlag++;
@@ -70,9 +70,9 @@ void PMD::RhythmMain(Channel * channel)
             {
                 if (al < 0x80)
                 {
-                    channel->Data = (uint8_t *) si;
+                    channel->Data = si;
 
-                    bx = _State.RhythmData = &_State.MData[_State.RhythmDataTable[al]];
+                    Data = _State.RhythmData = &_State.MData[_State.RhythmDataTable[al]];
                     goto rhyms00;
                 }
 
@@ -82,11 +82,11 @@ void PMD::RhythmMain(Channel * channel)
             channel->Data = (uint8_t *) --si;
             channel->loopcheck = 3;
 
-            bx = channel->LoopData;
+            Data = channel->LoopData;
 
-            if (bx != nullptr)
+            if (Data != nullptr)
             {
-                si = bx;
+                si = Data;
 
                 channel->loopcheck = 1;
             }
@@ -373,7 +373,7 @@ uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool
 
     if (channel->MuteMask)
     {
-        _State.kshot_dat = 0x00;
+        _State.UseRhythmChannel = false;
 
         return ++rhythmData;
     }
@@ -381,7 +381,7 @@ uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool
     {
         al = ((al << 8) + *rhythmData++) & 0x3fff;
 
-        _State.kshot_dat = al;
+        _State.UseRhythmChannel = (al != 0);
 
         if (al == 0)
             return rhythmData;
@@ -389,15 +389,15 @@ uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool
         _State.RhythmData = rhythmData;
     }
 
-    if (_State.UseRhythm)
+    if (_State.UseSSG)
     {
         for (int cl = 0; cl < 11; cl++)
         {
             if (al & (1 << cl))
             {
-                _OPNAW->SetReg((uint32_t) rhydat[cl][0], (uint32_t) rhydat[cl][1]);
+                _OPNAW->SetReg((uint32_t) SSGRhythmDefinitions[cl][0], (uint32_t) SSGRhythmDefinitions[cl][1]);
 
-                int dl = rhydat[cl][2] & _State.RhythmMask;
+                int dl = SSGRhythmDefinitions[cl][2] & _State.RhythmMask;
 
                 if (dl)
                 {
@@ -419,7 +419,7 @@ uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool
 
     if (_State.FadeOutVolume != 0)
     {
-        if (_State.UseRhythm)
+        if (_State.UseSSG)
         {
             int dl = _State.RhythmVolume;
 
@@ -435,18 +435,19 @@ uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool
     {
         int Bits = al;
 
-        int i = 0;
+        int InstrumentNumber = 0;
 
         do
         {
             // Count the number of zero bits.
             while ((Bits & 1) == 0)
             {
+                InstrumentNumber++;
+
                 Bits >>= 1;
-                i++;
             }
 
-            SetSSGInstrument(channel, i);
+            SetSSGInstrument(channel, InstrumentNumber);
 
             Bits >>= 1;
         }
@@ -457,7 +458,9 @@ uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool
 }
 #pragma endregion
 
-// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+/// <summary>
+/// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+/// </summary>
 uint8_t * PMD::SetRhythmMaskCommand(Channel * channel, uint8_t * si)
 {
     uint8_t Value = *si++;
@@ -483,9 +486,9 @@ uint8_t * PMD::DecreaseRhythmVolumeCommand(Channel *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _State.RhythmVolumeDown = Limit(al + _State.RhythmVolumeDown, 255, 0);
+        _State.RhythmVolumeAdjust = Limit(al + _State.RhythmVolumeAdjust, 255, 0);
     else
-        _State.RhythmVolumeDown = _State.DefaultRhythmVolumeDown;
+        _State.RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust;
 
     return si;
 }
@@ -505,55 +508,74 @@ uint8_t * PMD::PDRSwitchCommand(Channel *, uint8_t * si)
 }
 
 #pragma region(OPNA Rhythm)
-// Command "\?" / "\?p"
+// Command "\?": Triggers the specified drum channels of the RSS (Rhythm Sound Source).
 uint8_t * PMD::OPNARhythmKeyOn(uint8_t * si)
 {
-    int dl = *si++ & _State.RhythmMask;
+    int Channel = *si++ & _State.RhythmMask;
 
-    if (dl == 0)
+    if (Channel == 0)
         return si;
 
     if (_State.FadeOutVolume != 0)
     {
-        int al = ((256 - _State.FadeOutVolume) * _State.RhythmVolume) >> 8;
+        int Volume = ((256 - _State.FadeOutVolume) * _State.RhythmVolume) >> 8;
 
-        _OPNAW->SetReg(0x11, (uint32_t) al);
+        _OPNAW->SetReg(0x11, (uint32_t) Volume);
     }
 
-    if (dl < 0x80)
+    if (Channel < 0x80)
     {
-        if (dl & 0x01) _OPNAW->SetReg(0x18, (uint32_t) _State.RhythmPanAndVolume[0]);
-        if (dl & 0x02) _OPNAW->SetReg(0x19, (uint32_t) _State.RhythmPanAndVolume[1]);
-        if (dl & 0x04) _OPNAW->SetReg(0x1a, (uint32_t) _State.RhythmPanAndVolume[2]);
-        if (dl & 0x08) _OPNAW->SetReg(0x1b, (uint32_t) _State.RhythmPanAndVolume[3]);
-        if (dl & 0x10) _OPNAW->SetReg(0x1c, (uint32_t) _State.RhythmPanAndVolume[4]);
-        if (dl & 0x20) _OPNAW->SetReg(0x1d, (uint32_t) _State.RhythmPanAndVolume[5]);
-    }
+        if (Channel & 0x01)
+        {
+            _OPNAW->SetReg(0x18, (uint32_t) _State.RhythmPanAndVolume[0]);
+            _State.RhythmBassDrumOn++;
+        }
 
-    _OPNAW->SetReg(0x10, (uint32_t) dl);
+        if (Channel & 0x02)
+        {
+            _OPNAW->SetReg(0x19, (uint32_t) _State.RhythmPanAndVolume[1]);
+            _State.RhythmSnareDrumOn++;
+        }
 
-    if (dl >= 0x80)
-    {
-        if (dl & 0x01) _State.rdump_bd++;
-        if (dl & 0x02) _State.rdump_sd++;
-        if (dl & 0x04) _State.rdump_sym++;
-        if (dl & 0x08) _State.rdump_hh++;
-        if (dl & 0x10) _State.rdump_tom++;
-        if (dl & 0x20) _State.rdump_rim++;
+        if (Channel & 0x04)
+        {
+            _OPNAW->SetReg(0x1a, (uint32_t) _State.RhythmPanAndVolume[2]);
+            _State.RhythmCymbalOn++;
+        }
 
-        _State.rshot_dat &= (~dl);
+        if (Channel & 0x08)
+        {
+            _OPNAW->SetReg(0x1b, (uint32_t) _State.RhythmPanAndVolume[3]);
+            _State.RhythmHiHatOn++;
+        }
+
+        if (Channel & 0x10)
+        {
+            _OPNAW->SetReg(0x1c, (uint32_t) _State.RhythmPanAndVolume[4]);
+            _State.RhythmTomDrumOn++;
+        }
+
+        if (Channel & 0x20)
+        {
+            _OPNAW->SetReg(0x1d, (uint32_t) _State.RhythmPanAndVolume[5]);
+            _State.RhythmRimShotOn++;
+        }
+
+        _State.RhythmChannelMask |= Channel;
     }
     else
     {
-        if (dl & 0x01) _State.rshot_bd++;
-        if (dl & 0x02) _State.rshot_sd++;
-        if (dl & 0x04) _State.rshot_sym++;
-        if (dl & 0x08) _State.rshot_hh++;
-        if (dl & 0x10) _State.rshot_tom++;
-        if (dl & 0x20) _State.rshot_rim++;
+        if (Channel & 0x01) _State.RhythmBassDrumOff++;
+        if (Channel & 0x02) _State.RhythmSnareDrumOff++;
+        if (Channel & 0x04) _State.RhythmCymbalOff++;
+        if (Channel & 0x08) _State.RhythmHiHatOff++;
+        if (Channel & 0x10) _State.RhythmTomDrumOff++;
+        if (Channel & 0x20) _State.RhythmRimShotOff++;
 
-        _State.rshot_dat |= dl;
+        _State.RhythmChannelMask &= (~Channel);
     }
+
+    _OPNAW->SetReg(0x10, (uint32_t) Channel);
 
     return si;
 }
@@ -563,8 +585,8 @@ uint8_t * PMD::SetOPNARhythmMasterVolumeCommand(uint8_t * si)
 {
     int dl = *si++;
 
-    if (_State.RhythmVolumeDown != 0)
-        dl = ((256 - _State.RhythmVolumeDown) * dl) >> 8;
+    if (_State.RhythmVolumeAdjust != 0)
+        dl = ((256 - _State.RhythmVolumeAdjust) * dl) >> 8;
 
     _State.RhythmVolume = dl;
 

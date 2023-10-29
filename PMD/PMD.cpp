@@ -1,5 +1,5 @@
 ﻿
-// $VER: PMD.cpp (2023.10.22) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMD.cpp (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -291,7 +291,7 @@ void PMD::Start()
 {
     if (_State.IsTimerABusy || _State.IsTimerBBusy)
     {
-        _Driver.music_flag |= 0x01; // Not executed during TA/TB processing
+        _Driver._Flags |= DriverStartRequested; // Delay the start of the driver until timer processing has finished.
 
         return;
     }
@@ -306,11 +306,12 @@ void PMD::Stop()
 {
     if (_State.IsTimerABusy || _State.IsTimerBBusy)
     {
-        _Driver.music_flag |= 0x02;
+        _Driver._Flags |= DriverStopRequested; // Delay the start of the driver until timer processing has finished.
     }
     else
     {
         _State.IsFadeOutSpeedSet = false;
+
         DriverStop();
     }
 
@@ -412,8 +413,8 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
                     }
 
                     // Fadeout end
-                    if ((_Position - _FadeOutPosition > (int64_t) _State.FadeOutSpeedHQ * 1000) && (_State.fade_stop_flag == 1))
-                        _Driver.music_flag |= 2;
+                    if ((_Position - _FadeOutPosition > (int64_t) _State.FadeOutSpeedHQ * 1000) && _State.StopAfterFadeout)
+                        _Driver._Flags |= DriverStopRequested;
                 }
                 else
                 {
@@ -910,9 +911,9 @@ void PMD::UsePPS(bool value) noexcept
 /// <summary>
 /// Enables playing the OPNA rhythm with the Rhythm sound source.
 /// </summary>
-void PMD::UseRhythm(bool flag) noexcept
+void PMD::UseSSG(bool flag) noexcept
 {
-    _State.UseRhythm = flag;
+    _State.UseSSG = flag;
 }
 
 /// <summary>
@@ -1112,15 +1113,29 @@ void PMD::Reset()
     _FadeOutPosition = 0;
     _Seed = 0;
 
-    ::memset(_MData, 0, sizeof(_MData));
-    ::memset(_VData, 0, sizeof(_VData));
-    ::memset(_EData, 0, sizeof(_EData));
+    {
+        ::memset(_MData, 0, sizeof(_MData));
+        ::memset(_VData, 0, sizeof(_VData));
+        ::memset(_EData, 0, sizeof(_EData));
 
-    // Initialize OPEN_WORK.
+        // Create some mock PMD data.
+        for (size_t i = 0; i < 12; i += 2)
+        {
+            _MData[i + 1] = 0x18;
+            _MData[i + 2] = 0x00;
+        }
+
+        _MData[25] = 0x80;
+
+        _State.MData = &_MData[1];
+        _State.VData = _VData;
+        _State.EData = _EData;
+    }
+
     _State.OPNARate = FREQUENCY_44_1K;
     _State.PPZRate = FREQUENCY_44_1K;
 
-    _State.fade_stop_flag = 0;
+    _State.StopAfterFadeout = false;
     _State.IsTimerBBusy = false;
 
     _State.IsTimerABusy = false;
@@ -1165,50 +1180,40 @@ void PMD::Reset()
         _State.Channel[23] = &_PPZChannel[7];
     }
 
-    SetFMVolumeDown(fmvd_init);
-    SetSSGVolumeDown(0);
-    SetADPCMVolumeDown(0);
-    _State.RhythmVolumeDown = 0;
-    _State.DefaultRhythmVolumeDown = 0;
-    SetPPZVolumeDown(0);
+    SetFMVolumeAdjustment(0);
+    SetSSGVolumeAdjustment(0);
+    SetADPCMVolumeAdjustment(0);
+    _State.RhythmVolumeAdjust = 0;
+    _State.DefaultRhythmVolumeAdjust = 0;
+    SetPPZVolumeAdjustment(0);
 
     _State.RhythmVolume = 0x3C;
-    _State.UseRhythm = false;        // Use the Rhythm sound source
+    _State.UseSSG = false;
 
-    _State.rshot_bd = 0;             // Rhythm Sound Source shot inc flag (BD)
-    _State.rshot_sd = 0;             // Rhythm Sound Source shot inc flag (SD)
-    _State.rshot_sym = 0;            // Rhythm Sound Source shot inc flag (CYM)
-    _State.rshot_hh = 0;             // Rhythm Sound Source shot inc flag (HH)
-    _State.rshot_tom = 0;            // Rhythm Sound Source shot inc flag (TOM)
-    _State.rshot_rim = 0;            // Rhythm Sound Source shot inc flag (RIM)
+    // Initialize the counters.
+    _State.RhythmBassDrumOn = 0;
+    _State.RhythmSnareDrumOn = 0;
+    _State.RhythmCymbalOn = 0;
+    _State.RhythmHiHatOn = 0;
+    _State.RhythmTomDrumOn = 0;
+    _State.RhythmRimShotOn = 0;
 
-    _State.rdump_bd = 0;             // Rhythm Sound dump inc flag (BD)
-    _State.rdump_sd = 0;             // Rhythm Sound dump inc flag (SD)
-    _State.rdump_sym = 0;            // Rhythm Sound dump inc flag (CYM)
-    _State.rdump_hh = 0;             // Rhythm Sound dump inc flag (HH)
-    _State.rdump_tom = 0;            // Rhythm Sound dump inc flag (TOM)
-    _State.rdump_rim = 0;            // Rhythm Sound dump inc flag (RIM)
+    // Initialize the counters.
+    _State.RhythmBassDrumOff = 0;
+    _State.RhythmSnareDrumOff = 0;
+    _State.RhythmCymbalOff = 0;
+    _State.RhythmHiHatOff = 0;
+    _State.RhythmTomDrumOff = 0;
+    _State.RhythmRimShotOff = 0;
 
     SetPMDB2CompatibilityMode(false);
 
-    _State.fade_stop_flag = 1;       // MSTOP after FADEOUT FLAG
+    _State.StopAfterFadeout = true;
 
-    _Driver.UsePPS = false;
-    _Driver.music_flag = 0;
-
-    _MData[0] = 0;
-
-    for (size_t i = 0; i < 12; i += 2)
     {
-        _MData[i + 1] = 0x18;
-        _MData[i + 2] = 0x00;
+        _Driver._Flags = DriverIdle;
+        _Driver.UsePPS = false;
     }
-
-    _MData[25] = 0x80;
-
-    _State.MData = &_MData[1];
-    _State.VData = _VData;
-    _State.EData = _EData;
 }
 
 /// <summary>
@@ -1258,22 +1263,22 @@ void PMD::InitializeState()
     _State.PCMStart = 0;
     _State.PCMStop = 0;
 
-    _State.kshot_dat = 0;
-    _State.rshot_dat = 0;
+    _State.UseRhythmChannel = false;
+    _State.RhythmChannelMask = 0;
 
-    _State.slot_detune1 = 0;
-    _State.slot_detune2 = 0;
-    _State.slot_detune3 = 0;
-    _State.slot_detune4 = 0;
+    _State.FMSlot1Detune = 0;
+    _State.FMSlot2Detune = 0;
+    _State.FMSlot3Detune = 0;
+    _State.FMSlot4Detune = 0;
 
     _State.FMChannel3Mode = 0x3F;
     _State.BarLength = 96;
 
-    _State.FMVolumeDown = _State.DefaultFMVolumeDown;
-    _State.SSGVolumeDown = _State.DefaultSSGVolumeDown;
-    _State.ADPCMVolumeDown = _State.DefaultADPCMVolumeDown;
-    _State.PPZVolumeDown = _State.DefaultPPZVolumeDown;
-    _State.RhythmVolumeDown = _State.DefaultRhythmVolumeDown;
+    _State.FMVolumeAdjust = _State.DefaultFMVolumeAdjust;
+    _State.SSGVolumeAdjust = _State.DefaultSSGVolumeAdjust;
+    _State.ADPCMVolumeAdjust = _State.DefaultADPCMVolumeAdjust;
+    _State.PPZVolumeAdjust = _State.DefaultPPZVolumeAdjust;
+    _State.RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust;
 
     _State.PMDB2CompatibilityMode = _State.DefaultPMDB2CompatibilityMode;
 
@@ -1403,7 +1408,7 @@ void PMD::InitializeOPN()
     _OPNAW->SetReg(0x10, 0xFF);
 
     // Set the Rhythm volume.
-    _State.RhythmVolume = 48 * 4 * (256 - _State.RhythmVolumeDown) / 1024;
+    _State.RhythmVolume = 48 * 4 * (256 - _State.RhythmVolumeAdjust) / 1024;
 
     _OPNAW->SetReg(0x11, (uint32_t) _State.RhythmVolume);
 
@@ -1722,13 +1727,16 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
 void PMD::HandleTimerA()
 {
     _State.IsTimerABusy = true;
-    _State.TimerATime++;
 
-    if ((_State.TimerATime & 7) == 0)
-        Fade();
+    {
+        _State.TimerATime++;
 
-    if ((_Effect.Priority != 0) && (!_Driver.UsePPS || (_Effect.Number == 0x80)))
-        PlayEffect(); // Use the SSG for effect processing.
+        if ((_State.TimerATime & 0x07) == 0)
+            Fade();
+
+        if ((_Effect.Priority != 0) && (!_Driver.UsePPS || (_Effect.Number == 0x80)))
+            PlayEffect(); // Use the SSG for effect processing.
+    }
 
     _State.IsTimerABusy = false;
 }
@@ -1740,12 +1748,12 @@ void PMD::HandleTimerB()
 {
     _State.IsTimerBBusy = true;
 
-    if (_Driver.music_flag != 0x00)
+    if (_Driver._Flags != DriverIdle)
     {
-        if (_Driver.music_flag & 0x01)
+        if (_Driver._Flags & DriverStartRequested)
             DriverStart();
 
-        if (_Driver.music_flag & 0x02)
+        if (_Driver._Flags & DriverStopRequested)
             DriverStop();
     }
 
@@ -1800,7 +1808,7 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
     switch (value)
     {
         case 0xFF:
-            _State.FMVolumeDown = *si++;
+            _State.FMVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
         case 0xFE:
@@ -1808,7 +1816,7 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
             break;
 
         case 0xFD:
-            _State.SSGVolumeDown = *si++;
+            _State.SSGVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
         case 0xFC:
@@ -1816,7 +1824,7 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
             break;
 
         case 0xFB:
-            _State.ADPCMVolumeDown = *si++;
+            _State.ADPCMVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
         case 0xFA:
@@ -1824,7 +1832,7 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
             break;
 
         case 0xF9:
-            _State.RhythmVolumeDown = *si++;
+            _State.RhythmVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
         case 0xF8:
@@ -1836,7 +1844,7 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
             break;
 
         case 0xF6:
-            _State.PPZVolumeDown = *si++;
+            _State.PPZVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
         case 0xF5:
@@ -2413,8 +2421,8 @@ void PMD::Fade()
             _State.FadeOutVolume = 255;
             _State.FadeOutSpeed  =   0;
 
-            if (_State.fade_stop_flag == 1)
-                _Driver.music_flag |= 0x02;
+            if (_State.StopAfterFadeout)
+                _Driver._Flags |= DriverStopRequested;
         }
     }
     else

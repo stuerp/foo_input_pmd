@@ -116,6 +116,7 @@ v0.5.0, 2023-xx-xx, *"Release name missing in action"*
 
 * Fixed: Samples loaded from .WAV files played at the wrong frequency.
 * Fixed: Songs with two PPZ bank specifications did not load both banks.
+* Fixed: Renamed the setting "Use Rhythm" to "Use SSG".
 
 v0.4.0, 2023-10-08, *"Rough edges, be gone!"*
 

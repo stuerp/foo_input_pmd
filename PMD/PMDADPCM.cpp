@@ -45,7 +45,7 @@ void PMD::ADPCMMain(Channel * channel)
 
         while (1)
         {
-            if ((*si > 0x80) && (*si != 0xda))
+            if ((*si != 0xDA) && (*si > 0x80))
             {
                 si = ExecuteADPCMCommand(channel, si);
             }
@@ -76,7 +76,7 @@ void PMD::ADPCMMain(Channel * channel)
             }
             else
             {
-                if (*si == 0xda)
+                if (*si == 0xDA)
                 {
                     si = SetADPCMPortamentoCommand(channel, ++si);
 
@@ -592,7 +592,7 @@ void PMD::SetADPCMVolumeCommand(Channel * channel)
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->Volume;
 
     // Calculate volume down.
-    al = ((256 - _State.ADPCMVolumeDown) * al) >> 8;
+    al = ((256 - _State.ADPCMVolumeAdjust) * al) >> 8;
 
     // Calculate fade out.
     if (_State.FadeOutVolume)
@@ -980,9 +980,9 @@ uint8_t * PMD::DecreaseADPCMVolumeCommand(Channel *, uint8_t * si)
     int  al = *(int8_t *) si++;
 
     if (al != 0)
-        _State.ADPCMVolumeDown = Limit(al + _State.ADPCMVolumeDown, 255, 0);
+        _State.ADPCMVolumeAdjust = Limit(al + _State.ADPCMVolumeAdjust, 255, 0);
     else
-        _State.ADPCMVolumeDown = _State.DefaultADPCMVolumeDown;
+        _State.ADPCMVolumeAdjust = _State.DefaultADPCMVolumeAdjust;
 
     return si;
 }

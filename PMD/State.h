@@ -1,5 +1,5 @@
 ﻿
-/** $VER: State.h (2023.10.18) Driver state (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: State.h (2023.10.29) Driver state (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -77,7 +77,7 @@ public:
 
     uint16_t * RhythmDataTable;         // Rhythm Data table
 
-    bool UseRhythm;                     // Use Rhythm sound source with K/R part.
+    bool UseSSG;                        // Use the SSG to sequence drum instruments for the K/R commands.
     bool UseInterpolation;
     bool UseInterpolationPPZ;
     bool UseInterpolationPPS;
@@ -88,11 +88,16 @@ public:
     int RhythmMask;                     // Rhythm sound source mask. Compatible with x8c/10h bit
     int RhythmVolume;                   // Rhythm volume
 
-    int FMVolumeDown, DefaultFMVolumeDown;
-    int SSGVolumeDown, DefaultSSGVolumeDown;
-    int ADPCMVolumeDown, DefaultADPCMVolumeDown;
-    int RhythmVolumeDown, DefaultRhythmVolumeDown;
-    int PPZVolumeDown, DefaultPPZVolumeDown;
+    int FMVolumeAdjust, DefaultFMVolumeAdjust;
+    int SSGVolumeAdjust, DefaultSSGVolumeAdjust;
+    int ADPCMVolumeAdjust, DefaultADPCMVolumeAdjust;
+    int RhythmVolumeAdjust, DefaultRhythmVolumeAdjust;
+    int PPZVolumeAdjust, DefaultPPZVolumeAdjust;
+
+    int FMSlot1Detune;
+    int FMSlot2Detune;
+    int FMSlot3Detune;
+    int FMSlot4Detune;
 
     bool PMDB2CompatibilityMode, DefaultPMDB2CompatibilityMode;
 
@@ -124,33 +129,30 @@ public:
     int MetronomeTempo;     // Duration of a quarter note (in ticks)
     int MetronomeTempoPush; // Duration of a quarter note (in ticks) (for saving)
 
-    int kshot_dat; // SSG rhythm shot flag
-    int fade_stop_flag;  // Flag for whether to MSTOP after Fadeout
-    int pcm_gs_flag;  // ADPCM use permission flag (0 allows)
+    bool StopAfterFadeout;
 
-    int slot_detune1;  // FM3 Slot Detune値 slot1
-    int slot_detune2;  // FM3 Slot Detune値 slot2
-    int slot_detune3;  // FM3 Slot Detune値 slot3
-    int slot_detune4;  // FM3 Slot Detune値 slot4
+    bool UseRhythmChannel;   // Use the PMD rhythm channel to sequence drums (by default SSG channel 3) instead of the OPNA's Rhythm Sound Source (RSS).
+//  int pcm_gs_flag;  // ADPCM use permission flag (0 allows)
 
     int BarCounter;
 
-    int rshot_dat; // Rhythm shot flag
-    int RhythmPanAndVolume[6]; // Pan value and volume
+    int RhythmPanAndVolume[6];  // Pan value and volume
 
-    int rshot_bd; // Rhythm shot inc flag (BD)
-    int rshot_sd; // Rhythm shot inc flag (SD)
-    int rshot_sym; // Rhythm shot inc flag (CYM)
-    int rshot_hh; // Rhythm shot inc flag (HH)
-    int rshot_tom; // Rhythm shot inc flag (TOM)
-    int rshot_rim; // Rhythm shot inc flag (RIM)
+    int RhythmChannelMask;      // Bit mask: bit is set to 1 if the corresponding drum channel is playing.
 
-    int rdump_bd; // Rhythm dump inc flag (BD)
-    int rdump_sd; // Rhythm dump inc flag (SD)
-    int rdump_sym; // Rhythm dump inc flag (CYM)
-    int rdump_hh; // Rhythm dump inc flag (HH)
-    int rdump_tom; // Rhythm dump inc flag (TOM)
-    int rdump_rim; // Rhythm dump inc flag (RIM)
+    int RhythmBassDrumOn;
+    int RhythmSnareDrumOn;
+    int RhythmCymbalOn;
+    int RhythmHiHatOn;
+    int RhythmTomDrumOn;
+    int RhythmRimShotOn;
+
+    int RhythmBassDrumOff;
+    int RhythmSnareDrumOff;
+    int RhythmCymbalOff;
+    int RhythmHiHatOff;
+    int RhythmTomDrumOff;
+    int RhythmRimShotOff;
 
     uint32_t FMChannel3Mode;
 
@@ -158,10 +160,10 @@ public:
     int TimerATime;
 
     bool IsTimerBBusy;
-    int TimerBTempo;  // Current value of TimerB (= ff_tempo during ff)
+    int TimerBTempo;    // Current value of TimerB (= ff_tempo during ff)
 
-    uint32_t OPNARate; // PCM output frequency (11k, 22k, 44k, 55k)
-    uint32_t PPZRate; // PPZ output frequency
+    uint32_t OPNARate;  // PCM output frequency (11k, 22k, 44k, 55k)
+    uint32_t PPZRate;   // PPZ output frequency
 
     bool IsUsingP86;
 };

@@ -147,7 +147,7 @@ bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
 void PMDDecoder::Initialize() const noexcept
 {
     _PMD->UsePPS(CfgUsePPS);
-    _PMD->UseRhythm(CfgUseRhythm);
+    _PMD->UseSSG(CfgUseSSG);
     _PMD->Start();
 /*
     for (int i = 0; i < MaxChannels; ++i)

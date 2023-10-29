@@ -1,5 +1,5 @@
 ﻿
-/** $VER: PMD.h (2023.10.22) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: PMD.h (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -40,8 +40,6 @@ struct SampleBank
 #define MAX_MDATA_SIZE  64 // KB
 #define MAX_VDATA_SIZE   8 // KB
 #define MAX_EDATA_SIZE  64 // KB
-
-#define fmvd_init        0 // 98 has a smaller FM sound source than 88
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 class PMD
@@ -121,7 +119,7 @@ public:
     }
 
     void UsePPS(bool value) noexcept;
-    void UseRhythm(bool value) noexcept;
+    void UseSSG(bool value) noexcept;
 
     bool HasADPCMROM() const noexcept
     {
@@ -144,83 +142,83 @@ public:
         return _IsPlaying;
     }
 
-    void SetFMVolumeDown(int value)
+    void SetFMVolumeAdjustment(int value)
     {
-        _State.FMVolumeDown = _State.DefaultFMVolumeDown = value;
+        _State.FMVolumeAdjust = _State.DefaultFMVolumeAdjust = value;
     }
 
-    int GetFMVolumeDown() const noexcept
+    int GetFMVolumeAdjustment() const noexcept
     {
-        return _State.FMVolumeDown;
+        return _State.FMVolumeAdjust;
     }
 
-    int GetDefaultFMVolumeDown() const noexcept
+    int GetDefaultFMVolumeAdjustment() const noexcept
     {
-        return _State.DefaultFMVolumeDown;
+        return _State.DefaultFMVolumeAdjust;
     }
 
-    void SetSSGVolumeDown(int value)
+    void SetSSGVolumeAdjustment(int value)
     {
-        _State.SSGVolumeDown = _State.DefaultSSGVolumeDown = value;
+        _State.SSGVolumeAdjust = _State.DefaultSSGVolumeAdjust = value;
     }
 
-    int GetSSGVolumeDown()
+    int GetSSGVolumeAdjustment()
     {
-        return _State.SSGVolumeDown;
+        return _State.SSGVolumeAdjust;
     }
 
-    int GetDefaultSSGVolumeDown()
+    int GetDefaultSSGVolumeAdjustment()
     {
-        return _State.DefaultSSGVolumeDown;
+        return _State.DefaultSSGVolumeAdjust;
     }
 
-    void SetADPCMVolumeDown(int value)
+    void SetADPCMVolumeAdjustment(int value)
     {
-        _State.ADPCMVolumeDown = _State.DefaultADPCMVolumeDown = value;
+        _State.ADPCMVolumeAdjust = _State.DefaultADPCMVolumeAdjust = value;
     }
 
-    int GetADPCMVolumeDown() const noexcept
+    int GetADPCMVolumeAdjustment() const noexcept
     {
-        return _State.ADPCMVolumeDown;
+        return _State.ADPCMVolumeAdjust;
     }
 
-    int GetDefaultADPCMVolumeDown() const noexcept
+    int GetDefaultADPCMVolumeAdjustment() const noexcept
     {
-        return _State.DefaultADPCMVolumeDown;
+        return _State.DefaultADPCMVolumeAdjust;
     }
 
-    void SetRhythmVolumeDown(int value)
+    void SetRhythmVolumeAdjustment(int value)
     {
-        _State.RhythmVolumeDown = _State.DefaultRhythmVolumeDown = value;
+        _State.RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust = value;
 
-        _State.RhythmVolume = 48 * 4 * (256 - _State.RhythmVolumeDown) / 1024;
+        _State.RhythmVolume = 48 * 4 * (256 - _State.RhythmVolumeAdjust) / 1024;
 
         _OPNAW->SetReg(0x11, (uint32_t) _State.RhythmVolume);
     }
 
-    int GetRhythmVolumeDown() const noexcept
+    int GetRhythmVolumeAdjustment() const noexcept
     {
-        return _State.RhythmVolumeDown;
+        return _State.RhythmVolumeAdjust;
     }
 
-    int GetDefaultRhythmVolumeDown() const noexcept
+    int GetDefaultRhythmVolumeAdjustment() const noexcept
     {
-        return _State.DefaultRhythmVolumeDown;
+        return _State.DefaultRhythmVolumeAdjust;
     }
 
-    void SetPPZVolumeDown(int value)
+    void SetPPZVolumeAdjustment(int value)
     {
-        _State.PPZVolumeDown = _State.DefaultPPZVolumeDown = value;
+        _State.PPZVolumeAdjust = _State.DefaultPPZVolumeAdjust = value;
     }
 
-    int GetPPZVolumeDown() const noexcept
+    int GetPPZVolumeAdjustment() const noexcept
     {
-        return _State.PPZVolumeDown;
+        return _State.PPZVolumeAdjust;
     }
 
-    int GetDefaultPPZVolumeDown() const noexcept
+    int GetDefaultPPZVolumeAdjustment() const noexcept
     {
-        return _State.DefaultPPZVolumeDown;
+        return _State.DefaultPPZVolumeAdjust;
     }
 
     /// <summary>

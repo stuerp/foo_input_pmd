@@ -1,5 +1,5 @@
 ﻿
-// $VER: PMDSSG.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMDSSG.cpp (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -24,12 +24,12 @@ void PMD::SSGMain(Channel * channel)
 
     channel->Length--;
 
-    if (_Driver.UsePPS && (channel == &_SSGChannel[2]) && (_State.kshot_dat != 0) && (channel->Length <= channel->GateTime))
+    // When using the PPS and SSG channel 3 and the SSG is playing sound effects.
+    if (_Driver.UsePPS && (channel == &_SSGChannel[2]) && !_State.UseRhythmChannel && (channel->Length <= channel->GateTime))
     {
-        // When using PPS & SSG 3ch & when playing SSG sound effects.
         SSGKeyOff(channel);
 
-        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0U);   // Force the soundto sto.
+        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0U); // Stop playing.
 
         channel->KeyOffFlag = 0xFF;
     }
@@ -59,7 +59,7 @@ void PMD::SSGMain(Channel * channel)
                 si++;
             }
             else
-            if (*si > 0x80 && *si != 0xDA)
+            if ((*si != 0xDA) && (*si > 0x80))
             {
                 si = ExecuteSSGCommand(channel, si);
             }
@@ -189,8 +189,8 @@ void PMD::SSGMain(Channel * channel)
             if (_Driver.ModulationMode & 0x08)
                 CalculatePortamento(channel);
 
-            // Do not operate while resting on SSG channel 3 and SSG drum is sounding.
-            if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Tone == 0xFF) && (_State.kshot_dat != 0)))
+            // Do not operate while using SSG channel 3 and the SSG drum is playing.
+            if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Tone == 0xFF) && !_State.UseRhythmChannel))
                 SetSSGPitch(channel);
         }
     }
@@ -199,8 +199,8 @@ void PMD::SSGMain(Channel * channel)
 
     if ((temp != 0) || _Driver.ModulationMode & 0x22 || (_State.FadeOutSpeed != 0))
     {
-        // Do not set volume while resting on SSG channel 3 and SSG drum is sounding.
-        if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Tone == 0xFF) && (_State.kshot_dat != 0)))
+        // Do not operate while using SSG channel 3 and the SSG drum is playing.
+        if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Tone == 0xFF) && !_State.UseRhythmChannel))
             SetSSGVolume(channel);
     }
 
@@ -215,7 +215,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
     {
         case 0xFF: si++; break;
 
-        // Set early Key Off Timeout
+        // Set early Key Off Timeout.
         case 0xFE:
             channel->EarlyKeyOffTimeout = *si++;
             channel->EarlyKeyOffTimeoutRandomRange = 0;
@@ -613,7 +613,7 @@ void PMD::SetSSGVolume(Channel * channel)
     int dl = (channel->VolumeBoost) ? channel->VolumeBoost - 1 : channel->Volume;
 
     // Volume Down calculation
-    dl = ((256 - _State.SSGVolumeDown) * dl) >> 8;
+    dl = ((256 - _State.SSGVolumeAdjust) * dl) >> 8;
 
     // Fade-out calclation
     dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
@@ -800,7 +800,7 @@ void PMD::SetSSGInstrument(Channel * channel, int instrumentNumber)
             _Effect.PreviousInstrumentNumber = instrumentNumber;
     }
 
-    _Effect.Flags = 0x03; // Correct the pitch and volume (K part).
+    _Effect.Flags = 0x03; // Correct the pitch and volume (K command).
 
     EffectMain(channel, instrumentNumber);
 }
@@ -953,7 +953,9 @@ uint8_t * PMD::SetSSGPseudoEchoCommand(uint8_t * si)
     return si;
 }
 
-// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+/// <summary>
+/// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+/// </summary>
 uint8_t * PMD::SetSSGMaskCommand(Channel * channel, uint8_t * si)
 {
     uint8_t Value = *si++;
@@ -1012,9 +1014,9 @@ uint8_t * PMD::DecreaseSSGVolumeCommand(Channel *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _State.SSGVolumeDown = Limit(al + _State.SSGVolumeDown, 255, 0);
+        _State.SSGVolumeAdjust = Limit(al + _State.SSGVolumeAdjust, 255, 0);
     else
-        _State.SSGVolumeDown = _State.DefaultSSGVolumeDown;
+        _State.SSGVolumeAdjust = _State.DefaultSSGVolumeAdjust;
 
     return si;
 }

@@ -43,7 +43,6 @@ void PMD::P86Main(Channel * channel)
     {
         while (1)
         {
-//          if (*si > 0x80 && *si != 0xda) {
             if (*si > 0x80)
             {
                 si = ExecuteP86Command(channel, si);
@@ -521,7 +520,7 @@ void PMD::SetP86Volume(Channel * channel)
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->Volume;
 
     // Calculate volume down.
-    al = ((256 - _State.ADPCMVolumeDown) * al) >> 8;
+    al = ((256 - _State.ADPCMVolumeAdjust) * al) >> 8;
 
     // Calculate fade out.
     if (_State.FadeOutVolume != 0)

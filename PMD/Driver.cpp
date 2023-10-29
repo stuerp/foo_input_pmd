@@ -1,5 +1,5 @@
 
-// PMD driver (Based on PMDWin code by C60)
+/** $VER: Driver.cpp (2023.10.29) Driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -66,13 +66,13 @@ void PMD::DriverMain()
     if (_Driver.loop_work == 0)
         return;
 
-    for (i = 0; i < 6; ++i)
+    for (i = 0; i < MaxFMChannels; ++i)
     {
         if (_FMChannel[i].loopcheck != 3)
             _FMChannel[i].loopcheck = 0;
     }
 
-    for (i = 0; i < 3; ++i)
+    for (i = 0; i < MaxSSGChannels; ++i)
     {
         if (_SSGChannel[i].loopcheck != 3)
             _SSGChannel[i].loopcheck = 0;
@@ -116,7 +116,7 @@ void PMD::DriverStart()
 
     _OPNAW->SetReg(0x27, 0x00); // Timer reset (both timer A and B)
 
-    _Driver.music_flag &= 0xFE;
+    _Driver._Flags &= ~DriverStartRequested;
 
     DriverStop();
 
@@ -135,7 +135,7 @@ void PMD::DriverStart()
 
 void PMD::DriverStop()
 {
-    _Driver.music_flag &= 0xFD;
+    _Driver._Flags &= ~DriverStopRequested;
 
     _IsPlaying = false;
     _State.LoopCount = -1;

@@ -30,7 +30,7 @@ enum PlaybackModes
 #define DefaultSynthesisRate        FREQUENCY_55_5K
 
 #define DefaultUsePPS               false
-#define DefaultUseRhythm            false
+#define DefaultUseSSG            false
 
 extern cfg_string CfgSamplesPath;
 
@@ -41,4 +41,4 @@ extern cfg_uint CfgFadeOutDuration;
 extern cfg_uint CfgSynthesisRate;
 
 extern cfg_bool CfgUsePPS;
-extern cfg_bool CfgUseRhythm;
+extern cfg_bool CfgUseSSG;
