@@ -112,7 +112,7 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
-v0.5.0, 2023-xx-xx, *"Release name missing in action"*
+v0.4.1, 2023-11-12, *"Release name missing in action"*
 
 * Fixed: Samples loaded from .WAV files played at the wrong frequency.
 * Fixed: Songs with two PPZ bank specifications did not load both banks.
