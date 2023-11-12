@@ -13,7 +13,6 @@
     <ClInclude Include="PMD\ymfm\ymfm_opn.h" />
     <ClInclude Include="PMD\ymfm\ymfm_ssg.h" />
     <ClInclude Include="PMD\File.h" />
-    <ClInclude Include="PMD\PMDPrivate.h" />
     <ClInclude Include="PMD\OPNA.h" />
     <ClInclude Include="PMD\OPNAW.h" />
     <ClInclude Include="PMD\P86.h" />
@@ -52,7 +51,7 @@
     <ClCompile Include="PMD\PMDFM.cpp" />
     <ClCompile Include="PMD\PMDRhythm.cpp" />
     <ClCompile Include="PMD\PMDSSG.cpp" />
-    <ClCompile Include="PMD\PDMP86.cpp" />
+    <ClCompile Include="PMD\PMDP86.cpp" />
     <ClCompile Include="PMD\PMDADPCM.cpp" />
     <ClCompile Include="PMD\PMDLFO.cpp" />
     <ClCompile Include="PMD\PMDPPZ.cpp" />

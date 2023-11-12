@@ -1,5 +1,5 @@
 
-/** $VER: Configuration.h (2023.09.27) **/
+/** $VER: Configuration.h (2023.10.18) **/
 
 #pragma once
 
@@ -9,7 +9,7 @@
 
 #include "framework.h"
 
-#include "PMDPrivate.h"
+#include "State.h"
 
 #include <sdk/cfg_var.h>
 
@@ -27,10 +27,10 @@ enum PlaybackModes
 #define DefaultLoopCount            2
 #define DefaultFadeOutDuration      3000
 
-#define DefaultSynthesisRate        SOUND_55K
+#define DefaultSynthesisRate        FREQUENCY_55_5K
 
 #define DefaultUsePPS               false
-#define DefaultUseRhythm            false
+#define DefaultUseSSG            false
 
 extern cfg_string CfgSamplesPath;
 
@@ -41,4 +41,4 @@ extern cfg_uint CfgFadeOutDuration;
 extern cfg_uint CfgSynthesisRate;
 
 extern cfg_bool CfgUsePPS;
-extern cfg_bool CfgUseRhythm;
+extern cfg_bool CfgUseSSG;

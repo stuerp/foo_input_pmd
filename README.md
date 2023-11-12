@@ -112,6 +112,12 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
+v0.4.1, 2023-11-12, *"Release name missing in action"*
+
+* Fixed: Samples loaded from .WAV files played at the wrong frequency.
+* Fixed: Songs with two PPZ bank specifications did not load both banks.
+* Fixed: Renamed the setting "Use Rhythm" to "Use SSG".
+
 v0.4.0, 2023-10-08, *"Rough edges, be gone!"*
 
 * Added: Checkbox to enable or disable the use of PPS samples (default: false).

@@ -28,7 +28,7 @@ bool PPSDriver::Initialize(uint32_t r, bool ip)
 {
     _Init();
 
-    SetSampleRate(r, ip);
+    SetOutputFrequency(r, ip);
 
     return true;
 }
@@ -39,7 +39,7 @@ void PPSDriver::_Init(void)
 
     ::memset(&_Header, 0, sizeof(PPSHEADER));
 
-    _SynthesisRate = SOUND_44K;
+    _SynthesisRate = FREQUENCY_44_1K;
     _UseInterpolation = false;
 
     if (_Samples)
@@ -296,7 +296,7 @@ bool PPSDriver::SetParameter(int index, bool value)
 /// <summary>
 /// Sets the synthesis rate.
 /// </summary>
-bool PPSDriver::SetSampleRate(uint32_t rate, bool useInterpolation)
+bool PPSDriver::SetOutputFrequency(uint32_t rate, bool useInterpolation)
 {
     _SynthesisRate = (int) rate;
     _UseInterpolation = useInterpolation;

@@ -1,5 +1,5 @@
 ﻿
-// PMD driver (Based on PMDWin code by C60)
+// $VER: PMDFM.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -31,9 +31,9 @@ void PMD::FMMain(Channel * channel)
     else
     if ((channel->KeyOffFlag & 0x03) == 0)
     {
-        if (channel->Length <= channel->qdat)
+        if (channel->Length <= channel->GateTime)
         {
-            SetFMKeyOff(channel);
+            FMKeyOff(channel);
 
             channel->KeyOffFlag = 0xFF;
         }
@@ -42,11 +42,11 @@ void PMD::FMMain(Channel * channel)
     if (channel->Length == 0)
     {
         if (channel->MuteMask == 0x00)
-            channel->LFOSwitch &= 0xf7;
+            channel->ModulationMode &= 0xF7;
 
         while (1)
         {
-            if (*si > 0x80 && *si != 0xda)
+            if ((*si != 0xDA) && (*si > 0x80))
             {
                 si = ExecuteFMCommand(channel, si);
             }
@@ -55,14 +55,14 @@ void PMD::FMMain(Channel * channel)
             {
                 channel->Data = si;
                 channel->loopcheck = 3;
-                channel->Note = 0xFF;
+                channel->Tone = 0xFF;
 
                 if (channel->LoopData == nullptr)
                 {
                     if (channel->MuteMask)
                     {
-                        _Driver.TieMode = 0;
-                        _Driver.IsVolumePushSet = 0;
+                        _Driver.TieNotesTogether = false;
+                        _Driver.IsVolumeBoostSet = 0;
                         _Driver.loop_work &= channel->loopcheck;
 
                         return;
@@ -71,12 +71,13 @@ void PMD::FMMain(Channel * channel)
                         break;
                 }
 
-                si = channel->LoopData; // When there was an "L"
+                si = channel->LoopData;
+
                 channel->loopcheck = 1;
             }
             else
             {
-                if (*si == 0xda)
+                if (*si == 0xDA)
                 {
                     si = SetFMPortamentoCommand(channel, ++si);
 
@@ -88,30 +89,30 @@ void PMD::FMMain(Channel * channel)
                 if (channel->MuteMask == 0x00)
                 {
                     // TONE SET
-                    SetFMTone(channel, oshift(channel, StartLFO(channel, *si++)));
+                    SetFMTone(channel, Transpose(channel, StartLFO(channel, *si++)));
 
                     channel->Length = *si++;
 
                     si = CalculateQ(channel, si);
 
-                    if ((channel->VolumePush != 0) && (channel->Note != 0xFF))
+                    if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
                     {
-                        if (--_Driver.IsVolumePushSet)
+                        if (--_Driver.IsVolumeBoostSet)
                         {
-                            _Driver.IsVolumePushSet = 0;
-                            channel->VolumePush = 0;
+                            _Driver.IsVolumeBoostSet = 0;
+                            channel->VolumeBoost = 0;
                         }
                     }
 
                     SetFMVolumeCommand(channel);
                     SetFMPitch(channel);
-                    SetFMKeyOn(channel);
+                    FMKeyOn(channel);
 
                     channel->KeyOnFlag++;
                     channel->Data = si;
 
-                    _Driver.TieMode = 0;
-                    _Driver.IsVolumePushSet = 0;
+                    _Driver.TieNotesTogether = false;
+                    _Driver.IsVolumeBoostSet = 0;
 
                     // Don't perform Key Off if a "&" command (Tie) follows immediately.
                     channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
@@ -137,10 +138,10 @@ void PMD::FMMain(Channel * channel)
                     if (--_Driver.IsVolumePushSet)
                         channel->VolumePush = 0;
 */
-                    si = channel->Rest(++si, (--_Driver.IsVolumePushSet) != 0);
+                    si = channel->Rest(++si, (--_Driver.IsVolumeBoostSet) != 0);
 
-                    _Driver.TieMode = 0;
-                    _Driver.IsVolumePushSet = 0;
+                    _Driver.TieNotesTogether = false;
+                    _Driver.IsVolumeBoostSet = 0;
                     break;
                 }
             }
@@ -156,48 +157,48 @@ void PMD::FMMain(Channel * channel)
                 _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + (_Driver.CurrentChannel - 1 + 0xb4)), (uint32_t) channel->PanAndVolume);
         }
 
-        if (channel->sdelay_c)
+        if (channel->SlotDelayCounter)
         {
-            if (--channel->sdelay_c == 0)
+            if (--channel->SlotDelayCounter == 0)
             {
                 if ((channel->KeyOffFlag & 0x01) == 0)
-                    SetFMKeyOn(channel);
+                    FMKeyOn(channel);
             }
         }
 
-        if (channel->LFOSwitch)
+        if (channel->ModulationMode)
         {
-            _Driver.lfo_switch = channel->LFOSwitch & 8;
+            _Driver.ModulationMode = channel->ModulationMode & 0x08;
 
-            if (channel->LFOSwitch & 3)
+            if (channel->ModulationMode & 0x03)
             {
-                if (lfo(channel))
-                    _Driver.lfo_switch |= (channel->LFOSwitch & 3);
+                if (SetLFO(channel))
+                    _Driver.ModulationMode |= (channel->ModulationMode & 0x03);
             }
 
-            if (channel->LFOSwitch & 0x30)
+            if (channel->ModulationMode & 0x30)
             {
                 SwapLFO(channel);
 
-                if (lfo(channel))
+                if (SetLFO(channel))
                 {
                     SwapLFO(channel);
 
-                    _Driver.lfo_switch |= (channel->LFOSwitch & 0x30);
+                    _Driver.ModulationMode |= (channel->ModulationMode & 0x30);
                 }
                 else
                     SwapLFO(channel);
             }
 
-            if (_Driver.lfo_switch & 0x19)
+            if (_Driver.ModulationMode & 0x19)
             {
-                if (_Driver.lfo_switch & 8)
+                if (_Driver.ModulationMode & 0x08)
                     CalculatePortamento(channel);
 
                 SetFMPitch(channel);
             }
 
-            if (_Driver.lfo_switch & 0x22)
+            if (_Driver.ModulationMode & 0x22)
             {
                 SetFMVolumeCommand(channel);
                 _Driver.loop_work &= channel->loopcheck;
@@ -215,480 +216,525 @@ void PMD::FMMain(Channel * channel)
 
 uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
 {
-    int al = *si++;
+    uint8_t Command = *si++;
 
-    switch (al)
+    switch (Command)
     {
-        case 0xff:
-            si = SetFMInstrumentCommand(channel, si);
+        case 0xFF:
+            si = SetFMInstrument(channel, si);
             break;
 
-        case 0xfe:
-            channel->qdata = *si++;
-            channel->qdat3 = 0;
+        // Set Early Key Off Timeout.
+        case 0xFE:
+            channel->EarlyKeyOffTimeout = *si++;
+            channel->EarlyKeyOffTimeoutRandomRange = 0;
             break;
-
+/*
         case 0xFD:
             channel->Volume = *si++;
             break;
 
-        case 0xfc:
+        case 0xFC:
             si = ChangeTempoCommand(si);
             break;
 
         // Command "&": Tie notes together.
         case 0xFB:
-            _Driver.TieMode |= 1;
+            _Driver.TieNotesTogether = true;
             break;
 
-        case 0xfa:
+        // Set detune.
+        case 0xFA:
             channel->DetuneValue = *(int16_t *) si;
             si += 2;
             break;
 
-        case 0xf9:
+        // Set loop start.
+        case 0xF9:
             si = SetStartOfLoopCommand(channel, si);
             break;
 
-        case 0xf8:
+        // Set loop end.
+        case 0xF8:
             si = SetEndOfLoopCommand(channel, si);
             break;
 
-        case 0xf7:
+        // Exit loop.
+        case 0xF7:
             si = ExitLoopCommand(channel, si);
             break;
 
-        case 0xf6:
+        // Command "L": Set the loop data.
+        case 0xF6:
             channel->LoopData = si;
             break;
 
-        case 0xf5:
-            channel->shift = *(int8_t *) si++;
+        // Set transposition.
+        case 0xF5:
+            channel->Transposition = *(int8_t *) si++;
             break;
-
-        case 0xf4:
+*/
+        // Increase volume by 3dB.
+        case 0xF4:
             channel->Volume += 4;
 
             if (channel->Volume > 127)
                 channel->Volume = 127;
             break;
 
-        case 0xf3:
+        // Decrease volume by 3dB.
+        case 0xF3:
+            channel->Volume -= 4;
+
             if (channel->Volume < 4)
                 channel->Volume = 0;
-            else
-                channel->Volume -= 4;
             break;
-
-        case 0xf2:
-            si = SetLFOParameter(channel, si);
+/*
+        case 0xF2:
+            si = SetModulation(channel, si);
             break;
+*/
+        case 0xF1:
+            si = SetModulationMask(channel, si);
 
-        case 0xf1:
-            si = lfoswitch(channel, si);
             SetFMChannel3Mode(channel);
             break;
 
-        case 0xf0: si += 4; break;
+        case 0xF0: si += 4; break;
 
-        case 0xef:
-            _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + *si), (uint32_t) (*(si + 1)));
+        // Set SSG envelope.
+        case 0xEF:
+            _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + si[0]), si[1]);
             si += 2;
             break;
 
-        case 0xee: si++; break;
-        case 0xed: si++; break;
+        case 0xEE: si++; break;
+        case 0xED: si++; break;
 
-        case 0xec:
-            si = SetFMPanValueCommand(channel, si); // FOR SB2
+        case 0xEC:
+            si = SetFMPanning(channel, si);
+            break;
+/*
+        case 0xEB:
+            si = OPNARhythmKeyOn(si);
             break;
 
-        case 0xeb:
-            si = RhythmInstrumentCommand(si);
+        case 0xEA:
+            si = SetOPNARhythmVolumeCommand(si);
             break;
 
-        case 0xea:
-            si = SetRhythmInstrumentVolumeCommand(si);
+        case 0xE9:
+            si = SetOPNARhythmPanningCommand(si);
             break;
 
-        case 0xe9:
-            si = SetRhythmPanCommand(si);
+        case 0xE8:
+            si = SetOPNARhythmMasterVolumeCommand(si);
             break;
 
-        case 0xe8:
-            si = SetRhythmMasterVolumeCommand(si);
+        // Modify transposition.
+        case 0xE7:
+            channel->Transposition += *(int8_t *) si++;
             break;
 
-        case 0xe7:
-            channel->shift += *(int8_t *) si++;
+        case 0xE6:
+            si = ModifyOPNARhythmMasterVolume(si);
             break;
 
-        case 0xe6:
-            si = SetRhythmVolume(si);
+        case 0xE5:
+            si = ModifyOPNARhythmVolume(si);
             break;
-
-        case 0xe5:
-            si = SetRhythmPanValue(si);
-            break;
-
-        case 0xe4:
+*/
+        // Set hardware LFO delay.
+        case 0xE4:
             channel->HardwareLFODelay = *si++;
             break;
 
-        case 0xe3:
+        // Increase volume.
+        case 0xE3:
             channel->Volume += *si++;
 
             if (channel->Volume > 127)
                 channel->Volume = 127;
             break;
 
-        case 0xe2:
-            if (channel->Volume < *si)
+        // Decrease volume.
+        case 0xE2:
+            channel->Volume -= *si++;
+
+            if (channel->Volume < 0)
                 channel->Volume = 0;
-            else
-                channel->Volume -= *si;
-            si++;
             break;
 
-        case 0xe1:
-            si = SetHardLFOCommand(channel, si);
+        // Set hardware LFO AM/FM.
+        case 0xE1:
+            si = SetHardwareLFOCommand(channel, si);
             break;
 
-        case 0xe0:
-            _State.port22h = *si;
+        // Set hardware LFO speed.
+        case 0xE0:
             _OPNAW->SetReg(0x22, *si++);
             break;
-
-        case 0xdf:
-            _State.BarLength = *si++; // Command "Z number"
+/*
+        // Command "Z number": Set ticks per measure.
+        case 0xDF:
+            _State.BarLength = *si++;
+            break;
+*/
+        case 0xDE:
+            si = IncreaseVolumeForNextNote(channel, si, 128);
+            break;
+/*
+        case 0xDD: 
+            si = DecreaseVolumeForNextNote(channel, si);
             break;
 
-        case 0xde:
-            si = IncreaseFMVolumeCommand(channel, si);
+        // Set status.
+        case 0xDC:
+            _State.Status = *si++;
             break;
 
-        case 0xdd: 
-            si = DecreaseVolumeCommand(channel, si);
+        // Increment status.
+        case 0xDB:
+            _State.Status += *si++;
             break;
-
-        case 0xdc:
-            _State.status = *si++;
-            break;
-
-        case 0xdb:
-            _State.status += *si++;
-            break;
-
-        case 0xda:
+*/
+        // Set portamento.
+        case 0xDA:
             si = SetFMPortamentoCommand(channel, si);
             break;
+/*
+        case 0xD9: si++; break;
+        case 0xD8: si++; break;
+        case 0xD7: si++; break;
 
-        case 0xd9: si++; break;
-        case 0xd8: si++; break;
-        case 0xd7: si++; break;
-
-        case 0xd6:
-            channel->MDepthSpeedA = channel->MDepthSpeedB = *si++;
-            channel->MDepth = *(int8_t *) si++;
+        case 0xD6:
+            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
+            channel->LFO1MDepth = *(int8_t *) si++;
             break;
 
-        case 0xd5:
+        case 0xD5:
             channel->DetuneValue += *(int16_t *) si;
             si += 2;
             break;
 
-        case 0xd4:
+        case 0xD4:
             si = SetSSGEffect(channel, si);
             break;
 
-        case 0xd3:
+        case 0xD3:
             si = SetFMEffect(channel, si);
             break;
 
-        case 0xd2:
-            _State.fadeout_flag = 1;
+        case 0xD2:
             _State.FadeOutSpeed = *si++;
+            _State.FadeOutSpeedSet = true;
             break;
 
-        case 0xd1: si++; break;
-        case 0xd0: si++; break;
+        case 0xD1: si++; break;
+        case 0xD0: si++; break;
+*/
 
-        case 0xcf:
+        case 0xCF:
             si = SetFMSlotCommand(channel, si);
             break;
+/*
+        // Set PCM Repeat.
+        case 0xCE: si += 6; break;
+*/
+        // Set SSG Envelope (Format 2).
+        case 0xCD: si += 5; break;
+/*
+        // Set SSG Extend Mode (bit 0).
+        case 0xCC: si++; break;
 
-        case 0xce: si += 6; break;
-        case 0xcd: si += 5; break;
-        case 0xcc: si++; break;
-
-        case 0xcb:
-            channel->LFOWaveform = *si++;
+        case 0xCB:
+            channel->LFO1Waveform = *si++;
+            break;
+*/
+        // Set SSG Extend Mode (bit 1).
+        case 0xCA:
+            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
             break;
 
-        case 0xca:
-            channel->extendmode = (channel->extendmode & 0xFD) | ((*si++ & 1) << 1);
-            break;
+        // Set SSG Extend Mode (bit 2).
+        case 0xC9: si++; break;
 
-        case 0xc9: si++; break;
-
-        case 0xc8:
+        case 0xC8:
             si = SetFMAbsoluteDetuneCommand(channel, si);
             break;
 
-        case 0xc7:
+        case 0xC7:
             si = SetFMRelativeDetuneCommand(channel, si);
             break;
 
-        case 0xc6:
+        case 0xC6:
             si = SetFMChannel3ModeEx(channel, si);
             break;
 
-        case 0xc5:
+        case 0xC5:
             si = SetFMVolumeMaskSlotCommand(channel, si);
             break;
-
-        case 0xc4:
-            channel->qdatb = *si++;
+/*
+        // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
+        case 0xC4:
+            channel->EarlyKeyOffTimeoutPercentage = *si++;
             break;
-
-        case 0xc3:
-            si = SetFMPanValueExtendedCommand(channel, si);
+*/
+        case 0xC3:
+            si = SetFMPanningExtend(channel, si);
             break;
-
-        case 0xc2:
-            channel->delay = channel->delay2 = *si++;
-            lfoinit_main(channel);
+/*
+        case 0xC2:
+            channel->Delay1 = channel->Delay2 = *si++;
+            InitializeLFOMain(channel);
             break;
+*/
+        case 0xC1: break;
 
-        case 0xc1: break;
-
-        case 0xc0:
+        case 0xC0:
             si = SetFMMaskCommand(channel, si);
             break;
-
-        case 0xbf:
+/*
+        case 0xBF:
             SwapLFO(channel);
 
-            si = SetLFOParameter(channel, si);
+            si = SetModulation(channel, si);
 
             SwapLFO(channel);
             break;
-
-        case 0xbe:
+*/
+        case 0xBE:
             si = SetHardwareLFOSwitchCommand(channel, si);
 
             SetFMChannel3Mode(channel);
             break;
-
-        case 0xbd:
+/*
+        case 0xBD:
             SwapLFO(channel);
 
-            channel->MDepthSpeedA = channel->MDepthSpeedB = *si++;
-            channel->MDepth = *(int8_t *) si++;
-
-            SwapLFO(channel);
-            break;
-
-        case 0xbc:
-            SwapLFO(channel);
-
-            channel->LFOWaveform = *si++;
+            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
+            channel->LFO1MDepth = *(int8_t *) si++;
 
             SwapLFO(channel);
             break;
 
-        case 0xbb:
+        case 0xBC:
             SwapLFO(channel);
 
-            channel->extendmode = (channel->extendmode & 0xFD) | ((*si++ & 1) << 1);
+            channel->LFO1Waveform = *si++;
 
             SwapLFO(channel);
             break;
 
-        case 0xba:
+        case 0xBB:
+            SwapLFO(channel);
+
+            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
+
+            SwapLFO(channel);
+            break;
+
+        case 0xBA:
             si = SetVolumeMask(channel, si);
             break;
 
-        case 0xb9:
+        case 0xB9:
             SwapLFO(channel);
 
-            channel->delay = channel->delay2 = *si++;
-            lfoinit_main(channel);
+            channel->LFO1Delay1 = channel->LFO1Delay2 = *si++;
+            InitializeLFOMain(channel);
 
             SwapLFO(channel);
             break;
-
-        case 0xb8:
+*/
+        case 0xB8:
             si = SetFMTLSettingCommand(channel, si);
             break;
-
-        case 0xb7:
+/*
+        case 0xB7:
             si = SetMDepthCountCommand(channel, si);
             break;
-
-        case 0xb6:
-            si = SetFMFBSettingCommand(channel, si);
+*/
+        case 0xB6:
+            si = SetFMFeedbackLoops(channel, si);
             break;
 
-        case 0xb5:
-            channel->sdelay_m = (~(*si++) << 4) & 0xF0;
-            channel->sdelay_c = channel->sdelay = *si++;
+        case 0xB5:
+            channel->SlotDelayMask = (~(*si++) << 4) & 0xF0;
+            channel->SlotDelayCounter = channel->SlotDelay = *si++;
+            break;
+/*
+        case 0xB4: si += 16; break;
+
+        // Set Early Key Off Timeout 2. Stop note after n ticks or earlier depending on the result of B1/C4/FE happening first.
+        case 0xB3:
+            channel->EarlyKeyOffTimeout2 = *si++;
             break;
 
-        case 0xb4: si += 16; break;
-
-        case 0xb3:
-            channel->qdat2 = *si++;
+        case 0xB2:
+            channel->Transposition2 = *(int8_t *) si++;
             break;
 
-        case 0xb2:
-            channel->shift_def = *(int8_t *) si++;
+        // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
+        case 0xB1:
+            channel->EarlyKeyOffTimeoutRandomRange = *si++;
             break;
-
-        case 0xb1:
-            channel->qdat3 = *si++;
-            break;
-
+*/
         default:
-            si--;
-            *si = 0x80;
+            si = ExecuteCommand(channel, si, Command);
     }
 
     return si;
 }
 
-void PMD::SetFMTone(Channel * channel, int al)
+/// <summary>
+/// Sets FM Wait after register output.
+/// </summary>
+void PMD::SetFMDelay(int nsec)
 {
-    if ((al & 0x0F) != 0x0F)
+    _OPNAW->SetFMDelay(nsec);
+}
+
+#pragma region(Commands)
+/// <summary>
+///
+/// </summary>
+void PMD::SetFMTone(Channel * channel, int tone)
+{
+    if ((tone & 0x0F) != 0x0F)
     {
-        // Music Note
-        channel->Note = al;
+        channel->Tone = tone;
 
-        // BLOCK/FNUM CALICULATE
-        int bx = al & 0x0f;
-        int ax = fnum_data[bx];
+        int Block  = tone & 0x0F;
+        int Factor = FMScaleFactor[Block];
 
-        // BLOCK SET
-        ax |= (((al >> 1) & 0x38) << 8);
-        channel->fnum = (uint32_t) ax;
+        Factor |= (((tone >> 1) & 0x38) << 8);
+
+        channel->Factor = (uint32_t) Factor;
     }
     else
     {
         // Rest
-        channel->Note = 0xFF;
+        channel->Tone = 0xFF;
 
-        if ((channel->LFOSwitch & 0x11) == 0)
-            channel->fnum = 0;
+        if ((channel->ModulationMode & 0x11) == 0)
+            channel->Factor = 0; // Don't use LFO pitch.
     }
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SetFMVolumeCommand(Channel * channel)
 {
     if (channel->FMSlotMask == 0)
         return;
 
-    int cl = (channel->VolumePush) ? channel->VolumePush - 1 : channel->Volume;
+    int Volume = (channel->VolumeBoost) ? channel->VolumeBoost - 1 : channel->Volume;
 
     if (channel != &_EffectChannel)
     {
-        // Volume Down calculation
-        if (_State.FMVolumeDown)
-            cl = ((256 - _State.FMVolumeDown) * cl) >> 8;
+        // Calculates the effect of volume down.
+        if (_State.FMVolumeAdjust != 0)
+            Volume = ((256 - _State.FMVolumeAdjust) * Volume) >> 8;
 
-        // Fade Out calculation
+        // Calculates the effect of fade out.
         if (_State.FadeOutVolume >= 2)
-            cl = ((256 - (_State.FadeOutVolume >> 1)) * cl) >> 8;
+            Volume = ((256 - (_State.FadeOutVolume >> 1)) * Volume) >> 8;
     }
 
-    //  音量をcarrierに設定 & 音量LFO処理
-    //    input  cl to Volume[0-127]
-    //      bl to SlotMask
-    int bh = 0;          // Vol Slot Mask
-    int bl = channel->FMSlotMask;    // ch=SlotMask Push
+    Volume = 255 - Volume;
 
-    uint8_t vol_tbl[4] = { 0x80, 0x80, 0x80, 0x80 };
+    // Set volume to carrier & volume LFO processing.
+    uint8_t SlotVolume[4] = { 0x80, 0x80, 0x80, 0x80 };
 
-    cl = 255 - cl;      // cl=carrierに設定する音量+80H(add)
-    bl &= channel->carrier;    // bl=音量を設定するSLOT xxxx0000b
-    bh |= bl;
+    int bl = channel->FMSlotMask;
 
-    if (bl & 0x80) vol_tbl[0] = (uint8_t) cl;
-    if (bl & 0x40) vol_tbl[1] = (uint8_t) cl;
-    if (bl & 0x20) vol_tbl[2] = (uint8_t) cl;
-    if (bl & 0x10) vol_tbl[3] = (uint8_t) cl;
+    bl &= channel->FMCarrier;    // bl=Set volume SLOT xxxx0000b
 
-    if (cl != 255)
+    int bh = bl;
+
+    if (bl & 0x80) SlotVolume[0] = (uint8_t) Volume;
+    if (bl & 0x40) SlotVolume[1] = (uint8_t) Volume;
+    if (bl & 0x20) SlotVolume[2] = (uint8_t) Volume;
+    if (bl & 0x10) SlotVolume[3] = (uint8_t) Volume;
+
+    if (Volume != 255)
     {
-        if (channel->LFOSwitch & 2)
+        if (channel->ModulationMode & 0x02)
         {
             bl = channel->VolumeMask1;
-            bl &= channel->FMSlotMask;    // bl=音量LFOを設定するSLOT xxxx0000b
+            bl &= channel->FMSlotMask;    // bl=SLOT to set volume LFO xxxx0000b
             bh |= bl;
 
-            CalcFMLFO(channel, channel->lfodat, bl, vol_tbl);
+            CalcFMLFO(channel, channel->LFO1Data, bl, SlotVolume);
         }
 
-        if (channel->LFOSwitch & 0x20)
+        if (channel->ModulationMode & 0x20)
         {
             bl = channel->VolumeMask2;
             bl &= channel->FMSlotMask;
             bh |= bl;
 
-            CalcFMLFO(channel, channel->_lfodat, bl, vol_tbl);
+            CalcFMLFO(channel, channel->LFO2Data, bl, SlotVolume);
         }
     }
 
-    int dh = 0x4c - 1 + _Driver.CurrentChannel;    // dh=FM Port Address
+    int dh = 0x4c - 1 + _Driver.CurrentChannel; // FM Port Address
 
-    if (bh & 0x80) CalcVolSlot(dh,      channel->slot4, vol_tbl[0]);
-    if (bh & 0x40) CalcVolSlot(dh -  8, channel->slot3, vol_tbl[1]);
-    if (bh & 0x20) CalcVolSlot(dh -  4, channel->slot2, vol_tbl[2]);
-    if (bh & 0x10) CalcVolSlot(dh - 12, channel->slot1, vol_tbl[3]);
+    if (bh & 0x80) CalcVolSlot(dh,      channel->FMOperator4, SlotVolume[0]);
+    if (bh & 0x40) CalcVolSlot(dh -  8, channel->FMOperator3, SlotVolume[1]);
+    if (bh & 0x20) CalcVolSlot(dh -  4, channel->FMOperator2, SlotVolume[2]);
+    if (bh & 0x10) CalcVolSlot(dh - 12, channel->FMOperator1, SlotVolume[3]);
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::SetFMPitch(Channel * channel)
 {
-    if ((channel->fnum == 0) || (channel->FMSlotMask == 0))
+    if ((channel->Factor == 0) || (channel->FMSlotMask == 0))
         return;
 
-    int cx = (int) (channel->fnum & 0x3800);    // cx=BLOCK
-    int ax = (int) (channel->fnum) & 0x7ff;    // ax=FNUM
+    int Block = (int) (channel->Factor  & 0x3800);
+    int Pitch = (int) (channel->Factor) & 0x07ff;
 
     // Portament/LFO/Detune SET
-    ax += channel->porta_num + channel->DetuneValue;
+    Pitch += channel->Portamento + channel->DetuneValue;
 
     if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0) && (_State.FMChannel3Mode != 0x3F))
-        SpecialFM3Processing(channel, ax, cx);
+        SpecialFM3Processing(channel, Pitch, Block);
     else
     {
-        if (channel->LFOSwitch & 0x01)
-            ax += channel->lfodat;
+        if (channel->ModulationMode & 0x01)
+            Pitch += channel->LFO1Data;
 
-        if (channel->LFOSwitch & 0x10)
-            ax += channel->_lfodat;
+        if (channel->ModulationMode & 0x10)
+            Pitch += channel->LFO2Data;
 
-        CalcFMBlock(&cx, &ax);
+        CalcFMBlock(&Block, &Pitch);
 
-        // SET BLOCK/FNUM TO OPN
+        Pitch |= Block;
 
-        ax |= cx;
-
-        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xa4 - 1), (uint32_t) HIBYTE(ax));
-        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xa4 - 5), (uint32_t) LOBYTE(ax));
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xa4 - 1), (uint32_t) HIBYTE(Pitch));
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xa4 - 5), (uint32_t) LOBYTE(Pitch));
     }
 }
 
-void PMD::SetFMKeyOn(Channel * channel)
+/// <summary>
+///
+/// </summary>
+void PMD::FMKeyOn(Channel * channel)
 {
-    if (channel->Note == 0xFF)
+    if (channel->Tone == 0xFF)
         return;
 
     if (_Driver.FMSelector == 0)
     {
         int al = _Driver.omote_key[_Driver.CurrentChannel - 1] | channel->FMSlotMask;
 
-        if (channel->sdelay_c)
-            al &= channel->sdelay_m;
+        if (channel->SlotDelayCounter)
+            al &= channel->SlotDelayMask;
 
         _Driver.omote_key[_Driver.CurrentChannel - 1] = al;
         _OPNAW->SetReg(0x28, (uint32_t) ((_Driver.CurrentChannel - 1) | al));
@@ -697,17 +743,20 @@ void PMD::SetFMKeyOn(Channel * channel)
     {
         int al = _Driver.ura_key[_Driver.CurrentChannel - 1] | channel->FMSlotMask;
 
-        if (channel->sdelay_c)
-            al &= channel->sdelay_m;
+        if (channel->SlotDelayCounter)
+            al &= channel->SlotDelayMask;
 
         _Driver.ura_key[_Driver.CurrentChannel - 1] = al;
         _OPNAW->SetReg(0x28, (uint32_t) (((_Driver.CurrentChannel - 1) | al) | 4));
     }
 }
 
-void PMD::SetFMKeyOff(Channel * channel)
+/// <summary>
+///
+/// </summary>
+void PMD::FMKeyOff(Channel * channel)
 {
-    if (channel->Note == 0xFF)
+    if (channel->Tone == 0xFF)
         return;
 
     if (_Driver.FMSelector == 0)
@@ -722,68 +771,65 @@ void PMD::SetFMKeyOff(Channel * channel)
     }
 }
 
-// Sets FM Wait after register output.
-void PMD::SetFMDelay(int nsec)
-{
-    _OPNAW->SetFMDelay(nsec);
-}
-
-#pragma region(Commands)
-
-// Command "@ number": Set the instrument to use
-uint8_t * PMD::SetFMInstrumentCommand(Channel * channel, uint8_t * si)
+/// <summary>
+/// Command "@ number": Sets the instrument to be used. Range 0-255.
+/// </summary>
+uint8_t * PMD::SetFMInstrument(Channel * channel, uint8_t * si)
 {
     int al = *si++;
+    int dl = al;
 
     channel->InstrumentNumber = al;
 
-    int dl = channel->InstrumentNumber;
-
     if (channel->MuteMask == 0x00)
     {
-        ActivateFMInstrumentDefinition(channel, dl);
+        InitializeFMInstrument(channel, dl);
 
         return si;
     }
 
-    uint8_t * bx = GetFMInstrumentDefinition(channel, dl);
-
-    channel->alg_fb = dl = bx[24];
-    bx += 4;
-
-    // tl設定
-    channel->slot1 = bx[0];
-    channel->slot3 = bx[1];
-    channel->slot2 = bx[2];
-    channel->slot4 = bx[3];
-
-    //  Set fm3_alg_fb if masked in FM3ch
-    if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0) &&(channel->ToneMask != 0))
     {
-        // in. dl = alg/fb
+        uint8_t * Data = GetFMInstrumentDefinition(channel, dl);
+
+        channel->AlgorithmAndFeedbackLoops = dl = Data[24];
+        Data += 4;
+
+        // Set the Total Level.
+        channel->FMOperator1 = Data[0];
+        channel->FMOperator3 = Data[1];
+        channel->FMOperator2 = Data[2];
+        channel->FMOperator4 = Data[3];
+    }
+
+    if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0) && (channel->ToneMask != 0))
+    {
         if ((channel->FMSlotMask & 0x10) == 0)
         {
-            al = _Driver.fm3_alg_fb & 0x38;    // fbは前の値を使用
-            dl = (dl & 7) | al;
+            al = _Driver.AlgorithmAndFeedbackLoopsFM3 & 0x38; // Feedback Loops (fb) uses previous value.
+            dl = (dl & 0x07) | al;
         }
 
-        _Driver.fm3_alg_fb = dl;
-        channel->alg_fb = al;
+        _Driver.AlgorithmAndFeedbackLoopsFM3 = dl;
+        channel->AlgorithmAndFeedbackLoops = al;
     }
 
     return si;
 }
 
-// Command "p <value>" (1: right, 2: left, 3: center (default))
-uint8_t * PMD::SetFMPanValueCommand(Channel * channel, uint8_t * si)
+/// <summary>
+/// Command "p <value>" (1: right, 2: left, 3: center (default))
+/// </summary>
+uint8_t * PMD::SetFMPanning(Channel * channel, uint8_t * si)
 {
-    SetFMPanValueInternal(channel, *si++);
+    SetFMPannningInternal(channel, *si++);
 
     return si;
 }
 
-// Command "px <value 1>, <value 2>" (value 1: -4 (pan to the left) to +4 (pan to the right), value 2: 0 (In phase) or 1 (Reverse phase)).
-uint8_t * PMD::SetFMPanValueExtendedCommand(Channel * channel, uint8_t * si)
+/// <summary>
+/// Command "px <value 1>, <value 2>" (value 1: -4 (pan to the left) to +4 (pan to the right), value 2: 0 (In phase) or 1 (Reverse phase)).
+/// </summary>
+uint8_t * PMD::SetFMPanningExtend(Channel * channel, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
@@ -792,24 +838,27 @@ uint8_t * PMD::SetFMPanValueExtendedCommand(Channel * channel, uint8_t * si)
     if (al > 0)
     {
         al = 2; // Right
-        SetFMPanValueInternal(channel, al);
+        SetFMPannningInternal(channel, al);
     }
     else
     if (al == 0)
     {
         al = 3; // Center
-        SetFMPanValueInternal(channel, al);
+        SetFMPannningInternal(channel, al);
     }
     else
     {
         al = 1; // Left
-        SetFMPanValueInternal(channel, al);
+        SetFMPannningInternal(channel, al);
     }
 
     return si;
 }
 
-void PMD::SetFMPanValueInternal(Channel * channel, int value)
+/// <summary>
+///
+/// </summary>
+void PMD::SetFMPannningInternal(Channel * channel, int value)
 {
     channel->PanAndVolume = (channel->PanAndVolume & 0x3F) | ((value << 6) & 0xC0);
 
@@ -827,63 +876,55 @@ void PMD::SetFMPanValueInternal(Channel * channel, int value)
         _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), CalcPanOut(channel));
 }
 
-uint8_t * PMD::IncreaseFMVolumeCommand(Channel * channel, uint8_t * si)
-{
-    int al = (int) channel->Volume + 1 + *si++;
-
-    if (al > 128)
-        al = 128;
-
-    channel->VolumePush = al;
-
-    _Driver.IsVolumePushSet = 1;
-
-    return si;
-}
-
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::DecreaseFMVolumeCommand(Channel *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
     if (al)
-        _State.FMVolumeDown = Limit(al + _State.FMVolumeDown, 255, 0);
+        _State.FMVolumeAdjust = Limit(al + _State.FMVolumeAdjust, 255, 0);
     else
-        _State.FMVolumeDown = _State.DefaultFMVolumeDown;
+        _State.FMVolumeAdjust = _State.DefaultFMVolumeAdjust;
 
     return si;
 }
 
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::SetFMPortamentoCommand(Channel * channel, uint8_t * si)
 {
     if (channel->MuteMask)
     {
-        channel->fnum = 0;
-        channel->Note = 0xFF;
-        channel->Length = *(si + 2);
+        channel->Factor = 0;
+        channel->Tone = 0xFF;
+        channel->Length = si[2];
         channel->KeyOnFlag++;
         channel->Data = si + 3;
 
-        if (--_Driver.IsVolumePushSet)
-            channel->VolumePush = 0;
+        if (--_Driver.IsVolumeBoostSet)
+            channel->VolumeBoost = 0;
 
-        _Driver.TieMode = 0;
-        _Driver.IsVolumePushSet = 0;
+        _Driver.TieNotesTogether = false;
+        _Driver.IsVolumeBoostSet = 0;
         _Driver.loop_work &= channel->loopcheck;
 
         return si + 3;
     }
 
-    SetFMTone(channel, oshift(channel, StartLFO(channel, *si++)));
+    SetFMTone(channel, Transpose(channel, StartLFO(channel, *si++)));
 
-    int cx = (int) channel->fnum;
-    int cl = channel->Note;
+    int cx = (int) channel->Factor;
+    int OldTone = channel->Tone;
 
-    SetFMTone(channel, oshift(channel, *si++));
+    SetFMTone(channel, Transpose(channel, *si++));
 
-    int bx = (int) channel->fnum;
+    int bx = (int) channel->Factor;
 
-    channel->Note = cl;
-    channel->fnum = (uint32_t) cx;
+    channel->Tone = OldTone;
+    channel->Factor = (uint32_t) cx;
 
     int bh = (int) ((bx / 256) & 0x38) - ((cx / 256) & 0x38);
     int ax;
@@ -903,28 +944,28 @@ uint8_t * PMD::SetFMPortamentoCommand(Channel * channel, uint8_t * si)
 
     si = CalculateQ(channel, si);
 
-    channel->porta_num2 = ax / channel->Length;
-    channel->porta_num3 = ax % channel->Length;
-    channel->LFOSwitch |= 8; // Portamento on
+    channel->PortamentoQuotient = ax / channel->Length;
+    channel->PortamentoRemainder = ax % channel->Length;
+    channel->ModulationMode |= 0x08; // Enable portamento.
 
-    if ((channel->VolumePush != 0) && (channel->Note != 0xFF))
+    if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
     {
-        if (--_Driver.IsVolumePushSet)
+        if (--_Driver.IsVolumeBoostSet)
         {
-            channel->VolumePush = 0;
-            _Driver.IsVolumePushSet = 0;
+            channel->VolumeBoost = 0;
+            _Driver.IsVolumeBoostSet = 0;
         }
     }
 
     SetFMVolumeCommand(channel);
     SetFMPitch(channel);
-    SetFMKeyOn(channel);
+    FMKeyOn(channel);
 
     channel->KeyOnFlag++;
     channel->Data = si;
 
-    _Driver.TieMode = 0;
-    _Driver.IsVolumePushSet = 0;
+    _Driver.TieNotesTogether = false;
+    _Driver.IsVolumeBoostSet = 0;
 
     // Don't perform Key Off if a "&" command (Tie) follows immediately.
     channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
@@ -934,11 +975,17 @@ uint8_t * PMD::SetFMPortamentoCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::SetFMEffect(Channel *, uint8_t * si)
 {
     return si + 1;
 }
 
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::SetFMChannel3ModeEx(Channel *, uint8_t * si)
 {
     int16_t ax = *(int16_t *) si;
@@ -963,6 +1010,9 @@ uint8_t * PMD::SetFMChannel3ModeEx(Channel *, uint8_t * si)
 }
 
 // Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::SetFMMaskCommand(Channel * channel, uint8_t * si)
 {
     uint8_t Value = *si++;
@@ -989,6 +1039,9 @@ uint8_t * PMD::SetFMMaskCommand(Channel * channel, uint8_t * si)
 }
 
 // Command "m": Set FM Slot. Mainly used for the 3rd FM channel, specifies the slot position (operators) to be used for performance/definition.
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::SetFMSlotCommand(Channel * channel, uint8_t * si)
 {
     int al = *si++;
@@ -998,7 +1051,7 @@ uint8_t * PMD::SetFMSlotCommand(Channel * channel, uint8_t * si)
 
     if (al != 0x00)
     {
-        channel->carrier = al << 4;
+        channel->FMCarrier = al << 4;
     }
     else
     {
@@ -1006,7 +1059,7 @@ uint8_t * PMD::SetFMSlotCommand(Channel * channel, uint8_t * si)
 
         if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
         {
-            bl = _Driver.fm3_alg_fb;
+            bl = _Driver.AlgorithmAndFeedbackLoopsFM3;
         }
         else
         {
@@ -1015,7 +1068,7 @@ uint8_t * PMD::SetFMSlotCommand(Channel * channel, uint8_t * si)
             bl = bx[24];
         }
 
-        channel->carrier = carrier_table[bl & 7];
+        channel->FMCarrier = FMToneCarrier[bl & 7];
     }
 
     if (channel->FMSlotMask != ah)
@@ -1032,17 +1085,17 @@ uint8_t * PMD::SetFMSlotCommand(Channel * channel, uint8_t * si)
             if (channel != &_FMChannel[2])
             {
                 if (_FMChannel[2].MuteMask == 0x00 && (_FMChannel[2].KeyOffFlag & 0x01) == 0)
-                    SetFMKeyOn(&_FMChannel[2]);
+                    FMKeyOn(&_FMChannel[2]);
 
                 if (channel != &_FMExtensionChannel[0])
                 {
                     if (_FMExtensionChannel[0].MuteMask == 0x00 && (_FMExtensionChannel[0].KeyOffFlag & 0x01) == 0)
-                        SetFMKeyOn(&_FMExtensionChannel[0]);
+                        FMKeyOn(&_FMExtensionChannel[0]);
 
                     if (channel != &_FMExtensionChannel[1])
                     {
                         if (_FMExtensionChannel[1].MuteMask == 0x00 && (_FMExtensionChannel[1].KeyOffFlag & 0x01) == 0)
-                            SetFMKeyOn(&_FMExtensionChannel[1]);
+                            FMKeyOn(&_FMExtensionChannel[1]);
                     }
                 }
             }
@@ -1061,13 +1114,16 @@ uint8_t * PMD::SetFMSlotCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::SetHardLFOCommand(Channel * channel, uint8_t * si)
+/// <summary>
+/// Sets the hardware LFO AM/FM value.
+/// </summary>
+uint8_t * PMD::SetHardwareLFOCommand(Channel * channel, uint8_t * si)
 {
     channel->PanAndVolume = (channel->PanAndVolume & 0xC0) | *si++;
 
+    // Part_e is impossible because it is only for YM2608. For FM3, set all four parts
     if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
     {
-        // Part_e is impossible because it is only for 2608. For FM3, set all four parts
         _FMChannel[2].PanAndVolume = channel->PanAndVolume;
 
         _FMExtensionChannel[0].PanAndVolume = channel->PanAndVolume;
@@ -1076,40 +1132,40 @@ uint8_t * PMD::SetHardLFOCommand(Channel * channel, uint8_t * si)
     }
 
     if (channel->MuteMask == 0x00)
-        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + _Driver.CurrentChannel + 0xb4 - 1), CalcPanOut(channel));
+        _OPNAW->SetReg((uint32_t) (0xB4 + _Driver.FMSelector + _Driver.CurrentChannel - 1), CalcPanOut(channel));
 
     return si;
 }
 
-// Command "D number": Set the detune (frequency shift) value. Range -32768-32767.
+/// <summary>
+/// Command "sd number": Set the detune (frequency shift) value. Range -32768-32767.
+/// </summary>
 uint8_t * PMD::SetFMAbsoluteDetuneCommand(Channel * channel, uint8_t * si)
 {
     if ((_Driver.CurrentChannel != 3) || (_Driver.FMSelector != 0))
         return si + 3;
 
-    int bl = *si++;
-    int ax = *(int16_t *) si;
+    int SlotNumber = *si++;
+    int Value = *(int16_t *) si; si += 2;
 
-    si += 2;
+    if (SlotNumber & 1)
+        _State.FMSlot1Detune = Value;
 
-    if (bl & 1)
-        _State.slot_detune1 = ax;
+    if (SlotNumber & 2)
+        _State.FMSlot2Detune = Value;
 
-    if (bl & 2)
-        _State.slot_detune2 = ax;
+    if (SlotNumber & 4)
+        _State.FMSlot3Detune = Value;
 
-    if (bl & 4)
-        _State.slot_detune3 = ax;
+    if (SlotNumber & 8)
+        _State.FMSlot4Detune = Value;
 
-    if (bl & 8)
-        _State.slot_detune4 = ax;
-
-    if (_State.slot_detune1 || _State.slot_detune2 || _State.slot_detune3 || _State.slot_detune4)
-        _Driver.slotdetune_flag = 1;
+    if (_State.FMSlot1Detune || _State.FMSlot2Detune || _State.FMSlot3Detune || _State.FMSlot4Detune)
+        _Driver.IsFMSlotDetuneSet = 1;
     else
     {
-        _Driver.slotdetune_flag = 0;
-        _State.slot_detune1 = 0;
+        _Driver.IsFMSlotDetuneSet = 0;
+        _State.FMSlot1Detune = 0;
     }
 
     SetFMChannel3Mode2(channel);
@@ -1117,35 +1173,35 @@ uint8_t * PMD::SetFMAbsoluteDetuneCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command "DD number": Set the detune (frequency shift) value relative to the previouse detune. Range -32768-32767.
+/// <summary>
+/// Command "sdd number": Set the detune (frequency shift) value to the previouse detune. Range -32768-32767.
+/// </summary>
 uint8_t * PMD::SetFMRelativeDetuneCommand(Channel * channel, uint8_t * si)
 {
     if ((_Driver.CurrentChannel != 3) || (_Driver.FMSelector != 0))
         return si + 3;
 
-    int bl = *si++;
-    int ax = *(int16_t *) si;
+    int SlotNumber = *si++;
+    int Value = *(int16_t *) si; si += 2;
 
-    si += 2;
+    if (SlotNumber & 1)
+        _State.FMSlot1Detune += Value;
 
-    if (bl & 1)
-        _State.slot_detune1 += ax;
+    if (SlotNumber & 2)
+        _State.FMSlot2Detune += Value;
 
-    if (bl & 2)
-        _State.slot_detune2 += ax;
+    if (SlotNumber & 4)
+        _State.FMSlot3Detune += Value;
 
-    if (bl & 4)
-        _State.slot_detune3 += ax;
+    if (SlotNumber & 8)
+        _State.FMSlot4Detune += Value;
 
-    if (bl & 8)
-        _State.slot_detune4 += ax;
-
-    if (_State.slot_detune1 || _State.slot_detune2 || _State.slot_detune3 || _State.slot_detune4)
-        _Driver.slotdetune_flag = 1;
+    if (_State.FMSlot1Detune || _State.FMSlot2Detune || _State.FMSlot3Detune || _State.FMSlot4Detune)
+        _Driver.IsFMSlotDetuneSet = 1;
     else
     {
-        _Driver.slotdetune_flag = 0;
-        _State.slot_detune1 = 0;
+        _Driver.IsFMSlotDetuneSet = 0;
+        _State.FMSlot1Detune = 0;
     }
 
     SetFMChannel3Mode2(channel);
@@ -1154,6 +1210,9 @@ uint8_t * PMD::SetFMRelativeDetuneCommand(Channel * channel, uint8_t * si)
 }
 
 // Command: Sets the volume mask slot.
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::SetFMVolumeMaskSlotCommand(Channel * channel, uint8_t * si)
 {
     int al = *si++ & 0x0F;
@@ -1165,13 +1224,16 @@ uint8_t * PMD::SetFMVolumeMaskSlotCommand(Channel * channel, uint8_t * si)
         channel->VolumeMask1 = al;
     }
     else
-        channel->VolumeMask1 = channel->carrier;
+        channel->VolumeMask1 = channel->FMCarrier;
 
     SetFMChannel3Mode(channel);
 
     return si;
 }
 
+/// <summary>
+///
+/// </summary>
 uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 {
     int dh = 0x40 - 1 + _Driver.CurrentChannel;    // dh=TL FM Port Address
@@ -1191,7 +1253,7 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 
         if (ah & 1)
         {
-            channel->slot1 = dl;
+            channel->FMOperator1 = dl;
 
             if (channel->MuteMask == 0x00)
                 _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
@@ -1201,7 +1263,7 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 
         if (ah & 2)
         {
-            channel->slot2 = dl;
+            channel->FMOperator2 = dl;
 
             if (channel->MuteMask == 0x00)
                 _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
@@ -1211,7 +1273,7 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 
         if (ah & 4)
         {
-            channel->slot3 = dl;
+            channel->FMOperator3 = dl;
 
             if (channel->MuteMask == 0x00)
                 _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
@@ -1221,7 +1283,7 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 
         if (ah & 8)
         {
-            channel->slot4 = dl;
+            channel->FMOperator4 = dl;
 
             if (channel->MuteMask == 0x00)
                 _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
@@ -1234,7 +1296,7 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 
         if (ah & 1)
         {
-            if ((dl = (int) channel->slot1 + al) < 0)
+            if ((dl = (int) channel->FMOperator1 + al) < 0)
             {
                 dl = 0;
 
@@ -1245,14 +1307,14 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
             if (channel->MuteMask == 0x00)
                 _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
-            channel->slot1 = dl;
+            channel->FMOperator1 = dl;
         }
 
         dh += 8;
 
         if (ah & 2)
         {
-            if ((dl = (int) channel->slot2 + al) < 0)
+            if ((dl = (int) channel->FMOperator2 + al) < 0)
             {
                 dl = 0;
 
@@ -1263,14 +1325,14 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
             if (channel->MuteMask == 0x00)
                 _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
-            channel->slot2 = dl;
+            channel->FMOperator2 = dl;
         }
 
         dh -= 4;
 
         if (ah & 4)
         {
-            if ((dl = (int) channel->slot3 + al) < 0)
+            if ((dl = (int) channel->FMOperator3 + al) < 0)
             {
                 dl = 0;
 
@@ -1281,14 +1343,14 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
             if (channel->MuteMask == 0x00)
                 _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
-            channel->slot3 = dl;
+            channel->FMOperator3 = dl;
         }
 
         dh += 8;
 
         if (ah & 8)
         {
-            if ((dl = (int) channel->slot4 + al) < 0)
+            if ((dl = (int) channel->FMOperator4 + al) < 0)
             {
                 dl = 0;
 
@@ -1299,18 +1361,21 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
             if (channel->MuteMask == 0x00)
                 _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
-            channel->slot4 = dl;
+            channel->FMOperator4 = dl;
         }
     }
 
     return si;
 }
 
-uint8_t * PMD::SetFMFBSettingCommand(Channel * channel, uint8_t * si)
+/// <summary>
+///
+/// </summary>
+uint8_t * PMD::SetFMFeedbackLoops(Channel * channel, uint8_t * si)
 {
     int dl;
 
-    int dh = _Driver.CurrentChannel + 0xb0 - 1;  // dh=ALG/FB port address
+    int dh = _Driver.CurrentChannel + 0xb0 - 1;  // dh = Algorithm (alg) and Feedback Loops (fb) port address.
     int al = *(int8_t *) si++;
 
     if (al >= 0)
@@ -1324,16 +1389,16 @@ uint8_t * PMD::SetFMFBSettingCommand(Channel * channel, uint8_t * si)
             if ((channel->FMSlotMask & 0x10) == 0)
                 return si;
 
-            dl = (_Driver.fm3_alg_fb & 7) | al;
+            dl = (_Driver.AlgorithmAndFeedbackLoopsFM3 & 7) | al;
 
-            _Driver.fm3_alg_fb = dl;
+            _Driver.AlgorithmAndFeedbackLoopsFM3 = dl;
         }
         else
-            dl = (channel->alg_fb & 7) | al;
+            dl = (channel->AlgorithmAndFeedbackLoops & 7) | al;
 
         _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
-        channel->alg_fb = dl;
+        channel->AlgorithmAndFeedbackLoops = dl;
 
         return si;
     }
@@ -1343,9 +1408,9 @@ uint8_t * PMD::SetFMFBSettingCommand(Channel * channel, uint8_t * si)
             al &= 7;
 
         if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
-            dl = _Driver.fm3_alg_fb;
+            dl = _Driver.AlgorithmAndFeedbackLoopsFM3;
         else
-            dl = channel->alg_fb;
+            dl = channel->AlgorithmAndFeedbackLoops;
 
         dl = (dl >> 3) & 7;
 
@@ -1360,40 +1425,40 @@ uint8_t * PMD::SetFMFBSettingCommand(Channel * channel, uint8_t * si)
                     if ((channel->FMSlotMask & 0x10) == 0)
                         return si;
 
-                    dl = (_Driver.fm3_alg_fb & 7) | al;
+                    dl = (_Driver.AlgorithmAndFeedbackLoopsFM3 & 7) | al;
 
-                    _Driver.fm3_alg_fb = dl;
+                    _Driver.AlgorithmAndFeedbackLoopsFM3 = dl;
                 }
                 else
-                    dl = (channel->alg_fb & 7) | al;
+                    dl = (channel->AlgorithmAndFeedbackLoops & 7) | al;
 
                 _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
-                channel->alg_fb = dl;
+                channel->AlgorithmAndFeedbackLoops = dl;
 
                 return si;
             }
             else
             {
-                // in  al 00000xxx 設定するFB
+                // in al 00000xxx FB to set
                 al = ((al << 3) & 0xff) | (al >> 5);
 
-                // in  al 00xxx000 設定するFB
+                // in al 00xxx000 FB to set
                 if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
                 {
                     if ((channel->FMSlotMask & 0x10) == 0)
                         return si;
 
-                    dl = (_Driver.fm3_alg_fb & 7) | al;
+                    dl = (_Driver.AlgorithmAndFeedbackLoopsFM3 & 7) | al;
 
-                    _Driver.fm3_alg_fb = dl;
+                    _Driver.AlgorithmAndFeedbackLoopsFM3 = dl;
                 }
                 else
-                    dl = (channel->alg_fb & 7) | al;
+                    dl = (channel->AlgorithmAndFeedbackLoops & 7) | al;
 
                 _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
-                channel->alg_fb = dl;
+                channel->AlgorithmAndFeedbackLoops = dl;
 
                 return si;
             }
@@ -1407,16 +1472,16 @@ uint8_t * PMD::SetFMFBSettingCommand(Channel * channel, uint8_t * si)
                 if ((channel->FMSlotMask & 0x10) == 0)
                     return si;
 
-                dl = (_Driver.fm3_alg_fb & 7) | al;
+                dl = (_Driver.AlgorithmAndFeedbackLoopsFM3 & 7) | al;
 
-                _Driver.fm3_alg_fb = dl;
+                _Driver.AlgorithmAndFeedbackLoopsFM3 = dl;
             }
             else
-                dl = (channel->alg_fb & 7) | al;
+                dl = (channel->AlgorithmAndFeedbackLoops & 7) | al;
 
             _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
 
-            channel->alg_fb = dl;
+            channel->AlgorithmAndFeedbackLoops = dl;
 
             return si;
         }
@@ -1424,18 +1489,216 @@ uint8_t * PMD::SetFMFBSettingCommand(Channel * channel, uint8_t * si)
 }
 #pragma endregion
 
-int PMD::SetFMChannel3Mode(Channel * channel)
+/// <summary>
+/// Initializes the FM operators.
+/// </summary>
+void PMD::InitializeFMInstrument(Channel * channel, int instrumentNumber, bool setFM3)
 {
-    if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
-    {
-        SetFMChannel3Mode2(channel);
+    uint8_t * Data = GetFMInstrumentDefinition(channel, instrumentNumber);
 
-        return 1;
+    if (MuteFMChannel(channel))
+    {
+        // When _ToneMask=0 (Only TL work is set)
+        Data += 4;
+
+        // Set the Total Level (tl) in each operator slot.
+        channel->FMOperator1 = Data[0];
+        channel->FMOperator3 = Data[1];
+        channel->FMOperator2 = Data[2];
+        channel->FMOperator4 = Data[3];
+
+        return;
     }
 
-    return 0;
+    {
+        // Set the algorithm (alg) and the feedback loops (fbl).
+        if (setFM3)
+            instrumentNumber = channel->AlgorithmAndFeedbackLoops;
+        else
+            instrumentNumber = Data[24];
+
+        if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
+        {
+            if (setFM3)
+                instrumentNumber = _Driver.AlgorithmAndFeedbackLoopsFM3;
+            else
+            {
+                if ((channel->FMSlotMask & 0x10) == 0)
+                    instrumentNumber = (_Driver.AlgorithmAndFeedbackLoopsFM3 & 0x38) | (instrumentNumber & 7);
+
+                _Driver.AlgorithmAndFeedbackLoopsFM3 = instrumentNumber;
+            }
+        }
+    }
+
+    uint32_t Register = (uint32_t) (0xB0 - 1 + _Driver.FMSelector + _Driver.CurrentChannel);
+
+    _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+
+    {
+        channel->AlgorithmAndFeedbackLoops = instrumentNumber;
+
+        instrumentNumber &= 0x07;
+
+        channel->FMCarrier = FMToneCarrier[instrumentNumber];
+
+        if ((channel->VolumeMask1 & 0x0F) == 0)
+            channel->VolumeMask1 = channel->FMCarrier;
+
+        if ((channel->VolumeMask2 & 0x0F) == 0)
+            channel->VolumeMask2 = channel->FMCarrier;
+    }
+
+    // AH = Mask for Total Level (tl)
+    int ah = FMToneCarrier[instrumentNumber + 8]; // Reversed data of slot2/3 (not completed)
+
+    // AL = Mask for other parameters.
+    int al = channel->ToneMask;
+
+    ah &= al;
+
+    // Set each tone parameter (TL is modulator only)
+    Register = (uint32_t) (0x30 - 1 + _Driver.FMSelector + _Driver.CurrentChannel);
+
+    {
+        // Detune (dt) / Multiplier (ml)
+        instrumentNumber = *Data++;
+        if (al & 0x80) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x40) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x20) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x10) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+    }
+
+    {
+        // Total Level (tl)
+        instrumentNumber = *Data++;
+        if (ah & 0x80) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (ah & 0x40) _OPNAW->SetReg(Register,(uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (ah & 0x20) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (ah & 0x10) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+    }
+
+    {
+        // Key Scale (ks) / Attack Rate (ar)
+        instrumentNumber = *Data++;
+        if (al & 0x08) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x04) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x02) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x01) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+    }
+
+    {
+        // Amplitude Modulation Set (ams) / Decay Rate (dr)
+        instrumentNumber = *Data++;
+        if (al & 0x80) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x40) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x20) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x10) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+    }
+
+    {
+        // Sustain Rate (sr)
+        instrumentNumber = *Data++;
+        if (al & 0x08) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x04) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x02) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x01) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+    }
+
+    {
+        // Sustain Level (sl) / Release Rate (rr)
+        instrumentNumber = *Data++;
+        if (al & 0x80) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x40) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x20) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+
+        instrumentNumber = *Data++;
+        if (al & 0x10) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
+        Register += 4;
+    }
+
+    // Store the Total Level (tl) in each operator slot.
+    Data -= 20;
+
+    channel->FMOperator1 = Data[0];
+    channel->FMOperator3 = Data[1];
+    channel->FMOperator2 = Data[2];
+    channel->FMOperator4 = Data[3];
 }
 
+/// <summary>
+///
+/// </summary>
+bool PMD::SetFMChannel3Mode(Channel * channel)
+{
+    if ((_Driver.CurrentChannel != 3) || (_Driver.FMSelector != 0))
+        return false;
+
+    SetFMChannel3Mode2(channel);
+
+    return true;
+}
+
+/// <summary>
+///
+/// </summary>
 void PMD::SetFMChannel3Mode2(Channel * channel)
 {
     int al;
@@ -1451,48 +1714,48 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
     else
         al = 8;
 
-    int ah;
+    int Mode;
 
     if ((channel->FMSlotMask & 0xF0) == 0)
-        ClearFM3(ah, al); // s0
+        ClearFM3(Mode, al); // s0
     else
     if (channel->FMSlotMask != 0xF0)
     {
         _Driver.slot3_flag |= al;
-        ah = 0x7F;
+        Mode = 0x7F;
     }
     else
 
     if ((channel->VolumeMask1 & 0x0F) == 0)
-        ClearFM3(ah, al);
+        ClearFM3(Mode, al);
     else
-    if ((channel->LFOSwitch & 1) != 0)
+    if ((channel->ModulationMode & 0x01) != 0)
     {
         _Driver.slot3_flag |= al;
-        ah = 0x7F;
+        Mode = 0x7F;
     }
     else
 
     if ((channel->VolumeMask2 & 0x0F) == 0)
-        ClearFM3(ah, al);
+        ClearFM3(Mode, al);
     else
-    if (channel->LFOSwitch & 0x10)
+    if (channel->ModulationMode & 0x10)
     {
         _Driver.slot3_flag |= al;
-        ah = 0x7F;
+        Mode = 0x7F;
     }
     else
-        ClearFM3(ah, al);
+        ClearFM3(Mode, al);
 
-    if ((uint32_t) ah == _State.FMChannel3Mode)
+    if ((uint32_t) Mode == _State.FMChannel3Mode)
         return;
 
-    _State.FMChannel3Mode = (uint32_t) ah;
+    _State.FMChannel3Mode = (uint32_t) Mode;
 
-    _OPNAW->SetReg(0x27, (uint32_t) (ah & 0xCF)); // Don't reset.
+    _OPNAW->SetReg(0x27, (uint32_t) (Mode & 0xCF)); // Don't reset.
 
     // When moving to sound effect mode, the pitch is rewritten with the previous FM3 part
-    if (ah == 0x3F || channel == &_FMChannel[2])
+    if (Mode == 0x3F || channel == &_FMChannel[2])
         return;
 
     if (_FMChannel[2].MuteMask == 0x00)
@@ -1511,214 +1774,36 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
         SetFMPitch(&_FMExtensionChannel[1]);
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::ClearFM3(int& ah, int& al)
 {
     al ^= 0xFF;
 
     if ((_Driver.slot3_flag &= al) == 0)
-        ah = (_Driver.slotdetune_flag != 1) ? 0x3F : 0x7F;
+        ah = (_Driver.IsFMSlotDetuneSet != 1) ? 0x3F : 0x7F;
     else
         ah = 0x7F;
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::InitializeFMChannel3(Channel * channel, uint8_t * ax)
 {
     channel->Data = ax;
-    channel->Length = 1;          // ｱﾄ 1ｶｳﾝﾄ ﾃﾞ ｴﾝｿｳ ｶｲｼ
+    channel->Length = 1;
     channel->KeyOffFlag = 0xFF;
-    channel->mdc = -1;          // MDepth Counter (無限)
-    channel->mdc2 = -1;          //
-    channel->_mdc = -1;          //
-    channel->_mdc2 = -1;          //
-    channel->Note = 0xFF;        // rest
-    channel->DefaultNote = 0xFF;      // rest
-    channel->Volume = 108;        // FM  VOLUME DEFAULT= 108
-    channel->PanAndVolume = _FMChannel[2].PanAndVolume;  // FM PAN = CH3と同じ
-    channel->MuteMask |= 0x20;      // s0用 partmask
-}
-
-/// <summary>
-/// Sets the various parameters of an FM instrument.
-/// </summary>
-void PMD::ActivateFMInstrumentDefinition(Channel * channel, int dl)
-{
-    uint8_t * bx = GetFMInstrumentDefinition(channel, dl);
-
-    if (MuteFMChannel(channel))
-    {
-        // When _ToneMask=0 (Only TL work is set)
-        bx += 4;
-
-        // tl setting
-        channel->slot1 = bx[0];
-        channel->slot3 = bx[1];
-        channel->slot2 = bx[2];
-        channel->slot4 = bx[3];
-
-        return;
-    }
-
-    // Set AL/FB
-    int dh = 0xB0 - 1 + _Driver.CurrentChannel;
-
-    if (_Driver.af_check)
-        dl = channel->alg_fb; // Is the mode not setting ALG/FB?
-    else
-        dl = bx[24];
-
-    if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
-    {
-        if (_Driver.af_check != 0)
-            dl = _Driver.fm3_alg_fb; // Is the mode not setting ALG/FB?
-        else
-        {
-            if ((channel->FMSlotMask & 0x10) == 0)
-                dl = (_Driver.fm3_alg_fb & 0x38) | (dl & 7); // Are you using slot1?
-
-            _Driver.fm3_alg_fb = dl;
-        }
-    }
-
-    _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-
-    channel->alg_fb = dl;
-    dl &= 7;    // dl = algo
-
-    // Check the position of Carrier (also set in VolMask)
-    if ((channel->VolumeMask1 & 0x0f) == 0)
-        channel->VolumeMask1 = carrier_table[dl];
-
-    if ((channel->VolumeMask2 & 0x0f) == 0)
-        channel->VolumeMask2 = carrier_table[dl];
-
-    channel->carrier = carrier_table[dl];
-
-    int ah = carrier_table[dl + 8];  // Reversed data of slot2/3 (not completed)
-    int al = channel->ToneMask;
-
-    ah &= al; // AH = mask for TL / AL = mask for others
-
-    // Set each tone parameter (TL is modulator only)
-    dh = 0x30 - 1 + _Driver.CurrentChannel;
-
-    dl = *bx++;        // DT/ML
-    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;        // TL
-    if (ah & 0x80) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (ah & 0x40) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh),(uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (ah & 0x20) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (ah & 0x10) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;        // KS/AR
-    if (al & 0x08) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x04) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x02) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x01) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;        // AM/DR
-    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;        // SR
-    if (al & 0x08) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x04) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x02) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x01) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;        // SL/RR
-    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-
-    dl = *bx++;
-    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) dl);
-    dh += 4;
-/*
-    dl = *bx++;        // SL/RR
-    if (al & 0x80) _OPNAW->SetReg((uint32_t) (_Driver.fmsel + dh), (uint32_t) dl);
-    dh+=4;
-
-    dl = *bx++;
-    if (al & 0x40) _OPNAW->SetReg((uint32_t) (_Driver.fmsel + dh), (uint32_t) dl);
-    dh+=4;
-
-    dl = *bx++;
-    if (al & 0x20) _OPNAW->SetReg((uint32_t) (_Driver.fmsel + dh), (uint32_t) dl);
-    dh+=4;
-
-    dl = *bx++;
-    if (al & 0x10) _OPNAW->SetReg((uint32_t) (_Driver.fmsel + dh), (uint32_t) dl);
-    dh+=4;
-*/
-    // Save TL for each SLOT in workpiece
-    bx -= 20;
-    channel->slot1 = bx[0];
-    channel->slot3 = bx[1];
-    channel->slot2 = bx[2];
-    channel->slot4 = bx[3];
+    channel->LFO1MDepthCount1 = -1; // Infinity
+    channel->LFO1MDepthCount2 = -1; // Infinity
+    channel->LFO2MDepthCount1 = -1; // Infinity
+    channel->LFO2MDepthCount2 = -1; // Infinity
+    channel->Tone = 0xFF;           // Rest
+    channel->DefaultTone = 0xFF;    // Rest
+    channel->Volume = 108;
+    channel->PanAndVolume = _FMChannel[2].PanAndVolume; // Use FM channel 3 value
+    channel->MuteMask |= 0x20;
 }
 
 /// <summary>
@@ -1734,44 +1819,43 @@ uint8_t * PMD::GetFMInstrumentDefinition(Channel * channel, int instrumentNumber
             return _State.EData;
     }
 
-    uint8_t * bx = _State.InstrumentDefinitions;
+    uint8_t * Data = _State.InstrumentDefinitions;
 
-    while (*bx != instrumentNumber)
+    while (Data[0] != instrumentNumber)
     {
-        bx += 26;
+        Data += 26;
 
-        if (bx > _MData + sizeof(_MData) - 26)
+        if (Data > _MData + sizeof(_MData) - 26)
             return _State.InstrumentDefinitions + 1; // Return the first definition if not found.
     }
 
-    return bx + 1;
+    return Data + 1;
 }
 
 // Reset the tone of the FM sound source
+/// <summary>
+///
+/// </summary>
 void PMD::ResetFMInstrument(Channel * channel)
 {
     if (channel->ToneMask == 0)
         return;
 
-    int s1 = channel->slot1;
-    int s2 = channel->slot2;
-    int s3 = channel->slot3;
-    int s4 = channel->slot4;
+    int s1 = channel->FMOperator1;
+    int s2 = channel->FMOperator2;
+    int s3 = channel->FMOperator3;
+    int s4 = channel->FMOperator4;
 
-    _Driver.af_check = 1;
+    InitializeFMInstrument(channel, channel->InstrumentNumber, true);
 
-    ActivateFMInstrumentDefinition(channel, channel->InstrumentNumber);
-
-    _Driver.af_check = 0;
-
-    channel->slot1 = s1;
-    channel->slot2 = s2;
-    channel->slot3 = s3;
-    channel->slot4 = s4;
+    channel->FMOperator1 = s1;
+    channel->FMOperator2 = s2;
+    channel->FMOperator3 = s3;
+    channel->FMOperator4 = s4;
 
     int dh;
 
-    int al = ((~channel->carrier) & channel->FMSlotMask) & 0xf0;
+    int al = ((~channel->FMCarrier) & channel->FMSlotMask) & 0xf0;
 
     // al<- TLを再設定していいslot 4321xxxx
     if (al)
@@ -1799,6 +1883,9 @@ void PMD::ResetFMInstrument(Channel * channel)
 }
 
 //  Pitch setting when using ch3=sound effect mode (input CX:block AX:fnum)
+/// <summary>
+///
+/// </summary>
 void PMD::SpecialFM3Processing(Channel * channel, int ax, int cx)
 {
     int shiftmask = 0x80;
@@ -1814,10 +1901,10 @@ void PMD::SpecialFM3Processing(Channel * channel, int ax, int cx)
     if (channel->FMSlotMask & 0x80)
     {
         ax_ = ax;
-        ax += _State.slot_detune4;
+        ax += _State.FMSlot4Detune;
 
-        if ((bh & shiftmask) && (channel->LFOSwitch & 0x01))  ax += channel->lfodat;
-        if ((ch & shiftmask) && (channel->LFOSwitch & 0x10))  ax += channel->_lfodat;
+        if ((bh & shiftmask) && (channel->ModulationMode & 0x01))  ax += channel->LFO1Data;
+        if ((ch & shiftmask) && (channel->ModulationMode & 0x10))  ax += channel->LFO2Data;
         shiftmask >>= 1;
 
         cx = si;
@@ -1836,10 +1923,10 @@ void PMD::SpecialFM3Processing(Channel * channel, int ax, int cx)
     if (channel->FMSlotMask & 0x40)
     {
         ax_ = ax;
-        ax += _State.slot_detune3;
+        ax += _State.FMSlot3Detune;
 
-        if ((bh & shiftmask) && (channel->LFOSwitch & 0x01))  ax += channel->lfodat;
-        if ((ch & shiftmask) && (channel->LFOSwitch & 0x10))  ax += channel->_lfodat;
+        if ((bh & shiftmask) && (channel->ModulationMode & 0x01))  ax += channel->LFO1Data;
+        if ((ch & shiftmask) && (channel->ModulationMode & 0x10))  ax += channel->LFO2Data;
         shiftmask >>= 1;
 
         cx = si;
@@ -1858,13 +1945,13 @@ void PMD::SpecialFM3Processing(Channel * channel, int ax, int cx)
     if (channel->FMSlotMask & 0x20)
     {
         ax_ = ax;
-        ax += _State.slot_detune2;
+        ax += _State.FMSlot2Detune;
 
-        if ((bh & shiftmask) && (channel->LFOSwitch & 0x01))
-            ax += channel->lfodat;
+        if ((bh & shiftmask) && (channel->ModulationMode & 0x01))
+            ax += channel->LFO1Data;
 
-        if ((ch & shiftmask) && (channel->LFOSwitch & 0x10))
-            ax += channel->_lfodat;
+        if ((ch & shiftmask) && (channel->ModulationMode & 0x10))
+            ax += channel->LFO2Data;
 
         shiftmask >>= 1;
 
@@ -1884,13 +1971,13 @@ void PMD::SpecialFM3Processing(Channel * channel, int ax, int cx)
     if (channel->FMSlotMask & 0x10)
     {
         ax_ = ax;
-        ax += _State.slot_detune1;
+        ax += _State.FMSlot1Detune;
 
-        if ((bh & shiftmask) && (channel->LFOSwitch & 0x01)) 
-            ax += channel->lfodat;
+        if ((bh & shiftmask) && (channel->ModulationMode & 0x01)) 
+            ax += channel->LFO1Data;
 
-        if ((ch & shiftmask) && (channel->LFOSwitch & 0x10))
-            ax += channel->_lfodat;
+        if ((ch & shiftmask) && (channel->ModulationMode & 0x10))
+            ax += channel->LFO2Data;
 
         cx = si;
 
@@ -1908,6 +1995,9 @@ void PMD::SpecialFM3Processing(Channel * channel, int ax, int cx)
 // Fixed when the octave changes with detune of FM sound source.
 //  input   CX: block / AX: fnum + detune
 //  output  CX: block / AX: fnum
+/// <summary>
+///
+/// </summary>
 void PMD::CalcFMBlock(int * cx, int * ax)
 {
     while (*ax >= 0x26a)
@@ -1953,6 +2043,9 @@ void PMD::CalcFMBlock(int * cx, int * ax)
 }
 
 // Get the data to set to 0b4h? out.dl
+/// <summary>
+///
+/// </summary>
 uint8_t PMD::CalcPanOut(Channel * channel)
 {
     int  dl = channel->PanAndVolume;
@@ -1967,6 +2060,9 @@ uint8_t PMD::CalcPanOut(Channel * channel)
 //      in. dl  Original TL value
 //          dh  Register to Out
 //          al  Volume fluctuation value center = 80h
+/// <summary>
+///
+/// </summary>
 void PMD::CalcVolSlot(int dh, int dl, int al)
 {
     if ((al += dl) > 255)
@@ -1978,6 +2074,9 @@ void PMD::CalcVolSlot(int dh, int dl, int al)
     _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), (uint32_t) al);
 }
 
+/// <summary>
+///
+/// </summary>
 void PMD::CalcFMLFO(Channel *, int al, int bl, uint8_t * vol_tbl)
 {
     if (bl & 0x80) vol_tbl[0] = (uint8_t) Limit(vol_tbl[0] - al, 255, 0);

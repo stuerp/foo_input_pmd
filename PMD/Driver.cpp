@@ -1,19 +1,11 @@
 
-// PMD driver (Based on PMDWin code by C60)
+/** $VER: Driver.cpp (2023.10.29) Driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <CppCoreCheck/Warnings.h>
 
 #pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
 
 #include "PMD.h"
-
-//#include "Utility.h"
-//#include "Table.h"
-
-//#include "OPNAW.h"
-//#include "PPZ.h"
-//#include "PPS.h"
-//#include "P86.h"
 
 void PMD::DriverMain()
 {
@@ -57,7 +49,7 @@ void PMD::DriverMain()
         RhythmMain(&_RhythmChannel);
 
         if (_State.IsUsingP86)
-            PCM86Main(&_ADPCMChannel);
+            P86Main(&_ADPCMChannel);
         else
             ADPCMMain(&_ADPCMChannel);
     }
@@ -74,13 +66,13 @@ void PMD::DriverMain()
     if (_Driver.loop_work == 0)
         return;
 
-    for (i = 0; i < 6; ++i)
+    for (i = 0; i < MaxFMChannels; ++i)
     {
         if (_FMChannel[i].loopcheck != 3)
             _FMChannel[i].loopcheck = 0;
     }
 
-    for (i = 0; i < 3; ++i)
+    for (i = 0; i < MaxSSGChannels; ++i)
     {
         if (_SSGChannel[i].loopcheck != 3)
             _SSGChannel[i].loopcheck = 0;
@@ -118,13 +110,13 @@ void PMD::DriverMain()
 void PMD::DriverStart()
 {
     // Set Timer B = 0 and Timer Reset (to match the length of the song every time)
-    _State.tempo_d = 0;
+    _State.Tempo = 0;
 
     SetTimerBTempo();
 
     _OPNAW->SetReg(0x27, 0x00); // Timer reset (both timer A and B)
 
-    _Driver.music_flag &= 0xFE;
+    _Driver._Flags &= ~DriverStartRequested;
 
     DriverStop();
 
@@ -143,7 +135,7 @@ void PMD::DriverStart()
 
 void PMD::DriverStop()
 {
-    _Driver.music_flag &= 0xFD;
+    _Driver._Flags &= ~DriverStopRequested;
 
     _IsPlaying = false;
     _State.LoopCount = -1;

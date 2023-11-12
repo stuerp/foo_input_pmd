@@ -7,9 +7,9 @@
 
 #include "table.h"
 
-const int ChannelTable[][3] = // for PMDB2
+const int ChannelTable[][3] =
 {
-    //  Part number, Part B, Sound Source number
+    //  Part number, Channel nummber, Sound Source number
     {  0, 1, 0 }, // A
     {  1, 2, 0 }, // B
     {  2, 3, 0 }, // C
@@ -44,10 +44,8 @@ const int ChannelTable[][3] = // for PMDB2
     { 21, 7, 5 }  // PPZ8
 };
 
-/******************************************************************************
-; 音階DATA(FM)
-******************************************************************************/
-const int fnum_data[] =
+// FM Scale Factor
+const int FMScaleFactor[] =
 {
     0x026a, // C
     0x028f, // D-
@@ -66,10 +64,8 @@ const int fnum_data[] =
     0x0d48 // 0x0e
 };
 
-/******************************************************************************
-; 音階DATA(PSG)
-******************************************************************************/
-const int psg_tune_data[] =
+// SSG Scale Factor
+const int SSGScaleFactor[] =
 {
     0x0ee8, // C
     0x0e12, // D-
@@ -88,10 +84,8 @@ const int psg_tune_data[] =
     0xe0a0 // 0x0e
 };
 
-/******************************************************************************
-; 音階DATA(ADPCM)
-******************************************************************************/
-const int pcm_tune_data[] =
+// ADPCM Scale Factor
+const int PCMScaleFactor[] =
 {
     0x3132 * 2, // C
     0x3420 * 2, // C+
@@ -110,10 +104,8 @@ const int pcm_tune_data[] =
     0x7400  // 0x0e
 };
 
-/******************************************************************************
-; 音階DATA(PMD86)
-******************************************************************************/
-const uint32_t p86_tune_data[] =
+// P86 Scale Factor
+const uint32_t P86ScaleFactor[] =
 {
     0xff002AB7, // o1c
     0xff002D41, // o1c+
@@ -193,8 +185,6 @@ const uint32_t p86_tune_data[] =
     0xffE130C7, // o7d+
     0xffE142E7, // o7e
 
-    // ここまで？
-
     0xffE1561C, // o7f
     0xffE16A72, // o7f+
     0xffE18000, // o7g
@@ -222,10 +212,8 @@ const uint32_t p86_tune_data[] =
 };
 
 
-/******************************************************************************
-; 音階DATA(PPZ)
-******************************************************************************/
-const int ppz_tune_data[] =
+// PPZ Scale Factor
+const int PPZScaleFactor[] =
 {
     0x8000, // C
     0x87a6, // C+
@@ -244,38 +232,30 @@ const int ppz_tune_data[] =
     0x7400 // 0x0e
 };
 
-/******************************************************************************
-; ＦＭ音色のキャリアのテーブル
-******************************************************************************/
-const int carrier_table[] =
+// FM Tone Carrier table
+const int FMToneCarrier[] =
 {
     0x80, 0x80, 0x80, 0x80, 0xa0, 0xe0, 0xe0, 0xf0,
     0xee, 0xee, 0xee, 0xee, 0xcc, 0x88, 0x88, 0x00
 };
 
-/******************************************************************************
-; Rythm data
-******************************************************************************/
-const int rhydat[][3] =
+const int SSGRhythmDefinitions[][3] =
 {
-    // PT, PAN/VOLUME, KEYON
-    { 0x18, 0xdf, 0x01 }, // Bus
-    { 0x19, 0xdf, 0x02 }, // Snare
-    { 0x1c, 0x5f, 0x10 }, //タム [LOW]
-    { 0x1c, 0xdf, 0x10 }, //タム [MID]
-    { 0x1c, 0x9f, 0x10 }, // タム [HIGH]
-    { 0x1d, 0xd3, 0x20 }, // Rim
-    { 0x19, 0xdf, 0x02 }, // Clap
-    { 0x1b, 0x9c, 0x88 }, // C Hi Hat
-    { 0x1a, 0x9d, 0x04 }, // O Hi Hat
-    { 0x1a, 0xdf, 0x04 }, // Cymbal
+    // Register, Pan/Volume, Mask
+    { 0x18, 0xdf, 0x01 }, // Bass Drum
+    { 0x19, 0xdf, 0x02 }, // Snare Drum 1
+    { 0x1c, 0x5f, 0x10 }, // Low Tom
+    { 0x1c, 0xdf, 0x10 }, // Middle Tom
+    { 0x1c, 0x9f, 0x10 }, // Hight Tom
+    { 0x1d, 0xd3, 0x20 }, // Rim Shot
+    { 0x19, 0xdf, 0x02 }, // Snare Drum 2 (Clap)
+    { 0x1b, 0x9c, 0x88 }, // Closed Hi-Hat
+    { 0x1a, 0x9d, 0x04 }, // Open Hi-Hat
+    { 0x1a, 0xdf, 0x04 }, // Crash Cymbal
     { 0x1a, 0x5e, 0x04 }  // Ride Cymbal
 };
 
-/******************************************************************************
-; SSG Effect Table
-******************************************************************************/
-
+// SSG Effect Table
 const int D_000[] = {  // Bass Drum                1990-06-22 05:47:11
       1,220,  5, 31, 54, 15,  0,  0,  0,127,  0,
       8,164,  6,  0, 62, 16,176,  4,  0,127,  0,
@@ -335,7 +315,6 @@ const int D_010[] = {  // Ride Cymbal              1990-06-22 05:54:38
 };
 
 // Effect for 電撃MIX
-
 const int DM_001[] = { // syuta                    1994-05-25 23:13:02
       3,221,  1, 15, 55, 16,232,  3,  0,  0,113,
       2,221,  1,  0, 55, 16,232,  3,  0,  0,  0,
@@ -509,7 +488,7 @@ const int DM_029[] = { // click                    1994-05-25 23:14:24
 };
 
 
-// Effect for Ｒｕｓｔｙ
+// Effect for Rusty
 
 const int RS_006[] = { // batan                    1993-01-08 01:44:30
       2,221,  1, 31, 55, 16,232,  3,  0,  0,  0,
@@ -951,7 +930,7 @@ const int PO_061[] = { // Attack                   1990-06-22 07:22:55
     -1
 };
 
-// Effect for ＮＡＤＩＡ
+// Effect for Nadia
 
 const int ND_000[] = { // MAP                      1992-01-27 17:32:40
      48,221,  1,  0, 62, 16, 16, 39,  0, -1,  0,
@@ -1199,6 +1178,7 @@ const SSGEffect SSGEffects[] =
     { 1, D_008  }, //   8  OPENHT
     { 1, D_009  }, //   9  CRUSHCYMBA
     { 1, D_010  }, //  10  RDCYN
+
     { 2, DM_001 }, //  11  syuta
     { 2, DM_002 }, //  12  Au
     { 2, DM_003 }, //  13  syuba
@@ -1228,6 +1208,7 @@ const SSGEffect SSGEffects[] =
     { 2, DM_027 }, //  37  pyuu
     { 2, DM_028 }, //  38  PI
     { 2, DM_029 }, //  39  click
+
     { 2, RS_006 }, //  40  batan
     { 2, RS_007 }, //  41  dodonn
     { 2, RS_009 }, //  42  kisya-
@@ -1251,6 +1232,7 @@ const SSGEffect SSGEffects[] =
     { 2, RS_032 }, //  60  ETC 4
     { 2, RS_033 }, //  61  HADE BOMB
     { 2, RS_035 }, //  62  JARARAN
+
     { 2, PO_011 }, //  63  Rain fall
     { 2, PO_012 }, //  64  Spinner
     { 2, PO_013 }, //  65  Kaminari
@@ -1303,6 +1285,7 @@ const SSGEffect SSGEffects[] =
     { 2, PO_060 }, // 112  Damage 2
     { 2, PO_061 }, // 113  Attack
     { 2, ND_000 }, // 114  MAP
+
     { 2, ND_001 }, // 115  SONAR
     { 2, ND_002 }, // 116  KOUKOU
     { 2, ND_003 }, // 117  MEGIDO

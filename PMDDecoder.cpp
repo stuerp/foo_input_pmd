@@ -18,7 +18,7 @@
 
 #pragma hdrstop
 
-static bool ConvertShiftJIToUTF8(const char * text, pfc::string8 & utf8);
+static bool ConvertShiftJISToUTF8(const char * text, pfc::string8 & utf8);
 
 /// <summary>
 /// Initializes a new instance.
@@ -42,7 +42,7 @@ PMDDecoder::~PMDDecoder()
 /// <summary>
 /// Reads the PMD data from memory.
 /// </summary>
-bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size, uint32_t synthesisRate)
+bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size, uint32_t outputFrequency)
 {
     _FilePath = filePath;
 
@@ -60,7 +60,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
         _Size = size;
     }
 
-    _SynthesisRate = synthesisRate;
+    _SynthesisRate = outputFrequency;
 
     delete _PMD;
     _PMD = new PMD();
@@ -78,7 +78,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
         }
 
         _PMD->Initialize(PDXSamplesPath);
-        _PMD->SetSynthesisRate(_SynthesisRate);
+        _PMD->SetOutputFrequency(_SynthesisRate);
 
         {
             WCHAR DirectoryPath[MAX_PATH];
@@ -114,19 +114,19 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
             char Memo[1024] = { 0 };
 
             _PMD->GetMemo(data, size, 1, Memo, _countof(Memo));
-            ConvertShiftJIToUTF8(Memo, _Title);
+            ConvertShiftJISToUTF8(Memo, _Title);
 
             Memo[0] = '\0';
             _PMD->GetMemo(data, size, 2, Memo, _countof(Memo));
-            ConvertShiftJIToUTF8(Memo, _Composer);
+            ConvertShiftJISToUTF8(Memo, _Composer);
 
             Memo[0] = '\0';
             _PMD->GetMemo(data, size, 3, Memo, _countof(Memo));
-            ConvertShiftJIToUTF8(Memo, _Arranger);
+            ConvertShiftJISToUTF8(Memo, _Arranger);
 
             Memo[0] = '\0';
             _PMD->GetMemo(data, size, 4, Memo, _countof(Memo));
-            ConvertShiftJIToUTF8(Memo, _Memo);
+            ConvertShiftJISToUTF8(Memo, _Memo);
         }
     }
 
@@ -147,7 +147,7 @@ bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
 void PMDDecoder::Initialize() const noexcept
 {
     _PMD->UsePPS(CfgUsePPS);
-    _PMD->UseRhythm(CfgUseRhythm);
+    _PMD->UseSSG(CfgUseSSG);
     _PMD->Start();
 /*
     for (int i = 0; i < MaxChannels; ++i)
@@ -155,9 +155,8 @@ void PMDDecoder::Initialize() const noexcept
 
     _PMD->EnableChannel(16); // PPZ 1
 */
-
-    console::printf("PMDDecoder: ADPCM ROM %sfound.", (_PMD->HasADPCMROM() ? "" : "not "));
-    console::printf("PMDDecoder: Percussion samples %sfound.", (_PMD->HasPercussionSamples() ? "" : "not "));
+    console::printf("PMDDecoder: ADPCM ROM %sloaded.", (_PMD->HasADPCMROM() ? "" : "not "));
+    console::printf("PMDDecoder: Percussion samples %sloaded.", (_PMD->HasPercussionSamples() ? "" : "not "));
 
     std::wstring FileName = _PMD->GetPCMFileName();
 
@@ -241,7 +240,7 @@ bool PMDDecoder::IsBusy() const noexcept
 /// <summary>
 /// Converts a Shift-JIS character array to an UTF-8 string.
 /// </summary>
-static bool ConvertShiftJIToUTF8(const char * text, pfc::string8 & textDst)
+static bool ConvertShiftJISToUTF8(const char * text, pfc::string8 & textDst)
 {
     textDst.clear();
 

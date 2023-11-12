@@ -15,9 +15,9 @@
 #define P86_ALREADY_LOADED  83
 #define PPZ_OUT_OF_MEMORY   99
 
-#define SOUND_44K   44100
-#define SOUND_22K   22050
-#define SOUND_11K   11025
+#define FREQUENCY_44_1K   44100
+#define FREQUENCY_22_0K   22050
+#define FREQUENCY_11_0K   11025
 
 #define MAX_P86     256
 
@@ -74,13 +74,13 @@ public:
     bool Keyoff(void);
     int Load(const WCHAR * filePath);
 
-    void SetSampleRate(uint32_t sampleRate, bool useInterpolation);
+    void SetOutputFrequency(uint32_t sampleRate, bool useInterpolation);
     void SetVolume(int volume);
     bool SelectVolume(int value);
     bool SetPitch(int sampleRateIndex, uint32_t pitch);
     bool SetPan(int flag, int value);
     bool SelectSample(int num); // PCM number setting
-    bool SetLoop(int loop_start, int loop_end, int release_start, bool adpcm);
+    bool SetLoop(int loopStart, int loopEnd, int releaseStart, bool isADPCM);
 
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
 
@@ -115,8 +115,8 @@ private:
 
     bool _Enabled;
 
+    int _OutputFrequency;
     bool _UseInterpolation;
-    int _SampleRate;
     uint32_t _Pitch;
     int _Volume;
 

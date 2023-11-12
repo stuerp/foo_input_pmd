@@ -31,14 +31,14 @@ const WCHAR * PlaybackModes[] =
     L"Loop forever"
 };
 /*
-const uint32_t SynthesisRates[] =
+const uint32_t OutputFrequencies[] =
 {
-    SOUND_55K,
-    SOUND_55K_2,
-    SOUND_48K,
-    SOUND_44K,
-    SOUND_22K,
-    SOUND_11K,
+    FREQUENCY_55_5K,
+    FREQUENCY_55_4K,
+    FREQUENCY_48_0K,
+    FREQUENCY_44_1K,
+    FREQUENCY_22_0K,
+    FREQUENCY_11_0K,
 };
 */
 /// <summary>
@@ -87,7 +87,7 @@ public:
         CfgFadeOutDuration = _FadeOutDuration;
         CfgSynthesisRate = _SynthesisRate;
         CfgUsePPS = _UsePPS;
-        CfgUseRhythm = _UseRhythmSoundSource;
+        CfgUseSSG = _UseSSG;
 
         OnChanged();
     }
@@ -106,7 +106,7 @@ public:
         _SynthesisRate = DefaultSynthesisRate;
 
         _UsePPS = DefaultUsePPS;
-        _UseRhythmSoundSource = DefaultUseRhythm;
+        _UseSSG = DefaultUseSSG;
 
         UpdateDialog();
 
@@ -128,7 +128,7 @@ public:
 //      COMMAND_HANDLER_EX(IDC_SYNTHESIS_RATE, CBN_SELCHANGE, OnSelectionChanged)
 
         COMMAND_HANDLER_EX(IDC_USE_PPS, BN_CLICKED, OnButtonClicked)
-        COMMAND_HANDLER_EX(IDC_USE_RHYTHM, BN_CLICKED, OnButtonClicked)
+        COMMAND_HANDLER_EX(IDC_USE_SSG, BN_CLICKED, OnButtonClicked)
     END_MSG_MAP()
 
 private:
@@ -145,7 +145,7 @@ private:
         _FadeOutDuration = (uint32_t) CfgFadeOutDuration;
         _SynthesisRate = (uint32_t) CfgSynthesisRate;
         _UsePPS = CfgUsePPS;
-        _UseRhythmSoundSource = CfgUseRhythm;
+        _UseSSG = CfgUseSSG;
 
         {
             auto cb = (CComboBox) GetDlgItem(IDC_PLAYBACK_MODE);
@@ -208,9 +208,9 @@ private:
                 break;
             }
 
-            case IDC_USE_RHYTHM:
+            case IDC_USE_SSG:
             {
-                _UseRhythmSoundSource = (bool) IsDlgButtonChecked(IDC_USE_RHYTHM);
+                _UseSSG = (bool) IsDlgButtonChecked(IDC_USE_SSG);
 
                 OnChanged();
                 break;
@@ -312,7 +312,7 @@ private:
         if (_UsePPS != CfgUsePPS)
             return true;
 
-        if (_UseRhythmSoundSource != CfgUseRhythm)
+        if (_UseSSG != CfgUseSSG)
             return true;
 
 //      if (_SynthesisRate != CfgSynthesisRate)
@@ -375,7 +375,7 @@ private:
         }
 */
         CheckDlgButton(IDC_USE_PPS, _UsePPS);
-        CheckDlgButton(IDC_USE_RHYTHM, _UseRhythmSoundSource);
+        CheckDlgButton(IDC_USE_SSG, _UseSSG);
     }
 
 private:
@@ -389,7 +389,7 @@ private:
     uint32_t _FadeOutDuration;
     uint32_t _SynthesisRate;
     bool _UsePPS;
-    bool _UseRhythmSoundSource;
+    bool _UseSSG;
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member
 

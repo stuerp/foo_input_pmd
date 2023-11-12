@@ -1,5 +1,5 @@
 ﻿
-// PC-98's 86 soundboard's 8 PCM driver / Programmed by UKKY / Windows Converted by C60
+/** $VER: PPZ.cpp (2023.10.22) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -15,8 +15,8 @@
 
 #include "PPZ.h"
 
-//  Constant table (ADPCM Volume to PPZ8 Volume)
-const int ADPCM_EM_VOL[256] =
+// ADPCM to PPZ Volume mapping
+static const int ADPCMEmulationVolume[256] =
 {
      0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4,
      4, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6,
@@ -38,167 +38,90 @@ const int ADPCM_EM_VOL[256] =
 
 PPZDriver::PPZDriver(File * file) : _File(file)
 {
-    XMS_FRAME_ADR[0] = nullptr;
-    XMS_FRAME_ADR[1] = nullptr;
-
-    InitializeInternal();
+    Initialize();
 }
 
 PPZDriver::~PPZDriver()
 {
-    if (XMS_FRAME_ADR[0])
-        ::free(XMS_FRAME_ADR[0]);
-
-    if (XMS_FRAME_ADR[1])
-        ::free(XMS_FRAME_ADR[1]);
 }
 
 //  00H Initialize
-bool PPZDriver::Initialize(uint32_t sampleRate, bool useInterpolation)
+void PPZDriver::Initialize(uint32_t outputFrequency, bool useInterpolation)
 {
-    InitializeInternal();
-
-    return SetSampleRate(sampleRate, useInterpolation);
-}
-
-void PPZDriver::InitializeInternal()
-{
-    ::memset(PCME_WORK, 0, sizeof(PCME_WORK));
-
-    _HasPVI[0] = false;
-    _HasPVI[1] = false;
-
-    _FilePath[0].clear();
-    _FilePath[1].clear();
-
-    _EmulateADPCM = false;
-    _UseInterpolation = false;
-
-    Reset();
-
-    // 一旦開放する
-    if (XMS_FRAME_ADR[0] != NULL)
-    {
-        ::free(XMS_FRAME_ADR[0]);
-        XMS_FRAME_ADR[0] = NULL;
-    }
-
-    XMS_FRAME_SIZE[0] = 0;
-
-    if (XMS_FRAME_ADR[1] != NULL)
-    {
-        ::free(XMS_FRAME_ADR[1]);
-        XMS_FRAME_ADR[1] = NULL;
-    }
-
-    XMS_FRAME_SIZE[1] = 0;
-
-    _PCMVolume = 0;
-    _Volume = 0;
-
-    SetAllVolume(DefaultVolume);
-
-    _SampleRate = DefaultSampleRate;
+    Initialize();
+    SetOutputFrequency(outputFrequency, useInterpolation);
 }
 
 // 01H Start PCM
-bool PPZDriver::Play(int ch, int bufnum, int num, uint16_t start, uint16_t stop)
+void PPZDriver::Play(size_t ch, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop)
 {
-    if ((ch >= _countof(_Channel)) || (XMS_FRAME_ADR[bufnum] == NULL) || (XMS_FRAME_SIZE[bufnum] == 0))
-        return false;
+    PPZBank& pb = _PPZBank[bankNumber];
 
-    _Channel[ch]._HasPVI = _HasPVI[bufnum];
-    _Channel[ch].PCM_FLG = 1;    // 再生開始
-    _Channel[ch].PCM_NOW_XOR = 0;  // 小数点部
-    _Channel[ch].PCM_NUM = num;
+    if ((ch >= _countof(_Channel)) || pb.IsEmpty())
+        return;
 
-    if ((ch == 7) && _EmulateADPCM && (ch & 0x80) == 0)
+    _Channel[ch].IsPVI = pb._IsPVI;
+    _Channel[ch].IsPlaying = true;
+    _Channel[ch].SampleNumber = sampleNumber;
+    _Channel[ch].PCMStartL = 0;
+
+    if ((ch == 7) && _EmulateADPCM)
     {
-        _Channel[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][Limit(((int) start) * 64, XMS_FRAME_SIZE[bufnum] - 1, 0)];
-        _Channel[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][Limit(((int) stop - 1) * 64, XMS_FRAME_SIZE[bufnum] - 1, 0)];
-        _Channel[ch].PCM_END   = _Channel[ch].PCM_END_S;
+        _Channel[ch].PCMStartH     = &pb._Data[Clamp(((int) start)    * 64, 0, pb._Size - 1)];
+        _Channel[ch].PCMEndRounded = &pb._Data[Clamp(((int) stop - 1) * 64, 0, pb._Size - 1)];
+        _Channel[ch].PCMEnd        = _Channel[ch].PCMEndRounded;
     }
     else
     {
-        _Channel[ch].PCM_NOW   = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start];
-        _Channel[ch].PCM_END_S = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + PCME_WORK[bufnum].PZIItem[num].Size];
+        PZIITEM& pi = pb._PZIHeader.PZIItem[sampleNumber];
 
-        if (_Channel[ch].PCM_LOOP_FLG == 0)
+        _Channel[ch].PCMStartH     = &pb._Data[pi.Start];
+        _Channel[ch].PCMEndRounded = &pb._Data[pi.Start + pi.Size];
+
+        if (_Channel[ch].HasLoop)
         {
-            // ループなし
-            _Channel[ch].PCM_END = _Channel[ch].PCM_END_S;
+            if (_Channel[ch].LoopStartOffset < pi.Size)
+                _Channel[ch].PCMLoopStart = &pb._Data[pi.Start + _Channel[ch].LoopStartOffset];
+            else
+                _Channel[ch].PCMLoopStart = &pb._Data[pi.Start + pi.Size - 1];
+
+            if (_Channel[ch].LoopEndOffset < pi.Size)
+                _Channel[ch].PCMEnd = &pb._Data[pi.Start + _Channel[ch].LoopEndOffset];
+            else
+                _Channel[ch].PCMEnd = &pb._Data[pi.Start + pi.Size];
         }
         else
-        {
-            // ループあり
-            if (_Channel[ch].PCM_LOOP_START >= PCME_WORK[bufnum].PZIItem[num].Size)
-                _Channel[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + PCME_WORK[bufnum].PZIItem[num].Size - 1];
-            else
-                _Channel[ch].PCM_LOOP = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + _Channel[ch].PCM_LOOP_START];
-
-            if (_Channel[ch].PCM_LOOP_END >= PCME_WORK[bufnum].PZIItem[num].Size)
-                _Channel[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + PCME_WORK[bufnum].PZIItem[num].Size];
-            else
-                _Channel[ch].PCM_END = &XMS_FRAME_ADR[bufnum][PCME_WORK[bufnum].PZIItem[num].Start + _Channel[ch].PCM_LOOP_END];
-        }
+            _Channel[ch].PCMEnd = _Channel[ch].PCMEndRounded;
     }
-
-    return true;
 }
 
 // 02H Stop PCM
-bool PPZDriver::Stop(int ch)
+void PPZDriver::Stop(size_t ch)
 {
-    if (ch >= MaxPPZChannels)
-        return false;
+    if (ch >= _countof(_Channel))
+        return;
 
-    _Channel[ch].PCM_FLG = 0; // Stop playing
-
-    return true;
+    _Channel[ch].IsPlaying = false;
 }
 
 // 03H Read PVI/PZI file
-int PPZDriver::Load(const WCHAR * filePath, int bufnum)
+int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
 {
     if (filePath == nullptr || (filePath && (*filePath == '\0')))
         return PPZ_OPEN_FAILED;
 
-    static const int table1[16] =
-    {
-          1,   3,   5,   7,   9,  11,  13,  15,
-         -1,  -3,  -5,  -7,  -9, -11, -13, -15,
-    };
-
-    static const int table2[16] =
-    {
-         57,  57,  57,  57,  77, 102, 128, 153,
-         57,  57,  57,  57,  77, 102, 128, 153,
-    };
-
-    bool NOW_PCM_CATE = HasExtension(filePath, MAX_PATH, L".PZI"); // True if PCM format is PZI
-
-    Reset();
-
-    _FilePath[0].clear();
-    _FilePath[1].clear();
-
     if (!_File->Open(filePath))
     {
-        if (XMS_FRAME_ADR[bufnum] != NULL)
-        {
-            ::free(XMS_FRAME_ADR[bufnum]);    // 開放
-            XMS_FRAME_ADR[bufnum] = NULL;
-            XMS_FRAME_SIZE[bufnum] = 0;
-            memset(&PCME_WORK[bufnum], 0, sizeof(PZIHEADER));
-        }
-        return PPZ_OPEN_FAILED;        //  ファイルが開けない
+        _PPZBank[bankNumber].Reset();
+
+        return PPZ_OPEN_FAILED;
     }
 
-    int Size = (int) _File->GetFileSize(filePath);  // ファイルサイズ
+    int Size = (int) _File->GetFileSize(filePath);
 
     PZIHEADER PZIHeader;
 
-    if (NOW_PCM_CATE)
+    if (HasExtension(filePath, MAX_PATH, L".PZI"))
     {
         ReadHeader(_File, PZIHeader);
 
@@ -209,47 +132,38 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
             return PPZ_UNKNOWN_FORMAT;
         }
 
-        if (::memcmp(&PCME_WORK[bufnum], &PZIHeader, sizeof(PZIHEADER)) == 0)
+        if (::memcmp(&_PPZBank[bankNumber]._PZIHeader, &PZIHeader, sizeof(PZIHEADER)) == 0)
         {
-            _FilePath[bufnum] = filePath;
+            _PPZBank[bankNumber]._FilePath = filePath;
 
             _File->Close();
 
             return PPZ_ALREADY_LOADED;
         }
 
-        if (XMS_FRAME_ADR[bufnum])
-        {
-            ::free(XMS_FRAME_ADR[bufnum]);
+        _PPZBank[bankNumber].Reset();
 
-            XMS_FRAME_ADR[bufnum] = NULL;
-            XMS_FRAME_SIZE[bufnum] = 0;
-
-            ::memset(&PCME_WORK[bufnum], 0, sizeof(PZIHEADER));
-        }
-
-        ::memcpy(&PCME_WORK[bufnum], &PZIHeader, sizeof(PZIHEADER));
+        ::memcpy(&_PPZBank[bankNumber]._PZIHeader, &PZIHeader, sizeof(PZIHEADER));
 
         Size -= sizeof(PZIHEADER);
 
-        uint8_t * Data;
+        uint8_t * Data = (uint8_t *) ::malloc((size_t) Size);
 
-        if ((Data = (uint8_t *) ::malloc((size_t) Size)) == NULL)
+        if (Data == nullptr)
         {
             _File->Close();
 
             return PPZ_OUT_OF_MEMORY;
         }
 
-        ::memset(Data, 0, (size_t) Size);
-
         _File->Read(Data, (uint32_t) Size);
 
-        XMS_FRAME_ADR[bufnum] = Data;
-        XMS_FRAME_SIZE[bufnum] = Size;
+        _PPZBank[bankNumber]._FilePath = filePath;
 
-        _FilePath[bufnum] = filePath;
-        _HasPVI[bufnum] = false;
+        _PPZBank[bankNumber]._Data = Data;
+        _PPZBank[bankNumber]._Size = Size;
+
+        _PPZBank[bankNumber]._IsPVI = false;
     }
     else
     {
@@ -270,10 +184,10 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
 
         for (int i = 0; i < PVIHeader.Count; ++i)
         {
-            PZIHeader.PZIItem[i].Start      = (uint32_t) ((                                 PVIHeader.PVIItem[i].Start      << (5 + 1)));
+            PZIHeader.PZIItem[i].Start      = (uint32_t) ((                           PVIHeader.PVIItem[i].Start      << (5 + 1)));
             PZIHeader.PZIItem[i].Size       = (uint32_t) ((PVIHeader.PVIItem[i].End - PVIHeader.PVIItem[i].Start + 1) << (5 + 1));
-            PZIHeader.PZIItem[i].LoopStart  = 0xFFFF;
-            PZIHeader.PZIItem[i].LoopEnd    = 0xFFFF;
+            PZIHeader.PZIItem[i].LoopStart  = ~0U;
+            PZIHeader.PZIItem[i].LoopEnd    = ~0U;
             PZIHeader.PZIItem[i].SampleRate = 16000; // 16kHz
 
             PVISize += PZIHeader.PZIItem[i].Size;
@@ -283,59 +197,64 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
         {
             PZIHeader.PZIItem[i].Start      = 0;
             PZIHeader.PZIItem[i].Size       = 0;
-            PZIHeader.PZIItem[i].LoopStart  = 0xFFFF;
-            PZIHeader.PZIItem[i].LoopEnd    = 0xFFFF;
+            PZIHeader.PZIItem[i].LoopStart  = ~0U;
+            PZIHeader.PZIItem[i].LoopEnd    = ~0U;
             PZIHeader.PZIItem[i].SampleRate = 0;
         }
 
-        if (::memcmp(&PCME_WORK[bufnum].PZIItem, &PZIHeader.PZIItem, sizeof(PZIHEADER) - 0x20) == 0)
+        if (::memcmp(&_PPZBank[bankNumber]._PZIHeader.PZIItem, &PZIHeader.PZIItem, sizeof(PZIHEADER) - 0x20) == 0)
         {
-            _FilePath[bufnum] = filePath;
+            _PPZBank[bankNumber]._FilePath = filePath;
 
             _File->Close();
 
             return PPZ_ALREADY_LOADED;
         }
 
-        if (XMS_FRAME_ADR[bufnum] != NULL)
-        {
-            ::free(XMS_FRAME_ADR[bufnum]);
+        _PPZBank[bankNumber].Reset();
 
-            XMS_FRAME_ADR[bufnum] = NULL;
-            XMS_FRAME_SIZE[bufnum] = 0;
-
-            ::memset(&PCME_WORK[bufnum], 0, sizeof(PZIHEADER));
-        }
-
-        ::memcpy(&PCME_WORK[bufnum], &PZIHeader, sizeof(PZIHEADER));
+        ::memcpy(&_PPZBank[bankNumber]._PZIHeader, &PZIHeader, sizeof(PZIHEADER));
 
         Size -= sizeof(PVIHEADER);
         PVISize /= 2;
 
         size_t DstSize = (size_t) (std::max)(Size, PVISize) * 2;
 
-        uint8_t * pdst = (uint8_t *) ::malloc(DstSize);
+        uint8_t * DstData = (uint8_t *) ::malloc(DstSize);
 
-        if (pdst == nullptr)
+        if (DstData == nullptr)
         {
             _File->Close();
+
             return PPZ_OUT_OF_MEMORY;
         }
 
-        ::memset(pdst, 0, DstSize);
+        ::memset(DstData, 0, DstSize);
 
-
-        XMS_FRAME_ADR[bufnum]  = pdst;
-        XMS_FRAME_SIZE[bufnum] = PVISize * 2;
+        _PPZBank[bankNumber]._Data = DstData;
+        _PPZBank[bankNumber]._Size = PVISize * 2;
 
         {
+            static const int table1[16] =
+            {
+                  1,   3,   5,   7,   9,  11,  13,  15,
+                 -1,  -3,  -5,  -7,  -9, -11, -13, -15,
+            };
+
+            static const int table2[16] =
+            {
+                 57,  57,  57,  57,  77, 102, 128, 153,
+                 57,  57,  57,  57,  77, 102, 128, 153,
+            };
+
             size_t SrcSize = (size_t) (std::max)(Size, PVISize);
 
             uint8_t * psrc = (uint8_t *) ::malloc(SrcSize);
 
-            if (psrc == NULL)
+            if (psrc == nullptr)
             {
                 _File->Close();
+
                 return PPZ_OUT_OF_MEMORY;
             }
 
@@ -345,33 +264,31 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
 
             uint8_t * psrc2 = psrc;
 
-            // ADPCM > PCM に変換
-            for (int i = 0; i < PVIHeader.Count; ++i)
+            // Convert ADPCM to PCM.
+            for (size_t i = 0; i < PVIHeader.Count; ++i)
             {
-                int X_N     = X_N0;     // Xn (ADPCM>PCM 変換用)
-                int DELTA_N = DELTA_N0; // DELTA_N(ADPCM>PCM 変換用)
+                int X_N     = X_N0;
+                int DELTA_N = DELTA_N0;
 
-                for (int j = 0; j < (int) PZIHeader.PZIItem[i].Size / 2; ++j)
+                for (size_t j = 0; j < PZIHeader.PZIItem[i].Size / 2; ++j)
                 {
+                    X_N     = Clamp(X_N     + table1[(*psrc >> 4) & 0x0F] * DELTA_N /  8, -32768, 32767);
+                    DELTA_N = Clamp(DELTA_N * table2[(*psrc >> 4) & 0x0F]           / 64,    127, 24576);
 
-                    X_N     = Limit(X_N + table1[(*psrc >> 4) & 0x0f] * DELTA_N / 8, 32767, -32768);
-                    DELTA_N = Limit(DELTA_N * table2[(*psrc >> 4) & 0x0f] / 64, 24576, 127);
+                    *DstData++ = (uint8_t) (X_N / (32768 / 128) + 128);
 
-                    *pdst++ = (uint8_t) (X_N / (32768 / 128) + 128);
+                    X_N     = Clamp(X_N     + table1[*psrc   & 0x0F] * DELTA_N /  8, -32768, 32767);
+                    DELTA_N = Clamp(DELTA_N * table2[*psrc++ & 0x0F]           / 64,    127, 24576);
 
-                    X_N     = Limit(X_N + table1[*psrc & 0x0f] * DELTA_N / 8, 32767, -32768);
-                    DELTA_N = Limit(DELTA_N * table2[*psrc++ & 0x0f] / 64, 24576, 127);
-
-                    *pdst++ = (uint8_t) (X_N / (32768 / 128) + 128);
+                    *DstData++ = (uint8_t) (X_N / (32768 / 128) + 128);
                 }
             }
 
             ::free(psrc2);
         }
 
-        _FilePath[bufnum] = filePath;
-
-        _HasPVI[bufnum] = true;
+        _PPZBank[bankNumber]._FilePath = filePath;
+        _PPZBank[bankNumber]._IsPVI = true;
     }
 
     _File->Close();
@@ -380,103 +297,119 @@ int PPZDriver::Load(const WCHAR * filePath, int bufnum)
 }
 
 // 07H Volume
-bool PPZDriver::SetVolume(int ch, int vol)
+void PPZDriver::SetVolume(size_t ch, int volume)
 {
-    if (ch >= MaxPPZChannels)
-        return false;
+    if (ch >= _countof(_Channel))
+        return;
 
-    if (ch != 7 || !_EmulateADPCM)
-        _Channel[ch].PCM_VOL = vol;
+    if ((ch == 7) && _EmulateADPCM)
+        _Channel[ch].Volume = ADPCMEmulationVolume[volume & 0xFF];
     else
-        _Channel[ch].PCM_VOL = ADPCM_EM_VOL[vol & 0xff];
-
-    return true;
+        _Channel[ch].Volume = volume;
 }
 
 // 0BH Pitch Frequency
-bool PPZDriver::SetPitch(int channelNumber, uint32_t pitch)
+void PPZDriver::SetPitch(size_t ch, uint32_t pitch)
 {
-    if (channelNumber >= _countof(_Channel))
-        return false;
+    if (ch >= _countof(_Channel))
+        return;
 
-    if (channelNumber == 7 && _EmulateADPCM) // Emulating ADPCM?
-        pitch = (pitch & 0xffff) * 0x8000 / 0x49ba;
+    if ((ch == 7) && _EmulateADPCM)
+        pitch = (pitch & 0xFFFF) * 0x8000 / 0x49BA;
+/*
+    int AddsL = (int) (pitch & 0xFFFF);
+    int AddsH = (int) (pitch >> 16);
 
-    _Channel[channelNumber].PCM_ADDS_L = (int) (pitch & 0xffff);
-    _Channel[channelNumber].PCM_ADDS_H = (int) (pitch >> 16);
+    _Channel[ch].PCMAddH = (int) ((((int64_t) AddsH << 16) + AddsL) * 2 * _Channel[ch].SourceFrequency / _OutputFrequency);
+*/
+    _Channel[ch].PCMAddH = (int) (sizeof(int16_t) * (int64_t) pitch * _Channel[ch].SourceFrequency / _OutputFrequency);
 
-    _Channel[channelNumber].PCM_ADD_H = (int) ((((int64_t) (_Channel[channelNumber].PCM_ADDS_H) << 16) + _Channel[channelNumber].PCM_ADDS_L) * 2 * _Channel[channelNumber].PCM_SORC_F / _SampleRate);
-    _Channel[channelNumber].PCM_ADD_L = _Channel[channelNumber].PCM_ADD_H & 0xffff;
-    _Channel[channelNumber].PCM_ADD_H = _Channel[channelNumber].PCM_ADD_H >> 16;
-
-    return true;
+    _Channel[ch].PCMAddL = _Channel[ch].PCMAddH & 0xFFFF;
+    _Channel[ch].PCMAddH = _Channel[ch].PCMAddH >> 16;
 }
 
 // 0EH Set loop pointer
-bool PPZDriver::SetLoop(int ch, uint32_t loop_start, uint32_t loop_end)
+void PPZDriver::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber)
 {
-    if (ch >= MaxPPZChannels) return false;
+    if ((ch >= _countof(_Channel)) || (bankNumber > 1) || (sampleNumber > 127))
+        return;
 
-    if (loop_start != 0xffff && loop_end > loop_start)
+    const PZIITEM& pi = _PPZBank[bankNumber]._PZIHeader.PZIItem[sampleNumber];
+
+    if ((pi.LoopStart != ~0U) && (pi.LoopStart < pi.LoopEnd))
     {
-        // ループ設定
-        // PCM_LPS_02:
-        _Channel[ch].PCM_LOOP_FLG = 1;
-        _Channel[ch].PCM_LOOP_START = loop_start;
-        _Channel[ch].PCM_LOOP_END = loop_end;
+        _Channel[ch].HasLoop = true;
+        _Channel[ch].LoopStartOffset = pi.LoopStart;
+        _Channel[ch].LoopEndOffset = pi.LoopEnd;
     }
     else
     {
-        // ループ解除
-        // PCM_LPS_01:
-
-        _Channel[ch].PCM_LOOP_FLG = 0;
-        _Channel[ch].PCM_END = _Channel[ch].PCM_END_S;
+        _Channel[ch].HasLoop = false;
+        _Channel[ch].PCMEnd = _Channel[ch].PCMEndRounded;
     }
-    return true;
+}
+
+void PPZDriver::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber, int loopStart, int loopEnd)
+{
+    if ((ch >= _countof(_Channel)) || (bankNumber > 1) || (sampleNumber > 127))
+        return;
+
+    const PZIITEM& pi = _PPZBank[bankNumber]._PZIHeader.PZIItem[sampleNumber];
+
+    if (loopStart < 0)
+        loopStart = (int) pi.Size + loopStart;
+
+    if (loopEnd < 0)
+        loopEnd = (int) pi.Size + loopEnd;
+
+    if (loopStart < loopEnd)
+    {
+        _Channel[ch].HasLoop = true;
+        _Channel[ch].LoopStartOffset = (uint32_t) loopStart;
+        _Channel[ch].LoopEndOffset = (uint32_t) loopEnd;
+    }
+    else
+    {
+        _Channel[ch].HasLoop = false;
+        _Channel[ch].PCMEnd = _Channel[ch].PCMEndRounded;
+    }
 }
 
 // 12H Stop all channels.
 void PPZDriver::AllStop()
 {
-    for (int i = 0; i < MaxPPZChannels; i++)
+    for (size_t i = 0; i < _countof(_Channel); ++i)
         Stop(i);
 }
 
 // 13H Set the pan value.
-bool PPZDriver::SetPan(int ch, int value)
+void PPZDriver::SetPan(size_t ch, int value)
 {
     static const int PanValues[4] = { 0, 9, 1, 5 }; // { Left, Right, Leftwards, Rightwards }
 
-    if (ch >= MaxPPZChannels)
-        return false;
+    if (ch >= _countof(_Channel))
+        return;
 
-    if (ch != 7 || !_EmulateADPCM)
-        _Channel[ch].PanValue = value;
-    else
+    if ((ch == 7) && _EmulateADPCM)
         _Channel[ch].PanValue = PanValues[value & 3];
-
-    return true;
+    else
+        _Channel[ch].PanValue = value;
 }
 
-// 14H Set the sample rate
-bool PPZDriver::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
+// 14H Sets the output sample rate.
+void PPZDriver::SetOutputFrequency(uint32_t outputFrequency, bool useInterpolation)
 {
-    _SampleRate = (int) sampleRate;
+    _OutputFrequency = (int) outputFrequency;
     _UseInterpolation = useInterpolation;
-
-    return true;
 }
 
-// 15H Set the original data frequency.
-bool PPZDriver::SetSourceRate(int ch, int rate)
+// 15H Sets the original sample rate.
+void PPZDriver::SetSourceFrequency(size_t ch, int sourceFrequency)
 {
-    if (ch >= MaxPPZChannels)
-        return false;
+    if (ch >= _countof(_Channel))
+        return;
 
-    _Channel[ch].PCM_SORC_F = rate;
-
-    return true;
+    _Channel[ch].SourceFrequency = sourceFrequency;
 }
 
 // 16H Set the overal volume（86B Mixer)
@@ -496,16 +429,395 @@ void PPZDriver::SetVolume(int volume)
         CreateVolumeTable(volume);
 }
 
-// 18H ADPCM Emulation
-void PPZDriver::ADPCM_EM_SET(bool flag)
+// 18H Enables or disables ADPCM emulation.
+void PPZDriver::EmulateADPCM(bool flag)
 {
     _EmulateADPCM = flag;
+}
+
+void PPZDriver::SetInstrument(size_t ch, size_t bankNumber, size_t instrumentNumber)
+{
+    SetLoop(ch, bankNumber, instrumentNumber);
+    SetSourceFrequency(ch, _PPZBank[bankNumber]._PZIHeader.PZIItem[instrumentNumber].SampleRate);
+}
+
+// Output
+void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
+{
+    Sample * di;
+    Sample  bx;
+
+    for (int i = 0; i < _countof(_Channel); ++i)
+    {
+        if (_PCMVolume == 0)
+            break;
+
+        if (!_Channel[i].IsPlaying)
+            continue;
+
+        if (_Channel[i].Volume == 0)
+        {
+            // Update the position in the sample buffer.
+            _Channel[i].PCMStartL += (int) (_Channel[i].PCMAddL * sampleCount);
+            _Channel[i].PCMStartH +=        _Channel[i].PCMAddH * sampleCount + _Channel[i].PCMStartL / 0x10000;
+            _Channel[i].PCMStartL %= 0x10000;
+
+            while (_Channel[i].PCMStartH >= _Channel[i].PCMEnd - 1)
+            {
+                if (_Channel[i].HasLoop)
+                {
+                    _Channel[i].PCMStartH -= (_Channel[i].PCMEnd - 1 - _Channel[i].PCMLoopStart);
+                }
+                else
+                {
+                    _Channel[i].IsPlaying = false;
+                    break;
+                }
+            }
+            continue;
+        }
+
+        if (_Channel[i].PanValue == 0)
+        {
+            _Channel[i].IsPlaying = false;
+            continue;
+        }
+
+        if (_UseInterpolation)
+        {
+            di = sampleData;
+
+            switch (_Channel[i].PanValue)
+            {
+                case 1: // 1, 0
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+
+                        *di++ += bx;
+                         di++; // Only the left channel
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 2: // 1, 1/4
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+
+                        *di++ += bx;
+                        *di++ += bx / 4;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 3: // 1, 2/4
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+
+                        *di++ += bx;
+                        *di++ += bx / 2;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 4: // 1 ,3/4
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+
+                        *di++ += bx;
+                        *di++ += bx * 3 / 4;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 5: // 1 , 1
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+
+                        *di++ += bx;
+                        *di++ += bx;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 6: // 3/4, 1
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+
+                        *di++ += bx * 3 / 4;
+                        *di++ += bx;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 7:  // 2/4, 1
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+
+                        *di++ += bx / 2;
+                        *di++ += bx;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 8: // 1/4, 1
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+
+                        *di++ += bx / 4;
+                        *di++ += bx;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 9: // 0, 1
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+
+                         di++; // Only the right channel
+                        *di++ += bx;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+            }
+        }
+        else
+        {
+            di = sampleData;
+
+            switch (_Channel[i].PanValue)
+            {
+                case 1: // 1, 0
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+
+                        *di++ += bx;
+                         di++; // Only the left channel
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 2: // 1, 1/4
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+
+                        *di++ += bx;
+                        *di++ += bx / 4;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 3: // 1, 2/4
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+
+                        *di++ += bx;
+                        *di++ += bx / 2;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 4: // 1, 3/4
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+
+                        *di++ += bx;
+                        *di++ += bx * 3 / 4;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 5: // 1, 1
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+
+                        *di++ += bx;
+                        *di++ += bx;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 6: // 3/4, 1
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+
+                        *di++ += bx * 3 / 4;
+                        *di++ += bx;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 7: // 2/4, 1
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+
+                        *di++ += bx / 2;
+                        *di++ += bx;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 8: // 1/4, 1
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+
+                        *di++ += bx / 4;
+                        *di++ += bx;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+
+                case 9: // 0, 1
+                {
+                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    {
+                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+
+                         di++; // Only the right channel
+                        *di++ += bx;
+
+                        MoveSamplePointer(i);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void PPZDriver::MoveSamplePointer(int i) noexcept
+{
+    _Channel[i].PCMStartH += _Channel[i].PCMAddH;
+    _Channel[i].PCMStartL += _Channel[i].PCMAddL;
+
+    if (_Channel[i].PCMStartL > 0xFFFF)
+    {
+        _Channel[i].PCMStartL -= 0x10000;
+        _Channel[i].PCMStartH++;
+    }
+
+    if (_Channel[i].PCMStartH >= _Channel[i].PCMEnd - 1)
+    {
+        if (_Channel[i].HasLoop)
+            _Channel[i].PCMStartH = _Channel[i].PCMLoopStart;
+        else
+            _Channel[i].IsPlaying = false;
+    }
+}
+
+void PPZDriver::Initialize()
+{
+    ::memset(_Channel, 0, sizeof(_Channel));
+
+    for (size_t i = 0; i < _countof(_Channel); ++i)
+    {
+        _Channel[i].PCMAddH = 1;
+        _Channel[i].PCMAddL = 0;
+        _Channel[i].SourceFrequency = 16000; // in Hz
+        _Channel[i].PanValue = 5; // Pan Center
+        _Channel[i].Volume = 8; // Default volume
+    }
+
+    _PPZBank[0].Reset();
+    _PPZBank[1].Reset();
+
+    _EmulateADPCM = false;
+    _UseInterpolation = false;
+
+    _PCMVolume = 0;
+    _Volume = 0;
+
+    SetAllVolume(DefaultVolume);
+
+    _OutputFrequency = DefaultSampleRate;
+}
+
+void PPZDriver::CreateVolumeTable(int volume)
+{
+    _Volume = volume;
+
+    int AVolume = (int) (0x1000 * ::pow(10.0, volume / 40.0));
+
+    for (int i = 0; i < 16; ++i)
+    {
+        double Value = ::pow(2.0, ((double) i + _PCMVolume) / 2.0) * AVolume / 0x18000;
+
+        for (int j = 0; j < 256; ++j)
+            _VolumeTable[i][j] = (Sample) ((j - 128) * Value);
+    }
 }
 
 /// <summary>
 /// Reads the PZI header.
 /// </summary>
-void PPZDriver::ReadHeader(File * file, PZIHEADER & ph)
+void PPZDriver::ReadHeader(File * file, PZIHEADER& ph)
 {
     uint8_t Data[2336];
 
@@ -519,7 +831,7 @@ void PPZDriver::ReadHeader(File * file, PZIHEADER & ph)
 
     ::memcpy(ph.Dummy2, &Data[0x0C], sizeof(ph.Dummy2));
 
-    for (int i = 0; i < 128; i++)
+    for (int i = 0; i < 128; ++i)
     {
         ph.PZIItem[i].Start      = (uint32_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
         ph.PZIItem[i].Size       = (uint32_t) ((Data[0x24 + i * 18]) | (Data[0x25 + i * 18] << 8) | (Data[0x26 + i * 18] << 16) | (Data[0x27 + i * 18] << 24));
@@ -545,706 +857,11 @@ void PPZDriver::ReadHeader(File * file, PVIHEADER & ph)
 
     ::memcpy(ph.Dummy2, &Data[0x0c], (size_t) 0x10 - 0x0b - 1);
 
-    for (int i = 0; i < 128; i++)
+    for (int i = 0; i < 128; ++i)
     {
         ph.PVIItem[i].Start = (uint16_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
 //FIXME: Why is startaddress overwritten here?
         ph.PVIItem[i].Start = (uint16_t) ((Data[0x10 + i * 4]) | (Data[0x11 + i * 4] << 8));
         ph.PVIItem[i].End   = (uint16_t) ((Data[0x12 + i * 4]) | (Data[0x13 + i * 4] << 8));
-    }
-}
-
-void PPZDriver::CreateVolumeTable(int volume)
-{
-    _Volume = volume;
-
-    int AVolume = (int) (0x1000 * ::pow(10.0, volume / 40.0));
-
-    for (int i = 0; i < 16; i++)
-    {
-        double Value = ::pow(2.0, ((double) (i) + _PCMVolume) / 2.0) * AVolume / 0x18000;
-
-        for (int j = 0; j < 256; j++)
-            _VolumeTable[i][j] = (Sample) ((j - 128) * Value);
-    }
-}
-
-void PPZDriver::Reset()
-{
-    ::memset(_Channel, 0, sizeof(_Channel));
-
-    for (size_t i = 0; i < _countof(_Channel); ++i)
-    {
-        _Channel[i].PCM_ADD_H = 1;
-        _Channel[i].PCM_ADD_L = 0;
-        _Channel[i].PCM_ADDS_H = 1;
-        _Channel[i].PCM_ADDS_L = 0;
-        _Channel[i].PCM_SORC_F = 16000; // Original playback rate
-        _Channel[i].PanValue = 5;        // Pan Center
-        _Channel[i].PCM_VOL = 8;        // Default volume
-    }
-
-    // MOV  PCME_WORK0 + PVI_NUM_MAX, 0  ; @ PVIのMAXを０にする
-}
-
-// Output
-void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
-{
-    Sample * di;
-    Sample  bx;
-
-    for (int i = 0; i < MaxPPZChannels; i++)
-    {
-        if (_PCMVolume == 0)
-            break;
-
-        if (_Channel[i].PCM_FLG == 0)
-            continue;
-
-        if (_Channel[i].PCM_VOL == 0)
-        {
-            // PCM_NOW ポインタの移動(ループ、end 等も考慮して)
-            _Channel[i].PCM_NOW_XOR += (int) (_Channel[i].PCM_ADD_L * sampleCount);
-            _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H * sampleCount + _Channel[i].PCM_NOW_XOR / 0x10000;
-            _Channel[i].PCM_NOW_XOR %= 0x10000;
-
-            while (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
-            {
-                // @一次補間のときもちゃんと動くように実装        ^^
-                if (_Channel[i].PCM_LOOP_FLG)
-                {
-                    // ループする場合
-                    _Channel[i].PCM_NOW -= (_Channel[i].PCM_END - 1 - _Channel[i].PCM_LOOP);
-                }
-                else
-                {
-                    _Channel[i].PCM_FLG = 0;
-                    break;
-                }
-            }
-            continue;
-        }
-
-        if (_Channel[i].PanValue == 0)
-        {
-            _Channel[i].PCM_FLG = 0;
-            continue;
-        }
-
-        if (_UseInterpolation)
-        {
-            di = sampleData;
-
-            switch (_Channel[i].PanValue)
-            {
-                case 1:  //  1 , 0
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        *di++ += (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
-                        di++;    // 左のみ
-
-                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
-                        {
-                            // @一次補間のときもちゃんと動くように実装   ^^
-
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW
-                                    = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 2:  //  1 ,1/4
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
-
-                        *di++ += bx;
-                        *di++ += bx / 4;
-
-                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
-                        {
-                            // @一次補間のときもちゃんと動くように実装   ^^
-
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW
-                                    = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 3:  //  1 ,2/4
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
-
-                        *di++ += bx;
-                        *di++ += bx / 2;
-
-                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
-                        {
-                            // @一次補間のときもちゃんと動くように実装   ^^
-
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 4:  //  1 ,3/4
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
-
-                        *di++ += bx;
-                        *di++ += bx * 3 / 4;
-
-                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
-                        {
-                            // @一次補間のときもちゃんと動くように実装   ^^
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 5:  //  1 , 1
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
-
-                        *di++ += bx;
-                        *di++ += bx;
-
-                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
-                        {
-                            // @一次補間のときもちゃんと動くように実装   ^^
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 6:  // 3/4, 1
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
-
-                        *di++ += bx * 3 / 4;
-                        *di++ += bx;
-
-                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
-                        {
-                            // @一次補間のときもちゃんと動くように実装   ^^
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 7:  // 2/4, 1
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
-
-                        *di++ += bx / 2;
-                        *di++ += bx;
-
-                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
-                        {
-                            // @一次補間のときもちゃんと動くように実装   ^^
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 8:  // 1/4, 1
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
-
-                        *di++ += bx / 4;
-                        *di++ += bx;
-
-                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
-                        {
-                            // @一次補間のときもちゃんと動くように実装   ^^
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 9:  //  0 , 1
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        di++;    // 右のみ
-                        *di++ += (_VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW] * (0x10000 - _Channel[i].PCM_NOW_XOR)
-                            + _VolumeTable[_Channel[i].PCM_VOL][*(_Channel[i].PCM_NOW + 1)] * _Channel[i].PCM_NOW_XOR) >> 16;
-
-                        _Channel[i].PCM_NOW     += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END - 1)
-                        {
-                            // @一次補間のときもちゃんと動くように実装   ^^
-
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-            }
-        }
-        else
-        {
-            di = sampleData;
-
-            switch (_Channel[i].PanValue)
-            {
-                case 1:  //  1 , 0
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        *di++ += _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
-                        di++;    // 左のみ
-
-                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
-                        {
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 2:  //  1 ,1/4
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
-                        *di++ += bx;
-                        *di++ += bx / 4;
-
-                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
-                        {
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 3:  //  1 ,2/4
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
-                        *di++ += bx;
-                        *di++ += bx / 2;
-
-                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
-                        {
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 4:  //  1 ,3/4
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
-                        *di++ += bx;
-                        *di++ += bx * 3 / 4;
-
-                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
-                        {
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 5:  //  1 , 1
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
-                        *di++ += bx;
-                        *di++ += bx;
-
-                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
-                        {
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 6:  // 3/4, 1
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
-                        *di++ += bx * 3 / 4;
-                        *di++ += bx;
-
-                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
-                        {
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 7:  // 2/4, 1
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
-                        *di++ += bx / 2;
-                        *di++ += bx;
-
-                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
-                        {
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 8:  // 1/4, 1
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        bx = _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
-                        *di++ += bx / 4;
-                        *di++ += bx;
-
-                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
-                        {
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-
-                case 9:  //  0 , 1
-                    while (di < &sampleData[sampleCount * 2])
-                    {
-                        di++;      // 右のみ
-                        *di++ += _VolumeTable[_Channel[i].PCM_VOL][*_Channel[i].PCM_NOW];
-
-                        _Channel[i].PCM_NOW += _Channel[i].PCM_ADD_H;
-                        _Channel[i].PCM_NOW_XOR += _Channel[i].PCM_ADD_L;
-                        if (_Channel[i].PCM_NOW_XOR > 0xffff)
-                        {
-                            _Channel[i].PCM_NOW_XOR -= 0x10000;
-                            _Channel[i].PCM_NOW++;
-                        }
-
-                        if (_Channel[i].PCM_NOW >= _Channel[i].PCM_END)
-                        {
-                            if (_Channel[i].PCM_LOOP_FLG)
-                            {
-                                // ループする場合
-                                _Channel[i].PCM_NOW = _Channel[i].PCM_LOOP;
-                            }
-                            else
-                            {
-                                _Channel[i].PCM_FLG = 0;
-                                break;
-                            }
-                        }
-                    }
-                    break;
-            }
-        }
     }
 }

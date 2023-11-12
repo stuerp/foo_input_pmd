@@ -31,8 +31,8 @@ font 8, "Segoe UI", 400, 0, 1
     combobox                       IDC_SYNTHESIS_RATE, X_A13, Y_A13, W_A13, H_A13, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     ltext       "Hz",              IDC_STATIC,      X_A14, Y_A14, W_A14, H_A14
 */
-    control "Use PPS",                 IDC_USE_PPS,    "Button", BS_AUTOCHECKBOX | WS_TABSTOP, X_A15, Y_A15, W_A15, H_A16
-    control "Use Rhythm Sound Source", IDC_USE_RHYTHM, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, X_A16, Y_A16, W_A16, H_A16
+    control "Use PPS", IDC_USE_PPS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, X_A15, Y_A15, W_A15, H_A16
+    control "Use SSG to play drum sounds", IDC_USE_SSG, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, X_A16, Y_A16, W_A16, H_A16
 }
 
 VS_VERSION_INFO versioninfo
