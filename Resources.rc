@@ -1,5 +1,5 @@
 
-/** $VER: Resources.rc (2023.10.01) P. Stuer **/
+/** $VER: Resources.rc (2025.05.14) P. Stuer **/
 
 #include "Resources.h"
 
@@ -7,33 +7,6 @@
 
 language LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
-
-IDD_PREFERENCES dialogex 0, 0, 0, 0
-style DS_SETFONT | WS_CHILD
-font 8, "Segoe UI", 400, 0, 1
-{
-    ltext       "YM2608 (OPNA) Drum Samples:", IDC_STATIC,  X_A01, Y_A01, W_A01, H_A01
-    edittext                   IDC_SAMPLES_PATH,            X_A02, Y_A02, W_A02, H_A02, ES_AUTOHSCROLL
-    pushbutton  "...",         IDC_SAMPLES_PATH_SELECT,     X_A03, Y_A03, W_A03, H_A03
-
-    groupbox "Playback", IDC_STATIC, X_A04, Y_A04, W_A04, H_A04
-        rtext       "Mode:",              IDC_STATIC,            X_A05, Y_A05, W_A05, H_A05
-        combobox                          IDC_PLAYBACK_MODE,     X_A06, Y_A06, W_A06, H_A06, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-
-        rtext       "Loop count:",        IDC_STATIC,            X_A07, Y_A07, W_A07, H_A07
-        edittext                          IDC_LOOP_COUNT,        X_A08, Y_A08, W_A08, H_A08, ES_AUTOHSCROLL | ES_RIGHT
-
-        rtext       "Fade out duration:", IDC_STATIC,            X_A09, Y_A09, W_A09, H_A09
-        edittext                          IDC_FADE_OUT_DURATION, X_A10, Y_A10, W_A10, H_A10, ES_AUTOHSCROLL | ES_RIGHT
-        ltext       "ms",                 IDC_STATIC,            X_A11, Y_A11, W_A11, H_A11
-/*
-    rtext       "Synthesis rate:", IDC_STATIC,      X_A12, Y_A12, W_A12, H_A12
-    combobox                       IDC_SYNTHESIS_RATE, X_A13, Y_A13, W_A13, H_A13, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    ltext       "Hz",              IDC_STATIC,      X_A14, Y_A14, W_A14, H_A14
-*/
-    control "Use PPS", IDC_USE_PPS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, X_A15, Y_A15, W_A15, H_A16
-    control "Use SSG to play drum sounds", IDC_USE_SSG, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, X_A16, Y_A16, W_A16, H_A16
-}
 
 VS_VERSION_INFO versioninfo
 fileversion     NUM_FILE_MAJOR,    NUM_FILE_MINOR,    NUM_FILE_PATCH,    NUM_FILE_PRERELEASE
@@ -69,4 +42,31 @@ filesubtype     VFT2_UNKNOWN
     {
         value "Translation", 0x409, 1252    // U.S. English, Multilingual character set
     }
+}
+
+IDD_PREFERENCES dialogex 0, 0, 0, 0
+style DS_SHELLFONT | WS_CHILD
+font 8, "MS Shell Dlg", 400, 0, 1
+{
+    ltext       "YM2608 (OPNA) Drum Samples:", IDC_STATIC,  X_A01, Y_A01, W_A01, H_A01
+    edittext                   IDC_SAMPLES_PATH,            X_A02, Y_A02, W_A02, H_A02, ES_AUTOHSCROLL
+    pushbutton  "...",         IDC_SAMPLES_PATH_SELECT,     X_A03, Y_A03, W_A03, H_A03
+
+    groupbox "Playback", IDC_STATIC, X_A04, Y_A04, W_A04, H_A04
+        rtext       "Mode:",              IDC_STATIC,            X_A05, Y_A05, W_A05, H_A05
+        combobox                          IDC_PLAYBACK_MODE,     X_A06, Y_A06, W_A06, H_A06, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+
+        rtext       "Loop count:",        IDC_STATIC,            X_A07, Y_A07, W_A07, H_A07
+        edittext                          IDC_LOOP_COUNT,        X_A08, Y_A08, W_A08, H_A08, ES_AUTOHSCROLL | ES_RIGHT
+
+        rtext       "Fade out duration:", IDC_STATIC,            X_A09, Y_A09, W_A09, H_A09
+        edittext                          IDC_FADE_OUT_DURATION, X_A10, Y_A10, W_A10, H_A10, ES_AUTOHSCROLL | ES_RIGHT
+        ltext       "ms",                 IDC_STATIC,            X_A11, Y_A11, W_A11, H_A11
+/*
+    rtext       "Synthesis rate:", IDC_STATIC,      X_A12, Y_A12, W_A12, H_A12
+    combobox                       IDC_SYNTHESIS_RATE, X_A13, Y_A13, W_A13, H_A13, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    ltext       "Hz",              IDC_STATIC,      X_A14, Y_A14, W_A14, H_A14
+*/
+    control "Use PPS", IDC_USE_PPS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, X_A15, Y_A15, W_A15, H_A16
+    control "Use SSG to play drum sounds", IDC_USE_SSG, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, X_A16, Y_A16, W_A16, H_A16
 }
