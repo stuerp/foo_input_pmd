@@ -1,12 +1,7 @@
 
-/** $VER: OPNAW.h (2025.10.01) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: OPNA.cpp (2025.10.01) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#include <Windows.h>
-#include <strsafe.h>
+#include <pch.h>
 
 #include "OPNA.h"
 
@@ -15,8 +10,8 @@
 OPNA::OPNA(File * file) :
     _File(file),
 
-    _Instrument{},
-    _InstrumentCounter(0),
+    _Instruments{},
+    _InstrumentCount(0),
 
     _MasterVolume(0),
     _InstrumentTL(0),
@@ -51,9 +46,9 @@ OPNA::~OPNA()
 /// <summary>
 /// Initializes the module.
 /// </summary>
-bool OPNA::Initialize(uint32_t clockSpeed, uint32_t outputFrequency, const WCHAR * directoryPath) noexcept
+bool OPNA::Initialize(uint32_t clockSpeed, uint32_t sampleRate, const WCHAR * directoryPath) noexcept
 {
-    Initialize(clockSpeed, outputFrequency);
+    Initialize(clockSpeed, sampleRate);
 
     _Pos  = 0;
     _Step = (emulated_time) (0x1000000000000ull / GetSampleRate());
@@ -66,7 +61,7 @@ bool OPNA::Initialize(uint32_t clockSpeed, uint32_t outputFrequency, const WCHAR
     SetADPCMVolume(0);
     SetRhythmVolume(0);
 
-    for (int i = 0; i < _countof(_Instrument); ++i)
+    for (int i = 0; i < (int) _countof(_Instruments); ++i)
         SetInstrumentVolume(i, 0);
 
     LoadInstruments(directoryPath);
@@ -77,31 +72,17 @@ bool OPNA::Initialize(uint32_t clockSpeed, uint32_t outputFrequency, const WCHAR
 /// <summary>
 /// Initializes the module.
 /// </summary>
-void OPNA::Initialize(uint32_t clockSpeed, uint32_t outputFrequency) noexcept
+void OPNA::Initialize(uint32_t clockSpeed, uint32_t sampleRate) noexcept
 {
     _ClockSpeed = clockSpeed;
 
-    if (outputFrequency == 0)
+    if (sampleRate == 0)
         return;
 
-    _OutputFrequency = outputFrequency;
-    output_step = (emulated_time) (0x1000000000000ull / _OutputFrequency);
-
-//  SetOutputFrequency(outputFrequency);
+    _SampleRate = sampleRate;
+    output_step = (emulated_time) (0x1000000000000ull / _SampleRate);
 }
-/*
-/// <summary>
-/// Sets the output frequency.
-/// </summary>
-void OPNA::SetOutputFrequency(uint32_t outputFrequency) noexcept
-{
-    if (outputFrequency == 0)
-        return;
 
-    _OutputFrequency = outputFrequency;
-    output_step = (emulated_time) (0x1000000000000ull / _OutputFrequency);
-}
-*/
 #pragma region Volume
 
 /// <summary>
@@ -161,7 +142,7 @@ void OPNA::SetInstrumentVolume(int index, int dB)
 {
     dB = (std::min)(dB, 20);
 
-    _Instrument[index].Volume = -(dB * 2 / 3);
+    _Instruments[index].Volume = -(dB * 2 / 3);
 }
 #pragma endregion
 
@@ -182,12 +163,12 @@ void OPNA::SetReg(uint32_t addr, uint32_t value)
                 {
                     _InstrumentMask |= value & 0x3F;
 
-                    if (value & 0x01) _Instrument[0].Pos = 0;
-                    if (value & 0x02) _Instrument[1].Pos = 0;
-                    if (value & 0x04) _Instrument[2].Pos = 0;
-                    if (value & 0x08) _Instrument[3].Pos = 0;
-                    if (value & 0x10) _Instrument[4].Pos = 0;
-                    if (value & 0x20) _Instrument[5].Pos = 0;
+                    if (value & 0x01) _Instruments[0].Pos = 0;
+                    if (value & 0x02) _Instruments[1].Pos = 0;
+                    if (value & 0x04) _Instruments[2].Pos = 0;
+                    if (value & 0x08) _Instruments[3].Pos = 0;
+                    if (value & 0x10) _Instruments[4].Pos = 0;
+                    if (value & 0x20) _Instruments[5].Pos = 0;
                 }
                 else
                     _InstrumentMask &= ~value;
@@ -203,8 +184,8 @@ void OPNA::SetReg(uint32_t addr, uint32_t value)
             case 0x1b: // Hihat
             case 0x1c: // Tom-tom
             case 0x1d: // Rim shot
-                _Instrument[addr & 7].Pan   = (value >> 6) & 0x03;
-                _Instrument[addr & 7].Level = (int8_t) (~value & 0x1F);
+                _Instruments[addr & 7].Pan   = (value >> 6) & 0x03;
+                _Instruments[addr & 7].Level = (int8_t) (~value & 0x1F);
                 break;
         }
     }
@@ -270,7 +251,7 @@ bool OPNA::AdvanceTimers(uint32_t tickCount) noexcept
             _TimerCounter[1] -= ((emulated_time) tickCount << (48 - 6)) / (1000000 >> 6);
     }
 
-    for (int i = 0; i < _countof(_TimerCounter); ++i)
+    for (int i = 0; i < (int) _countof(_TimerCounter); ++i)
     {
         if ((reg27 & (4 << i)) && _TimerCounter[i] < 0)
         {
@@ -290,7 +271,7 @@ bool OPNA::AdvanceTimers(uint32_t tickCount) noexcept
 }
 
 /// <summary>
-/// Gets the next timer tick.
+/// Gets the counter value at which the next timer tick occurs.
 /// </summary>
 uint32_t OPNA::GetNextTick() const noexcept
 {
@@ -300,10 +281,10 @@ uint32_t OPNA::GetNextTick() const noexcept
     emulated_time Tick = INT64_MAX;
 
     if (_TimerCounter[0] > 0)
-        Tick = (std::min)(Tick, _TimerCounter[0]);
+        Tick = std::min(Tick, _TimerCounter[0]);
 
     if (_TimerCounter[1] > 0)
-        Tick = (std::min)(Tick, _TimerCounter[1]);
+        Tick = std::min(Tick, _TimerCounter[1]);
 
     return (uint32_t) ((Tick + ((emulated_time) 1 << 48) / 1000000) * (1000000 >> 6) >> (48 - 6));
 }
@@ -340,14 +321,14 @@ void OPNA::Mix(Sample * sampleData, size_t sampleCount) noexcept
 /// </summary>
 void OPNA::MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept
 {
-    if (!((_InstrumentMask & 0x3F) && _Instrument[0].Samples && (_MasterVolume < 128)))
+    if (!((_InstrumentMask & 0x3F) && _Instruments[0].Samples && (_MasterVolume < 128)))
         return;
 
     Sample * SampleDataEnd = sampleData + (sampleCount * 2);
 
-    for (size_t i = 0; i < _countof(_Instrument); ++i)
+    for (size_t i = 0; i < _countof(_Instruments); ++i)
     {
-        Instrument & Ins = _Instrument[i];
+        Instrument & Ins = _Instruments[i];
 
         if ((_InstrumentMask & (1 << i)))
         {
@@ -413,31 +394,32 @@ bool OPNA::LoadInstruments(const WCHAR * directoryPath)
         }
     }
  
-    static const WCHAR * InstrumentName[_countof(_Instrument)] =
-    {
-        L"bd", L"sd", L"top", L"hh", L"tom", L"rim",
-    };
-
     DeleteInstruments(); 
 
-    for (int i = 0; i < _countof(_Instrument); ++i)
+    for (auto & Instrument : _Instruments)
     {
         FilePath[0] = '\0';
 
         WCHAR FileName[_MAX_PATH] = { 0 };
 
-        ::StringCbPrintfW(FileName, _countof(FileName), L"2608_%s.wav", InstrumentName[i]);
+        static const WCHAR * InstrumentName[_countof(_Instruments)] =
+        {
+            L"bd", L"sd", L"top", L"hh", L"tom", L"rim",
+        };
 
-        WAVEReader & wr = _Instrument[i].Wave;
+        ::StringCbPrintfW(FileName, _countof(FileName), L"2608_%s.wav", InstrumentName[_InstrumentCount]);
+
+        WAVEReader & wr = Instrument.Wave;
 
         {
             CombinePath(FilePath, _countof(FilePath), directoryPath, FileName);
 
             if (!wr.Open(FilePath))
             {
-                if (i != 5)
+                if (_InstrumentCount != 5)
                     break;
 
+                // Try to open an alternate file for the sixth instrument.
                 CombinePath(FilePath, _countof(FilePath), directoryPath, L"2608_rym.wav");
 
                 if (!wr.Open(FilePath))
@@ -452,15 +434,15 @@ bool OPNA::LoadInstruments(const WCHAR * directoryPath)
 
         uint32_t SampleCount = wr.Size() / 2;
 
-        _Instrument[i].Samples = (const int16_t *) wr.Data();
-        _Instrument[i].Size    = SampleCount * 1024;
-        _Instrument[i].Step    = wr.SampleRate() * 1024 / _OutputFrequency;
-        _Instrument[i].Pos     = 0U;
+        Instrument.Samples = (const int16_t *) wr.Data();
+        Instrument.Size    = SampleCount * 1024;
+        Instrument.Step    = wr.SampleRate() * 1024 / _SampleRate;
+        Instrument.Pos     = 0U;
 
-        _InstrumentCounter++;
+        ++_InstrumentCount;
     }
 
-    if (_InstrumentCounter != _countof(_Instrument))
+    if (_InstrumentCount != _countof(_Instruments))
     {
         DeleteInstruments(); 
 
@@ -475,14 +457,14 @@ bool OPNA::LoadInstruments(const WCHAR * directoryPath)
 /// </summary>
 void OPNA::DeleteInstruments() noexcept
 {
-    for (int i = 0; i < _countof(_Instrument); ++i)
+    for (auto & Instrument : _Instruments)
     {
-        _Instrument[i].Wave.Reset();
-        _Instrument[i].Samples = nullptr;
-        _Instrument[i].Pos = ~0U;
+        Instrument.Wave.Reset();
+        Instrument.Samples = nullptr;
+        Instrument.Pos = ~0U;
     }
 
-    _InstrumentCounter = 0;
+    _InstrumentCount = 0;
 }
 #pragma endregion
 

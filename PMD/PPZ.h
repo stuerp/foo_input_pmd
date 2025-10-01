@@ -148,7 +148,7 @@ public:
     void SetLoop(size_t channelNumber, size_t bankNumber, size_t instrumentNumber, int loopStart, int loopEnd);
     void AllStop();
     void SetPan(size_t channelNumber, int value);
-    void SetOutputFrequency(uint32_t outputFrequency, bool useInterpolation);
+    void SetSampleRate(uint32_t outputFrequency, bool useInterpolation);
     void SetSourceFrequency(size_t channelNumber, int sourceFrequency);
     void SetAllVolume(int volume);
     void SetVolume(int volume);
@@ -186,7 +186,7 @@ private:
 
     int _PCMVolume; // Overall 86B Mixer volume
     int _Volume;
-    int _OutputFrequency;
+    int _SampleRate;
 
     Sample _VolumeTable[16][256];
 };

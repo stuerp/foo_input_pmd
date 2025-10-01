@@ -74,7 +74,7 @@ bool PMDDecoder::Open(const uint8_t * data, size_t size, uint32_t outputFrequenc
         }
 
         _PMD->Initialize(PDXSamplesPath);
-        _PMD->SetOutputFrequency(_SynthesisRate);
+        _PMD->SetSampleRate(_SynthesisRate);
 
         {
             WCHAR DirectoryPath[MAX_PATH];

@@ -3,14 +3,7 @@
 
 #pragma once
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#define _CRT_SECURE_NO_WARNINGS
-
-#include <Windows.h>
-#include <tchar.h>
+#include <pch.h>
 
 #include "OPNAW.h"
 #include "PPS.h"
@@ -73,7 +66,7 @@ public:
 
     bool SetSearchPaths(std::vector<const WCHAR *> & paths);
     
-    void SetOutputFrequency(uint32_t value) noexcept;
+    void SetSampleRate(uint32_t value) noexcept;
     void SetFMInterpolation(bool flag);
 
     void SetPPZOutputFrequency(uint32_t value) noexcept;
@@ -263,7 +256,7 @@ private:
     void HandleTimerB();
     void IncreaseBarCounter();
 
-    void GetText(const uint8_t * data, size_t size, int al, char * text) const noexcept;
+    void GetText(const uint8_t * data, size_t size, int al, char * text, size_t max) const noexcept;
 
     int MuteFMChannel(Channel * channel);
 
@@ -499,14 +492,14 @@ private:
     Driver _Driver;
     Effect _Effect;
 
-    Channel _FMChannel[MaxFMChannels];
-    Channel _SSGChannel[MaxSSGChannels];
+    Channel _FMChannels[MaxFMChannels];
+    Channel _SSGChannels[MaxSSGChannels];
     Channel _ADPCMChannel;
     Channel _RhythmChannel;
-    Channel _FMExtensionChannel[MaxFMExtensionChannels];
+    Channel _FMExtensionChannels[MaxFMExtensionChannels];
     Channel _DummyChannel;
     Channel _EffectChannel;
-    Channel _PPZChannel[MaxPPZChannels];
+    Channel _PPZChannels[MaxPPZChannels];
 
     static const size_t MaxSamples = 30000;
 

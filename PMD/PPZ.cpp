@@ -49,7 +49,7 @@ PPZDriver::~PPZDriver()
 void PPZDriver::Initialize(uint32_t outputFrequency, bool useInterpolation)
 {
     Initialize();
-    SetOutputFrequency(outputFrequency, useInterpolation);
+    SetSampleRate(outputFrequency, useInterpolation);
 }
 
 // 01H Start PCM
@@ -322,7 +322,7 @@ void PPZDriver::SetPitch(size_t ch, uint32_t pitch)
 
     _Channel[ch].PCMAddH = (int) ((((int64_t) AddsH << 16) + AddsL) * 2 * _Channel[ch].SourceFrequency / _OutputFrequency);
 */
-    _Channel[ch].PCMAddH = (int) (sizeof(int16_t) * (int64_t) pitch * _Channel[ch].SourceFrequency / _OutputFrequency);
+    _Channel[ch].PCMAddH = (int) (sizeof(int16_t) * (int64_t) pitch * _Channel[ch].SourceFrequency / _SampleRate);
 
     _Channel[ch].PCMAddL = _Channel[ch].PCMAddH & 0xFFFF;
     _Channel[ch].PCMAddH = _Channel[ch].PCMAddH >> 16;
@@ -397,9 +397,9 @@ void PPZDriver::SetPan(size_t ch, int value)
 }
 
 // 14H Sets the output sample rate.
-void PPZDriver::SetOutputFrequency(uint32_t outputFrequency, bool useInterpolation)
+void PPZDriver::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 {
-    _OutputFrequency = (int) outputFrequency;
+    _SampleRate = (int) sampleRate;
     _UseInterpolation = useInterpolation;
 }
 
@@ -796,7 +796,7 @@ void PPZDriver::Initialize()
 
     SetAllVolume(DefaultVolume);
 
-    _OutputFrequency = DefaultSampleRate;
+    _SampleRate = DefaultSampleRate;
 }
 
 void PPZDriver::CreateVolumeTable(int volume)

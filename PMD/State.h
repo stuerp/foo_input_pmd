@@ -162,8 +162,8 @@ public:
     bool IsTimerBBusy;
     int TimerBTempo;    // Current value of TimerB (= ff_tempo during ff)
 
-    uint32_t OPNARate;  // PCM output frequency (11k, 22k, 44k, 55k)
-    uint32_t PPZRate;   // PPZ output frequency
+    uint32_t OPNASampleRate;  // PCM output frequency (11k, 22k, 44k, 55k)
+    uint32_t PPZSampleRate;   // PPZ output frequency
 
     bool IsUsingP86;
 };

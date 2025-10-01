@@ -43,7 +43,7 @@ public:
 
     bool LoadInstruments(const WCHAR *);
     bool HasADPCMROM() const noexcept { return _HasADPCMROM; }
-    bool HasPercussionSamples() const noexcept { return _InstrumentCounter == _countof(_Instrument); }
+    bool HasPercussionSamples() const noexcept { return _InstrumentCount == _countof(_Instruments); }
 
     void SetFMVolume(int dB);
     void SetSSGVolume(int dB);
@@ -96,8 +96,8 @@ protected:
         int8_t Level;
     };
     
-    Instrument _Instrument[6];
-    uint32_t _InstrumentCounter;
+    Instrument _Instruments[6];
+    uint32_t _InstrumentCount;
 
     int32_t _MasterVolume;
 
@@ -149,7 +149,7 @@ private:
     typename ymfm::ym2608::output_data _Output;
 
     uint32_t _ClockSpeed;
-    uint32_t _OutputFrequency;
+    uint32_t _SampleRate;
 
     emulated_time _Pos;
     emulated_time _Step;

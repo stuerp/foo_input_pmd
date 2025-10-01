@@ -19,3 +19,7 @@
 #include <sdk/foobar2000-lite.h>
 
 #include <string.h>
+#include <strsafe.h>
+
+#include <cmath>
+#include <algorithm>

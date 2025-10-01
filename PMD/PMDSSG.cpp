@@ -25,7 +25,7 @@ void PMD::SSGMain(Channel * channel)
     channel->Length--;
 
     // When using the PPS and SSG channel 3 and the SSG is playing sound effects.
-    if (_Driver.UsePPS && (channel == &_SSGChannel[2]) && !_State.UseRhythmChannel && (channel->Length <= channel->GateTime))
+    if (_Driver.UsePPS && (channel == &_SSGChannels[2]) && !_State.UseRhythmChannel && (channel->Length <= channel->GateTime))
     {
         SSGKeyOff(channel);
 
@@ -190,7 +190,7 @@ void PMD::SSGMain(Channel * channel)
                 CalculatePortamento(channel);
 
             // Do not operate while using SSG channel 3 and the SSG drum is playing.
-            if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Tone == 0xFF) && !_State.UseRhythmChannel))
+            if (!(!_Driver.UsePPS && (channel == &_SSGChannels[2]) && (channel->Tone == 0xFF) && !_State.UseRhythmChannel))
                 SetSSGPitch(channel);
         }
     }
@@ -200,7 +200,7 @@ void PMD::SSGMain(Channel * channel)
     if ((temp != 0) || _Driver.ModulationMode & 0x22 || (_State.FadeOutSpeed != 0))
     {
         // Do not operate while using SSG channel 3 and the SSG drum is playing.
-        if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Tone == 0xFF) && !_State.UseRhythmChannel))
+        if (!(!_Driver.UsePPS && (channel == &_SSGChannels[2]) && (channel->Tone == 0xFF) && !_State.UseRhythmChannel))
             SetSSGVolume(channel);
     }
 

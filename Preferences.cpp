@@ -146,7 +146,7 @@ private:
         {
             auto cb = (CComboBox) GetDlgItem(IDC_PLAYBACK_MODE);
 
-            for (int i = 0; i < _countof(PlaybackModes); ++i)
+            for (size_t i = 0; i < _countof(PlaybackModes); ++i)
                 cb.AddString(PlaybackModes[i]);
         }
 

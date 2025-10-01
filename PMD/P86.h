@@ -74,7 +74,7 @@ public:
     bool Keyoff(void);
     int Load(const WCHAR * filePath);
 
-    void SetOutputFrequency(uint32_t sampleRate, bool useInterpolation);
+    void SetSampleRate(uint32_t sampleRate, bool useInterpolation);
     void SetVolume(int volume);
     bool SelectVolume(int value);
     bool SetPitch(int sampleRateIndex, uint32_t pitch);
@@ -115,7 +115,7 @@ private:
 
     bool _Enabled;
 
-    int _OutputFrequency;
+    int _SampleRate;
     bool _UseInterpolation;
     uint32_t _Pitch;
     int _Volume;

@@ -1,36 +1,31 @@
 
-/** $VER: OPNAW.cpp (2023.10.18) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: OPNAW.cpp (2025.10.01) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#include <cmath>
-#include <algorithm>
+#include <pch.h>
 
 #include "OPNAW.h"
 
 /// <summary>
 /// Initializes the module.
 /// </summary>
-bool OPNAW::Initialize(uint32_t clockSpeed, uint32_t outputFrequency, bool useInterpolation, const WCHAR * directoryPath) noexcept
+bool OPNAW::Initialize(uint32_t clockSpeed, uint32_t sampleRate, bool useInterpolation, const WCHAR * directoryPath) noexcept
 {
     Reset();
 
-    _OutputFrequency = outputFrequency;
+    _SampleRate = sampleRate;
 
-    return OPNA::Initialize(clockSpeed, useInterpolation ? FREQUENCY_55_4K : outputFrequency, directoryPath);
+    return OPNA::Initialize(clockSpeed, useInterpolation ? FREQUENCY_55_4K : sampleRate, directoryPath);
 }
 
 /// <summary>
 /// Initializes the module.
 /// </summary>
-void OPNAW::Initialize(uint32_t clockSpeed, uint32_t outputFrequency, bool useInterpolation) noexcept
+void OPNAW::Initialize(uint32_t clockSpeed, uint32_t sampleRate, bool useInterpolation) noexcept
 {
-    _OutputFrequency = outputFrequency;
-    _UseLinearInterpolation = useInterpolation;
+    _SampleRate = sampleRate;
+    _UseInterpolation = useInterpolation;
 
-    OPNA::Initialize(clockSpeed, useInterpolation ? FREQUENCY_55_4K : outputFrequency);
+    OPNA::Initialize(clockSpeed, useInterpolation ? FREQUENCY_55_4K : sampleRate);
 
     SetFMDelay(_FMDelay);
     SetSSGDelay(_SSGDelay);
@@ -41,43 +36,43 @@ void OPNAW::Initialize(uint32_t clockSpeed, uint32_t outputFrequency, bool useIn
 /// <summary>
 /// Sets the FM delay.
 /// </summary>
-void OPNAW::SetFMDelay(int ns)
+void OPNAW::SetFMDelay(int ns) noexcept
 {
     _FMDelay      = ns;
-    _FMDelayCount = (int) (ns * _OutputFrequency / 1000000);
+    _FMDelayCount = (int) (ns * _SampleRate / 1000000);
 }
 
 /// <summary>
 /// Sets the SSG delay.
 /// </summary>
-void OPNAW::SetSSGDelay(int ns)
+void OPNAW::SetSSGDelay(int ns) noexcept
 {
     _SSGDelay      = ns;
-    _SSGDelayCount = (int) (ns * _OutputFrequency / 1000000);
+    _SSGDelayCount = (int) (ns * _SampleRate / 1000000);
 }
 
 /// <summary>
 /// Sets the ADPCM delay.
 /// </summary>
-void OPNAW::SetADPCMDelay(int ns)
+void OPNAW::SetADPCMDelay(int ns) noexcept
 {
     _ADPCMDelay      = ns;
-    _ADPCMDelayCount = (int) (ns * _OutputFrequency / 1000000);
+    _ADPCMDelayCount = (int) (ns * _SampleRate / 1000000);
 }
 
 /// <summary>
 /// Sets the Rhythm delay.
 /// </summary>
-void OPNAW::SetRhythmDelay(int ns)
+void OPNAW::SetRhythmDelay(int ns) noexcept
 {
     _RSSDelay      = ns;
-    _RSSDelayCount = (int) (ns * _OutputFrequency / 1000000);
+    _RSSDelayCount = (int) (ns * _SampleRate / 1000000);
 }
 
 /// <summary>
 /// Sets the value of a register.
 /// </summary>
-void OPNAW::SetReg(uint32_t addr, uint32_t value)
+void OPNAW::SetReg(uint32_t addr, uint32_t value) noexcept
 {
     if (addr < 0x10)
     {   // SSG
@@ -110,7 +105,7 @@ void OPNAW::SetReg(uint32_t addr, uint32_t value)
 /// </summary>
 void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
 {
-    if ((_OutputFrequency != FREQUENCY_55_4K) && _UseLinearInterpolation)
+    if ((_SampleRate != FREQUENCY_55_4K) && _UseInterpolation)
     {
         for (size_t i = 0; i < sampleCount; ++i)
         {
@@ -118,7 +113,7 @@ void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
 
             if ((Rest + SINC_INTERPOLATION_SAMPLE_COUNT) > _DstIndex)
             {
-                size_t nrefill = (size_t) (_Rest + (double) (sampleCount - i - 1) * ((double) FREQUENCY_55_4K / _OutputFrequency)) + SINC_INTERPOLATION_SAMPLE_COUNT - _DstIndex;
+                size_t nrefill = (size_t) (_Rest + (double) (sampleCount - i - 1) * ((double) FREQUENCY_55_4K / _SampleRate)) + SINC_INTERPOLATION_SAMPLE_COUNT - _DstIndex;
 
                 if (_DstIndex + nrefill - DST_PCM_BUFFER_SIZE > Rest)
                     nrefill = (size_t) Rest + DST_PCM_BUFFER_SIZE - _DstIndex;
@@ -153,14 +148,14 @@ void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
                 *sampleData++ += Limit((int) tempR, 32767, -32768);
             }
 
-            _Rest += (double) FREQUENCY_55_4K / _OutputFrequency;
+            _Rest += (double) FREQUENCY_55_4K / _SampleRate;
         }
     }
     else
         MixInternal(sampleData, sampleCount);
 }
 
-void OPNAW::ClearBuffer()
+void OPNAW::ClearBuffer() noexcept
 {
     ::memset(_SrcBuffer, 0, sizeof(_SrcBuffer));
     _SrcReadIndex = _SrcWriteIndex = 0;
@@ -170,14 +165,15 @@ void OPNAW::ClearBuffer()
     _Rest = 0.;
 }
 
-#pragma region("Private")
+#pragma region Private
+
 /// <summary>
 /// Resets the module.
 /// </summary>
 void OPNAW::Reset() noexcept
 {
-    _OutputFrequency = 0;
-    _UseLinearInterpolation = false;
+    _SampleRate = 0;
+    _UseInterpolation = false;
 
     _FMDelay = 0;
     _SSGDelay = 0;

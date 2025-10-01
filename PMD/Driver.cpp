@@ -18,7 +18,7 @@ void PMD::DriverMain()
         for (i = 0; i < 3; ++i)
         {
             _Driver.CurrentChannel = i + 1;
-            SSGMain(&_SSGChannel[i]);
+            SSGMain(&_SSGChannels[i]);
         }
     }
 
@@ -27,7 +27,7 @@ void PMD::DriverMain()
     for (i = 0; i < 3; ++i)
     {
         _Driver.CurrentChannel = i + 1;
-        FMMain(&_FMChannel[i + 3]);
+        FMMain(&_FMChannels[i + 3]);
     }
 
     _Driver.FMSelector = 0;
@@ -35,13 +35,13 @@ void PMD::DriverMain()
     for (i = 0; i < 3; ++i)
     {
         _Driver.CurrentChannel = i + 1;
-        FMMain(&_FMChannel[i]);
+        FMMain(&_FMChannels[i]);
     }
 
     for (i = 0; i < 3; ++i)
     {
         _Driver.CurrentChannel = 3;
-        FMMain(&_FMExtensionChannel[i]);
+        FMMain(&_FMExtensionChannels[i]);
     }
 
     if (_State.x68_flg == 0x00)
@@ -59,7 +59,7 @@ void PMD::DriverMain()
         for (i = 0; i < 8; ++i)
         {
             _Driver.CurrentChannel = i;
-            PPZMain(&_PPZChannel[i]);
+            PPZMain(&_PPZChannels[i]);
         }
     }
 
@@ -68,17 +68,17 @@ void PMD::DriverMain()
 
     for (i = 0; i < MaxFMChannels; ++i)
     {
-        if (_FMChannel[i].loopcheck != 3)
-            _FMChannel[i].loopcheck = 0;
+        if (_FMChannels[i].loopcheck != 3)
+            _FMChannels[i].loopcheck = 0;
     }
 
     for (i = 0; i < MaxSSGChannels; ++i)
     {
-        if (_SSGChannel[i].loopcheck != 3)
-            _SSGChannel[i].loopcheck = 0;
+        if (_SSGChannels[i].loopcheck != 3)
+            _SSGChannels[i].loopcheck = 0;
 
-        if (_FMExtensionChannel[i].loopcheck != 3)
-            _FMExtensionChannel[i].loopcheck = 0;
+        if (_FMExtensionChannels[i].loopcheck != 3)
+            _FMExtensionChannels[i].loopcheck = 0;
     }
 
     if (_ADPCMChannel.loopcheck != 3)
@@ -92,8 +92,8 @@ void PMD::DriverMain()
 
     for (i = 0; i < MaxPPZChannels; ++i)
     {
-        if (_PPZChannel[i].loopcheck != 3)
-            _PPZChannel[i].loopcheck = 0;
+        if (_PPZChannels[i].loopcheck != 3)
+            _PPZChannels[i].loopcheck = 0;
     }
 
     if (_Driver.loop_work != 3)

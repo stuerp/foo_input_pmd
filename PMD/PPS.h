@@ -51,7 +51,7 @@ public:
     bool Play(int num, int shift, int volshift);
 
     bool SetParameter(int index, bool value);
-    bool SetOutputFrequency(uint32_t r, bool ip);
+    bool SetSampleRate(uint32_t r, bool ip);
     void SetVolume(int volume);
 
     void Mix(Sample * sampleData, size_t sampleCount);
@@ -68,7 +68,7 @@ private:
     PPSHEADER _Header;
     WCHAR _FilePath[_MAX_PATH];
 
-    int _SynthesisRate;
+    int _SampleRate;
     bool _UseInterpolation;
 
     Sample _EmitTable[16];

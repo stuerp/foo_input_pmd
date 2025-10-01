@@ -916,23 +916,23 @@ uint8_t * PMD::SetPPZMaskCommand(Channel * channel, uint8_t * si)
 /// </summary>
 uint8_t * PMD::InitializePPZ(Channel *, uint8_t * si)
 {
-    for (size_t i = 0; i < _countof(_PPZChannel); ++i)
+    for (size_t i = 0; i < _countof(_PPZChannels); ++i)
     {
         int16_t Offset = *(int16_t *) si;
 
         if (Offset != 0)
         {
-            _PPZChannel[i].Data = &_State.MData[Offset];
-            _PPZChannel[i].Length = 1;
-            _PPZChannel[i].KeyOffFlag = 0xFF;
-            _PPZChannel[i].LFO1MDepthCount1 = -1;        // LFO1MDepth Counter (Infinite)
-            _PPZChannel[i].LFO1MDepthCount2 = -1;
-            _PPZChannel[i].LFO2MDepthCount1 = -1;
-            _PPZChannel[i].LFO2MDepthCount2 = -1;
-            _PPZChannel[i].Tone = 0xFF;         // Rest
-            _PPZChannel[i].DefaultTone = 0xFF;  // Rest
-            _PPZChannel[i].Volume = 128;
-            _PPZChannel[i].PanAndVolume = 5;    // Center
+            _PPZChannels[i].Data = &_State.MData[Offset];
+            _PPZChannels[i].Length = 1;
+            _PPZChannels[i].KeyOffFlag = 0xFF;
+            _PPZChannels[i].LFO1MDepthCount1 = -1;        // LFO1MDepth Counter (Infinite)
+            _PPZChannels[i].LFO1MDepthCount2 = -1;
+            _PPZChannels[i].LFO2MDepthCount1 = -1;
+            _PPZChannels[i].LFO2MDepthCount2 = -1;
+            _PPZChannels[i].Tone = 0xFF;         // Rest
+            _PPZChannels[i].DefaultTone = 0xFF;  // Rest
+            _PPZChannels[i].Volume = 128;
+            _PPZChannels[i].PanAndVolume = 5;    // Center
         }
 
         si += 2;
