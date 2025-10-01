@@ -105,7 +105,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
 {
     uint8_t Command = *si++;
 
-    console::printf("RSS: %02X", Command);
+//  console::printf("RSS: %02X", Command);
 
     switch (Command)
     {
