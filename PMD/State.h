@@ -1,4 +1,4 @@
-﻿
+
 /** $VER: State.h (2023.10.29) Driver state (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once

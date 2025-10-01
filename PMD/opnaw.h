@@ -1,4 +1,4 @@
-﻿
+
 /** $VER: OPNAW.h (2023.10.18) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
@@ -24,15 +24,15 @@
 class OPNAW : public OPNA
 {
 public:
-    OPNAW(File * file) : OPNA(file)
+    OPNAW(File * file) noexcept : OPNA(file)
     {
         Reset();
     }
 
-    virtual ~OPNAW() { }
+    virtual ~OPNAW() noexcept { }
 
-    bool Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation, const WCHAR * directoryPath);
-    void SetOutputFrequency(uint32_t clock, uint32_t outputFrequency, bool useInterpolation = false) noexcept;
+    bool Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation, const WCHAR * directoryPath) noexcept;
+    void Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation) noexcept;
 
     void SetFMDelay(int nsec);
     void SetSSGDelay(int nsec);

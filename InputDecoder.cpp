@@ -1,18 +1,12 @@
  
 /** $VER: InputDecoder.cpp (2023.08.30) P. Stuer **/
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#include "framework.h"
+#include "pch.h"
 
 #include <sdk/input_impl.h>
 #include <sdk/input_file_type.h>
 #include <sdk/file_info_impl.h>
 #include <sdk/tag_processor.h>
-
-#include "framework.h"
 
 #include "Configuration.h"
 #include "Resources.h"
@@ -80,13 +74,11 @@ public:
             _File->read_object(&Data[0], (t_size) _FileStats.m_size, abortHandler);
 
             {
+                const auto NativeFilePath = filesystem::g_get_native_path(filePath, abortHandler);
+
                 _Decoder = new PMDDecoder();
 
-                // Skip past the "file://" prefix.
-                if (::_strnicmp(filePath, "file://", 7) == 0)
-                    filePath += 7;
-
-                if (!_Decoder->Open(filePath, CfgSamplesPath.get(), &Data[0], (size_t) _FileStats.m_size, (uint32_t) CfgSynthesisRate))
+                if (!_Decoder->Open(Data.get_ptr(), (size_t) _FileStats.m_size, (uint32_t) CfgSynthesisRate, NativeFilePath, CfgSamplesPath.get()))
                     throw exception_io_data("Invalid PMD file");
             }
         }

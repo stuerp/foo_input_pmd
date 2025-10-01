@@ -3,11 +3,7 @@
 
 #pragma once
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#include "framework.h"
+#include "pch.h"
 
 #include <sdk/cfg_var.h>
 

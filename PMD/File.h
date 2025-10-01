@@ -1,4 +1,4 @@
-﻿
+
 // Based on PMDWin code by C60
 
 #pragma once

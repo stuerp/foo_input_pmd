@@ -1,5 +1,5 @@
-﻿
-/** $VER: OPNAW.h (2023.10.18) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+
+/** $VER: OPNAW.h (2025.10.01) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -11,6 +11,7 @@
 #include "OPNA.h"
 
 #pragma warning(disable: 4355) // 'this' used in base member initializer list
+
 OPNA::OPNA(File * file) :
     _File(file),
 
@@ -23,8 +24,8 @@ OPNA::OPNA(File * file) :
     _HasADPCMROM(false),
 
     output_pos(0),
-    timer_period{},
-    timer_count{},
+    _TimerPeriod{},
+    _TimerCounter{},
     reg27(0U),
 
     _Chip(*this),
@@ -35,11 +36,11 @@ OPNA::OPNA(File * file) :
 
     _TickCount(0U)
 {
-    SetOutputFrequency(DEFAULT_CLOCK, 8000U);
+    Initialize(DefaultClockSpeed, 8000U);
 
     // Create the table.
     for (int i = -FM_TLPOS; i < FM_TLENTS; ++i)
-        tltable[i + FM_TLPOS] = (int32_t) (uint32_t(65536. * pow(2.0, i * -16. / (int) FM_TLENTS)) - 1);
+        tltable[i + FM_TLPOS] = (int32_t) (uint32_t(65536.0 * ::pow(2.0, i * -16.0 / (int) FM_TLENTS)) - 1);
 }
 
 OPNA::~OPNA()
@@ -50,9 +51,9 @@ OPNA::~OPNA()
 /// <summary>
 /// Initializes the module.
 /// </summary>
-bool OPNA::Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation, const WCHAR * directoryPath)
+bool OPNA::Initialize(uint32_t clockSpeed, uint32_t outputFrequency, const WCHAR * directoryPath) noexcept
 {
-    SetOutputFrequency(clock, outputFrequency, useInterpolation);
+    Initialize(clockSpeed, outputFrequency);
 
     _Pos  = 0;
     _Step = (emulated_time) (0x1000000000000ull / GetSampleRate());
@@ -74,15 +75,21 @@ bool OPNA::Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpol
 }
 
 /// <summary>
-/// Sets the output frequency.
+/// Initializes the module.
 /// </summary>
-void OPNA::SetOutputFrequency(uint32_t clockSpeed, uint32_t outputFrequency, bool) noexcept
+void OPNA::Initialize(uint32_t clockSpeed, uint32_t outputFrequency) noexcept
 {
     _ClockSpeed = clockSpeed;
 
-    SetOutputFrequency(outputFrequency);
-}
+    if (outputFrequency == 0)
+        return;
 
+    _OutputFrequency = outputFrequency;
+    output_step = (emulated_time) (0x1000000000000ull / _OutputFrequency);
+
+//  SetOutputFrequency(outputFrequency);
+}
+/*
 /// <summary>
 /// Sets the output frequency.
 /// </summary>
@@ -94,8 +101,9 @@ void OPNA::SetOutputFrequency(uint32_t outputFrequency) noexcept
     _OutputFrequency = outputFrequency;
     output_step = (emulated_time) (0x1000000000000ull / _OutputFrequency);
 }
+*/
+#pragma region Volume
 
-#pragma region(Volume)
 /// <summary>
 /// Sets the FM sound source volume, in dB.
 /// </summary>
@@ -157,7 +165,8 @@ void OPNA::SetInstrumentVolume(int index, int dB)
 }
 #pragma endregion
 
-#pragma region(Registers)
+#pragma region Registers
+
 /// <summary>
 /// Sets the value of a register.
 /// </summary>
@@ -240,66 +249,68 @@ uint32_t OPNA::GetReg(uint32_t addr)
 }
 #pragma endregion
 
-#pragma region(Timer)
+#pragma region Timer processing
+
 /// <summary>
-/// Timer processing
+/// Advances the timers with the number of specified ticks.
 /// </summary>
-bool OPNA::Count(uint32_t tickCount)
+bool OPNA::AdvanceTimers(uint32_t tickCount) noexcept
 {
-    bool result = false;
+    bool Result = false;
 
     if (reg27 & 1)
     {
-        if (timer_count[0] > 0)
-            timer_count[0] -= ((emulated_time) tickCount << (48 - 6)) / (1000000 >> 6);
+        if (_TimerCounter[0] > 0)
+            _TimerCounter[0] -= ((emulated_time) tickCount << (48 - 6)) / (1000000 >> 6);
     }
 
     if (reg27 & 2)
     {
-        if (timer_count[1] > 0)
-            timer_count[1] -= ((emulated_time) tickCount << (48 - 6)) / (1000000 >> 6);
+        if (_TimerCounter[1] > 0)
+            _TimerCounter[1] -= ((emulated_time) tickCount << (48 - 6)) / (1000000 >> 6);
     }
 
-    for (int i = 0; i < _countof(timer_count); ++i)
+    for (int i = 0; i < _countof(_TimerCounter); ++i)
     {
-        if ((reg27 & (4 << i)) && timer_count[i] < 0)
+        if ((reg27 & (4 << i)) && _TimerCounter[i] < 0)
         {
-            result = true;
+            Result = true;
 
             do
             {
-                timer_count[i] += timer_period[i];
+                _TimerCounter[i] += _TimerPeriod[i];
             }
-            while (timer_count[i] < 0);
+            while (_TimerCounter[i] < 0);
 
             m_engine->engine_timer_expired((uint32_t) i);
         }
     }
 
-    return result;
+    return Result;
 }
 
 /// <summary>
 /// Gets the next timer tick.
 /// </summary>
-uint32_t OPNA::GetNextTick()
+uint32_t OPNA::GetNextTick() const noexcept
 {
-    if (timer_count[0] == 0 && timer_count[1] == 0)
+    if (_TimerCounter[0] == 0 && _TimerCounter[1] == 0)
         return 0;
 
-    emulated_time result = INT64_MAX;
+    emulated_time Tick = INT64_MAX;
 
-    for (int i = 0; i < _countof(timer_count); ++i)
-    {
-        if (timer_count[i] > 0)
-            result = (std::min)(result, timer_count[i]);
-    }
+    if (_TimerCounter[0] > 0)
+        Tick = (std::min)(Tick, _TimerCounter[0]);
 
-    return (uint32_t) ((result + ((emulated_time) 1 << 48) / 1000000) * (1000000 >> 6) >> (48 - 6));
+    if (_TimerCounter[1] > 0)
+        Tick = (std::min)(Tick, _TimerCounter[1]);
+
+    return (uint32_t) ((Tick + ((emulated_time) 1 << 48) / 1000000) * (1000000 >> 6) >> (48 - 6));
 }
+
 #pragma endregion
 
-#pragma region(Sample Mixing)
+#pragma region Sample Mixing
 /// <summary>
 /// Synthesizes a buffer of rhythm samples.
 /// </summary>
@@ -371,7 +382,8 @@ void OPNA::StoreSample(Sample & sampleData, int32_t sampleValue)
 }
 #pragma endregion
 
-#pragma region(Rhythm Instruments)
+#pragma region Rhythm Instruments
+
 /// <summary>
 /// Loads the samples for the rhythm instruments.
 /// </summary>
@@ -474,7 +486,8 @@ void OPNA::DeleteInstruments() noexcept
 }
 #pragma endregion
 
-#pragma region(ymfm_interface)
+#pragma region ymfm_interface
+
 /// <summary>
 /// Generate one output sample of output..
 /// </summary>
@@ -545,17 +558,17 @@ void OPNA::ymfm_sync_mode_write(uint8_t data)
 }
 
 // Sets the timer (Callback).
-void OPNA::ymfm_set_timer(uint32_t tnum, int32_t duration_in_clocks)
+void OPNA::ymfm_set_timer(uint32_t timerIndex, int32_t duration_in_clocks)
 {
     if (duration_in_clocks >= 0)
     {
-        timer_period[tnum] = (((emulated_time) duration_in_clocks << 43) / _ClockSpeed) << 5;
-        timer_count[tnum] = timer_period[tnum];
+        _TimerPeriod[timerIndex] = (((emulated_time) duration_in_clocks << 43) / _ClockSpeed) << 5;
+        _TimerCounter[timerIndex] = _TimerPeriod[timerIndex];
     }
     else
     {
-        timer_period[tnum] = 0;
-        timer_count[tnum] = 0;
+        _TimerPeriod[timerIndex] = 0;
+        _TimerCounter[timerIndex] = 0;
     }
 }
 #pragma endregion

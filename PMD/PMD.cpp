@@ -1,4 +1,4 @@
-﻿
+
 // $VER: PMD.cpp (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <CppCoreCheck/Warnings.h>
@@ -45,7 +45,7 @@ PMD::~PMD()
     delete _File;
 }
 
-#pragma region(Public)
+#pragma region Public
 /// <summary>
 /// Initializes the driver.
 /// </summary>
@@ -158,10 +158,11 @@ int PMD::Load(const uint8_t * data, size_t size)
 
     WCHAR FilePath[MAX_PATH] = { 0 };
 
+    // Get the PCM file path.
     {
         _PCMFilePath.clear();
 
-        GetText(data, size, 0, FileName);
+        GetText(_MData, size, 0, FileName);
 
         if (*FileName != '\0')
         {
@@ -203,10 +204,11 @@ int PMD::Load(const uint8_t * data, size_t size)
             _PCMFileName.clear();
     }
 
+    // Get the PPS file path.
     {
         _PPSFilePath.clear();
 
-        GetText(data, size, -1, FileName);
+        GetText(_MData, size, -1, FileName);
 
         if (*FileName != '\0')
         {
@@ -229,11 +231,12 @@ int PMD::Load(const uint8_t * data, size_t size)
             _PPSFileName.clear();
     }
 
+    // Get the PPZ file paths.
     {
         _PPZFilePath[0].clear();
         _PPZFilePath[1].clear();
 
-        GetText(data, size, -2, FileName);
+        GetText(_MData, size, -2, FileName);
 
         if (*FileName != '\0')
         {
@@ -306,7 +309,7 @@ void PMD::Stop()
 {
     if (_State.IsTimerABusy || _State.IsTimerBBusy)
     {
-        _Driver._Flags |= DriverStopRequested; // Delay the start of the driver until timer processing has finished.
+        _Driver._Flags |= DriverStopRequested; // Delay stopping the driver until timer processing has finished.
     }
     else
     {
@@ -331,15 +334,17 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
         if (_SamplesToDo >= sampleCount - SamplesDone)
         {
             ::memcpy(sampleData, _SamplePtr, (sampleCount - SamplesDone) * sizeof(Stereo16bit));
-            _SamplesToDo -= (sampleCount - SamplesDone);
 
-            _SamplePtr += (sampleCount - SamplesDone);
+            _SamplesToDo -= (sampleCount - SamplesDone);
+            _SamplePtr   += (sampleCount - SamplesDone);
+
             SamplesDone = sampleCount;
         }
         else
         {
             {
                 ::memcpy(sampleData, _SamplePtr, _SamplesToDo * sizeof(Stereo16bit));
+
                 sampleData += (_SamplesToDo * 2);
 
                 _SamplePtr = _SampleSrc;
@@ -360,7 +365,8 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
 
             {
                 _SamplesToDo = (size_t) ((double) TickCount * _State.OPNARate / 1000000.0);
-                _OPNAW->Count(TickCount);
+
+                _OPNAW->AdvanceTimers(TickCount);
 
                 ::memset(_SampleDst, 0, _SamplesToDo * sizeof(Stereo32bit));
 
@@ -471,7 +477,8 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
 
             uint32_t TickCount = _OPNAW->GetNextTick();
 
-            _OPNAW->Count(TickCount);
+            _OPNAW->AdvanceTimers(TickCount);
+
             _Position += TickCount;
         }
 
@@ -506,6 +513,13 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
 
             *tickCount = GetPositionInTicks();
             *loopTickCount = *tickCount;
+
+            DriverStop();
+
+            _OPNAW->SetFMDelay(FMDelay);
+            _OPNAW->SetSSGDelay(SSGDelay);
+            _OPNAW->SetADPCMDelay(ADPCMDelay);
+            _OPNAW->SetRhythmDelay(RSSDelay);
 
             return true;
         }
@@ -558,7 +572,8 @@ bool PMD::GetLength(int * songLength, int * loopLength)
 
             uint32_t TickCount = _OPNAW->GetNextTick();
 
-            _OPNAW->Count(TickCount);
+            _OPNAW->AdvanceTimers(TickCount);
+
             _Position += TickCount;
         }
 
@@ -586,6 +601,13 @@ bool PMD::GetLength(int * songLength, int * loopLength)
         {
             *songLength = (int) (_Position / 1000);
             *loopLength = *songLength;
+
+            DriverStop();
+
+            _OPNAW->SetFMDelay(FMDelay);
+            _OPNAW->SetSSGDelay(SSGDelay);
+            _OPNAW->SetADPCMDelay(ADPCMDelay);
+            _OPNAW->SetRhythmDelay(RSSDelay);
 
             return true;
         }
@@ -637,7 +659,8 @@ bool PMD::GetLengthInTicks(int * tickCount, int * loopTickCount)
 
             uint32_t TickCount = _OPNAW->GetNextTick();
 
-            _OPNAW->Count(TickCount);
+            _OPNAW->AdvanceTimers(TickCount);
+
             _Position += TickCount;
         }
 
@@ -665,6 +688,13 @@ bool PMD::GetLengthInTicks(int * tickCount, int * loopTickCount)
         {
             *tickCount = GetPositionInTicks();
             *loopTickCount = *tickCount;
+
+            DriverStop();
+
+            _OPNAW->SetFMDelay(FMDelay);
+            _OPNAW->SetSSGDelay(SSGDelay);
+            _OPNAW->SetADPCMDelay(ADPCMDelay);
+            _OPNAW->SetRhythmDelay(RSSDelay);
 
             return true;
         }
@@ -722,12 +752,13 @@ void PMD::SetPosition(uint32_t position)
 
         uint32_t TickCount = _OPNAW->GetNextTick();
 
-        _OPNAW->Count(TickCount);
+        _OPNAW->AdvanceTimers(TickCount);
+
         _Position += TickCount;
     }
 
     if (_State.LoopCount == -1)
-        Silence();
+        Mute();
 
     _OPNAW->ClearBuffer();
 }
@@ -767,11 +798,11 @@ void PMD::SetPositionInTicks(int tickCount)
 
         uint32_t TickCount = _OPNAW->GetNextTick();
 
-        _OPNAW->Count(TickCount);
+        _OPNAW->AdvanceTimers(TickCount);
     }
 
     if (_State.LoopCount == -1)
-        Silence();
+        Mute();
 
     _OPNAW->ClearBuffer();
 }
@@ -813,7 +844,7 @@ void PMD::SetOutputFrequency(uint32_t value) noexcept
         _State.UseInterpolation = false;
     }
 
-    _OPNAW->SetOutputFrequency(OPNAClock, _State.OPNARate, _State.UseInterpolation);
+    _OPNAW->Initialize(OPNAClock, _State.OPNARate, _State.UseInterpolation);
 
     _P86->SetOutputFrequency(_State.OPNARate, _State.UseInterpolationP86);
     _PPS->SetOutputFrequency(_State.OPNARate, _State.UseInterpolationPPS);
@@ -830,7 +861,7 @@ void PMD::SetFMInterpolation(bool value)
 
     _State.UseInterpolation = value;
 
-    _OPNAW->SetOutputFrequency(OPNAClock, _State.OPNARate, _State.UseInterpolation);
+    _OPNAW->Initialize(OPNAClock, _State.OPNARate, _State.UseInterpolation);
 }
 
 /// <summary>
@@ -2346,7 +2377,7 @@ void PMD::InitializeInterrupt()
 /// <summary>
 ///
 /// </summary>
-void PMD::Silence()
+void PMD::Mute()
 {
     _OPNAW->SetReg(0x80, 0xff); // FM Release = 15
     _OPNAW->SetReg(0x81, 0xff);

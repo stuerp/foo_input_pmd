@@ -1,14 +1,10 @@
 
 /** $VER: PMDDecoder.cpp (2023.10.07) P. Stuer **/
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include "pch.h"
 
 #include "PMDDecoder.h"
 #include "Configuration.h"
-
-#include "framework.h"
 
 #include <pfc/string-conv-lite.h>
 #include <shared/audio_math.h>
@@ -42,7 +38,7 @@ PMDDecoder::~PMDDecoder()
 /// <summary>
 /// Reads the PMD data from memory.
 /// </summary>
-bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size, uint32_t outputFrequency)
+bool PMDDecoder::Open(const uint8_t * data, size_t size, uint32_t outputFrequency, const char * filePath, const char * pdxSamplesPath)
 {
     _FilePath = filePath;
 
@@ -253,7 +249,7 @@ static bool ConvertShiftJISToUTF8(const char * text, pfc::string8 & textDst)
 
     if (::MultiByteToWideChar(932, MB_PRECOMPOSED, text, -1, Wide, Size) != 0)
     {
-        const CHAR DefaultChar = '·';
+        const CHAR DefaultChar = 'Â·';
 
         Size = ::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, 0, 0, &DefaultChar, 0);
 

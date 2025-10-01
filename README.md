@@ -7,7 +7,7 @@ Professional Music Driver (PMD) is a music driver developed by Masahiro Kajihara
 
 PMD can be used to make music for the PC-98, PC-88, X68000, and FM Towns. It's the most used tool to make music for the PC-x801 series, notable examples are Touhou Project and Grounseed.
 
-![Screenshot](/Resources/Screenshot.png?raw=true "Screenshot")
+![Screenshot](/assets/Screenshot.png?raw=true "Screenshot")
 
 ## Features
 
@@ -85,7 +85,7 @@ Create the following directory structure:
     3rdParty
         WTL10_10320
     bin
-        x86
+    bin.x86
     foo_input_pmd
     out
     sdk
@@ -111,6 +111,10 @@ If you'd like to contribute, please fork the repository and use a feature
 branch. Pull requests are warmly welcome.
 
 ## Change Log
+
+v0.x.x, 202x-xx-xx
+
+* Fixed: Preferences dialog should adapt to High DPI settings now.
 
 v0.4.1, 2023-11-12, *"Release name missing in action"*
 

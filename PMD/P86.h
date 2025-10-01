@@ -1,4 +1,4 @@
-﻿
+
 // PMD's internal 86PCM driver for the PC-98's 86 soundboard / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60
 
 #pragma once

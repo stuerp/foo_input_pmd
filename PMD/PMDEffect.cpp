@@ -1,4 +1,4 @@
-﻿
+
 // PMD driver (Based on PMDWin code by C60)
 
 #include <CppCoreCheck/Warnings.h>

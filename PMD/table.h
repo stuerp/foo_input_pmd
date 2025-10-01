@@ -1,4 +1,4 @@
-﻿
+
 // Professional Music Driver [P.M.D.] version 4.8 Constant Tables / Programmed by M. Kajihara / Windows converted by C60
 
 #pragma once

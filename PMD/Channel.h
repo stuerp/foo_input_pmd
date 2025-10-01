@@ -1,4 +1,4 @@
-﻿
+
 /** $VER: Channel.h (2023.10.29) Represents a sound source channel (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once

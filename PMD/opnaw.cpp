@@ -1,5 +1,5 @@
-﻿
-/** $VER: OPNAW.h (2023.10.18) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+
+/** $VER: OPNAW.cpp (2023.10.18) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <CppCoreCheck/Warnings.h>
 
@@ -13,24 +13,24 @@
 /// <summary>
 /// Initializes the module.
 /// </summary>
-bool OPNAW::Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation, const WCHAR * directoryPath)
+bool OPNAW::Initialize(uint32_t clockSpeed, uint32_t outputFrequency, bool useInterpolation, const WCHAR * directoryPath) noexcept
 {
     Reset();
 
     _OutputFrequency = outputFrequency;
 
-    return OPNA::Initialize(clock, useInterpolation ? FREQUENCY_55_4K : outputFrequency, false, directoryPath);
+    return OPNA::Initialize(clockSpeed, useInterpolation ? FREQUENCY_55_4K : outputFrequency, directoryPath);
 }
 
 /// <summary>
-/// Sets the output frequency.
+/// Initializes the module.
 /// </summary>
-void OPNAW::SetOutputFrequency(uint32_t clock, uint32_t outputFrequency, bool useLinearInterpolation) noexcept
+void OPNAW::Initialize(uint32_t clockSpeed, uint32_t outputFrequency, bool useInterpolation) noexcept
 {
     _OutputFrequency = outputFrequency;
-    _UseLinearInterpolation = useLinearInterpolation;
+    _UseLinearInterpolation = useInterpolation;
 
-    OPNA::SetOutputFrequency(clock, useLinearInterpolation ? FREQUENCY_55_4K : outputFrequency, false);
+    OPNA::Initialize(clockSpeed, useInterpolation ? FREQUENCY_55_4K : outputFrequency);
 
     SetFMDelay(_FMDelay);
     SetSSGDelay(_SSGDelay);

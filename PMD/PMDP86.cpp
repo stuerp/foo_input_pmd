@@ -1,4 +1,4 @@
-﻿
+
 // $VER: PMDP86.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <CppCoreCheck/Warnings.h>

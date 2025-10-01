@@ -1,4 +1,4 @@
-﻿
+
 /** $VER: PMD.h (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
@@ -253,7 +253,7 @@ private:
 
     uint8_t * ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command);
 
-    void Silence();
+    void Mute();
     void InitializeChannels();
     void InitializeInterrupt();
     void ConvertTimerBTempoToMetronomeTempo();

@@ -114,7 +114,7 @@ void PMD::DriverStart()
 
     SetTimerBTempo();
 
-    _OPNAW->SetReg(0x27, 0x00); // Timer reset (both timer A and B)
+    _OPNAW->SetReg(0x27, 0x00); // Reset timer A and B.
 
     _Driver._Flags &= ~DriverStartRequested;
 
@@ -138,9 +138,10 @@ void PMD::DriverStop()
     _Driver._Flags &= ~DriverStopRequested;
 
     _IsPlaying = false;
+
     _State.LoopCount = -1;
     _State.FadeOutSpeed = 0;
     _State.FadeOutVolume = 0xFF;
 
-    Silence();
+    Mute();
 }

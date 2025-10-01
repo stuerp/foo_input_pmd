@@ -1,4 +1,4 @@
-﻿
+
 /** $VER: PPZ.cpp (2023.10.22) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
 
 #include <CppCoreCheck/Warnings.h>

@@ -1,4 +1,4 @@
-﻿
+
 // PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
 
 #pragma once

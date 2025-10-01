@@ -1,4 +1,4 @@
-﻿
+
 // $VER: File.cpp (2023.10.08) P. Stuer - File manipulation
 
 #include <CppCoreCheck/Warnings.h>

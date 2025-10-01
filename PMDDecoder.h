@@ -1,13 +1,9 @@
 
-/** $VER: PMDDecoder.h (2023.10.07) P. Stuer **/
+/** $VER: PMDDecoder.h (2025.10.01) P. Stuer **/
 
 #pragma once
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#include "framework.h"
+#include "pch.h"
 
 #include <PMD.h>
 
@@ -21,7 +17,7 @@ public:
     PMDDecoder();
     ~PMDDecoder();
 
-    bool Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size, uint32_t outputFrequency);
+    bool Open(const uint8_t * data, size_t size, uint32_t outputFrequency, const char * filePath, const char * pdxSamplesPath);
 
     void Initialize() const noexcept;
     size_t Render(audio_chunk & audioChunk, size_t sampleCount) noexcept;

@@ -1,4 +1,4 @@
-﻿
+
 // PMD's internal 86PCM driver for the PC-98's 86 soundboard / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60
 
 #include <CppCoreCheck/Warnings.h>
@@ -204,7 +204,7 @@ bool P86Driver::SetPan(int flag, int value)
 
 bool P86Driver::SetPitch(int sampleRateIndex, uint32_t pitch)
 {
-    if (sampleRateIndex < 0 || sampleRateIndex >= _countof(SampleRates))
+    if (sampleRateIndex < 0 || sampleRateIndex >= (int) _countof(SampleRates))
         return false;
 
     if (pitch > 0x1fffff)
