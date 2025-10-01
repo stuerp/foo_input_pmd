@@ -206,6 +206,8 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
 {
     uint8_t Command = *si++;
 
+//  console::printf("SSG: %02X", Command);
+
     switch (Command)
     {
         case 0xFF: si++; break;

@@ -353,15 +353,15 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
                 if (_OPNAW->ReadStatus() & 0x02)
                     HandleTimerB();
 
-                _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
+                _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Reset both timer A and B.
             }
 
-            uint32_t TickCount = _OPNAW->GetNextTick(); // in microseconds
+            uint32_t NextTick = _OPNAW->GetNextTick();  // in μs
 
             {
-                _SamplesToDo = (size_t) ((double) TickCount * _State.OPNASampleRate / 1000000.0);
+                _SamplesToDo = (size_t) ((double) NextTick * _State.OPNASampleRate / 1'000'000.0);
 
-                _OPNAW->AdvanceTimers(TickCount);
+                _OPNAW->AdvanceTimers(NextTick);
 
                 ::memset(_SampleDst, 0, _SamplesToDo * sizeof(Stereo32bit));
 
@@ -401,11 +401,11 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
             }
 
             {
-                _Position += TickCount;
+                _Position += NextTick;
 
                 if (_State.FadeOutSpeedHQ > 0)
                 {
-                    int Factor = (_State.LoopCount != -1) ? (int) ((1 << 10) * ::pow(512, -(double) (_Position - _FadeOutPosition) / 1000 / _State.FadeOutSpeedHQ)) : 0;
+                    int Factor = (_State.LoopCount != -1) ? (int) ((1 << 10) * ::pow(512, -(double) (_Position - _FadeOutPosition) / 1'000 / _State.FadeOutSpeedHQ)) : 0;
 
                     for (size_t i = 0; i < _SamplesToDo; ++i)
                     {
@@ -414,7 +414,7 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
                     }
 
                     // Fadeout end
-                    if ((_Position - _FadeOutPosition > (int64_t) _State.FadeOutSpeedHQ * 1000) && _State.StopAfterFadeout)
+                    if ((_Position - _FadeOutPosition > (int64_t) _State.FadeOutSpeedHQ * 1'000) && _State.StopAfterFadeout)
                         _Driver._Flags |= DriverStopRequested;
                 }
                 else
@@ -479,13 +479,13 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
 
         if ((_State.LoopCount == 1) && (*songLength == 0)) // When looping
         {
-            *songLength = (int) (_Position / 1000);
+            *songLength = (int) (_Position / 1'000);
             *tickCount = GetPositionInTicks();
         }
         else
         if (_State.LoopCount == -1) // End without loop
         {
-            *songLength = (int) (_Position / 1000);
+            *songLength = (int) (_Position / 1'000);
             *loopLength = 0;
 
             *tickCount = GetPositionInTicks();
@@ -503,7 +503,7 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
         else
         if (GetPositionInTicks() >= 65536) // Forced termination.
         {
-            *songLength = (int) (_Position / 1000);
+            *songLength = (int) (_Position / 1'000);
             *loopLength = *songLength;
 
             *tickCount = GetPositionInTicks();
@@ -521,7 +521,7 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
     }
     while (_State.LoopCount < 2);
 
-    *loopLength = (int) (_Position / 1000) - *songLength;
+    *loopLength = (int) (_Position / 1'000) - *songLength;
     *loopTickCount = GetPositionInTicks() - *tickCount;
 
     DriverStop();
@@ -533,188 +533,13 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
 
     return true;
 }
-/*
-/// <summary>
-/// Gets the length of the song and loop part (in ms).
-/// </summary>
-bool PMD::GetLength(int * songLength, int * loopLength)
-{
-    DriverStart();
 
-    _Position = 0;
-    *songLength = 0;
-
-    int FMDelay = _OPNAW->GetFMDelay();
-    int SSGDelay = _OPNAW->GetSSGDelay();
-    int ADPCMDelay = _OPNAW->GetADPCMDelay();
-    int RSSDelay = _OPNAW->GetRSSDelay();
-
-    _OPNAW->SetFMDelay(0);
-    _OPNAW->SetSSGDelay(0);
-    _OPNAW->SetADPCMDelay(0);
-    _OPNAW->SetRhythmDelay(0);
-
-    do
-    {
-        {
-            if (_OPNAW->ReadStatus() & 0x01)
-                HandleTimerA();
-
-            if (_OPNAW->ReadStatus() & 0x02)
-                HandleTimerB();
-
-            _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
-
-            uint32_t TickCount = _OPNAW->GetNextTick();
-
-            _OPNAW->AdvanceTimers(TickCount);
-
-            _Position += TickCount;
-        }
-
-        if ((_State.LoopCount == 1) && (*songLength == 0)) // When looping
-        {
-            *songLength = (int) (_Position / 1000);
-        }
-        else
-        if (_State.LoopCount == -1) // End without loop
-        {
-            *songLength = (int) (_Position / 1000);
-            *loopLength = 0;
-
-            DriverStop();
-
-            _OPNAW->SetFMDelay(FMDelay);
-            _OPNAW->SetSSGDelay(SSGDelay);
-            _OPNAW->SetADPCMDelay(ADPCMDelay);
-            _OPNAW->SetRhythmDelay(RSSDelay);
-
-            return true;
-        }
-        else
-        if (GetPositionInTicks() >= 65536)
-        {
-            *songLength = (int) (_Position / 1000);
-            *loopLength = *songLength;
-
-            DriverStop();
-
-            _OPNAW->SetFMDelay(FMDelay);
-            _OPNAW->SetSSGDelay(SSGDelay);
-            _OPNAW->SetADPCMDelay(ADPCMDelay);
-            _OPNAW->SetRhythmDelay(RSSDelay);
-
-            return true;
-        }
-    }
-    while (_State.LoopCount < 2);
-
-    *loopLength = (int) (_Position / 1000) - *songLength;
-
-    DriverStop();
-
-    _OPNAW->SetFMDelay(FMDelay);
-    _OPNAW->SetSSGDelay(SSGDelay);
-    _OPNAW->SetADPCMDelay(ADPCMDelay);
-    _OPNAW->SetRhythmDelay(RSSDelay);
-
-    return true;
-}
-*/
-/*
-/// <summary>
-/// Gets the number of ticks in the song and loop part.
-/// </summary>
-bool PMD::GetLengthInTicks(int * tickCount, int * loopTickCount)
-{
-    DriverStart();
-
-    _Position = 0;
-    *tickCount = 0;
-
-    int FMDelay = _OPNAW->GetFMDelay();
-    int SSGDelay = _OPNAW->GetSSGDelay();
-    int ADPCMDelay = _OPNAW->GetADPCMDelay();
-    int RSSDelay = _OPNAW->GetRSSDelay();
-
-    _OPNAW->SetFMDelay(0);
-    _OPNAW->SetSSGDelay(0);
-    _OPNAW->SetADPCMDelay(0);
-    _OPNAW->SetRhythmDelay(0);
-
-    do
-    {
-        {
-            if (_OPNAW->ReadStatus() & 0x01)
-                HandleTimerA();
-
-            if (_OPNAW->ReadStatus() & 0x02)
-                HandleTimerB();
-
-            _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30);  // Timer Reset (Both timer A and B)
-
-            uint32_t TickCount = _OPNAW->GetNextTick();
-
-            _OPNAW->AdvanceTimers(TickCount);
-
-            _Position += TickCount;
-        }
-
-        if ((_State.LoopCount == 1) && (*tickCount == 0)) // When looping
-        {
-            *tickCount = GetPositionInTicks();
-        }
-        else
-        if (_State.LoopCount == -1) // End without loop
-        {
-            *tickCount = GetPositionInTicks();
-            *loopTickCount = 0;
-
-            DriverStop();
-
-            _OPNAW->SetFMDelay(FMDelay);
-            _OPNAW->SetSSGDelay(SSGDelay);
-            _OPNAW->SetADPCMDelay(ADPCMDelay);
-            _OPNAW->SetRhythmDelay(RSSDelay);
-
-            return true;
-        }
-        else
-        if (GetPositionInTicks() >= 65536) // Forced termination if 65536 clocks or more
-        {
-            *tickCount = GetPositionInTicks();
-            *loopTickCount = *tickCount;
-
-            DriverStop();
-
-            _OPNAW->SetFMDelay(FMDelay);
-            _OPNAW->SetSSGDelay(SSGDelay);
-            _OPNAW->SetADPCMDelay(ADPCMDelay);
-            _OPNAW->SetRhythmDelay(RSSDelay);
-
-            return true;
-        }
-    }
-    while (_State.LoopCount < 2);
-
-    *loopTickCount = GetPositionInTicks() - *tickCount;
-
-    DriverStop();
-
-    _OPNAW->SetFMDelay(FMDelay);
-    _OPNAW->SetSSGDelay(SSGDelay);
-    _OPNAW->SetADPCMDelay(ADPCMDelay);
-    _OPNAW->SetRhythmDelay(RSSDelay);
-
-    return true;
-}
-*/
 /// <summary>
 /// Gets the playback position (in ms)
 /// </summary>
 uint32_t PMD::GetPosition()
 {
-    return (uint32_t) (_Position / 1000);
+    return (uint32_t) (_Position / 1'000);
 }
 
 /// <summary>
@@ -722,7 +547,7 @@ uint32_t PMD::GetPosition()
 /// </summary>
 void PMD::SetPosition(uint32_t position)
 {
-    int64_t NewPosition = (int64_t) position * 1000; // Convert ms to μs.
+    int64_t NewPosition = (int64_t) position * 1'000; // Convert ms to μs.
 
     if (_Position > NewPosition)
     {
@@ -1451,6 +1276,8 @@ void PMD::InitializeOPN()
 /// </summary>
 uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
 {
+//  console::printf("   : %02X", command);
+
     switch (command)
     {
         case 0xFF: si++; break;
@@ -1729,24 +1556,6 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
     return si;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /// <summary>
 ///
 /// </summary>
@@ -1796,7 +1605,8 @@ void PMD::HandleTimerB()
     _State.IsTimerBBusy = false;
 }
 
-#pragma region(Commands)
+#pragma region Commands
+
 /// <summary>
 /// Increases the volume for the next note only (Command "v").
 /// </summary>
@@ -1829,6 +1639,9 @@ uint8_t * PMD::DecreaseVolumeForNextNote(Channel * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+/// 
+/// </summary>
 uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8_t value)
 {
     switch (value)
@@ -1885,7 +1698,9 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
     return si;
 }
 
-// Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
+/// <summary>
+/// Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
+/// </summary>
 uint8_t * PMD::SetHardwareLFOSwitchCommand(Channel * channel, uint8_t * si)
 {
     channel->ModulationMode = (channel->ModulationMode & 0x8F) | ((*si++ & 0x07) << 4);
@@ -1899,6 +1714,9 @@ uint8_t * PMD::SetHardwareLFOSwitchCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+/// 
+/// </summary>
 uint8_t * PMD::SetVolumeMask(Channel * channel, uint8_t * si)
 {
     int al = *si++ & 0x0F;
@@ -1917,7 +1735,9 @@ uint8_t * PMD::SetVolumeMask(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command 't' [TEMPO CHANGE1] / COMMAND 'T' [TEMPO CHANGE2] / COMMAND 't±' [TEMPO CHANGE 相対1] / COMMAND 'T±' [TEMPO CHANGE 相対2]
+/// <summary>
+/// Command 't' [TEMPO CHANGE1] / COMMAND 'T' [TEMPO CHANGE2] / COMMAND 't±' [TEMPO CHANGE 相対1] / COMMAND 'T±' [TEMPO CHANGE 相対2] 
+/// </summary>
 uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
 {
     int al = *si++;
@@ -1997,7 +1817,9 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
     return si;
 }
 
-// Command '[': Set start of loop
+/// <summary>
+/// Command '[': Set start of loop 
+/// </summary>
 uint8_t * PMD::SetStartOfLoopCommand(Channel * channel, uint8_t * si)
 {
     uint8_t * Data = (channel == &_EffectChannels) ? _State.EData : _State.MData;
@@ -2009,7 +1831,9 @@ uint8_t * PMD::SetStartOfLoopCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command ']': Set end of loop
+/// <summary>
+/// Command ']': Set end of loop
+/// </summary>
 uint8_t * PMD::SetEndOfLoopCommand(Channel * channel, uint8_t * si)
 {
     int MaxLoopCount = *si++;
@@ -2041,7 +1865,9 @@ uint8_t * PMD::SetEndOfLoopCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command ':': Exit Loop
+/// <summary>
+/// Command ':': Exit Loop
+/// </summary>
 uint8_t * PMD::ExitLoopCommand(Channel * channel, uint8_t * si)
 {
     uint8_t * Data = (channel == &_EffectChannels) ? _State.EData : _State.MData;
@@ -2078,6 +1904,9 @@ uint8_t * PMD::SetModulation(Channel * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+/// 
+/// </summary>
 uint8_t * PMD::SetMDepthCountCommand(Channel * channel, uint8_t * si)
 {
     int al = *si++;
@@ -2286,7 +2115,6 @@ void PMD::CalculatePortamento(Channel * channel)
 /// <summary>
 /// Gets a random number.
 /// </summary>
-/// <param name="ax">MAX_RANDOM</param>
 int PMD::rnd(int ax)
 {
     _Seed = (259 * _Seed + 3) & 0x7fff;

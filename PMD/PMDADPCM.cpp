@@ -183,7 +183,9 @@ void PMD::ADPCMMain(Channel * channel)
 
 uint8_t * PMD::ExecuteADPCMCommand(Channel * channel, uint8_t * si)
 {
-    uint8_t Command = *si++;
+    const uint8_t Command = *si++;
+
+//  console::printf("PCM: %02X", Command);
 
     switch (Command)
     {

@@ -211,7 +211,9 @@ void PMD::FMMain(Channel * channel)
 
 uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
 {
-    uint8_t Command = *si++;
+    const uint8_t Command = *si++;
+
+//  console::printf("FM : %02X", Command);
 
     switch (Command)
     {

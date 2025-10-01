@@ -176,6 +176,8 @@ uint8_t * PMD::ExecuteP86Command(Channel * channel, uint8_t * si)
 {
     uint8_t Command = *si++;
 
+//  console::printf("P86: %02X", Command);
+
     switch (Command)
     {
         case 0xFF:
