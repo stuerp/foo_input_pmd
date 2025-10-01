@@ -1,9 +1,7 @@
 
 // $VER: File.cpp (2023.10.08) P. Stuer - File manipulation
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include <pch.h>
 
 #include "File.h"
 

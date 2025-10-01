@@ -1,19 +1,14 @@
 
 // $VER: PMDSSG.cpp (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include <pch.h>
 
 #include "PMD.h"
 
 #include "Utility.h"
-#include "Table.h"
+#include "Tables.h"
 
 #include "OPNAW.h"
-#include "PPZ.h"
-#include "PPS.h"
-#include "P86.h"
 
 void PMD::SSGMain(Channel * channel)
 {
@@ -1013,8 +1008,8 @@ uint8_t * PMD::DecreaseSSGVolumeCommand(Channel *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
-    if (al)
-        _State.SSGVolumeAdjust = Limit(al + _State.SSGVolumeAdjust, 255, 0);
+    if (al != 0)
+        _State.SSGVolumeAdjust = std::clamp(al + _State.SSGVolumeAdjust, 0, 255);
     else
         _State.SSGVolumeAdjust = _State.DefaultSSGVolumeAdjust;
 

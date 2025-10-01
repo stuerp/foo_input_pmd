@@ -36,6 +36,8 @@ struct PPSHEADER
 
 const size_t PPSHEADERSIZE = (sizeof(uint16_t) * 2 + sizeof(uint8_t) * 2) * MAX_PPS;
 
+#pragma warning(disable: 4820) // 'x' bytes padding added after data member 'y'
+
 /// <summary>
 /// PCM driver for the SSG (Software-controlled Sound Generator)
 /// 4-bit 16000Hz PCM playback on the SSG Channel 3. It can also play 2 samples simultanelously, but at a lower quality.

@@ -1,17 +1,7 @@
 
 /** $VER: PPZ.cpp (2023.10.22) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#define _CRT_SECURE_NO_WARNINGS
-
-#include <Windows.h>
-#include <tchar.h>
-
-#include <stdlib.h>
-#include <math.h>
+#include <pch.h>
 
 #include "PPZ.h"
 
@@ -57,51 +47,51 @@ void PPZDriver::Play(size_t ch, int bankNumber, int sampleNumber, uint16_t start
 {
     PPZBank& pb = _PPZBank[bankNumber];
 
-    if ((ch >= _countof(_Channel)) || pb.IsEmpty())
+    if ((ch >= _countof(_Channels)) || pb.IsEmpty())
         return;
 
-    _Channel[ch].IsPVI = pb._IsPVI;
-    _Channel[ch].IsPlaying = true;
-    _Channel[ch].SampleNumber = sampleNumber;
-    _Channel[ch].PCMStartL = 0;
+    _Channels[ch].IsPVI = pb._IsPVI;
+    _Channels[ch].IsPlaying = true;
+    _Channels[ch].SampleNumber = sampleNumber;
+    _Channels[ch].PCMStartL = 0;
 
     if ((ch == 7) && _EmulateADPCM)
     {
-        _Channel[ch].PCMStartH     = &pb._Data[Clamp(((int) start)    * 64, 0, pb._Size - 1)];
-        _Channel[ch].PCMEndRounded = &pb._Data[Clamp(((int) stop - 1) * 64, 0, pb._Size - 1)];
-        _Channel[ch].PCMEnd        = _Channel[ch].PCMEndRounded;
+        _Channels[ch].PCMStartH     = &pb._Data[Clamp(((int) start)    * 64, 0, pb._Size - 1)];
+        _Channels[ch].PCMEndRounded = &pb._Data[Clamp(((int) stop - 1) * 64, 0, pb._Size - 1)];
+        _Channels[ch].PCMEnd        = _Channels[ch].PCMEndRounded;
     }
     else
     {
         PZIITEM& pi = pb._PZIHeader.PZIItem[sampleNumber];
 
-        _Channel[ch].PCMStartH     = &pb._Data[pi.Start];
-        _Channel[ch].PCMEndRounded = &pb._Data[pi.Start + pi.Size];
+        _Channels[ch].PCMStartH     = &pb._Data[pi.Start];
+        _Channels[ch].PCMEndRounded = &pb._Data[pi.Start + pi.Size];
 
-        if (_Channel[ch].HasLoop)
+        if (_Channels[ch].HasLoop)
         {
-            if (_Channel[ch].LoopStartOffset < pi.Size)
-                _Channel[ch].PCMLoopStart = &pb._Data[pi.Start + _Channel[ch].LoopStartOffset];
+            if (_Channels[ch].LoopStartOffset < pi.Size)
+                _Channels[ch].PCMLoopStart = &pb._Data[pi.Start + _Channels[ch].LoopStartOffset];
             else
-                _Channel[ch].PCMLoopStart = &pb._Data[pi.Start + pi.Size - 1];
+                _Channels[ch].PCMLoopStart = &pb._Data[pi.Start + pi.Size - 1];
 
-            if (_Channel[ch].LoopEndOffset < pi.Size)
-                _Channel[ch].PCMEnd = &pb._Data[pi.Start + _Channel[ch].LoopEndOffset];
+            if (_Channels[ch].LoopEndOffset < pi.Size)
+                _Channels[ch].PCMEnd = &pb._Data[pi.Start + _Channels[ch].LoopEndOffset];
             else
-                _Channel[ch].PCMEnd = &pb._Data[pi.Start + pi.Size];
+                _Channels[ch].PCMEnd = &pb._Data[pi.Start + pi.Size];
         }
         else
-            _Channel[ch].PCMEnd = _Channel[ch].PCMEndRounded;
+            _Channels[ch].PCMEnd = _Channels[ch].PCMEndRounded;
     }
 }
 
 // 02H Stop PCM
 void PPZDriver::Stop(size_t ch)
 {
-    if (ch >= _countof(_Channel))
+    if (ch >= _countof(_Channels))
         return;
 
-    _Channel[ch].IsPlaying = false;
+    _Channels[ch].IsPlaying = false;
 }
 
 // 03H Read PVI/PZI file
@@ -178,7 +168,7 @@ int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
             return PPZ_UNKNOWN_FORMAT;
         }
 
-        ::strncpy(PZIHeader.ID, "PZI1", 4);
+        ::strncpy_s(PZIHeader.ID, "PZI1", 4);
 
         int PVISize = 0;
 
@@ -299,19 +289,19 @@ int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
 // 07H Volume
 void PPZDriver::SetVolume(size_t ch, int volume)
 {
-    if (ch >= _countof(_Channel))
+    if (ch >= _countof(_Channels))
         return;
 
     if ((ch == 7) && _EmulateADPCM)
-        _Channel[ch].Volume = ADPCMEmulationVolume[volume & 0xFF];
+        _Channels[ch].Volume = ADPCMEmulationVolume[volume & 0xFF];
     else
-        _Channel[ch].Volume = volume;
+        _Channels[ch].Volume = volume;
 }
 
 // 0BH Pitch Frequency
 void PPZDriver::SetPitch(size_t ch, uint32_t pitch)
 {
-    if (ch >= _countof(_Channel))
+    if (ch >= _countof(_Channels))
         return;
 
     if ((ch == 7) && _EmulateADPCM)
@@ -322,36 +312,36 @@ void PPZDriver::SetPitch(size_t ch, uint32_t pitch)
 
     _Channel[ch].PCMAddH = (int) ((((int64_t) AddsH << 16) + AddsL) * 2 * _Channel[ch].SourceFrequency / _OutputFrequency);
 */
-    _Channel[ch].PCMAddH = (int) (sizeof(int16_t) * (int64_t) pitch * _Channel[ch].SourceFrequency / _SampleRate);
+    _Channels[ch].PCMAddH = (int) (sizeof(int16_t) * (int64_t) pitch * _Channels[ch].SourceFrequency / _SampleRate);
 
-    _Channel[ch].PCMAddL = _Channel[ch].PCMAddH & 0xFFFF;
-    _Channel[ch].PCMAddH = _Channel[ch].PCMAddH >> 16;
+    _Channels[ch].PCMAddL = _Channels[ch].PCMAddH & 0xFFFF;
+    _Channels[ch].PCMAddH = _Channels[ch].PCMAddH >> 16;
 }
 
 // 0EH Set loop pointer
 void PPZDriver::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber)
 {
-    if ((ch >= _countof(_Channel)) || (bankNumber > 1) || (sampleNumber > 127))
+    if ((ch >= _countof(_Channels)) || (bankNumber > 1) || (sampleNumber > 127))
         return;
 
     const PZIITEM& pi = _PPZBank[bankNumber]._PZIHeader.PZIItem[sampleNumber];
 
     if ((pi.LoopStart != ~0U) && (pi.LoopStart < pi.LoopEnd))
     {
-        _Channel[ch].HasLoop = true;
-        _Channel[ch].LoopStartOffset = pi.LoopStart;
-        _Channel[ch].LoopEndOffset = pi.LoopEnd;
+        _Channels[ch].HasLoop = true;
+        _Channels[ch].LoopStartOffset = pi.LoopStart;
+        _Channels[ch].LoopEndOffset = pi.LoopEnd;
     }
     else
     {
-        _Channel[ch].HasLoop = false;
-        _Channel[ch].PCMEnd = _Channel[ch].PCMEndRounded;
+        _Channels[ch].HasLoop = false;
+        _Channels[ch].PCMEnd = _Channels[ch].PCMEndRounded;
     }
 }
 
 void PPZDriver::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber, int loopStart, int loopEnd)
 {
-    if ((ch >= _countof(_Channel)) || (bankNumber > 1) || (sampleNumber > 127))
+    if ((ch >= _countof(_Channels)) || (bankNumber > 1) || (sampleNumber > 127))
         return;
 
     const PZIITEM& pi = _PPZBank[bankNumber]._PZIHeader.PZIItem[sampleNumber];
@@ -364,21 +354,21 @@ void PPZDriver::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber, int l
 
     if (loopStart < loopEnd)
     {
-        _Channel[ch].HasLoop = true;
-        _Channel[ch].LoopStartOffset = (uint32_t) loopStart;
-        _Channel[ch].LoopEndOffset = (uint32_t) loopEnd;
+        _Channels[ch].HasLoop = true;
+        _Channels[ch].LoopStartOffset = (uint32_t) loopStart;
+        _Channels[ch].LoopEndOffset = (uint32_t) loopEnd;
     }
     else
     {
-        _Channel[ch].HasLoop = false;
-        _Channel[ch].PCMEnd = _Channel[ch].PCMEndRounded;
+        _Channels[ch].HasLoop = false;
+        _Channels[ch].PCMEnd = _Channels[ch].PCMEndRounded;
     }
 }
 
 // 12H Stop all channels.
 void PPZDriver::AllStop()
 {
-    for (size_t i = 0; i < _countof(_Channel); ++i)
+    for (size_t i = 0; i < _countof(_Channels); ++i)
         Stop(i);
 }
 
@@ -387,13 +377,13 @@ void PPZDriver::SetPan(size_t ch, int value)
 {
     static const int PanValues[4] = { 0, 9, 1, 5 }; // { Left, Right, Leftwards, Rightwards }
 
-    if (ch >= _countof(_Channel))
+    if (ch >= _countof(_Channels))
         return;
 
     if ((ch == 7) && _EmulateADPCM)
-        _Channel[ch].PanValue = PanValues[value & 3];
+        _Channels[ch].PanValue = PanValues[value & 3];
     else
-        _Channel[ch].PanValue = value;
+        _Channels[ch].PanValue = value;
 }
 
 // 14H Sets the output sample rate.
@@ -406,10 +396,10 @@ void PPZDriver::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 // 15H Sets the original sample rate.
 void PPZDriver::SetSourceFrequency(size_t ch, int sourceFrequency)
 {
-    if (ch >= _countof(_Channel))
+    if (ch >= _countof(_Channels))
         return;
 
-    _Channel[ch].SourceFrequency = sourceFrequency;
+    _Channels[ch].SourceFrequency = sourceFrequency;
 }
 
 // 16H Set the overal volume（86B Mixer)
@@ -447,39 +437,39 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
     Sample * di;
     Sample  bx;
 
-    for (int i = 0; i < _countof(_Channel); ++i)
+    for (auto & Channel : _Channels)
     {
         if (_PCMVolume == 0)
             break;
 
-        if (!_Channel[i].IsPlaying)
+        if (!Channel.IsPlaying)
             continue;
 
-        if (_Channel[i].Volume == 0)
+        if (Channel.Volume == 0)
         {
             // Update the position in the sample buffer.
-            _Channel[i].PCMStartL += (int) (_Channel[i].PCMAddL * sampleCount);
-            _Channel[i].PCMStartH +=        _Channel[i].PCMAddH * sampleCount + _Channel[i].PCMStartL / 0x10000;
-            _Channel[i].PCMStartL %= 0x10000;
+            Channel.PCMStartL += (int) (Channel.PCMAddL * sampleCount);
+            Channel.PCMStartH +=        Channel.PCMAddH * sampleCount + Channel.PCMStartL / 0x10000;
+            Channel.PCMStartL %= 0x10000;
 
-            while (_Channel[i].PCMStartH >= _Channel[i].PCMEnd - 1)
+            while (Channel.PCMStartH >= Channel.PCMEnd - 1)
             {
-                if (_Channel[i].HasLoop)
+                if (Channel.HasLoop)
                 {
-                    _Channel[i].PCMStartH -= (_Channel[i].PCMEnd - 1 - _Channel[i].PCMLoopStart);
+                    Channel.PCMStartH -= (Channel.PCMEnd - 1 - Channel.PCMLoopStart);
                 }
                 else
                 {
-                    _Channel[i].IsPlaying = false;
+                    Channel.IsPlaying = false;
                     break;
                 }
             }
             continue;
         }
 
-        if (_Channel[i].PanValue == 0)
+        if (Channel.PanValue == 0)
         {
-            _Channel[i].IsPlaying = false;
+            Channel.IsPlaying = false;
             continue;
         }
 
@@ -487,130 +477,130 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
         {
             di = sampleData;
 
-            switch (_Channel[i].PanValue)
+            switch (Channel.PanValue)
             {
                 case 1: // 1, 0
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+                        bx = (_VolumeTable[Channel.Volume][*Channel.PCMStartH] * (0x10000 - Channel.PCMStartL) + _VolumeTable[Channel.Volume][*(Channel.PCMStartH + 1)] * Channel.PCMStartL) >> 16;
 
                         *di++ += bx;
                          di++; // Only the left channel
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 2: // 1, 1/4
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+                        bx = (_VolumeTable[Channel.Volume][*Channel.PCMStartH] * (0x10000 - Channel.PCMStartL) + _VolumeTable[Channel.Volume][*(Channel.PCMStartH + 1)] * Channel.PCMStartL) >> 16;
 
                         *di++ += bx;
                         *di++ += bx / 4;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 3: // 1, 2/4
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+                        bx = (_VolumeTable[Channel.Volume][*Channel.PCMStartH] * (0x10000 - Channel.PCMStartL) + _VolumeTable[Channel.Volume][*(Channel.PCMStartH + 1)] * Channel.PCMStartL) >> 16;
 
                         *di++ += bx;
                         *di++ += bx / 2;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 4: // 1 ,3/4
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+                        bx = (_VolumeTable[Channel.Volume][*Channel.PCMStartH] * (0x10000 - Channel.PCMStartL) + _VolumeTable[Channel.Volume][*(Channel.PCMStartH + 1)] * Channel.PCMStartL) >> 16;
 
                         *di++ += bx;
                         *di++ += bx * 3 / 4;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 5: // 1 , 1
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+                        bx = (_VolumeTable[Channel.Volume][*Channel.PCMStartH] * (0x10000 - Channel.PCMStartL) + _VolumeTable[Channel.Volume][*(Channel.PCMStartH + 1)] * Channel.PCMStartL) >> 16;
 
                         *di++ += bx;
                         *di++ += bx;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 6: // 3/4, 1
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+                        bx = (_VolumeTable[Channel.Volume][*Channel.PCMStartH] * (0x10000 - Channel.PCMStartL) + _VolumeTable[Channel.Volume][*(Channel.PCMStartH + 1)] * Channel.PCMStartL) >> 16;
 
                         *di++ += bx * 3 / 4;
                         *di++ += bx;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 7:  // 2/4, 1
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+                        bx = (_VolumeTable[Channel.Volume][*Channel.PCMStartH] * (0x10000 - Channel.PCMStartL) + _VolumeTable[Channel.Volume][*(Channel.PCMStartH + 1)] * Channel.PCMStartL) >> 16;
 
                         *di++ += bx / 2;
                         *di++ += bx;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 8: // 1/4, 1
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+                        bx = (_VolumeTable[Channel.Volume][*Channel.PCMStartH] * (0x10000 - Channel.PCMStartL) + _VolumeTable[Channel.Volume][*(Channel.PCMStartH + 1)] * Channel.PCMStartL) >> 16;
 
                         *di++ += bx / 4;
                         *di++ += bx;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 9: // 0, 1
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = (_VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH] * (0x10000 - _Channel[i].PCMStartL) + _VolumeTable[_Channel[i].Volume][*(_Channel[i].PCMStartH + 1)] * _Channel[i].PCMStartL) >> 16;
+                        bx = (_VolumeTable[Channel.Volume][*Channel.PCMStartH] * (0x10000 - Channel.PCMStartL) + _VolumeTable[Channel.Volume][*(Channel.PCMStartH + 1)] * Channel.PCMStartL) >> 16;
 
                          di++; // Only the right channel
                         *di++ += bx;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
@@ -620,130 +610,130 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
         {
             di = sampleData;
 
-            switch (_Channel[i].PanValue)
+            switch (Channel.PanValue)
             {
                 case 1: // 1, 0
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+                        bx = _VolumeTable[Channel.Volume][*Channel.PCMStartH];
 
                         *di++ += bx;
                          di++; // Only the left channel
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 2: // 1, 1/4
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+                        bx = _VolumeTable[Channel.Volume][*Channel.PCMStartH];
 
                         *di++ += bx;
                         *di++ += bx / 4;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 3: // 1, 2/4
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+                        bx = _VolumeTable[Channel.Volume][*Channel.PCMStartH];
 
                         *di++ += bx;
                         *di++ += bx / 2;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 4: // 1, 3/4
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+                        bx = _VolumeTable[Channel.Volume][*Channel.PCMStartH];
 
                         *di++ += bx;
                         *di++ += bx * 3 / 4;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 5: // 1, 1
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+                        bx = _VolumeTable[Channel.Volume][*Channel.PCMStartH];
 
                         *di++ += bx;
                         *di++ += bx;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 6: // 3/4, 1
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+                        bx = _VolumeTable[Channel.Volume][*Channel.PCMStartH];
 
                         *di++ += bx * 3 / 4;
                         *di++ += bx;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 7: // 2/4, 1
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+                        bx = _VolumeTable[Channel.Volume][*Channel.PCMStartH];
 
                         *di++ += bx / 2;
                         *di++ += bx;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 8: // 1/4, 1
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+                        bx = _VolumeTable[Channel.Volume][*Channel.PCMStartH];
 
                         *di++ += bx / 4;
                         *di++ += bx;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
 
                 case 9: // 0, 1
                 {
-                    while (_Channel[i].IsPlaying && (di < &sampleData[sampleCount * 2]))
+                    while (Channel.IsPlaying && (di < &sampleData[sampleCount * 2]))
                     {
-                        bx = _VolumeTable[_Channel[i].Volume][*_Channel[i].PCMStartH];
+                        bx = _VolumeTable[Channel.Volume][*Channel.PCMStartH];
 
                          di++; // Only the right channel
                         *di++ += bx;
 
-                        MoveSamplePointer(i);
+                        MoveSamplePointer(Channel);
                     }
                     break;
                 }
@@ -752,37 +742,38 @@ void PPZDriver::Mix(Sample * sampleData, size_t sampleCount) noexcept
     }
 }
 
-void PPZDriver::MoveSamplePointer(int i) noexcept
+void PPZDriver::MoveSamplePointer(PPZChannel & channel) const noexcept
 {
-    _Channel[i].PCMStartH += _Channel[i].PCMAddH;
-    _Channel[i].PCMStartL += _Channel[i].PCMAddL;
+    channel.PCMStartH += channel.PCMAddH;
+    channel.PCMStartL += channel.PCMAddL;
 
-    if (_Channel[i].PCMStartL > 0xFFFF)
+    if (channel.PCMStartL > 0xFFFF)
     {
-        _Channel[i].PCMStartL -= 0x10000;
-        _Channel[i].PCMStartH++;
+        channel.PCMStartL -= 0x10000;
+        channel.PCMStartH++;
     }
 
-    if (_Channel[i].PCMStartH >= _Channel[i].PCMEnd - 1)
+    if (channel.PCMStartH >= channel.PCMEnd - 1)
     {
-        if (_Channel[i].HasLoop)
-            _Channel[i].PCMStartH = _Channel[i].PCMLoopStart;
+        if (channel.HasLoop)
+            channel.PCMStartH = channel.PCMLoopStart;
         else
-            _Channel[i].IsPlaying = false;
+            channel.IsPlaying = false;
     }
 }
 
 void PPZDriver::Initialize()
 {
-    ::memset(_Channel, 0, sizeof(_Channel));
-
-    for (size_t i = 0; i < _countof(_Channel); ++i)
+    for (auto & Channel : _Channels)
     {
-        _Channel[i].PCMAddH = 1;
-        _Channel[i].PCMAddL = 0;
-        _Channel[i].SourceFrequency = 16000; // in Hz
-        _Channel[i].PanValue = 5; // Pan Center
-        _Channel[i].Volume = 8; // Default volume
+        Channel =
+        {
+            .Volume          = 8,       // Default volume
+            .PanValue        = 5,       // Pan Center
+            .SourceFrequency = 16000,   // in Hz
+            .PCMAddL         = 0,
+            .PCMAddH         = 1,
+        };
     }
 
     _PPZBank[0].Reset();

@@ -13,11 +13,16 @@
 
 #include <WinSock2.h>
 #include <Windows.h>
+#include <winnls.h>
 
 #define FOOBAR2000_TARGET_VERSION 82
 
 #include <sdk/foobar2000-lite.h>
 
+#include <ctype.h>
+#include <malloc.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strsafe.h>
 

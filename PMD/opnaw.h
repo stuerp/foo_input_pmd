@@ -1,5 +1,5 @@
 
-/** $VER: OPNAW.h (2023.10.18) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: OPNAW.h (2025.10.01) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -37,7 +37,7 @@ public:
     void SetFMDelay(int nsec) noexcept;
     void SetSSGDelay(int nsec) noexcept;
     void SetADPCMDelay(int nsec) noexcept;
-    void SetRhythmDelay(int nsec) noexcept;
+    void SetRSSDelay(int nsec) noexcept;
 
     int GetFMDelay() const noexcept { return _FMDelay; }
     int GetSSGDelay() const noexcept { return _SSGDelay; }
@@ -54,11 +54,6 @@ private:
     void CalcWaitPCM(int waitcount);
 
     void MixInternal(Sample * sampleData, size_t sampleCount) noexcept;
-
-    inline int Limit(int value, int max, int min)
-    {
-        return (value > max) ? max : ((value < min) ? min : value);
-    }
 
     /// <summary>
     /// Normalized sinc function

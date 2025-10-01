@@ -1,19 +1,14 @@
 
 // $VER: PMDFM.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include <pch.h>
 
 #include "PMD.h"
 
 #include "Utility.h"
-#include "Table.h"
+#include "Tables.h"
 
 #include "OPNAW.h"
-#include "PPZ.h"
-#include "PPS.h"
-#include "P86.h"
 
 void PMD::FMMain(Channel * channel)
 {
@@ -632,7 +627,7 @@ void PMD::SetFMVolumeCommand(Channel * channel)
 
     int Volume = (channel->VolumeBoost) ? channel->VolumeBoost - 1 : channel->Volume;
 
-    if (channel != &_EffectChannel)
+    if (channel != &_EffectChannels)
     {
         // Calculates the effect of volume down.
         if (_State.FMVolumeAdjust != 0)
@@ -884,7 +879,7 @@ uint8_t * PMD::DecreaseFMVolumeCommand(Channel *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _State.FMVolumeAdjust = Limit(al + _State.FMVolumeAdjust, 255, 0);
+        _State.FMVolumeAdjust = std::clamp(al + _State.FMVolumeAdjust, 0, 255);
     else
         _State.FMVolumeAdjust = _State.DefaultFMVolumeAdjust;
 
@@ -1813,7 +1808,7 @@ uint8_t * PMD::GetFMInstrumentDefinition(Channel * channel, int instrumentNumber
 {
     if (_State.InstrumentDefinitions == nullptr)
     {
-        if (channel != &_EffectChannel)
+        if (channel != &_EffectChannels)
             return _State.VData + ((size_t) instrumentNumber << 5);
         else
             return _State.EData;
@@ -2079,8 +2074,8 @@ void PMD::CalcVolSlot(int dh, int dl, int al)
 /// </summary>
 void PMD::CalcFMLFO(Channel *, int al, int bl, uint8_t * vol_tbl)
 {
-    if (bl & 0x80) vol_tbl[0] = (uint8_t) Limit(vol_tbl[0] - al, 255, 0);
-    if (bl & 0x40) vol_tbl[1] = (uint8_t) Limit(vol_tbl[1] - al, 255, 0);
-    if (bl & 0x20) vol_tbl[2] = (uint8_t) Limit(vol_tbl[2] - al, 255, 0);
-    if (bl & 0x10) vol_tbl[3] = (uint8_t) Limit(vol_tbl[3] - al, 255, 0);
+    if (bl & 0x80) vol_tbl[0] = (uint8_t) std::clamp(vol_tbl[0] - al, 0, 255);
+    if (bl & 0x40) vol_tbl[1] = (uint8_t) std::clamp(vol_tbl[1] - al, 0, 255);
+    if (bl & 0x20) vol_tbl[2] = (uint8_t) std::clamp(vol_tbl[2] - al, 0, 255);
+    if (bl & 0x10) vol_tbl[3] = (uint8_t) std::clamp(vol_tbl[3] - al, 0, 255);
 }

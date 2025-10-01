@@ -1,15 +1,7 @@
 
 // PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#include <Windows.h>
-#include <tchar.h>
-
-#include <stdlib.h>
-#include <math.h>
+#include <pch.h>
 
 #include "PPS.h"
 

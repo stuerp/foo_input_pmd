@@ -1,11 +1,9 @@
 
 // Professional Music Driver [P.M.D.] version 4.8 Constant Tables / Programmed By M. Kajihara / Windows Converted by C60
 
-#include <CppCoreCheck/Warnings.h>
+#include <pch.h>
 
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#include "table.h"
+#include "Tables.h"
 
 const int ChannelTable[][3] =
 {

@@ -1,15 +1,7 @@
 
 // PMD's internal 86PCM driver for the PC-98's 86 soundboard / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#include <windows.h>
-#include <tchar.h>
-
-#include <stdlib.h>
-#include <math.h>
+#include <pch.h>
 
 #include "P86.h"
 

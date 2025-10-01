@@ -39,7 +39,6 @@ public:
     
     bool Initialize(uint32_t clock, uint32_t outputFrequency, const WCHAR * directoryPath) noexcept;
     void Initialize(uint32_t clock, uint32_t outputFrequency) noexcept;
-//  void SetOutputFrequency(uint32_t outputFrequency) noexcept;
 
     bool LoadInstruments(const WCHAR *);
     bool HasADPCMROM() const noexcept { return _HasADPCMROM; }
@@ -107,7 +106,7 @@ protected:
     bool _HasADPCMROM;
 
 protected:
-    #pragma region ymfm_interface
+    #pragma region YMFM Interface
 
     virtual void generate(emulated_time output_start, emulated_time output_step, int32_t * buffer);
     
@@ -124,16 +123,16 @@ protected:
     #pragma endregion
 
 protected:
-    #pragma region ymfm_interface
+    #pragma region YMFM Interface
 
-    emulated_time output_step;
-    emulated_time output_pos;
+    emulated_time _OutputStep;
+    emulated_time _OutputPosition;
     
     // Timer A and B
     emulated_time _TimerPeriod[2];
     emulated_time _TimerCounter[2];
 
-    uint8_t reg27;
+    uint8_t _Reg27;
 
     #pragma endregion
 
@@ -141,7 +140,7 @@ private:
     void DeleteInstruments() noexcept;
 
 private:
-    #pragma region ymfm_interface
+    #pragma region YMFM Interface
 
     std::vector<uint8_t> _Data[ymfm::ACCESS_CLASSES];
 
@@ -157,8 +156,3 @@ private:
 
     #pragma endregion
 };
-
-inline int Limit(int value, int max, int min)
-{
-    return ymfm::clamp(value, min, max);
-}

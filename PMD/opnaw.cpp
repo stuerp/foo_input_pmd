@@ -29,7 +29,7 @@ void OPNAW::Initialize(uint32_t clockSpeed, uint32_t sampleRate, bool useInterpo
 
     SetFMDelay(_FMDelay);
     SetSSGDelay(_SSGDelay);
-    SetRhythmDelay(_RSSDelay);
+    SetRSSDelay(_RSSDelay);
     SetADPCMDelay(_ADPCMDelay);
 }
 
@@ -63,7 +63,7 @@ void OPNAW::SetADPCMDelay(int ns) noexcept
 /// <summary>
 /// Sets the Rhythm delay.
 /// </summary>
-void OPNAW::SetRhythmDelay(int ns) noexcept
+void OPNAW::SetRSSDelay(int ns) noexcept
 {
     _RSSDelay      = ns;
     _RSSDelayCount = (int) (ns * _SampleRate / 1000000);
@@ -113,23 +113,25 @@ void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
 
             if ((Rest + SINC_INTERPOLATION_SAMPLE_COUNT) > _DstIndex)
             {
-                size_t nrefill = (size_t) (_Rest + (double) (sampleCount - i - 1) * ((double) FREQUENCY_55_4K / _SampleRate)) + SINC_INTERPOLATION_SAMPLE_COUNT - _DstIndex;
+                size_t Refill = (size_t) (_Rest + (double) (sampleCount - i - 1) * ((double) FREQUENCY_55_4K / _SampleRate)) + SINC_INTERPOLATION_SAMPLE_COUNT - _DstIndex;
 
-                if (_DstIndex + nrefill - DST_PCM_BUFFER_SIZE > Rest)
-                    nrefill = (size_t) Rest + DST_PCM_BUFFER_SIZE - _DstIndex;
+                if (_DstIndex + Refill - DST_PCM_BUFFER_SIZE > Rest)
+                    Refill = (size_t) Rest + DST_PCM_BUFFER_SIZE - _DstIndex;
 
                 // Replenishment
-                size_t nrefill1 = (std::min)((size_t) DST_PCM_BUFFER_SIZE - (_DstIndex % DST_PCM_BUFFER_SIZE), nrefill);
+                size_t Refill1 = (std::min)((size_t) DST_PCM_BUFFER_SIZE - (_DstIndex % DST_PCM_BUFFER_SIZE), Refill);
 
-                ::memset(&_DstBuffer[(_DstIndex % DST_PCM_BUFFER_SIZE) * 2], 0, sizeof(Sample) * 2 * nrefill1);
-                MixInternal(&_DstBuffer[(_DstIndex % DST_PCM_BUFFER_SIZE) * 2], nrefill1);
+                auto Samples = &_DstBuffer[(_DstIndex % DST_PCM_BUFFER_SIZE) * 2];
 
-                size_t nrefill2 = nrefill - nrefill1;
+                ::memset(Samples, 0, sizeof(Sample) * 2 * Refill1);
+                MixInternal(Samples, Refill1);
 
-                ::memset(_DstBuffer, 0, sizeof(Sample) * 2 * nrefill2);
-                MixInternal(_DstBuffer, nrefill2);
+                size_t Refill2 = Refill - Refill1;
 
-                _DstIndex += nrefill;
+                ::memset(_DstBuffer, 0, sizeof(Sample) * 2 * Refill2);
+                MixInternal(_DstBuffer, Refill2);
+
+                _DstIndex += Refill;
             }
 
             {
@@ -144,8 +146,8 @@ void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
                     tempR += Factor * _DstBuffer[(j % DST_PCM_BUFFER_SIZE) * 2 + 1];
                 }
 
-                *sampleData++ += Limit((int) tempL, 32767, -32768);
-                *sampleData++ += Limit((int) tempR, 32767, -32768);
+                *sampleData++ += std::clamp((int) tempL, -32768, 32767);
+                *sampleData++ += std::clamp((int) tempR, -32768, 32767);
             }
 
             _Rest += (double) FREQUENCY_55_4K / _SampleRate;
@@ -229,7 +231,7 @@ void OPNAW::MixInternal(Sample * sampleData, size_t sampleCount) noexcept
 {
     if (_SrcReadIndex != _SrcWriteIndex)
     {
-        size_t MaxSamplesToDo = (_SrcReadIndex < _SrcWriteIndex) ? _SrcWriteIndex - _SrcReadIndex : _SrcWriteIndex - _SrcReadIndex + SRC_PCM_BUFFER_SIZE;
+        size_t MaxSamplesToDo = (_SrcReadIndex < _SrcWriteIndex) ? _SrcWriteIndex - _SrcReadIndex : (_SrcWriteIndex + SRC_PCM_BUFFER_SIZE) - _SrcReadIndex;
 
         if (MaxSamplesToDo > sampleCount)
             MaxSamplesToDo = sampleCount;
@@ -254,4 +256,5 @@ void OPNAW::MixInternal(Sample * sampleData, size_t sampleCount) noexcept
 
     OPNA::Mix(sampleData, sampleCount);
 }
+
 #pragma endregion

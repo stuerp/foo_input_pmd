@@ -1,19 +1,14 @@
 
 // $VER: PMDP86.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include <pch.h>
 
 #include "PMD.h"
 
 #include "Utility.h"
-#include "Table.h"
+#include "Tables.h"
 
 #include "OPNAW.h"
-#include "PPZ.h"
-#include "PPS.h"
-#include "P86.h"
 
 void PMD::P86Main(Channel * channel)
 {
@@ -606,11 +601,11 @@ void PMD::SetP86Pitch(Channel * channel)
     if (channel->Factor == 0)
         return;
 
-    int SampleRateIndex = (int) ((channel->Factor & 0x0e00000) >> (16 + 5));
-    int Pitch           = (int) ( channel->Factor & 0x01fffff);
+    int SampleRateIndex = (int) ((channel->Factor & 0x0E00000) >> (16 + 5));
+    int Pitch           = (int) ( channel->Factor & 0x01FFFFF);
 
     if (!_State.PMDB2CompatibilityMode && (channel->DetuneValue != 0))
-        Pitch = Limit((Pitch >> 5) + channel->DetuneValue, 65535, 1) << 5;
+        Pitch = std::clamp((Pitch >> 5) + channel->DetuneValue, 1, 65535) << 5;
 
     _P86->SetPitch(SampleRateIndex, (uint32_t) Pitch);
 }

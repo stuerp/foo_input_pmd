@@ -57,6 +57,8 @@ const int SampleRates[] =
     4135, 5513, 8270, 11025, 16540, 22050, 33080, 44100
 };
 
+#pragma warning(disable: 4820) // 'x' bytes padding added after data member 'y'
+
 /// <summary>
 /// Implements PMD's internal 86PCM driver.
 /// It replaces the ADPCM channel with 8-bit sample playback. Its stereo capabilities also adds a new functionality to panning.

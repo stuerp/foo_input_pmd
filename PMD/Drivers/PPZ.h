@@ -85,6 +85,8 @@ struct PVIHEADER
 };
 #pragma pack(pop)
 
+#pragma warning(disable: 4820) // 'x' bytes padding added after data member 'y'
+
 /// <summary>
 /// Represents a bank of PPZ samples.
 /// </summary>
@@ -127,6 +129,8 @@ public:
     bool _IsPVI;
 };
 
+#pragma warning(disable: 4820) // 'x' bytes padding added after data member 'y'
+
 /// <summary>
 /// Implements a driver that synthesizes up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit aside from the user's PC98 setup.
 /// It supports 2 kinds of PCM banks: .PVI and .PZI
@@ -163,7 +167,7 @@ public:
     PPZBank _PPZBank[2];
 
 private:
-    void MoveSamplePointer(int i) noexcept;
+    void MoveSamplePointer(PPZChannel & channel) const noexcept;
 
     void Initialize();
 
@@ -182,7 +186,7 @@ private:
     bool _EmulateADPCM; // Should channel 8 emulate ADPCM?
     bool _UseInterpolation;
 
-    PPZChannel _Channel[MaxPPZChannels];
+    PPZChannel _Channels[MaxPPZChannels];
 
     int _PCMVolume; // Overall 86B Mixer volume
     int _Volume;

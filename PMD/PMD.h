@@ -1,17 +1,19 @@
 
-/** $VER: PMD.h (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: PMD.h (2025.10.01) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
 #include <pch.h>
 
 #include "OPNAW.h"
-#include "PPS.h"
-#include "PPZ.h"
-#include "P86.h"
+
+#include "Drivers\Driver.h"
+
+#include "Drivers\PPS.h"
+#include "Drivers\PPZ.h"
+#include "Drivers\P86.h"
 
 #include "State.h"
-#include "Driver.h"
 #include "Effect.h"
 
 typedef int Sample;
@@ -55,8 +57,8 @@ public:
     uint32_t GetLoopNumber();
 
     bool GetLength(int * songLength, int * loopLength, int * tickCount, int * loopTickCount);
-    bool GetLength(int * songlength, int * loopLength);
-    bool GetLengthInTicks(int * tickCount, int * loopTickCount);
+//  bool GetLength(int * songlength, int * loopLength);
+//  bool GetLengthInTicks(int * tickCount, int * loopTickCount);
 
     uint32_t GetPosition();
     void SetPosition(uint32_t position);
@@ -69,7 +71,7 @@ public:
     void SetSampleRate(uint32_t value) noexcept;
     void SetFMInterpolation(bool flag);
 
-    void SetPPZOutputFrequency(uint32_t value) noexcept;
+    void SetPPZSampleRate(uint32_t value) noexcept;
     void SetPPZInterpolation(bool flag);
 
     void SetFadeOutSpeed(int speed);
@@ -472,11 +474,6 @@ private:
         *b = t;
     }
 
-    inline int Limit(int value, int max, int min) const noexcept
-    {
-        return value > max ? max : (value < min ? min : value);
-    }
-
 private:
     std::vector<std::wstring> _SearchPath;
 
@@ -494,11 +491,11 @@ private:
 
     Channel _FMChannels[MaxFMChannels];
     Channel _SSGChannels[MaxSSGChannels];
-    Channel _ADPCMChannel;
-    Channel _RhythmChannel;
+    Channel _ADPCMChannels;
+    Channel _RhythmChannels;
     Channel _FMExtensionChannels[MaxFMExtensionChannels];
-    Channel _DummyChannel;
-    Channel _EffectChannel;
+    Channel _DummyChannels;
+    Channel _EffectChannels;
     Channel _PPZChannels[MaxPPZChannels];
 
     static const size_t MaxSamples = 30000;
