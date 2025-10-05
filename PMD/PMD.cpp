@@ -2491,12 +2491,15 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
     if (size < 0x10)
         return ERR_UNKNOWN_FORMAT;
 
+    const size_t PVIIdentifierSize = sizeof(PVIIdentifier) - 1; // Don't count the terminating zero.
+    const size_t PPCIdentifierSize = sizeof(PPCIdentifier) - 1; // Don't count the terminating zero.
+
     bool FoundPVI;
 
     int i;
     int bx = 0;
 
-    if ((::strncmp((char *) data, PVIHeader, sizeof(PVIHeader) - 1) == 0) && (data[10] == 2))
+    if ((::memcmp((char *) data, PVIIdentifier, PVIIdentifierSize) == 0) && (data[10] == 2))
     {   // PVI, x8
         FoundPVI = true;
 
@@ -2528,14 +2531,14 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
         _SampleBank.Count = (uint16_t) bx;
     }
     else
-    if (::strncmp((char *) data, PPCHeader, sizeof(PPCHeader) - 1) == 0)
+    if (::memcmp((char *) data, PPCIdentifier, PPCIdentifierSize) == 0)
     {   // PPC
         FoundPVI = false;
 
-        if (size < (int) (sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256)))
+        if (size < (int) (PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256)))
             return ERR_UNKNOWN_FORMAT;
 
-        uint16_t * Data = (uint16_t *)(data + (sizeof(PPCHeader) - 1));
+        uint16_t * Data = (uint16_t *)(data + PPCIdentifierSize);
 
         _SampleBank.Count = *Data++;
 
@@ -2554,16 +2557,16 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
         // Compare the data with the PCMRAM header.
         ReadPCMData(0, 0x25, Data);
 
-        if (::memcmp(Data + sizeof(PPCHeader), &_SampleBank, sizeof(_SampleBank)) == 0)
+        if (::memcmp(Data + PPCIdentifierSize, &_SampleBank, sizeof(_SampleBank)) == 0)
             return ERR_ALREADY_LOADED;
     }
 
     {
-        uint8_t Data[sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256) + 128];
+        uint8_t Data[PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256) + 128];
 
-        // Compare the data with the PCMRAM header.
-        ::memcpy(Data, PPCHeader, sizeof(PPCHeader) - 1);
-        ::memcpy(Data + (sizeof(PPCHeader) - 1), &_SampleBank.Count, sizeof(Data) - (sizeof(PPCHeader) - 1));
+        // Write the PCM data.
+        ::memcpy(Data,                     PPCIdentifier,      PPCIdentifierSize);
+        ::memcpy(Data + PPCIdentifierSize, &_SampleBank.Count, sizeof(Data) - PPCIdentifierSize);
 
         WritePCMData(0, 0x25, Data);
     }
@@ -2581,9 +2584,9 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
         }
         else
         {
-            Data = (uint16_t *)(data + sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256));
+            Data = (uint16_t *)(data + PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256));
 
-            if (size < (int)(_SampleBank.Count - (sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256) / 2) * 32))
+            if (size < (int)(_SampleBank.Count - (PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256) / 2) * 32))
                 return ERR_UNKNOWN_FORMAT;
         }
 

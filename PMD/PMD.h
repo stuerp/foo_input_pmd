@@ -27,8 +27,8 @@ struct SampleBank
 };
 #pragma pack(pop)
 
-#define	PVIHeader   "PVI2"
-#define	PPCHeader   "ADPCM DATA for  PMD ver.4.4-  "
+#define	PVIIdentifier   "PVI2"
+#define	PPCIdentifier   "ADPCM DATA for  PMD ver.4.4-  "
 
 #define MaxParts    12
 

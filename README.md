@@ -115,6 +115,7 @@ branch. Pull requests are warmly welcome.
 v0.x.x, 202x-xx-xx
 
 * Fixed: Preferences dialog should adapt to High DPI settings now.
+* Fixed: Buffer overrun in PCM loader.
 
 v0.4.1, 2023-11-12, *"Release name missing in action"*
 

@@ -212,14 +212,14 @@ public:
 
         // Fill the audio chunk.
         {
-            const size_t SamplesToRender = _Decoder->GetBlockSize();
+            const size_t FramesToRender = _Decoder->GetBlockSize();
 
-            size_t SamplesRendered =_Decoder->Render(audioChunk, SamplesToRender);
+            size_t FramesRendered = _Decoder->Render(audioChunk, FramesToRender);
 
-            if (SamplesRendered == 0)
+            if (FramesRendered == 0)
                 return false;
 
-            audioChunk.set_sample_count(SamplesRendered);
+            audioChunk.set_sample_count(FramesRendered);
         }
 
         return true;
