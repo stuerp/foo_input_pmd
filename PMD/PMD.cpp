@@ -1,5 +1,5 @@
 
-// $VER: PMD.cpp (2025.10.01) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMD.cpp (2025.10.05) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <pch.h>
 
@@ -2493,18 +2493,18 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
 
     const size_t PVIIdentifierSize = sizeof(PVIIdentifier) - 1; // Don't count the terminating zero.
     const size_t PPCIdentifierSize = sizeof(PPCIdentifier) - 1; // Don't count the terminating zero.
+    const size_t PPCSize           = PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256);
 
-    bool FoundPVI;
+    bool IsPVIData = false;
 
-    int i;
-    int bx = 0;
+    if ((::memcmp((char *) data, PVIIdentifier, PVIIdentifierSize) == 0) && (data[10] == 2)) // PVI
+    {
+        IsPVIData = true;
 
-    if ((::memcmp((char *) data, PVIIdentifier, PVIIdentifierSize) == 0) && (data[10] == 2))
-    {   // PVI, x8
-        FoundPVI = true;
+        int NumSamples = 0;
 
         // Convert from PVI to PMD format.
-        for (i = 0; i < 128; ++i)
+        for (int i = 0; i < 128; ++i)
         {
             if (*((uint16_t *) &data[18 + i * 4]) == 0)
             {
@@ -2517,32 +2517,30 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
                 _SampleBank.Address[i][1] = (uint16_t) (*(uint16_t *) &data[18 + i * 4] + 0x26);
             }
 
-            if (bx < _SampleBank.Address[i][1])
-                bx = _SampleBank.Address[i][1] + 1;
+            if (NumSamples < _SampleBank.Address[i][1])
+                NumSamples = _SampleBank.Address[i][1] + 1;
         }
 
-        // The remaining 128 are undefined
-        for (i = 128; i < 256; ++i)
+        // The remaining 128 bytes are undefined.
+        for (int i = 128; i < 256; ++i)
         { 
             _SampleBank.Address[i][0] = 0;
             _SampleBank.Address[i][1] = 0;
         }
 
-        _SampleBank.Count = (uint16_t) bx;
+        _SampleBank.Count = (uint16_t) NumSamples;
     }
     else
-    if (::memcmp((char *) data, PPCIdentifier, PPCIdentifierSize) == 0)
-    {   // PPC
-        FoundPVI = false;
-
-        if (size < (int) (PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256)))
+    if (::memcmp((char *) data, PPCIdentifier, PPCIdentifierSize) == 0) // PPC
+    {
+        if (size < (int) PPCSize)
             return ERR_UNKNOWN_FORMAT;
 
         uint16_t * Data = (uint16_t *)(data + PPCIdentifierSize);
 
         _SampleBank.Count = *Data++;
 
-        for (i = 0; i < 256; ++i)
+        for (int i = 0; i < 256; ++i)
         {
             _SampleBank.Address[i][0] = *Data++;
             _SampleBank.Address[i][1] = *Data++;
@@ -2562,7 +2560,7 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
     }
 
     {
-        uint8_t Data[PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256) + 128];
+        uint8_t Data[PPCSize + 128];
 
         // Write the PCM data.
         ::memcpy(Data,                     PPCIdentifier,      PPCIdentifierSize);
@@ -2575,19 +2573,19 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
     {
         uint16_t * Data;
 
-        if (FoundPVI)
+        if (IsPVIData)
         {
-            Data = (uint16_t *)(data + 0x10 + (sizeof(uint16_t) * 2 * 128));
-
             if (size < (int)(_SampleBank.Count - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
                 return ERR_UNKNOWN_FORMAT;
+
+            Data = (uint16_t *)(data + 0x10 + (sizeof(uint16_t) * 2 * 128));
         }
         else
         {
-            Data = (uint16_t *)(data + PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256));
-
-            if (size < (int)(_SampleBank.Count - (PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256) / 2) * 32))
+            if (size < (int)(_SampleBank.Count - (PPCSize / 2) * 32))
                 return ERR_UNKNOWN_FORMAT;
+
+            Data = (uint16_t *)(data + PPCSize);
         }
 
         uint16_t pcmstart = 0x26;

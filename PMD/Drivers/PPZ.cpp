@@ -1,5 +1,5 @@
 
-/** $VER: PPZ.cpp (2023.10.22) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
+/** $VER: PPZ.cpp (2025.10.05) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
 
 #include <pch.h>
 
@@ -45,7 +45,7 @@ void PPZDriver::Initialize(uint32_t outputFrequency, bool useInterpolation)
 // 01H Start PCM
 void PPZDriver::Play(size_t ch, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop)
 {
-    PPZBank& pb = _PPZBank[bankNumber];
+    PPZBank & pb = _PPZBank[bankNumber];
 
     if ((ch >= _countof(_Channels)) || pb.IsEmpty())
         return;
@@ -109,13 +109,13 @@ int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
 
     int Size = (int) _File->GetFileSize(filePath);
 
-    PZIHEADER PZIHeader;
+    PZIHEADER PZIHeader = { };
 
     if (HasExtension(filePath, MAX_PATH, L".PZI"))
     {
         ReadHeader(_File, PZIHeader);
 
-        if (::strncmp(PZIHeader.ID, "PZI", 3) != 0)
+        if (::memcmp(PZIHeader.ID, "PZI", 3) != 0)
         {
             _File->Close();
 
@@ -157,42 +157,47 @@ int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
     }
     else
     {
-        PVIHEADER PVIHeader;
+        PVIHEADER PVIHeader = { };
 
         ReadHeader(_File, PVIHeader);
 
-        if (::strncmp(PVIHeader.ID, "PVI", 3))
+        if (::memcmp(PVIHeader.ID, "PVI", 3))
         {
             _File->Close();
 
             return PPZ_UNKNOWN_FORMAT;
         }
 
-        ::strncpy_s(PZIHeader.ID, "PZI1", 4);
-
+        // Convert PVI to PZI.
         int PVISize = 0;
 
-        for (int i = 0; i < PVIHeader.Count; ++i)
         {
-            PZIHeader.PZIItem[i].Start      = (uint32_t) ((                           PVIHeader.PVIItem[i].Start      << (5 + 1)));
-            PZIHeader.PZIItem[i].Size       = (uint32_t) ((PVIHeader.PVIItem[i].End - PVIHeader.PVIItem[i].Start + 1) << (5 + 1));
-            PZIHeader.PZIItem[i].LoopStart  = ~0U;
-            PZIHeader.PZIItem[i].LoopEnd    = ~0U;
-            PZIHeader.PZIItem[i].SampleRate = 16000; // 16kHz
+            ::memcpy(PZIHeader.ID, "PZI1", 4);
 
-            PVISize += PZIHeader.PZIItem[i].Size;
+            for (size_t i = 0; i < PVIHeader.Count; ++i)
+            {
+                PZIHeader.PZIItem[i].Start      = (uint32_t) ((                           PVIHeader.PVIItem[i].Start      << (5 + 1)));
+                PZIHeader.PZIItem[i].Size       = (uint32_t) ((PVIHeader.PVIItem[i].End - PVIHeader.PVIItem[i].Start + 1) << (5 + 1));
+                PZIHeader.PZIItem[i].LoopStart  = ~0U;
+                PZIHeader.PZIItem[i].LoopEnd    = ~0U;
+                PZIHeader.PZIItem[i].SampleRate = 16000; // 16kHz
+
+                PVISize += PZIHeader.PZIItem[i].Size;
+            }
+
+            PZIHeader.Count = PVIHeader.Count;
+
+            for (size_t i = PVIHeader.Count; i < _countof(PZIHeader.PZIItem); ++i)
+            {
+                PZIHeader.PZIItem[i].Start      = 0;
+                PZIHeader.PZIItem[i].Size       = 0;
+                PZIHeader.PZIItem[i].LoopStart  = ~0U;
+                PZIHeader.PZIItem[i].LoopEnd    = ~0U;
+                PZIHeader.PZIItem[i].SampleRate = 0;
+            }
         }
 
-        for (int i = PVIHeader.Count; i < 128; ++i)
-        {
-            PZIHeader.PZIItem[i].Start      = 0;
-            PZIHeader.PZIItem[i].Size       = 0;
-            PZIHeader.PZIItem[i].LoopStart  = ~0U;
-            PZIHeader.PZIItem[i].LoopEnd    = ~0U;
-            PZIHeader.PZIItem[i].SampleRate = 0;
-        }
-
-        if (::memcmp(&_PPZBank[bankNumber]._PZIHeader.PZIItem, &PZIHeader.PZIItem, sizeof(PZIHEADER) - 0x20) == 0)
+        if (::memcmp(&_PPZBank[bankNumber]._PZIHeader.PZIItem, &PZIHeader.PZIItem, sizeof(_PPZBank[bankNumber]._PZIHeader.PZIItem)) == 0)
         {
             _PPZBank[bankNumber]._FilePath = filePath;
 
@@ -203,78 +208,82 @@ int PPZDriver::Load(const WCHAR * filePath, size_t bankNumber)
 
         _PPZBank[bankNumber].Reset();
 
+        // Copy the sample descriptors.
         ::memcpy(&_PPZBank[bankNumber]._PZIHeader, &PZIHeader, sizeof(PZIHEADER));
 
-        Size -= sizeof(PVIHEADER);
-        PVISize /= 2;
-
-        size_t DstSize = (size_t) (std::max)(Size, PVISize) * 2;
-
-        uint8_t * DstData = (uint8_t *) ::malloc(DstSize);
-
-        if (DstData == nullptr)
+        // Convert the ADPCM samples to PCM.
         {
-            _File->Close();
+            Size -= sizeof(PVIHEADER);
+            PVISize /= 2;
 
-            return PPZ_OUT_OF_MEMORY;
-        }
+            size_t DstSize = (size_t) (std::max)(Size, PVISize) * 2;
 
-        ::memset(DstData, 0, DstSize);
+            uint8_t * DstData = (uint8_t *) ::malloc(DstSize);
 
-        _PPZBank[bankNumber]._Data = DstData;
-        _PPZBank[bankNumber]._Size = PVISize * 2;
-
-        {
-            static const int table1[16] =
-            {
-                  1,   3,   5,   7,   9,  11,  13,  15,
-                 -1,  -3,  -5,  -7,  -9, -11, -13, -15,
-            };
-
-            static const int table2[16] =
-            {
-                 57,  57,  57,  57,  77, 102, 128, 153,
-                 57,  57,  57,  57,  77, 102, 128, 153,
-            };
-
-            size_t SrcSize = (size_t) (std::max)(Size, PVISize);
-
-            uint8_t * psrc = (uint8_t *) ::malloc(SrcSize);
-
-            if (psrc == nullptr)
+            if (DstData == nullptr)
             {
                 _File->Close();
 
                 return PPZ_OUT_OF_MEMORY;
             }
 
-            ::memset(psrc, 0, SrcSize);
+            ::memset(DstData, 0, DstSize);
 
-            _File->Read(psrc, (uint32_t) Size);
+            _PPZBank[bankNumber]._Data = DstData;
+            _PPZBank[bankNumber]._Size = PVISize * 2;
 
-            uint8_t * psrc2 = psrc;
-
-            // Convert ADPCM to PCM.
-            for (size_t i = 0; i < PVIHeader.Count; ++i)
             {
-                int X_N     = X_N0;
-                int DELTA_N = DELTA_N0;
-
-                for (size_t j = 0; j < PZIHeader.PZIItem[i].Size / 2; ++j)
+                static const int table1[16] =
                 {
-                    X_N     = Clamp(X_N     + table1[(*psrc >> 4) & 0x0F] * DELTA_N /  8, -32768, 32767);
-                    DELTA_N = Clamp(DELTA_N * table2[(*psrc >> 4) & 0x0F]           / 64,    127, 24576);
+                      1,   3,   5,   7,   9,  11,  13,  15,
+                     -1,  -3,  -5,  -7,  -9, -11, -13, -15,
+                };
 
-                    *DstData++ = (uint8_t) (X_N / (32768 / 128) + 128);
+                static const int table2[16] =
+                {
+                     57,  57,  57,  57,  77, 102, 128, 153,
+                     57,  57,  57,  57,  77, 102, 128, 153,
+                };
 
-                    X_N     = Clamp(X_N     + table1[*psrc   & 0x0F] * DELTA_N /  8, -32768, 32767);
-                    DELTA_N = Clamp(DELTA_N * table2[*psrc++ & 0x0F]           / 64,    127, 24576);
+                size_t SrcSize = (size_t) (std::max)(Size, PVISize);
 
-                    *DstData++ = (uint8_t) (X_N / (32768 / 128) + 128);
+                uint8_t * psrc = (uint8_t *) ::malloc(SrcSize);
+
+                if (psrc == nullptr)
+                {
+                    _File->Close();
+
+                    return PPZ_OUT_OF_MEMORY;
                 }
-            }
 
-            ::free(psrc2);
+                ::memset(psrc, 0, SrcSize);
+
+                _File->Read(psrc, (uint32_t) Size);
+
+                uint8_t * psrc2 = psrc;
+
+                // Convert ADPCM to PCM.
+                for (size_t i = 0; i < PVIHeader.Count; ++i)
+                {
+                    int X_N     = X_N0;
+                    int DELTA_N = DELTA_N0;
+
+                    for (size_t j = 0; j < PZIHeader.PZIItem[i].Size / 2; ++j)
+                    {
+                        X_N     = Clamp(X_N     + table1[(*psrc >> 4) & 0x0F] * DELTA_N /  8, -32768, 32767);
+                        DELTA_N = Clamp(DELTA_N * table2[(*psrc >> 4) & 0x0F]           / 64,    127, 24576);
+
+                        *DstData++ = (uint8_t) (X_N / (32768 / 128) + 128);
+
+                        X_N     = Clamp(X_N     + table1[*psrc   & 0x0F] * DELTA_N /  8, -32768, 32767);
+                        DELTA_N = Clamp(DELTA_N * table2[*psrc++ & 0x0F]           / 64,    127, 24576);
+
+                        *DstData++ = (uint8_t) (X_N / (32768 / 128) + 128);
+                    }
+                }
+
+                ::free(psrc2);
+            }
         }
 
         _PPZBank[bankNumber]._FilePath = filePath;
@@ -850,8 +859,6 @@ void PPZDriver::ReadHeader(File * file, PVIHEADER & ph)
 
     for (int i = 0; i < 128; ++i)
     {
-        ph.PVIItem[i].Start = (uint16_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
-//FIXME: Why is startaddress overwritten here?
         ph.PVIItem[i].Start = (uint16_t) ((Data[0x10 + i * 4]) | (Data[0x11 + i * 4] << 8));
         ph.PVIItem[i].End   = (uint16_t) ((Data[0x12 + i * 4]) | (Data[0x13 + i * 4] << 8));
     }

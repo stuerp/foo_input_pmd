@@ -1,5 +1,5 @@
 
-/** $VER: PPZ.h (2023.10.18) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
+/** $VER: PPZ.h (2025.10.05) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
 
 #pragma once
 
@@ -64,8 +64,9 @@ struct PZIHEADER
 {
     char ID[4];                     // 'PZI1'
     char Dummy1[7];
-    uint8_t Count;                  // Number of PZI entries available
+    uint8_t Count;                  // Number of PZI entries used by the bank
     char Dummy2[22];
+
     PZIITEM PZIItem[128];
 };
 
@@ -78,9 +79,10 @@ struct PVIITEM
 struct PVIHEADER
 {
     char ID[4];                     // 'PVI2'
-    char Dummy1[0x0b - 4];
-    uint8_t Count;                  // Number of PVI entries available
-    char Dummy2[0x10 - 0x0b - 1];
+    char Dummy1[0x0B - 4];
+    uint8_t Count;                  // Number of PVI entries used by the bank
+    char Dummy2[0x10 - 0x0B - 1];
+
     PVIITEM PVIItem[128];
 };
 #pragma pack(pop)
