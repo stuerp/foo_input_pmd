@@ -1,5 +1,5 @@
 
-/** $VER: PMD.h (2025.10.01) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: PMD.h (2025.12.21) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -54,16 +54,16 @@ public:
 
     void Render(int16_t * sampleData, size_t sampleCount);
 
-    uint32_t GetLoopNumber();
+    uint32_t GetLoopNumber() const noexcept;
 
     bool GetLength(int * songLength, int * loopLength, int * tickCount, int * loopTickCount);
 //  bool GetLength(int * songlength, int * loopLength);
 //  bool GetLengthInTicks(int * tickCount, int * loopTickCount);
 
-    uint32_t GetPosition();
+    uint32_t GetPosition() const noexcept;
     void SetPosition(uint32_t position);
 
-    int GetPositionInTicks();
+    int GetPositionInTicks() const noexcept;
     void SetPositionInTicks(int ticks);
 
     bool SetSearchPaths(std::vector<const WCHAR *> & paths);
@@ -157,17 +157,17 @@ public:
         _State.SSGVolumeAdjust = _State.DefaultSSGVolumeAdjust = value;
     }
 
-    int GetSSGVolumeAdjustment()
+    int GetSSGVolumeAdjustment() const noexcept
     {
         return _State.SSGVolumeAdjust;
     }
 
-    int GetDefaultSSGVolumeAdjustment()
+    int GetDefaultSSGVolumeAdjustment() const noexcept
     {
         return _State.DefaultSSGVolumeAdjust;
     }
 
-    void SetADPCMVolumeAdjustment(int value)
+    void SetADPCMVolumeAdjustment(int value) noexcept
     {
         _State.ADPCMVolumeAdjust = _State.DefaultADPCMVolumeAdjust = value;
     }
@@ -201,7 +201,7 @@ public:
         return _State.DefaultRhythmVolumeAdjust;
     }
 
-    void SetPPZVolumeAdjustment(int value)
+    void SetPPZVolumeAdjustment(int value) noexcept
     {
         _State.PPZVolumeAdjust = _State.DefaultPPZVolumeAdjust = value;
     }
@@ -219,7 +219,7 @@ public:
     /// <summary>
     /// Enables or disables PMDB2.COM compatibility.
     /// </summary>
-    void SetPMDB2CompatibilityMode(bool value)
+    void SetPMDB2CompatibilityMode(bool value) noexcept
     {
         _State.PMDB2CompatibilityMode = _State.DefaultPMDB2CompatibilityMode = value;
     }
@@ -234,7 +234,7 @@ public:
 
     bool GetMemo(const uint8_t * data, size_t size, int al, char * text, size_t textSize);
 
-    Channel * GetChannel(int ch);
+    Channel * GetChannel(int channelNumber) const noexcept;
 
 private:
     void Reset();

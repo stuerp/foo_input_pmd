@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.cpp (2023.10.07) P. Stuer **/
+/** $VER: PMDDecoder.cpp (2025.12.21) P. Stuer **/
 
 #include "pch.h"
 
@@ -249,15 +249,13 @@ static bool ConvertShiftJISToUTF8(const char * text, pfc::string8 & textDst)
 
     if (::MultiByteToWideChar(932, MB_PRECOMPOSED, text, -1, Wide, Size) != 0)
     {
-        const CHAR DefaultChar = '·';
-
-        Size = ::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, 0, 0, &DefaultChar, 0);
+        Size = ::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, nullptr, 0, nullptr, nullptr);
 
         if (Size != 0)
         {
             char * UTF8 = new char[(size_t) Size + 16];
 
-            if (::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, UTF8, Size, &DefaultChar, 0) != 0)
+            if (::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, UTF8, Size, nullptr, nullptr) != 0)
                 textDst = UTF8;
 
             delete[] UTF8;

@@ -1,5 +1,5 @@
 
-// $VER: PMD.cpp (2025.10.05) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMD.cpp (2025.12.21) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <pch.h>
 
@@ -434,7 +434,7 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
 /// <summary>
 /// Gets the current loop number.
 /// </summary>
-uint32_t PMD::GetLoopNumber()
+uint32_t PMD::GetLoopNumber() const noexcept
 {
     return (uint32_t) _State.LoopCount;
 }
@@ -537,7 +537,7 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
 /// <summary>
 /// Gets the playback position (in ms)
 /// </summary>
-uint32_t PMD::GetPosition()
+uint32_t PMD::GetPosition() const noexcept
 {
     return (uint32_t) (_Position / 1'000);
 }
@@ -585,7 +585,7 @@ void PMD::SetPosition(uint32_t position)
 /// <summary>
 /// Gets the playback position (in ticks)
 /// </summary>
-int PMD::GetPositionInTicks()
+int PMD::GetPositionInTicks() const noexcept
 {
     return (_State.BarLength * _State.BarCounter) + _State.OpsCounter;
 }
@@ -922,7 +922,7 @@ bool PMD::GetMemo(const uint8_t * data, size_t size, int index, char * text, siz
 /// <summary>
 /// Gets the specified channel object.
 /// </summary>
-Channel * PMD::GetChannel(int channelNumber)
+Channel * PMD::GetChannel(int channelNumber) const noexcept
 {
     if (channelNumber >= (int) _countof(_State.Channel))
         return nullptr;
@@ -1736,7 +1736,7 @@ uint8_t * PMD::SetVolumeMask(Channel * channel, uint8_t * si)
 }
 
 /// <summary>
-/// Command 't' [TEMPO CHANGE1] / COMMAND 'T' [TEMPO CHANGE2] / COMMAND 't±' [TEMPO CHANGE 相対1] / COMMAND 'T±' [TEMPO CHANGE 相対2] 
+/// Command 't' [Tempo Change 1] / Command 'T' [Tempo Change 2] / Command 't±' [Relative Tempo Change 1] / Command 'T±' [Relative Tempo Change 2] 
 /// </summary>
 uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
 {
@@ -1745,7 +1745,7 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
     // Add to Ticks per Quarter (T (FC)).
     if (al < 0xFB)
     {
-        _State.Tempo = al;
+        _State.Tempo     = al;
         _State.TempoPush = al;
 
         ConvertTimerBTempoToMetronomeTempo();
@@ -1759,16 +1759,16 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
         if (al < 18)
             al = 18;
 
-        _State.MetronomeTempo = al;
+        _State.MetronomeTempo     = al;
         _State.MetronomeTempoPush = al;
 
         ConvertMetronomeTempoToTimerBTempo();
     }
     else
-    // Add to Tempo (T± (FC FE)).
+    // Relative Tempo Change (T± (FC FE)).
     if (al == 0xFE)
     {
-        al = *si++;
+        al = (int8_t) *si++;
 
         if (al >= 0)
             al += _State.TempoPush;
@@ -1788,10 +1788,10 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
 
         ConvertTimerBTempoToMetronomeTempo();
     }
-    // Set Tempo to ticks (t± (FC FD)).
+    // Relative Tempo Change (t± (FC FD)).
     else
     {
-        al = *si++;
+        al = (int8_t) *si++;
 
         if (al >= 0)
         {
