@@ -1,24 +1,19 @@
-﻿
-/** $VER: PMD.h (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+
+/** $VER: PMD.h (2025.12.21) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#define _CRT_SECURE_NO_WARNINGS
-
-#include <Windows.h>
-#include <tchar.h>
+#include <pch.h>
 
 #include "OPNAW.h"
-#include "PPS.h"
-#include "PPZ.h"
-#include "P86.h"
+
+#include "Drivers\Driver.h"
+
+#include "Drivers\PPS.h"
+#include "Drivers\PPZ.h"
+#include "Drivers\P86.h"
 
 #include "State.h"
-#include "Driver.h"
 #include "Effect.h"
 
 typedef int Sample;
@@ -32,8 +27,8 @@ struct SampleBank
 };
 #pragma pack(pop)
 
-#define	PVIHeader   "PVI2"
-#define	PPCHeader   "ADPCM DATA for  PMD ver.4.4-  "
+#define	PVIIdentifier   "PVI2"
+#define	PPCIdentifier   "ADPCM DATA for  PMD ver.4.4-  "
 
 #define MaxParts    12
 
@@ -59,24 +54,24 @@ public:
 
     void Render(int16_t * sampleData, size_t sampleCount);
 
-    uint32_t GetLoopNumber();
+    uint32_t GetLoopNumber() const noexcept;
 
     bool GetLength(int * songLength, int * loopLength, int * tickCount, int * loopTickCount);
-    bool GetLength(int * songlength, int * loopLength);
-    bool GetLengthInTicks(int * tickCount, int * loopTickCount);
+//  bool GetLength(int * songlength, int * loopLength);
+//  bool GetLengthInTicks(int * tickCount, int * loopTickCount);
 
-    uint32_t GetPosition();
+    uint32_t GetPosition() const noexcept;
     void SetPosition(uint32_t position);
 
-    int GetPositionInTicks();
+    int GetPositionInTicks() const noexcept;
     void SetPositionInTicks(int ticks);
 
     bool SetSearchPaths(std::vector<const WCHAR *> & paths);
     
-    void SetOutputFrequency(uint32_t value) noexcept;
+    void SetSampleRate(uint32_t value) noexcept;
     void SetFMInterpolation(bool flag);
 
-    void SetPPZOutputFrequency(uint32_t value) noexcept;
+    void SetPPZSampleRate(uint32_t value) noexcept;
     void SetPPZInterpolation(bool flag);
 
     void SetFadeOutSpeed(int speed);
@@ -162,17 +157,17 @@ public:
         _State.SSGVolumeAdjust = _State.DefaultSSGVolumeAdjust = value;
     }
 
-    int GetSSGVolumeAdjustment()
+    int GetSSGVolumeAdjustment() const noexcept
     {
         return _State.SSGVolumeAdjust;
     }
 
-    int GetDefaultSSGVolumeAdjustment()
+    int GetDefaultSSGVolumeAdjustment() const noexcept
     {
         return _State.DefaultSSGVolumeAdjust;
     }
 
-    void SetADPCMVolumeAdjustment(int value)
+    void SetADPCMVolumeAdjustment(int value) noexcept
     {
         _State.ADPCMVolumeAdjust = _State.DefaultADPCMVolumeAdjust = value;
     }
@@ -206,7 +201,7 @@ public:
         return _State.DefaultRhythmVolumeAdjust;
     }
 
-    void SetPPZVolumeAdjustment(int value)
+    void SetPPZVolumeAdjustment(int value) noexcept
     {
         _State.PPZVolumeAdjust = _State.DefaultPPZVolumeAdjust = value;
     }
@@ -224,7 +219,7 @@ public:
     /// <summary>
     /// Enables or disables PMDB2.COM compatibility.
     /// </summary>
-    void SetPMDB2CompatibilityMode(bool value)
+    void SetPMDB2CompatibilityMode(bool value) noexcept
     {
         _State.PMDB2CompatibilityMode = _State.DefaultPMDB2CompatibilityMode = value;
     }
@@ -239,7 +234,7 @@ public:
 
     bool GetMemo(const uint8_t * data, size_t size, int al, char * text, size_t textSize);
 
-    Channel * GetChannel(int ch);
+    Channel * GetChannel(int channelNumber) const noexcept;
 
 private:
     void Reset();
@@ -253,7 +248,7 @@ private:
 
     uint8_t * ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command);
 
-    void Silence();
+    void Mute();
     void InitializeChannels();
     void InitializeInterrupt();
     void ConvertTimerBTempoToMetronomeTempo();
@@ -263,7 +258,7 @@ private:
     void HandleTimerB();
     void IncreaseBarCounter();
 
-    void GetText(const uint8_t * data, size_t size, int al, char * text) const noexcept;
+    void GetText(const uint8_t * data, size_t size, int al, char * text, size_t max) const noexcept;
 
     int MuteFMChannel(Channel * channel);
 
@@ -479,11 +474,6 @@ private:
         *b = t;
     }
 
-    inline int Limit(int value, int max, int min) const noexcept
-    {
-        return value > max ? max : (value < min ? min : value);
-    }
-
 private:
     std::vector<std::wstring> _SearchPath;
 
@@ -499,14 +489,14 @@ private:
     Driver _Driver;
     Effect _Effect;
 
-    Channel _FMChannel[MaxFMChannels];
-    Channel _SSGChannel[MaxSSGChannels];
-    Channel _ADPCMChannel;
-    Channel _RhythmChannel;
-    Channel _FMExtensionChannel[MaxFMExtensionChannels];
-    Channel _DummyChannel;
-    Channel _EffectChannel;
-    Channel _PPZChannel[MaxPPZChannels];
+    Channel _FMChannels[MaxFMChannels];
+    Channel _SSGChannels[MaxSSGChannels];
+    Channel _ADPCMChannels;
+    Channel _RhythmChannels;
+    Channel _FMExtensionChannels[MaxFMExtensionChannels];
+    Channel _DummyChannels;
+    Channel _EffectChannels;
+    Channel _PPZChannels[MaxPPZChannels];
 
     static const size_t MaxSamples = 30000;
 

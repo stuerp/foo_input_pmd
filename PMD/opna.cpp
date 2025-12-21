@@ -1,31 +1,27 @@
-﻿
-/** $VER: OPNAW.h (2023.10.18) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
-#include <CppCoreCheck/Warnings.h>
+/** $VER: OPNA.cpp (2025.10.01) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#include <Windows.h>
-#include <strsafe.h>
+#include <pch.h>
 
 #include "OPNA.h"
 
 #pragma warning(disable: 4355) // 'this' used in base member initializer list
+
 OPNA::OPNA(File * file) :
     _File(file),
 
-    _Instrument{},
-    _InstrumentCounter(0),
+    _Instruments{},
+    _InstrumentCount(0),
 
     _MasterVolume(0),
     _InstrumentTL(0),
     _InstrumentMask(0),
     _HasADPCMROM(false),
 
-    output_pos(0),
-    timer_period{},
-    timer_count{},
-    reg27(0U),
+    _OutputPosition(0),
+    _TimerPeriod{},
+    _TimerCounter{},
+    _Reg27(0U),
 
     _Chip(*this),
     _Output(),
@@ -35,11 +31,11 @@ OPNA::OPNA(File * file) :
 
     _TickCount(0U)
 {
-    SetOutputFrequency(DEFAULT_CLOCK, 8000U);
+    Initialize(DefaultClockSpeed, 8000U);
 
     // Create the table.
     for (int i = -FM_TLPOS; i < FM_TLENTS; ++i)
-        tltable[i + FM_TLPOS] = (int32_t) (uint32_t(65536. * pow(2.0, i * -16. / (int) FM_TLENTS)) - 1);
+        tltable[i + FM_TLPOS] = (int32_t) (uint32_t(65536.0 * ::pow(2.0, i * -16.0 / (int) FM_TLENTS)) - 1);
 }
 
 OPNA::~OPNA()
@@ -50,9 +46,9 @@ OPNA::~OPNA()
 /// <summary>
 /// Initializes the module.
 /// </summary>
-bool OPNA::Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation, const WCHAR * directoryPath)
+bool OPNA::Initialize(uint32_t clockSpeed, uint32_t sampleRate, const WCHAR * directoryPath) noexcept
 {
-    SetOutputFrequency(clock, outputFrequency, useInterpolation);
+    Initialize(clockSpeed, sampleRate);
 
     _Pos  = 0;
     _Step = (emulated_time) (0x1000000000000ull / GetSampleRate());
@@ -65,7 +61,7 @@ bool OPNA::Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpol
     SetADPCMVolume(0);
     SetRhythmVolume(0);
 
-    for (int i = 0; i < _countof(_Instrument); ++i)
+    for (int i = 0; i < (int) _countof(_Instruments); ++i)
         SetInstrumentVolume(i, 0);
 
     LoadInstruments(directoryPath);
@@ -74,34 +70,27 @@ bool OPNA::Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpol
 }
 
 /// <summary>
-/// Sets the output frequency.
+/// Initializes the module.
 /// </summary>
-void OPNA::SetOutputFrequency(uint32_t clockSpeed, uint32_t outputFrequency, bool) noexcept
+void OPNA::Initialize(uint32_t clockSpeed, uint32_t sampleRate) noexcept
 {
     _ClockSpeed = clockSpeed;
 
-    SetOutputFrequency(outputFrequency);
-}
-
-/// <summary>
-/// Sets the output frequency.
-/// </summary>
-void OPNA::SetOutputFrequency(uint32_t outputFrequency) noexcept
-{
-    if (outputFrequency == 0)
+    if (sampleRate == 0)
         return;
 
-    _OutputFrequency = outputFrequency;
-    output_step = (emulated_time) (0x1000000000000ull / _OutputFrequency);
+    _SampleRate = sampleRate;
+    _OutputStep = (emulated_time) (0x1000000000000ull / _SampleRate);
 }
 
-#pragma region(Volume)
+#pragma region Volume
+
 /// <summary>
 /// Sets the FM sound source volume, in dB.
 /// </summary>
 void OPNA::SetFMVolume(int dB)
 {
-    dB = (std::min)(dB, 20);
+    dB = std::min(dB, 20);
 
     int32_t Volume = (dB > -192) ? int(65536.0 * ::pow(10.0, dB / 40.0)) : 0;
 
@@ -113,7 +102,7 @@ void OPNA::SetFMVolume(int dB)
 /// </summary>
 void OPNA::SetSSGVolume(int dB)
 {
-    dB = (std::min)(dB, 20);
+    dB = std::min(dB, 20);
 
     int32_t Volume = (dB > -192) ? int(65536.0 * ::pow(10.0, dB / 40.0)) : 0;
 
@@ -125,7 +114,7 @@ void OPNA::SetSSGVolume(int dB)
 /// </summary>
 void OPNA::SetADPCMVolume(int dB)
 {
-    dB = (std::min)(dB, 20);
+    dB = std::min(dB, 20);
 
     int32_t Volume = (dB > -192) ? int(65536.0 * ::pow(10.0, dB / 40.0)) : 0;
 
@@ -137,7 +126,7 @@ void OPNA::SetADPCMVolume(int dB)
 /// </summary>
 void OPNA::SetRhythmVolume(int dB)
 {
-    dB = (std::min)(dB, 20);
+    dB = std::min(dB, 20);
 
     _MasterVolume = -(dB * 2 / 3);
 
@@ -151,13 +140,15 @@ void OPNA::SetRhythmVolume(int dB)
 /// </summary>
 void OPNA::SetInstrumentVolume(int index, int dB)
 {
-    dB = (std::min)(dB, 20);
+    dB = std::min(dB, 20);
 
-    _Instrument[index].Volume = -(dB * 2 / 3);
+    _Instruments[index].Volume = -(dB * 2 / 3);
 }
+
 #pragma endregion
 
-#pragma region(Registers)
+#pragma region Registers
+
 /// <summary>
 /// Sets the value of a register.
 /// </summary>
@@ -173,12 +164,12 @@ void OPNA::SetReg(uint32_t addr, uint32_t value)
                 {
                     _InstrumentMask |= value & 0x3F;
 
-                    if (value & 0x01) _Instrument[0].Pos = 0;
-                    if (value & 0x02) _Instrument[1].Pos = 0;
-                    if (value & 0x04) _Instrument[2].Pos = 0;
-                    if (value & 0x08) _Instrument[3].Pos = 0;
-                    if (value & 0x10) _Instrument[4].Pos = 0;
-                    if (value & 0x20) _Instrument[5].Pos = 0;
+                    if (value & 0x01) _Instruments[0].Pos = 0;
+                    if (value & 0x02) _Instruments[1].Pos = 0;
+                    if (value & 0x04) _Instruments[2].Pos = 0;
+                    if (value & 0x08) _Instruments[3].Pos = 0;
+                    if (value & 0x10) _Instruments[4].Pos = 0;
+                    if (value & 0x20) _Instruments[5].Pos = 0;
                 }
                 else
                     _InstrumentMask &= ~value;
@@ -194,8 +185,8 @@ void OPNA::SetReg(uint32_t addr, uint32_t value)
             case 0x1b: // Hihat
             case 0x1c: // Tom-tom
             case 0x1d: // Rim shot
-                _Instrument[addr & 7].Pan   = (value >> 6) & 0x03;
-                _Instrument[addr & 7].Level = (int8_t) (~value & 0x1F);
+                _Instruments[addr & 7].Pan   = (value >> 6) & 0x03;
+                _Instruments[addr & 7].Level = (int8_t) (~value & 0x1F);
                 break;
         }
     }
@@ -240,66 +231,70 @@ uint32_t OPNA::GetReg(uint32_t addr)
 }
 #pragma endregion
 
-#pragma region(Timer)
+#pragma region Timer processing
+
 /// <summary>
-/// Timer processing
+/// Advances the timers until the next tick. (in μs)
 /// </summary>
-bool OPNA::Count(uint32_t tickCount)
+bool OPNA::AdvanceTimers(uint32_t nextTick) noexcept
 {
-    bool result = false;
+    bool Result = false;
 
-    if (reg27 & 1)
+    if (_Reg27 & 0x01)
     {
-        if (timer_count[0] > 0)
-            timer_count[0] -= ((emulated_time) tickCount << (48 - 6)) / (1000000 >> 6);
+        if (_TimerCounter[0] > 0)
+            _TimerCounter[0] -= ((emulated_time) nextTick << (48 - 6)) / (1000000 >> 6);
     }
 
-    if (reg27 & 2)
+    if (_Reg27 & 0x02)
     {
-        if (timer_count[1] > 0)
-            timer_count[1] -= ((emulated_time) tickCount << (48 - 6)) / (1000000 >> 6);
+        if (_TimerCounter[1] > 0)
+            _TimerCounter[1] -= ((emulated_time) nextTick << (48 - 6)) / (1000000 >> 6);
     }
 
-    for (int i = 0; i < _countof(timer_count); ++i)
+    for (int i = 0; i < (int) _countof(_TimerCounter); ++i)
     {
-        if ((reg27 & (4 << i)) && timer_count[i] < 0)
+        if ((_Reg27 & (4 << i)) && (_TimerCounter[i] < 0))
         {
-            result = true;
+            Result = true;
 
             do
             {
-                timer_count[i] += timer_period[i];
+                _TimerCounter[i] += _TimerPeriod[i];
             }
-            while (timer_count[i] < 0);
+            while (_TimerCounter[i] < 0);
 
             m_engine->engine_timer_expired((uint32_t) i);
         }
     }
 
-    return result;
+    return Result;
 }
 
 /// <summary>
-/// Gets the next timer tick.
+/// Gets the number of μs until the next timer tick occurs.
 /// </summary>
-uint32_t OPNA::GetNextTick()
+uint32_t OPNA::GetNextTick() const noexcept
 {
-    if (timer_count[0] == 0 && timer_count[1] == 0)
+    if (_TimerCounter[0] == 0 && _TimerCounter[1] == 0)
         return 0;
 
-    emulated_time result = INT64_MAX;
+    emulated_time Tick = INT64_MAX;
 
-    for (int i = 0; i < _countof(timer_count); ++i)
-    {
-        if (timer_count[i] > 0)
-            result = (std::min)(result, timer_count[i]);
-    }
+    if (_TimerCounter[0] > 0)
+        Tick = std::min(Tick, _TimerCounter[0]);
 
-    return (uint32_t) ((result + ((emulated_time) 1 << 48) / 1000000) * (1000000 >> 6) >> (48 - 6));
+    if (_TimerCounter[1] > 0)
+        Tick = std::min(Tick, _TimerCounter[1]);
+
+    return (uint32_t) (((Tick + ((emulated_time) 1 << 48) / 1000000) * (1000000 >> 6)) >> (48 - 6));
+
 }
+
 #pragma endregion
 
-#pragma region(Sample Mixing)
+#pragma region Sample Mixing
+
 /// <summary>
 /// Synthesizes a buffer of rhythm samples.
 /// </summary>
@@ -313,8 +308,8 @@ void OPNA::Mix(Sample * sampleData, size_t sampleCount) noexcept
         int32_t Outputs[2] = { 0, 0 };
 
         // ymfm
-        generate(output_pos, output_step, Outputs);
-        output_pos += output_step;
+        generate(_OutputPosition, _OutputStep, Outputs);
+        _OutputPosition += _OutputStep;
 
         *SampleData++ += Outputs[0];
         *SampleData++ += Outputs[1];
@@ -329,18 +324,18 @@ void OPNA::Mix(Sample * sampleData, size_t sampleCount) noexcept
 /// </summary>
 void OPNA::MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept
 {
-    if (!((_InstrumentMask & 0x3F) && _Instrument[0].Samples && (_MasterVolume < 128)))
+    if (!((_InstrumentMask & 0x3F) && _Instruments[0].Samples && (_MasterVolume < 128)))
         return;
 
     Sample * SampleDataEnd = sampleData + (sampleCount * 2);
 
-    for (size_t i = 0; i < _countof(_Instrument); ++i)
+    for (size_t i = 0; i < _countof(_Instruments); ++i)
     {
-        Instrument & Ins = _Instrument[i];
+        Instrument & Ins = _Instruments[i];
 
         if ((_InstrumentMask & (1 << i)))
         {
-            int dB = Limit(_InstrumentTL + _MasterVolume + Ins.Level + Ins.Volume, 127, -31);
+            int dB = std::clamp(_InstrumentTL + _MasterVolume + Ins.Level + Ins.Volume, -31, 127);
 
             int Vol   = tltable[FM_TLPOS + (dB << (FM_TLBITS - 7))] >> 4;
             int MaskL = -((Ins.Pan >> 1) & 1);
@@ -365,13 +360,15 @@ void OPNA::MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept
 void OPNA::StoreSample(Sample & sampleData, int32_t sampleValue)
 {
     if constexpr(sizeof(Sample) == 2)
-        sampleData = (Sample) Limit(sampleData + sampleValue, 0x7fff, -0x8000);
+        sampleData = (Sample) std::clamp(sampleData + sampleValue, -0x8000, 0x7FFF);
     else
         sampleData += sampleValue;
 }
+
 #pragma endregion
 
-#pragma region(Rhythm Instruments)
+#pragma region Rhythm Instruments
+
 /// <summary>
 /// Loads the samples for the rhythm instruments.
 /// </summary>
@@ -401,31 +398,32 @@ bool OPNA::LoadInstruments(const WCHAR * directoryPath)
         }
     }
  
-    static const WCHAR * InstrumentName[_countof(_Instrument)] =
-    {
-        L"bd", L"sd", L"top", L"hh", L"tom", L"rim",
-    };
-
     DeleteInstruments(); 
 
-    for (int i = 0; i < _countof(_Instrument); ++i)
+    for (auto & Instrument : _Instruments)
     {
         FilePath[0] = '\0';
 
         WCHAR FileName[_MAX_PATH] = { 0 };
 
-        ::StringCbPrintfW(FileName, _countof(FileName), L"2608_%s.wav", InstrumentName[i]);
+        static const WCHAR * InstrumentName[_countof(_Instruments)] =
+        {
+            L"bd", L"sd", L"top", L"hh", L"tom", L"rim",
+        };
 
-        WAVEReader & wr = _Instrument[i].Wave;
+        ::StringCbPrintfW(FileName, _countof(FileName), L"2608_%s.wav", InstrumentName[_InstrumentCount]);
+
+        WAVEReader & wr = Instrument.Wave;
 
         {
             CombinePath(FilePath, _countof(FilePath), directoryPath, FileName);
 
             if (!wr.Open(FilePath))
             {
-                if (i != 5)
+                if (_InstrumentCount != 5)
                     break;
 
+                // Try to open an alternate file for the sixth instrument.
                 CombinePath(FilePath, _countof(FilePath), directoryPath, L"2608_rym.wav");
 
                 if (!wr.Open(FilePath))
@@ -440,15 +438,15 @@ bool OPNA::LoadInstruments(const WCHAR * directoryPath)
 
         uint32_t SampleCount = wr.Size() / 2;
 
-        _Instrument[i].Samples = (const int16_t *) wr.Data();
-        _Instrument[i].Size    = SampleCount * 1024;
-        _Instrument[i].Step    = wr.SampleRate() * 1024 / _OutputFrequency;
-        _Instrument[i].Pos     = 0U;
+        Instrument.Samples = (const int16_t *) wr.Data();
+        Instrument.Size    = SampleCount * 1024;
+        Instrument.Step    = wr.SampleRate() * 1024 / _SampleRate;
+        Instrument.Pos     = 0U;
 
-        _InstrumentCounter++;
+        ++_InstrumentCount;
     }
 
-    if (_InstrumentCounter != _countof(_Instrument))
+    if (_InstrumentCount != _countof(_Instruments))
     {
         DeleteInstruments(); 
 
@@ -463,18 +461,20 @@ bool OPNA::LoadInstruments(const WCHAR * directoryPath)
 /// </summary>
 void OPNA::DeleteInstruments() noexcept
 {
-    for (int i = 0; i < _countof(_Instrument); ++i)
+    for (auto & Instrument : _Instruments)
     {
-        _Instrument[i].Wave.Reset();
-        _Instrument[i].Samples = nullptr;
-        _Instrument[i].Pos = ~0U;
+        Instrument.Wave.Reset();
+        Instrument.Samples = nullptr;
+        Instrument.Pos = ~0U;
     }
 
-    _InstrumentCounter = 0;
+    _InstrumentCount = 0;
 }
+
 #pragma endregion
 
-#pragma region(ymfm_interface)
+#pragma region ymfm_interface
+
 /// <summary>
 /// Generate one output sample of output..
 /// </summary>
@@ -524,9 +524,9 @@ void OPNA::ymfm_external_write(ymfm::access_class type, uint32_t address, uint8_
 }
 
 // Clears the time (Callback).
-void OPNA::ymfm_sync_mode_write(uint8_t data)
+void OPNA::ymfm_sync_mode_write(uint8_t value)
 {
-    reg27 = data;
+    _Reg27 = value;
 
 /* Unused for now
     if (reg27 & 0x10)
@@ -541,21 +541,21 @@ void OPNA::ymfm_sync_mode_write(uint8_t data)
         reg27 &= ~0x20;
     }
 */
-    ymfm_interface::ymfm_sync_mode_write(reg27);
+    ymfm_interface::ymfm_sync_mode_write(_Reg27);
 }
 
 // Sets the timer (Callback).
-void OPNA::ymfm_set_timer(uint32_t tnum, int32_t duration_in_clocks)
+void OPNA::ymfm_set_timer(uint32_t timerIndex, int32_t duration_in_clocks)
 {
     if (duration_in_clocks >= 0)
     {
-        timer_period[tnum] = (((emulated_time) duration_in_clocks << 43) / _ClockSpeed) << 5;
-        timer_count[tnum] = timer_period[tnum];
+        _TimerPeriod[timerIndex] = (((emulated_time) duration_in_clocks << 43) / _ClockSpeed) << 5;
+        _TimerCounter[timerIndex] = _TimerPeriod[timerIndex];
     }
     else
     {
-        timer_period[tnum] = 0;
-        timer_count[tnum] = 0;
+        _TimerPeriod[timerIndex] = 0;
+        _TimerCounter[timerIndex] = 0;
     }
 }
 #pragma endregion

@@ -1,19 +1,14 @@
-﻿
-// $VER: PMD.cpp (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
-#include <CppCoreCheck/Warnings.h>
+// $VER: PMD.cpp (2025.12.21) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include <pch.h>
 
 #include "PMD.h"
 
 #include "Utility.h"
-#include "Table.h"
+#include "Tables.h"
 
 #include "OPNAW.h"
-#include "PPZ.h"
-#include "PPS.h"
-#include "P86.h"
 
 /// <summary>
 /// Initializes an instance.
@@ -45,7 +40,7 @@ PMD::~PMD()
     delete _File;
 }
 
-#pragma region(Public)
+#pragma region Public
 /// <summary>
 /// Initializes the driver.
 /// </summary>
@@ -55,15 +50,15 @@ bool PMD::Initialize(const WCHAR * directoryPath)
 
     if (directoryPath != nullptr)
     {
-        ::wcscpy(DirectoryPath, directoryPath);
+        ::wcscpy_s(DirectoryPath, _countof(DirectoryPath), directoryPath);
         AddBackslash(DirectoryPath, _countof(DirectoryPath));
     }
 
     Reset();
 
-    _PPZ->Initialize(_State.OPNARate, false);
-    _PPS->Initialize(_State.OPNARate, false);
-    _P86->Initialize(_State.OPNARate, false);
+    _PPZ->Initialize(_State.OPNASampleRate, false);
+    _PPS->Initialize(_State.OPNASampleRate, false);
+    _P86->Initialize(_State.OPNASampleRate, false);
 
     if (_OPNAW->Initialize(OPNAClock, FREQUENCY_55_5K, false, DirectoryPath) == false)
         return false;
@@ -71,7 +66,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
     {
         _OPNAW->SetFMDelay(0);
         _OPNAW->SetSSGDelay(0);
-        _OPNAW->SetRhythmDelay(0);
+        _OPNAW->SetRSSDelay(0);
         _OPNAW->SetADPCMDelay(0);
 
         // Initialize the ADPCM RAM.
@@ -96,7 +91,7 @@ bool PMD::Initialize(const WCHAR * directoryPath)
         _OPNAW->SetFMDelay(DEFAULT_REG_WAIT);
         _OPNAW->SetSSGDelay(DEFAULT_REG_WAIT);
         _OPNAW->SetADPCMDelay(DEFAULT_REG_WAIT);
-        _OPNAW->SetRhythmDelay(DEFAULT_REG_WAIT);
+        _OPNAW->SetRSSDelay(DEFAULT_REG_WAIT);
     }
 
     // Initial setting of 088/188/288/388 (same INT number only)
@@ -158,10 +153,11 @@ int PMD::Load(const uint8_t * data, size_t size)
 
     WCHAR FilePath[MAX_PATH] = { 0 };
 
+    // Get the PCM file path.
     {
         _PCMFilePath.clear();
 
-        GetText(data, size, 0, FileName);
+        GetText(_MData, size, 0, FileName, _countof(FileName));
 
         if (*FileName != '\0')
         {
@@ -203,10 +199,11 @@ int PMD::Load(const uint8_t * data, size_t size)
             _PCMFileName.clear();
     }
 
+    // Get the PPS file path.
     {
         _PPSFilePath.clear();
 
-        GetText(data, size, -1, FileName);
+        GetText(_MData, size, -1, FileName, _countof(FileName));
 
         if (*FileName != '\0')
         {
@@ -229,11 +226,12 @@ int PMD::Load(const uint8_t * data, size_t size)
             _PPSFileName.clear();
     }
 
+    // Get the PPZ file paths.
     {
         _PPZFilePath[0].clear();
         _PPZFilePath[1].clear();
 
-        GetText(data, size, -2, FileName);
+        GetText(_MData, size, -2, FileName, _countof(FileName));
 
         if (*FileName != '\0')
         {
@@ -306,7 +304,7 @@ void PMD::Stop()
 {
     if (_State.IsTimerABusy || _State.IsTimerBBusy)
     {
-        _Driver._Flags |= DriverStopRequested; // Delay the start of the driver until timer processing has finished.
+        _Driver._Flags |= DriverStopRequested; // Delay stopping the driver until timer processing has finished.
     }
     else
     {
@@ -331,15 +329,17 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
         if (_SamplesToDo >= sampleCount - SamplesDone)
         {
             ::memcpy(sampleData, _SamplePtr, (sampleCount - SamplesDone) * sizeof(Stereo16bit));
-            _SamplesToDo -= (sampleCount - SamplesDone);
 
-            _SamplePtr += (sampleCount - SamplesDone);
+            _SamplesToDo -= (sampleCount - SamplesDone);
+            _SamplePtr   += (sampleCount - SamplesDone);
+
             SamplesDone = sampleCount;
         }
         else
         {
             {
                 ::memcpy(sampleData, _SamplePtr, _SamplesToDo * sizeof(Stereo16bit));
+
                 sampleData += (_SamplesToDo * 2);
 
                 _SamplePtr = _SampleSrc;
@@ -353,24 +353,25 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
                 if (_OPNAW->ReadStatus() & 0x02)
                     HandleTimerB();
 
-                _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
+                _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Reset both timer A and B.
             }
 
-            uint32_t TickCount = _OPNAW->GetNextTick(); // in microseconds
+            uint32_t NextTick = _OPNAW->GetNextTick();  // in μs
 
             {
-                _SamplesToDo = (size_t) ((double) TickCount * _State.OPNARate / 1000000.0);
-                _OPNAW->Count(TickCount);
+                _SamplesToDo = (size_t) ((double) NextTick * _State.OPNASampleRate / 1'000'000.0);
+
+                _OPNAW->AdvanceTimers(NextTick);
 
                 ::memset(_SampleDst, 0, _SamplesToDo * sizeof(Stereo32bit));
 
-                if (_State.OPNARate == _State.PPZRate)
+                if (_State.OPNASampleRate == _State.PPZSampleRate)
                     _PPZ->Mix((Sample *) _SampleDst, _SamplesToDo);
                 else
                 {
                     // PCM frequency transform of ppz8 (no interpolation)
-                    size_t SampleCount = (size_t) (_SamplesToDo * _State.PPZRate / _State.OPNARate + 1);
-                    int delta = (int) (8192 * _State.PPZRate / _State.OPNARate);
+                    size_t SampleCount = (size_t) (_SamplesToDo * _State.PPZSampleRate / _State.OPNASampleRate + 1);
+                    int delta = (int) (8192 * _State.PPZSampleRate / _State.OPNASampleRate);
 
                     ::memset(_SampleTmp, 0, SampleCount * sizeof(Sample) * 2);
 
@@ -400,28 +401,28 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
             }
 
             {
-                _Position += TickCount;
+                _Position += NextTick;
 
                 if (_State.FadeOutSpeedHQ > 0)
                 {
-                    int Factor = (_State.LoopCount != -1) ? (int) ((1 << 10) * ::pow(512, -(double) (_Position - _FadeOutPosition) / 1000 / _State.FadeOutSpeedHQ)) : 0;
+                    int Factor = (_State.LoopCount != -1) ? (int) ((1 << 10) * ::pow(512, -(double) (_Position - _FadeOutPosition) / 1'000 / _State.FadeOutSpeedHQ)) : 0;
 
                     for (size_t i = 0; i < _SamplesToDo; ++i)
                     {
-                        _SampleSrc[i].Left  = (int16_t) Limit(_SampleDst[i].Left  * Factor >> 10, 32767, -32768);
-                        _SampleSrc[i].Right = (int16_t) Limit(_SampleDst[i].Right * Factor >> 10, 32767, -32768);
+                        _SampleSrc[i].Left  = (int16_t) std::clamp(_SampleDst[i].Left  * Factor >> 10, -32768, 32767);
+                        _SampleSrc[i].Right = (int16_t) std::clamp(_SampleDst[i].Right * Factor >> 10, -32768, 32767);
                     }
 
                     // Fadeout end
-                    if ((_Position - _FadeOutPosition > (int64_t) _State.FadeOutSpeedHQ * 1000) && _State.StopAfterFadeout)
+                    if ((_Position - _FadeOutPosition > (int64_t) _State.FadeOutSpeedHQ * 1'000) && _State.StopAfterFadeout)
                         _Driver._Flags |= DriverStopRequested;
                 }
                 else
                 {
                     for (size_t i = 0; i < _SamplesToDo; ++i)
                     {
-                        _SampleSrc[i].Left  = (int16_t) Limit(_SampleDst[i].Left,  32767, -32768);
-                        _SampleSrc[i].Right = (int16_t) Limit(_SampleDst[i].Right, 32767, -32768);
+                        _SampleSrc[i].Left  = (int16_t) std::clamp(_SampleDst[i].Left,  -32768, 32767);
+                        _SampleSrc[i].Right = (int16_t) std::clamp(_SampleDst[i].Right, -32768, 32767);
                     }
                 }
             }
@@ -433,7 +434,7 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
 /// <summary>
 /// Gets the current loop number.
 /// </summary>
-uint32_t PMD::GetLoopNumber()
+uint32_t PMD::GetLoopNumber() const noexcept
 {
     return (uint32_t) _State.LoopCount;
 }
@@ -448,15 +449,15 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
     _Position = 0;
     *songLength = 0;
 
-    int FMDelay = _OPNAW->GetFMDelay();
-    int SSGDelay = _OPNAW->GetSSGDelay();
+    int FMDelay    = _OPNAW->GetFMDelay();
+    int SSGDelay   = _OPNAW->GetSSGDelay();
     int ADPCMDelay = _OPNAW->GetADPCMDelay();
-    int RSSDelay = _OPNAW->GetRSSDelay();
+    int RSSDelay   = _OPNAW->GetRSSDelay();
 
     _OPNAW->SetFMDelay(0);
     _OPNAW->SetSSGDelay(0);
     _OPNAW->SetADPCMDelay(0);
-    _OPNAW->SetRhythmDelay(0);
+    _OPNAW->SetRSSDelay(0);
 
     do
     {
@@ -469,21 +470,22 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
 
             _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Reset both timer A and B.
 
-            uint32_t TickCount = _OPNAW->GetNextTick();
+            uint32_t NextTick = _OPNAW->GetNextTick(); // in μs
 
-            _OPNAW->Count(TickCount);
-            _Position += TickCount;
+            _OPNAW->AdvanceTimers(NextTick);
+
+            _Position += NextTick;
         }
 
         if ((_State.LoopCount == 1) && (*songLength == 0)) // When looping
         {
-            *songLength = (int) (_Position / 1000);
+            *songLength = (int) (_Position / 1'000);
             *tickCount = GetPositionInTicks();
         }
         else
         if (_State.LoopCount == -1) // End without loop
         {
-            *songLength = (int) (_Position / 1000);
+            *songLength = (int) (_Position / 1'000);
             *loopLength = 0;
 
             *tickCount = GetPositionInTicks();
@@ -494,25 +496,32 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
             _OPNAW->SetFMDelay(FMDelay);
             _OPNAW->SetSSGDelay(SSGDelay);
             _OPNAW->SetADPCMDelay(ADPCMDelay);
-            _OPNAW->SetRhythmDelay(RSSDelay);
+            _OPNAW->SetRSSDelay(RSSDelay);
 
             return true;
         }
         else
         if (GetPositionInTicks() >= 65536) // Forced termination.
         {
-            *songLength = (int) (_Position / 1000);
+            *songLength = (int) (_Position / 1'000);
             *loopLength = *songLength;
 
             *tickCount = GetPositionInTicks();
             *loopTickCount = *tickCount;
+
+            DriverStop();
+
+            _OPNAW->SetFMDelay(FMDelay);
+            _OPNAW->SetSSGDelay(SSGDelay);
+            _OPNAW->SetADPCMDelay(ADPCMDelay);
+            _OPNAW->SetRSSDelay(RSSDelay);
 
             return true;
         }
     }
     while (_State.LoopCount < 2);
 
-    *loopLength = (int) (_Position / 1000) - *songLength;
+    *loopLength = (int) (_Position / 1'000) - *songLength;
     *loopTickCount = GetPositionInTicks() - *tickCount;
 
     DriverStop();
@@ -520,185 +529,25 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
     _OPNAW->SetFMDelay(FMDelay);
     _OPNAW->SetSSGDelay(SSGDelay);
     _OPNAW->SetADPCMDelay(ADPCMDelay);
-    _OPNAW->SetRhythmDelay(RSSDelay);
+    _OPNAW->SetRSSDelay(RSSDelay);
 
     return true;
 }
 
 /// <summary>
-/// Gets the length of the song and loop part (in ms).
+/// Gets the playback position (in ms)
 /// </summary>
-bool PMD::GetLength(int * songLength, int * loopLength)
+uint32_t PMD::GetPosition() const noexcept
 {
-    DriverStart();
-
-    _Position = 0;
-    *songLength = 0;
-
-    int FMDelay = _OPNAW->GetFMDelay();
-    int SSGDelay = _OPNAW->GetSSGDelay();
-    int ADPCMDelay = _OPNAW->GetADPCMDelay();
-    int RSSDelay = _OPNAW->GetRSSDelay();
-
-    _OPNAW->SetFMDelay(0);
-    _OPNAW->SetSSGDelay(0);
-    _OPNAW->SetADPCMDelay(0);
-    _OPNAW->SetRhythmDelay(0);
-
-    do
-    {
-        {
-            if (_OPNAW->ReadStatus() & 0x01)
-                HandleTimerA();
-
-            if (_OPNAW->ReadStatus() & 0x02)
-                HandleTimerB();
-
-            _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
-
-            uint32_t TickCount = _OPNAW->GetNextTick();
-
-            _OPNAW->Count(TickCount);
-            _Position += TickCount;
-        }
-
-        if ((_State.LoopCount == 1) && (*songLength == 0)) // When looping
-        {
-            *songLength = (int) (_Position / 1000);
-        }
-        else
-        if (_State.LoopCount == -1) // End without loop
-        {
-            *songLength = (int) (_Position / 1000);
-            *loopLength = 0;
-
-            DriverStop();
-
-            _OPNAW->SetFMDelay(FMDelay);
-            _OPNAW->SetSSGDelay(SSGDelay);
-            _OPNAW->SetADPCMDelay(ADPCMDelay);
-            _OPNAW->SetRhythmDelay(RSSDelay);
-
-            return true;
-        }
-        else
-        if (GetPositionInTicks() >= 65536)
-        {
-            *songLength = (int) (_Position / 1000);
-            *loopLength = *songLength;
-
-            return true;
-        }
-    }
-    while (_State.LoopCount < 2);
-
-    *loopLength = (int) (_Position / 1000) - *songLength;
-
-    DriverStop();
-
-    _OPNAW->SetFMDelay(FMDelay);
-    _OPNAW->SetSSGDelay(SSGDelay);
-    _OPNAW->SetADPCMDelay(ADPCMDelay);
-    _OPNAW->SetRhythmDelay(RSSDelay);
-
-    return true;
+    return (uint32_t) (_Position / 1'000);
 }
 
 /// <summary>
-/// Gets the number of ticks in the song and loop part.
-/// </summary>
-bool PMD::GetLengthInTicks(int * tickCount, int * loopTickCount)
-{
-    DriverStart();
-
-    _Position = 0;
-    *tickCount = 0;
-
-    int FMDelay = _OPNAW->GetFMDelay();
-    int SSGDelay = _OPNAW->GetSSGDelay();
-    int ADPCMDelay = _OPNAW->GetADPCMDelay();
-    int RSSDelay = _OPNAW->GetRSSDelay();
-
-    _OPNAW->SetFMDelay(0);
-    _OPNAW->SetSSGDelay(0);
-    _OPNAW->SetADPCMDelay(0);
-    _OPNAW->SetRhythmDelay(0);
-
-    do
-    {
-        {
-            if (_OPNAW->ReadStatus() & 0x01)
-                HandleTimerA();
-
-            if (_OPNAW->ReadStatus() & 0x02)
-                HandleTimerB();
-
-            _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30);  // Timer Reset (Both timer A and B)
-
-            uint32_t TickCount = _OPNAW->GetNextTick();
-
-            _OPNAW->Count(TickCount);
-            _Position += TickCount;
-        }
-
-        if ((_State.LoopCount == 1) && (*tickCount == 0)) // When looping
-        {
-            *tickCount = GetPositionInTicks();
-        }
-        else
-        if (_State.LoopCount == -1) // End without loop
-        {
-            *tickCount = GetPositionInTicks();
-            *loopTickCount = 0;
-
-            DriverStop();
-
-            _OPNAW->SetFMDelay(FMDelay);
-            _OPNAW->SetSSGDelay(SSGDelay);
-            _OPNAW->SetADPCMDelay(ADPCMDelay);
-            _OPNAW->SetRhythmDelay(RSSDelay);
-
-            return true;
-        }
-        else
-        if (GetPositionInTicks() >= 65536) // Forced termination if 65536 clocks or more
-        {
-            *tickCount = GetPositionInTicks();
-            *loopTickCount = *tickCount;
-
-            return true;
-        }
-    }
-    while (_State.LoopCount < 2);
-
-    *loopTickCount = GetPositionInTicks() - *tickCount;
-
-    DriverStop();
-
-    _OPNAW->SetFMDelay(FMDelay);
-    _OPNAW->SetSSGDelay(SSGDelay);
-    _OPNAW->SetADPCMDelay(ADPCMDelay);
-    _OPNAW->SetRhythmDelay(RSSDelay);
-
-    return true;
-}
-
-// Gets the playback position (in ms)
-/// <summary>
-///
-/// </summary>
-uint32_t PMD::GetPosition()
-{
-    return (uint32_t) (_Position / 1000);
-}
-
-// Sets the playback position (in ms)
-/// <summary>
-///
+/// Sets the playback position (in ms)
 /// </summary>
 void PMD::SetPosition(uint32_t position)
 {
-    int64_t NewPosition = (int64_t) position * 1000; // Convert ms to μs.
+    int64_t NewPosition = (int64_t) position * 1'000; // Convert ms to μs.
 
     if (_Position > NewPosition)
     {
@@ -722,28 +571,27 @@ void PMD::SetPosition(uint32_t position)
 
         uint32_t TickCount = _OPNAW->GetNextTick();
 
-        _OPNAW->Count(TickCount);
+        _OPNAW->AdvanceTimers(TickCount);
+
         _Position += TickCount;
     }
 
     if (_State.LoopCount == -1)
-        Silence();
+        Mute();
 
     _OPNAW->ClearBuffer();
 }
 
-// Gets the playback position (in ticks)
 /// <summary>
-///
+/// Gets the playback position (in ticks)
 /// </summary>
-int PMD::GetPositionInTicks()
+int PMD::GetPositionInTicks() const noexcept
 {
     return (_State.BarLength * _State.BarCounter) + _State.OpsCounter;
 }
 
-// Sets the playback position (in ticks).
 /// <summary>
-///
+/// Sets the playback position (in ticks).
 /// </summary>
 void PMD::SetPositionInTicks(int tickCount)
 {
@@ -767,18 +615,17 @@ void PMD::SetPositionInTicks(int tickCount)
 
         uint32_t TickCount = _OPNAW->GetNextTick();
 
-        _OPNAW->Count(TickCount);
+        _OPNAW->AdvanceTimers(TickCount);
     }
 
     if (_State.LoopCount == -1)
-        Silence();
+        Mute();
 
     _OPNAW->ClearBuffer();
 }
 
-// Sets the PCM search directory
 /// <summary>
-///
+/// Sets the PCM search paths.
 /// </summary>
 bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
 {
@@ -786,7 +633,7 @@ bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
     {
         WCHAR Path[MAX_PATH];
 
-        ::wcscpy(Path, *iter);
+        ::wcscpy_s(Path, _countof(Path), *iter);
         AddBackslash(Path, _countof(Path));
 
         _SearchPath.push_back(Path);
@@ -798,26 +645,26 @@ bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
 /// <summary>
 /// Sets the output frequency at which raw PCM data is synthesized (in Hz, for example 44100).
 /// </summary>
-void PMD::SetOutputFrequency(uint32_t value) noexcept
+void PMD::SetSampleRate(uint32_t sampleRate) noexcept
 {
-    if (value == FREQUENCY_55_5K || value == FREQUENCY_55_4K)
+    if (sampleRate == FREQUENCY_55_5K || sampleRate == FREQUENCY_55_4K)
     {
-        _State.OPNARate =
-        _State.PPZRate = FREQUENCY_44_1K;
+        _State.OPNASampleRate =
+        _State.PPZSampleRate = FREQUENCY_44_1K;
         _State.UseInterpolation = true;
     }
     else
     {
-        _State.OPNARate =
-        _State.PPZRate = value;
+        _State.OPNASampleRate =
+        _State.PPZSampleRate = sampleRate;
         _State.UseInterpolation = false;
     }
 
-    _OPNAW->SetOutputFrequency(OPNAClock, _State.OPNARate, _State.UseInterpolation);
+    _OPNAW->Initialize(OPNAClock, _State.OPNASampleRate, _State.UseInterpolation);
 
-    _P86->SetOutputFrequency(_State.OPNARate, _State.UseInterpolationP86);
-    _PPS->SetOutputFrequency(_State.OPNARate, _State.UseInterpolationPPS);
-    _PPZ->SetOutputFrequency(_State.PPZRate, _State.UseInterpolationPPZ);
+    _P86->SetSampleRate(_State.OPNASampleRate, _State.UseInterpolationP86);
+    _PPS->SetSampleRate(_State.OPNASampleRate, _State.UseInterpolationPPS);
+    _PPZ->SetSampleRate(_State.PPZSampleRate, _State.UseInterpolationPPZ);
 }
 
 /// <summary>
@@ -830,20 +677,20 @@ void PMD::SetFMInterpolation(bool value)
 
     _State.UseInterpolation = value;
 
-    _OPNAW->SetOutputFrequency(OPNAClock, _State.OPNARate, _State.UseInterpolation);
+    _OPNAW->Initialize(OPNAClock, _State.OPNASampleRate, _State.UseInterpolation);
 }
 
 /// <summary>
 /// Sets the output frequency at which raw PPZ data is synthesized (in Hz, for example 44100).
 /// </summary>
-void PMD::SetPPZOutputFrequency(uint32_t value) noexcept
+void PMD::SetPPZSampleRate(uint32_t sampleRate) noexcept
 {
-    if (value == _State.PPZRate)
+    if (sampleRate == _State.PPZSampleRate)
         return;
 
-    _State.PPZRate = value;
+    _State.PPZSampleRate = sampleRate;
 
-    _PPZ->SetOutputFrequency(value, _State.UseInterpolationPPZ);
+    _PPZ->SetSampleRate(sampleRate, _State.UseInterpolationPPZ);
 }
 
 /// <summary>
@@ -853,7 +700,7 @@ void PMD::SetPPZInterpolation(bool flag)
 {
     _State.UseInterpolationPPZ = flag;
 
-    _PPZ->SetOutputFrequency(_State.PPZRate, flag);
+    _PPZ->SetSampleRate(_State.PPZSampleRate, flag);
 }
 
 /// <summary>
@@ -863,7 +710,7 @@ void PMD::SetPPSInterpolation(bool flag)
 {
     _State.UseInterpolationPPS = flag;
 
-    _PPS->SetOutputFrequency(_State.OPNARate, flag);
+    _PPS->SetSampleRate(_State.OPNASampleRate, flag);
 }
 
 /// <summary>
@@ -873,7 +720,7 @@ void PMD::SetP86Interpolation(bool flag)
 {
     _State.UseInterpolationP86 = flag;
 
-    _P86->SetOutputFrequency(_State.OPNARate, flag);
+    _P86->SetSampleRate(_State.OPNASampleRate, flag);
 }
 
 /// <summary>
@@ -1059,13 +906,13 @@ bool PMD::GetMemo(const uint8_t * data, size_t size, int index, char * text, siz
 
     text[0] = '\0';
 
-    char TwoBytezen[1024 + 64];
+    char TwoByteZen[1024 + 64];
 
-    GetText(data, size, index, TwoBytezen);
+    GetText(data, size, index, TwoByteZen, _countof(TwoByteZen));
 
     char Han[1024 + 64];
 
-    ZenToHan(Han, TwoBytezen);
+    ZenToHan(Han, TwoByteZen);
 
     RemoveEscapeSequences(text, Han);
 
@@ -1075,9 +922,9 @@ bool PMD::GetMemo(const uint8_t * data, size_t size, int index, char * text, siz
 /// <summary>
 /// Gets the specified channel object.
 /// </summary>
-Channel * PMD::GetChannel(int channelNumber)
+Channel * PMD::GetChannel(int channelNumber) const noexcept
 {
-    if (channelNumber >= _countof(_State.Channel))
+    if (channelNumber >= (int) _countof(_State.Channel))
         return nullptr;
 
     return _State.Channel[channelNumber];
@@ -1091,14 +938,14 @@ void PMD::Reset()
 {
     _State.Reset();
 
-    ::memset(_FMChannel, 0, sizeof(_FMChannel));
-    ::memset(_SSGChannel, 0, sizeof(_SSGChannel));
-    ::memset(&_ADPCMChannel, 0, sizeof(_ADPCMChannel));
-    ::memset(&_RhythmChannel, 0, sizeof(_RhythmChannel));
-    ::memset(_FMExtensionChannel, 0, sizeof(_FMExtensionChannel));
-    ::memset(&_DummyChannel, 0, sizeof(_DummyChannel));
-    ::memset(&_EffectChannel, 0, sizeof(_EffectChannel));
-    ::memset(_PPZChannel, 0, sizeof(_PPZChannel));
+    ::memset(_FMChannels, 0, sizeof(_FMChannels));
+    ::memset(_SSGChannels, 0, sizeof(_SSGChannels));
+    ::memset(&_ADPCMChannels, 0, sizeof(_ADPCMChannels));
+    ::memset(&_RhythmChannels, 0, sizeof(_RhythmChannels));
+    ::memset(_FMExtensionChannels, 0, sizeof(_FMExtensionChannels));
+    ::memset(&_DummyChannels, 0, sizeof(_DummyChannels));
+    ::memset(&_EffectChannels, 0, sizeof(_EffectChannels));
+    ::memset(_PPZChannels, 0, sizeof(_PPZChannels));
 
     ::memset(&_SampleBank, 0, sizeof(_SampleBank));
 
@@ -1132,8 +979,8 @@ void PMD::Reset()
         _State.EData = _EData;
     }
 
-    _State.OPNARate = FREQUENCY_44_1K;
-    _State.PPZRate = FREQUENCY_44_1K;
+    _State.OPNASampleRate = FREQUENCY_44_1K;
+    _State.PPZSampleRate = FREQUENCY_44_1K;
 
     _State.StopAfterFadeout = false;
     _State.IsTimerBBusy = false;
@@ -1148,36 +995,36 @@ void PMD::Reset()
     _State.UseInterpolationPPS = false;
 
     {
-        _State.Channel[ 0] = &_FMChannel[0];
-        _State.Channel[ 1] = &_FMChannel[1];
-        _State.Channel[ 2] = &_FMChannel[2];
-        _State.Channel[ 3] = &_FMChannel[3];
-        _State.Channel[ 4] = &_FMChannel[4];
-        _State.Channel[ 5] = &_FMChannel[5];
+        _State.Channel[ 0] = &_FMChannels[0];
+        _State.Channel[ 1] = &_FMChannels[1];
+        _State.Channel[ 2] = &_FMChannels[2];
+        _State.Channel[ 3] = &_FMChannels[3];
+        _State.Channel[ 4] = &_FMChannels[4];
+        _State.Channel[ 5] = &_FMChannels[5];
 
-        _State.Channel[ 6] = &_SSGChannel[0];
-        _State.Channel[ 7] = &_SSGChannel[1];
-        _State.Channel[ 8] = &_SSGChannel[2];
+        _State.Channel[ 6] = &_SSGChannels[0];
+        _State.Channel[ 7] = &_SSGChannels[1];
+        _State.Channel[ 8] = &_SSGChannels[2];
 
-        _State.Channel[ 9] = &_ADPCMChannel;
+        _State.Channel[ 9] = &_ADPCMChannels;
 
-        _State.Channel[10] = &_RhythmChannel;
+        _State.Channel[10] = &_RhythmChannels;
 
-        _State.Channel[11] = &_FMExtensionChannel[0];
-        _State.Channel[12] = &_FMExtensionChannel[1];
-        _State.Channel[13] = &_FMExtensionChannel[2];
+        _State.Channel[11] = &_FMExtensionChannels[0];
+        _State.Channel[12] = &_FMExtensionChannels[1];
+        _State.Channel[13] = &_FMExtensionChannels[2];
 
-        _State.Channel[14] = &_DummyChannel; // Unused
-        _State.Channel[15] = &_EffectChannel;
+        _State.Channel[14] = &_DummyChannels; // Unused
+        _State.Channel[15] = &_EffectChannels;
 
-        _State.Channel[16] = &_PPZChannel[0];
-        _State.Channel[17] = &_PPZChannel[1];
-        _State.Channel[18] = &_PPZChannel[2];
-        _State.Channel[19] = &_PPZChannel[3];
-        _State.Channel[20] = &_PPZChannel[4];
-        _State.Channel[21] = &_PPZChannel[5];
-        _State.Channel[22] = &_PPZChannel[6];
-        _State.Channel[23] = &_PPZChannel[7];
+        _State.Channel[16] = &_PPZChannels[0];
+        _State.Channel[17] = &_PPZChannels[1];
+        _State.Channel[18] = &_PPZChannels[2];
+        _State.Channel[19] = &_PPZChannels[3];
+        _State.Channel[20] = &_PPZChannels[4];
+        _State.Channel[21] = &_PPZChannels[5];
+        _State.Channel[22] = &_PPZChannels[6];
+        _State.Channel[23] = &_PPZChannels[7];
     }
 
     SetFMVolumeAdjustment(0);
@@ -1221,14 +1068,14 @@ void PMD::Reset()
 /// </summary>
 void PMD::StartOPNInterrupt()
 {
-    ::memset(_FMChannel, 0, sizeof(_FMChannel));
-    ::memset(_SSGChannel, 0, sizeof(_SSGChannel));
-    ::memset(&_ADPCMChannel, 0, sizeof(_ADPCMChannel));
-    ::memset(&_RhythmChannel, 0, sizeof(_RhythmChannel));
-    ::memset(&_DummyChannel, 0, sizeof(_DummyChannel));
-    ::memset(_FMExtensionChannel, 0, sizeof(_FMExtensionChannel));
-    ::memset(&_EffectChannel, 0, sizeof(_EffectChannel));
-    ::memset(_PPZChannel, 0, sizeof(_PPZChannel));
+    ::memset(_FMChannels, 0, sizeof(_FMChannels));
+    ::memset(_SSGChannels, 0, sizeof(_SSGChannels));
+    ::memset(&_ADPCMChannels, 0, sizeof(_ADPCMChannels));
+    ::memset(&_RhythmChannels, 0, sizeof(_RhythmChannels));
+    ::memset(&_DummyChannels, 0, sizeof(_DummyChannels));
+    ::memset(_FMExtensionChannels, 0, sizeof(_FMExtensionChannels));
+    ::memset(&_EffectChannels, 0, sizeof(_EffectChannels));
+    ::memset(_PPZChannels, 0, sizeof(_PPZChannels));
 
     _State.RhythmMask = 0xFF;
 
@@ -1282,80 +1129,84 @@ void PMD::InitializeState()
 
     _State.PMDB2CompatibilityMode = _State.DefaultPMDB2CompatibilityMode;
 
-    for (int i = 0; i < _countof(_FMChannel); ++i)
+    for (auto & FMChannel : _FMChannels)
     {
-        int PartMask = _FMChannel[i].MuteMask;
-        int KeyOnFlag = _FMChannel[i].KeyOnFlag;
+        int PartMask  = FMChannel.MuteMask;
+        int KeyOnFlag = FMChannel.KeyOnFlag;
 
-        ::memset(&_FMChannel[i], 0, sizeof(Channel));
-
-        _FMChannel[i].MuteMask = PartMask & 0x0F;
-        _FMChannel[i].KeyOnFlag = KeyOnFlag;
-        _FMChannel[i].Tone = 0xFF;
-        _FMChannel[i].DefaultTone = 0xFF;
+        FMChannel =
+        {
+            .MuteMask    = PartMask & 0x0F,
+            .KeyOnFlag   = KeyOnFlag,
+            .Tone        = 0xFF,
+            .DefaultTone = 0xFF
+        };
     }
 
-    for (int i = 0; i < _countof(_SSGChannel); ++i)
+    for (auto & SSGChannel : _SSGChannels)
     {
-        int PartMask = _SSGChannel[i].MuteMask;
-        int KeyOnFlag = _SSGChannel[i].KeyOnFlag;
+        int PartMask  = SSGChannel.MuteMask;
+        int KeyOnFlag = SSGChannel.KeyOnFlag;
 
-        ::memset(&_SSGChannel[i], 0, sizeof(Channel));
-
-        _SSGChannel[i].MuteMask = PartMask & 0x0F;
-        _SSGChannel[i].KeyOnFlag = KeyOnFlag;
-        _SSGChannel[i].Tone = 0xFF;
-        _SSGChannel[i].DefaultTone = 0xFF;
-    }
-
-    {
-        int PartMask = _ADPCMChannel.MuteMask;
-        int KeyOnFlag = _ADPCMChannel.KeyOnFlag;
-
-        ::memset(&_ADPCMChannel, 0, sizeof(Channel));
-
-        _ADPCMChannel.MuteMask = PartMask & 0x0F;
-        _ADPCMChannel.KeyOnFlag = KeyOnFlag;
-        _ADPCMChannel.Tone = 0xFF;
-        _ADPCMChannel.DefaultTone = 0xFF;
+        SSGChannel =
+        {
+            .MuteMask    = PartMask & 0x0F,
+            .KeyOnFlag   = KeyOnFlag,
+            .Tone        = 0xFF,
+            .DefaultTone = 0xFF
+        };
     }
 
     {
-        int PartMask = _RhythmChannel.MuteMask;
-        int KeyOnFlag = _RhythmChannel.KeyOnFlag;
+        int PartMask = _ADPCMChannels.MuteMask;
+        int KeyOnFlag = _ADPCMChannels.KeyOnFlag;
 
-        ::memset(&_RhythmChannel, 0, sizeof(Channel));
+        ::memset(&_ADPCMChannels, 0, sizeof(Channel));
 
-        _RhythmChannel.MuteMask = PartMask & 0x0f;
-        _RhythmChannel.KeyOnFlag = KeyOnFlag;
-        _RhythmChannel.Tone = 0xFF;
-        _RhythmChannel.DefaultTone = 0xFF;
+        _ADPCMChannels.MuteMask = PartMask & 0x0F;
+        _ADPCMChannels.KeyOnFlag = KeyOnFlag;
+        _ADPCMChannels.Tone = 0xFF;
+        _ADPCMChannels.DefaultTone = 0xFF;
     }
 
-    for (int i = 0; i < _countof(_FMExtensionChannel); ++i)
     {
-        int PartMask = _FMExtensionChannel[i].MuteMask;
-        int KeyOnFlag = _FMExtensionChannel[i].KeyOnFlag;
+        int PartMask = _RhythmChannels.MuteMask;
+        int KeyOnFlag = _RhythmChannels.KeyOnFlag;
 
-        ::memset(&_FMExtensionChannel[i], 0, sizeof(Channel));
+        ::memset(&_RhythmChannels, 0, sizeof(Channel));
 
-        _FMExtensionChannel[i].MuteMask = PartMask & 0x0F;
-        _FMExtensionChannel[i].KeyOnFlag = KeyOnFlag;
-        _FMExtensionChannel[i].Tone = 0xFF;
-        _FMExtensionChannel[i].DefaultTone = 0xFF;
+        _RhythmChannels.MuteMask = PartMask & 0x0f;
+        _RhythmChannels.KeyOnFlag = KeyOnFlag;
+        _RhythmChannels.Tone = 0xFF;
+        _RhythmChannels.DefaultTone = 0xFF;
     }
 
-    for (int i = 0; i < _countof(_PPZChannel); ++i)
+    for (auto & FMExtensionChannel : _FMExtensionChannels)
     {
-        int PartMask = _PPZChannel[i].MuteMask;
-        int KeyOnFlag = _PPZChannel[i].KeyOnFlag;
+        int PartMask  = FMExtensionChannel.MuteMask;
+        int KeyOnFlag = FMExtensionChannel.KeyOnFlag;
 
-        ::memset(&_PPZChannel[i], 0, sizeof(Channel));
+        FMExtensionChannel =
+        {
+            .MuteMask    = PartMask & 0x0F,
+            .KeyOnFlag   = KeyOnFlag,
+            .Tone        = 0xFF,
+            .DefaultTone = 0xFF
+        };
+    }
 
-        _PPZChannel[i].MuteMask = PartMask & 0x0F;
-        _PPZChannel[i].KeyOnFlag = KeyOnFlag;
-        _PPZChannel[i].Tone = 0xFF;
-        _PPZChannel[i].DefaultTone = 0xFF;
+    for (auto & PPZChannel : _PPZChannels)
+    {
+        int PartMask  = PPZChannel.MuteMask;
+        int KeyOnFlag = PPZChannel.KeyOnFlag;
+
+        PPZChannel =
+        {
+            .MuteMask    = PartMask & 0x0F,
+            .KeyOnFlag   = KeyOnFlag,
+            .Tone        = 0xFF,
+            .DefaultTone = 0xFF
+        };
     }
 
     _Driver.Initialize();
@@ -1425,6 +1276,8 @@ void PMD::InitializeOPN()
 /// </summary>
 uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
 {
+//  console::printf("   : %02X", command);
+
     switch (command)
     {
         case 0xFF: si++; break;
@@ -1703,24 +1556,6 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
     return si;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /// <summary>
 ///
 /// </summary>
@@ -1770,7 +1605,8 @@ void PMD::HandleTimerB()
     _State.IsTimerBBusy = false;
 }
 
-#pragma region(Commands)
+#pragma region Commands
+
 /// <summary>
 /// Increases the volume for the next note only (Command "v").
 /// </summary>
@@ -1803,6 +1639,9 @@ uint8_t * PMD::DecreaseVolumeForNextNote(Channel * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+/// 
+/// </summary>
 uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8_t value)
 {
     switch (value)
@@ -1859,7 +1698,9 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
     return si;
 }
 
-// Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
+/// <summary>
+/// Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
+/// </summary>
 uint8_t * PMD::SetHardwareLFOSwitchCommand(Channel * channel, uint8_t * si)
 {
     channel->ModulationMode = (channel->ModulationMode & 0x8F) | ((*si++ & 0x07) << 4);
@@ -1873,6 +1714,9 @@ uint8_t * PMD::SetHardwareLFOSwitchCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+/// 
+/// </summary>
 uint8_t * PMD::SetVolumeMask(Channel * channel, uint8_t * si)
 {
     int al = *si++ & 0x0F;
@@ -1891,7 +1735,9 @@ uint8_t * PMD::SetVolumeMask(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command 't' [TEMPO CHANGE1] / COMMAND 'T' [TEMPO CHANGE2] / COMMAND 't±' [TEMPO CHANGE 相対1] / COMMAND 'T±' [TEMPO CHANGE 相対2]
+/// <summary>
+/// Command 't' [Tempo Change 1] / Command 'T' [Tempo Change 2] / Command 't±' [Relative Tempo Change 1] / Command 'T±' [Relative Tempo Change 2] 
+/// </summary>
 uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
 {
     int al = *si++;
@@ -1899,7 +1745,7 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
     // Add to Ticks per Quarter (T (FC)).
     if (al < 0xFB)
     {
-        _State.Tempo = al;
+        _State.Tempo     = al;
         _State.TempoPush = al;
 
         ConvertTimerBTempoToMetronomeTempo();
@@ -1913,16 +1759,16 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
         if (al < 18)
             al = 18;
 
-        _State.MetronomeTempo = al;
+        _State.MetronomeTempo     = al;
         _State.MetronomeTempoPush = al;
 
         ConvertMetronomeTempoToTimerBTempo();
     }
     else
-    // Add to Tempo (T± (FC FE)).
+    // Relative Tempo Change (T± (FC FE)).
     if (al == 0xFE)
     {
-        al = *si++;
+        al = (int8_t) *si++;
 
         if (al >= 0)
             al += _State.TempoPush;
@@ -1937,15 +1783,15 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
         if (al > 0xFA)
             al = 0xFA;
 
-        _State.Tempo = al;
+        _State.Tempo     = al;
         _State.TempoPush = al;
 
         ConvertTimerBTempoToMetronomeTempo();
     }
-    // Set Tempo to ticks (t± (FC FD)).
+    // Relative Tempo Change (t± (FC FD)).
     else
     {
-        al = *si++;
+        al = (int8_t) *si++;
 
         if (al >= 0)
         {
@@ -1962,7 +1808,7 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
                 al = 18;
         }
 
-        _State.MetronomeTempo = al;
+        _State.MetronomeTempo     = al;
         _State.MetronomeTempoPush = al;
 
         ConvertMetronomeTempoToTimerBTempo();
@@ -1971,10 +1817,12 @@ uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
     return si;
 }
 
-// Command '[': Set start of loop
+/// <summary>
+/// Command '[': Set start of loop 
+/// </summary>
 uint8_t * PMD::SetStartOfLoopCommand(Channel * channel, uint8_t * si)
 {
-    uint8_t * Data = (channel == &_EffectChannel) ? _State.EData : _State.MData;
+    uint8_t * Data = (channel == &_EffectChannels) ? _State.EData : _State.MData;
 
     Data[*(uint16_t *) si + 1] = 0;
 
@@ -1983,7 +1831,9 @@ uint8_t * PMD::SetStartOfLoopCommand(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command ']': Set end of loop
+/// <summary>
+/// Command ']': Set end of loop
+/// </summary>
 uint8_t * PMD::SetEndOfLoopCommand(Channel * channel, uint8_t * si)
 {
     int MaxLoopCount = *si++;
@@ -2010,15 +1860,17 @@ uint8_t * PMD::SetEndOfLoopCommand(Channel * channel, uint8_t * si)
     // Jump to offset + 2.
     int Offset = *(uint16_t *) si + 2;
 
-    si = ((channel == &_EffectChannel) ? _State.EData : _State.MData) + Offset;
+    si = ((channel == &_EffectChannels) ? _State.EData : _State.MData) + Offset;
 
     return si;
 }
 
-// Command ':': Exit Loop
+/// <summary>
+/// Command ':': Exit Loop
+/// </summary>
 uint8_t * PMD::ExitLoopCommand(Channel * channel, uint8_t * si)
 {
-    uint8_t * Data = (channel == &_EffectChannel) ? _State.EData : _State.MData;
+    uint8_t * Data = (channel == &_EffectChannels) ? _State.EData : _State.MData;
 
     Data += *(uint16_t *) si;
     si += 2;
@@ -2052,6 +1904,9 @@ uint8_t * PMD::SetModulation(Channel * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+/// 
+/// </summary>
 uint8_t * PMD::SetMDepthCountCommand(Channel * channel, uint8_t * si)
 {
     int al = *si++;
@@ -2260,7 +2115,6 @@ void PMD::CalculatePortamento(Channel * channel)
 /// <summary>
 /// Gets a random number.
 /// </summary>
-/// <param name="ax">MAX_RANDOM</param>
 int PMD::rnd(int ax)
 {
     _Seed = (259 * _Seed + 3) & 0x7fff;
@@ -2327,7 +2181,7 @@ void PMD::IncreaseBarCounter()
 void PMD::InitializeInterrupt()
 {
     // OPN interrupt initial setting
-    _State.Tempo = 200;
+    _State.Tempo     = 200;
     _State.TempoPush = 200;
 
     ConvertTimerBTempoToMetronomeTempo();
@@ -2346,7 +2200,7 @@ void PMD::InitializeInterrupt()
 /// <summary>
 ///
 /// </summary>
-void PMD::Silence()
+void PMD::Mute()
 {
     _OPNAW->SetReg(0x80, 0xff); // FM Release = 15
     _OPNAW->SetReg(0x81, 0xff);
@@ -2450,86 +2304,86 @@ void PMD::InitializeChannels()
 
     const uint16_t * Offsets = (const uint16_t *) _State.MData;
 
-    for (size_t i = 0; i < _countof(_FMChannel); ++i)
+    for (size_t i = 0; i < _countof(_FMChannels); ++i)
     {
         if (_State.MData[*Offsets] == 0x80) // Do not play.
-            _FMChannel[i].Data = nullptr;
+            _FMChannels[i].Data = nullptr;
         else
-            _FMChannel[i].Data = &_State.MData[*Offsets];
+            _FMChannels[i].Data = &_State.MData[*Offsets];
 
-        _FMChannel[i].Length = 1;
-        _FMChannel[i].KeyOffFlag = 0xFF;
-        _FMChannel[i].LFO1MDepthCount1 = -1;    // LFO1MDepth Counter (-1 = infinite)
-        _FMChannel[i].LFO1MDepthCount2 = -1;
-        _FMChannel[i].LFO2MDepthCount1 = -1;
-        _FMChannel[i].LFO2MDepthCount2 = -1;
-        _FMChannel[i].Tone = 0xFF;              // Rest
-        _FMChannel[i].DefaultTone = 0xFF;       // Rest
-        _FMChannel[i].Volume = 108;
-        _FMChannel[i].PanAndVolume = 0xC0;      // 3 << 6, Center
-        _FMChannel[i].FMSlotMask = 0xF0;
-        _FMChannel[i].ToneMask = 0xFF;
+        _FMChannels[i].Length = 1;
+        _FMChannels[i].KeyOffFlag = 0xFF;
+        _FMChannels[i].LFO1MDepthCount1 = -1;    // LFO1MDepth Counter (-1 = infinite)
+        _FMChannels[i].LFO1MDepthCount2 = -1;
+        _FMChannels[i].LFO2MDepthCount1 = -1;
+        _FMChannels[i].LFO2MDepthCount2 = -1;
+        _FMChannels[i].Tone = 0xFF;              // Rest
+        _FMChannels[i].DefaultTone = 0xFF;       // Rest
+        _FMChannels[i].Volume = 108;
+        _FMChannels[i].PanAndVolume = 0xC0;      // 3 << 6, Center
+        _FMChannels[i].FMSlotMask = 0xF0;
+        _FMChannels[i].ToneMask = 0xFF;
 
         Offsets++;
     }
 
-    for (size_t i = 0; i < _countof(_SSGChannel); ++i)
+    for (size_t i = 0; i < _countof(_SSGChannels); ++i)
     {
         if (_State.MData[*Offsets] == 0x80) // Do not play.
-            _SSGChannel[i].Data = nullptr;
+            _SSGChannels[i].Data = nullptr;
         else
-            _SSGChannel[i].Data = &_State.MData[*Offsets];
+            _SSGChannels[i].Data = &_State.MData[*Offsets];
 
-        _SSGChannel[i].Length = 1;
-        _SSGChannel[i].KeyOffFlag = 0xFF;
-        _SSGChannel[i].LFO1MDepthCount1 = -1;   // LFO1MDepth Counter (-1 = infinite)
-        _SSGChannel[i].LFO1MDepthCount2 = -1;
-        _SSGChannel[i].LFO2MDepthCount1 = -1;
-        _SSGChannel[i].LFO2MDepthCount2 = -1;
-        _SSGChannel[i].Tone = 0xFF;             // Rest
-        _SSGChannel[i].DefaultTone = 0xFF;      // Rest
-        _SSGChannel[i].Volume = 8;
-        _SSGChannel[i].SSGMask = 0x07;          // Tone
-        _SSGChannel[i].SSGEnvelopFlag = 3;      // SSG ENV = NONE/normal
+        _SSGChannels[i].Length = 1;
+        _SSGChannels[i].KeyOffFlag = 0xFF;
+        _SSGChannels[i].LFO1MDepthCount1 = -1;   // LFO1MDepth Counter (-1 = infinite)
+        _SSGChannels[i].LFO1MDepthCount2 = -1;
+        _SSGChannels[i].LFO2MDepthCount1 = -1;
+        _SSGChannels[i].LFO2MDepthCount2 = -1;
+        _SSGChannels[i].Tone = 0xFF;             // Rest
+        _SSGChannels[i].DefaultTone = 0xFF;      // Rest
+        _SSGChannels[i].Volume = 8;
+        _SSGChannels[i].SSGMask = 0x07;          // Tone
+        _SSGChannels[i].SSGEnvelopFlag = 3;      // SSG ENV = NONE/normal
 
         Offsets++;
     }
 
     {
         if (_State.MData[*Offsets] == 0x80) // Do not play
-            _ADPCMChannel.Data = nullptr;
+            _ADPCMChannels.Data = nullptr;
         else
-            _ADPCMChannel.Data = &_State.MData[*Offsets];
+            _ADPCMChannels.Data = &_State.MData[*Offsets];
 
-        _ADPCMChannel.Length = 1;
-        _ADPCMChannel.KeyOffFlag = 0xFF;
-        _ADPCMChannel.LFO1MDepthCount1 = -1;
-        _ADPCMChannel.LFO1MDepthCount2 = -1;
-        _ADPCMChannel.LFO2MDepthCount1 = -1;
-        _ADPCMChannel.LFO2MDepthCount2 = -1;
-        _ADPCMChannel.Tone = 0xFF;
-        _ADPCMChannel.DefaultTone = 0xFF;
-        _ADPCMChannel.Volume = 128;
-        _ADPCMChannel.PanAndVolume = 0xC0;      // 3 << 6, Center
+        _ADPCMChannels.Length = 1;
+        _ADPCMChannels.KeyOffFlag = 0xFF;
+        _ADPCMChannels.LFO1MDepthCount1 = -1;
+        _ADPCMChannels.LFO1MDepthCount2 = -1;
+        _ADPCMChannels.LFO2MDepthCount1 = -1;
+        _ADPCMChannels.LFO2MDepthCount2 = -1;
+        _ADPCMChannels.Tone = 0xFF;
+        _ADPCMChannels.DefaultTone = 0xFF;
+        _ADPCMChannels.Volume = 128;
+        _ADPCMChannels.PanAndVolume = 0xC0;      // 3 << 6, Center
 
         Offsets++;
     }
 
     {
         if (_State.MData[*Offsets] == 0x80) // Do not play
-            _RhythmChannel.Data = nullptr;
+            _RhythmChannels.Data = nullptr;
         else
-            _RhythmChannel.Data = &_State.MData[*Offsets];
+            _RhythmChannels.Data = &_State.MData[*Offsets];
 
-        _RhythmChannel.Length = 1;
-        _RhythmChannel.KeyOffFlag = 0xFF;
-        _RhythmChannel.LFO1MDepthCount1 = -1;
-        _RhythmChannel.LFO1MDepthCount2 = -1;
-        _RhythmChannel.LFO2MDepthCount1 = -1;
-        _RhythmChannel.LFO2MDepthCount2 = -1;
-        _RhythmChannel.Tone = 0xFF;             // Rest
-        _RhythmChannel.DefaultTone = 0xFF;      // Rest
-        _RhythmChannel.Volume = 15;
+        _RhythmChannels.Length = 1;
+        _RhythmChannels.KeyOffFlag = 0xFF;
+        _RhythmChannels.LFO1MDepthCount1 = -1;
+        _RhythmChannels.LFO1MDepthCount2 = -1;
+        _RhythmChannels.LFO2MDepthCount1 = -1;
+        _RhythmChannels.LFO2MDepthCount2 = -1;
+        _RhythmChannels.Tone = 0xFF;             // Rest
+        _RhythmChannels.DefaultTone = 0xFF;      // Rest
+        _RhythmChannels.Volume = 15;
 
         Offsets++;
     }
@@ -2550,25 +2404,23 @@ void PMD::InitializeChannels()
 }
 
 /// <summary>
-/// Tempo conversion
+/// Tempo conversion (input: tempo_d, output: tempo_48)
 /// </summary>
 void PMD::ConvertTimerBTempoToMetronomeTempo()
 {
     int al;
 
-    if (256 - _State.Tempo == 0)
+    if (_State.Tempo != 256)
     {
-        al = 255;
-    }
-    else
-    {
-        al = (0x112c * 2 / (256 - _State.Tempo) + 1) / 2; // Tempo = 0x112C / [ 256 - TB ]  timerB -> tempo
+        al = (0x112C * 2 / (256 - _State.Tempo) + 1) / 2;   // Tempo = 0x112C / [ 256 - TB ]  Timer B -> Tempo
 
         if (al > 255)
             al = 255;
     }
+    else
+        al = 255;
 
-    _State.MetronomeTempo = al;
+    _State.MetronomeTempo     = al;
     _State.MetronomeTempoPush = al;
 }
 
@@ -2581,17 +2433,17 @@ void PMD::ConvertMetronomeTempoToTimerBTempo()
 
     if (_State.MetronomeTempo >= 18)
     {
-        al = 256 - 0x112c / _State.MetronomeTempo; // TB = 256 - [ 112CH / TEMPO ]  tempo -> timerB
+        al = 256 - 0x112C / _State.MetronomeTempo;          // TB = 256 - [ 0x112C / Tempo ]  Tempo -> Timer B
 
-        if (0x112c % _State.MetronomeTempo >= 128)
+        if (0x112C % _State.MetronomeTempo >= 128)
             al--;
 
-    //  al = 256 - (0x112c * 2 / _State.tempo_48 + 1) / 2;
+//      al = 256 - (0x112C * 2 / _State.MetronomeTempo + 1) / 2;
     }
     else
         al = 0;
 
-    _State.Tempo = al;
+    _State.Tempo     = al;
     _State.TempoPush = al;
 }
 
@@ -2639,17 +2491,20 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
     if (size < 0x10)
         return ERR_UNKNOWN_FORMAT;
 
-    bool FoundPVI;
+    const size_t PVIIdentifierSize = sizeof(PVIIdentifier) - 1; // Don't count the terminating zero.
+    const size_t PPCIdentifierSize = sizeof(PPCIdentifier) - 1; // Don't count the terminating zero.
+    const size_t PPCSize           = PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256);
 
-    int i;
-    int bx = 0;
+    bool IsPVIData = false;
 
-    if ((::strncmp((char *) data, PVIHeader, sizeof(PVIHeader) - 1) == 0) && (data[10] == 2))
-    {   // PVI, x8
-        FoundPVI = true;
+    if ((::memcmp((char *) data, PVIIdentifier, PVIIdentifierSize) == 0) && (data[10] == 2)) // PVI
+    {
+        IsPVIData = true;
+
+        int NumSamples = 0;
 
         // Convert from PVI to PMD format.
-        for (i = 0; i < 128; ++i)
+        for (int i = 0; i < 128; ++i)
         {
             if (*((uint16_t *) &data[18 + i * 4]) == 0)
             {
@@ -2662,32 +2517,30 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
                 _SampleBank.Address[i][1] = (uint16_t) (*(uint16_t *) &data[18 + i * 4] + 0x26);
             }
 
-            if (bx < _SampleBank.Address[i][1])
-                bx = _SampleBank.Address[i][1] + 1;
+            if (NumSamples < _SampleBank.Address[i][1])
+                NumSamples = _SampleBank.Address[i][1] + 1;
         }
 
-        // The remaining 128 are undefined
-        for (i = 128; i < 256; ++i)
+        // The remaining 128 bytes are undefined.
+        for (int i = 128; i < 256; ++i)
         { 
             _SampleBank.Address[i][0] = 0;
             _SampleBank.Address[i][1] = 0;
         }
 
-        _SampleBank.Count = (uint16_t) bx;
+        _SampleBank.Count = (uint16_t) NumSamples;
     }
     else
-    if (::strncmp((char *) data, PPCHeader, sizeof(PPCHeader) - 1) == 0)
-    {   // PPC
-        FoundPVI = false;
-
-        if (size < sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256))
+    if (::memcmp((char *) data, PPCIdentifier, PPCIdentifierSize) == 0) // PPC
+    {
+        if (size < (int) PPCSize)
             return ERR_UNKNOWN_FORMAT;
 
-        uint16_t * Data = (uint16_t *)(data + (sizeof(PPCHeader) - 1));
+        uint16_t * Data = (uint16_t *)(data + PPCIdentifierSize);
 
         _SampleBank.Count = *Data++;
 
-        for (i = 0; i < 256; ++i)
+        for (int i = 0; i < 256; ++i)
         {
             _SampleBank.Address[i][0] = *Data++;
             _SampleBank.Address[i][1] = *Data++;
@@ -2702,16 +2555,16 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
         // Compare the data with the PCMRAM header.
         ReadPCMData(0, 0x25, Data);
 
-        if (::memcmp(Data + sizeof(PPCHeader), &_SampleBank, sizeof(_SampleBank)) == 0)
+        if (::memcmp(Data + PPCIdentifierSize, &_SampleBank, sizeof(_SampleBank)) == 0)
             return ERR_ALREADY_LOADED;
     }
 
     {
-        uint8_t Data[sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256) + 128];
+        uint8_t Data[PPCSize + 128];
 
-        // Compare the data with the PCMRAM header.
-        ::memcpy(Data, PPCHeader, sizeof(PPCHeader) - 1);
-        ::memcpy(Data + (sizeof(PPCHeader) - 1), &_SampleBank.Count, sizeof(Data) - (sizeof(PPCHeader) - 1));
+        // Write the PCM data.
+        ::memcpy(Data,                     PPCIdentifier,      PPCIdentifierSize);
+        ::memcpy(Data + PPCIdentifierSize, &_SampleBank.Count, sizeof(Data) - PPCIdentifierSize);
 
         WritePCMData(0, 0x25, Data);
     }
@@ -2720,19 +2573,19 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
     {
         uint16_t * Data;
 
-        if (FoundPVI)
+        if (IsPVIData)
         {
-            Data = (uint16_t *)(data + 0x10 + (sizeof(uint16_t) * 2 * 128));
-
             if (size < (int)(_SampleBank.Count - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
                 return ERR_UNKNOWN_FORMAT;
+
+            Data = (uint16_t *)(data + 0x10 + (sizeof(uint16_t) * 2 * 128));
         }
         else
         {
-            Data = (uint16_t *)(data + sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256));
-
-            if (size < (int)(_SampleBank.Count - (sizeof(PPCHeader) + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256) / 2) * 32))
+            if (size < (int)(_SampleBank.Count - (PPCSize / 2) * 32))
                 return ERR_UNKNOWN_FORMAT;
+
+            Data = (uint16_t *)(data + PPCSize);
         }
 
         uint16_t pcmstart = 0x26;
@@ -2814,7 +2667,7 @@ void PMD::FindFile(const WCHAR * filename, WCHAR * filePath, size_t size) const 
 /// <summary>
 /// Gets the text with the specified index from PMD data.
 /// </summary>
-void PMD::GetText(const uint8_t * data, size_t size, int index, char * text) const noexcept
+void PMD::GetText(const uint8_t * data, size_t size, int index, char * text, size_t max) const noexcept
 {
     *text = '\0';
 
@@ -2884,5 +2737,5 @@ void PMD::GetText(const uint8_t * data, size_t size, int index, char * text) con
         text[Size - Offset - 1] = '\0';
     }
     else
-        ::strcpy(text, (char *) &Data[Offset]);
+        ::strcpy_s(text, max, (char *) &Data[Offset]);
 }

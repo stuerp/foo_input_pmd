@@ -1,21 +1,9 @@
-﻿
+
 // Based on PMDWin code by C60
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#define _CRT_SECURE_NO_WARNINGS
+#include <pch.h>
 
 #include "Utility.h"
-
-#include <stdint.h>
-#include <ctype.h>
-#include <malloc.h>
-#include <string.h>
-
-#include <Windows.h>
-#include <winnls.h>
 
 // Returns true if the byte is the first byte of a multi-byte character.
 bool IsMBBLead(uint8_t c)
@@ -276,12 +264,14 @@ char * ZenToHan(char * dst, const char * src)
         L"ﾎﾟ"     // 85fc
     };
 
-    char * Zen = (char *) ::malloc(::strlen(src) + 2);
+    const size_t Max = ::strlen(src) + 2;
+
+    char * Zen = (char *) ::malloc(Max);
 
     if (Zen == nullptr)
         return nullptr;
 
-    ::strcpy(Zen, src);
+    ::strcpy_s(Zen, Max, src);
     Zen[::strlen(Zen) + 1] = '\0'; // 2 consecutive \0 bytes.
 
     uint8_t * p = (uint8_t *) Zen;

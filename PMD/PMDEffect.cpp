@@ -1,19 +1,14 @@
-﻿
+
 // PMD driver (Based on PMDWin code by C60)
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include <pch.h>
 
 #include "PMD.h"
 
 #include "Utility.h"
-#include "Table.h"
+#include "Tables.h"
 
 #include "OPNAW.h"
-#include "PPZ.h"
-#include "PPS.h"
-#include "P86.h"
 
 void PMD::EffectMain(Channel * channel, int al)
 {
@@ -26,7 +21,7 @@ void PMD::EffectMain(Channel * channel, int al)
         if (_Effect.Priority >= 2)
             return;
 
-        _SSGChannel[2].MuteMask |= 0x02;
+        _SSGChannels[2].MuteMask |= 0x02;
 
         _Effect.Priority = 1;
         _Effect.Number = al;
@@ -63,7 +58,7 @@ void PMD::EffectMain(Channel * channel, int al)
             if (_Driver.UsePPS)
                 _PPS->Stop();
 
-            _SSGChannel[2].MuteMask |= 0x02;
+            _SSGChannels[2].MuteMask |= 0x02;
 
             StartEffect(SSGEffects[al].Data);
 

@@ -1,4 +1,4 @@
-﻿
+
 // PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
 
 #pragma once
@@ -36,6 +36,8 @@ struct PPSHEADER
 
 const size_t PPSHEADERSIZE = (sizeof(uint16_t) * 2 + sizeof(uint8_t) * 2) * MAX_PPS;
 
+#pragma warning(disable: 4820) // 'x' bytes padding added after data member 'y'
+
 /// <summary>
 /// PCM driver for the SSG (Software-controlled Sound Generator)
 /// 4-bit 16000Hz PCM playback on the SSG Channel 3. It can also play 2 samples simultanelously, but at a lower quality.
@@ -51,7 +53,7 @@ public:
     bool Play(int num, int shift, int volshift);
 
     bool SetParameter(int index, bool value);
-    bool SetOutputFrequency(uint32_t r, bool ip);
+    bool SetSampleRate(uint32_t r, bool ip);
     void SetVolume(int volume);
 
     void Mix(Sample * sampleData, size_t sampleCount);
@@ -68,7 +70,7 @@ private:
     PPSHEADER _Header;
     WCHAR _FilePath[_MAX_PATH];
 
-    int _SynthesisRate;
+    int _SampleRate;
     bool _UseInterpolation;
 
     Sample _EmitTable[16];

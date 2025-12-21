@@ -1,19 +1,14 @@
-﻿
+
 // $VER: PMDSSG.cpp (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include <pch.h>
 
 #include "PMD.h"
 
 #include "Utility.h"
-#include "Table.h"
+#include "Tables.h"
 
 #include "OPNAW.h"
-#include "PPZ.h"
-#include "PPS.h"
-#include "P86.h"
 
 void PMD::SSGMain(Channel * channel)
 {
@@ -25,7 +20,7 @@ void PMD::SSGMain(Channel * channel)
     channel->Length--;
 
     // When using the PPS and SSG channel 3 and the SSG is playing sound effects.
-    if (_Driver.UsePPS && (channel == &_SSGChannel[2]) && !_State.UseRhythmChannel && (channel->Length <= channel->GateTime))
+    if (_Driver.UsePPS && (channel == &_SSGChannels[2]) && !_State.UseRhythmChannel && (channel->Length <= channel->GateTime))
     {
         SSGKeyOff(channel);
 
@@ -190,7 +185,7 @@ void PMD::SSGMain(Channel * channel)
                 CalculatePortamento(channel);
 
             // Do not operate while using SSG channel 3 and the SSG drum is playing.
-            if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Tone == 0xFF) && !_State.UseRhythmChannel))
+            if (!(!_Driver.UsePPS && (channel == &_SSGChannels[2]) && (channel->Tone == 0xFF) && !_State.UseRhythmChannel))
                 SetSSGPitch(channel);
         }
     }
@@ -200,7 +195,7 @@ void PMD::SSGMain(Channel * channel)
     if ((temp != 0) || _Driver.ModulationMode & 0x22 || (_State.FadeOutSpeed != 0))
     {
         // Do not operate while using SSG channel 3 and the SSG drum is playing.
-        if (!(!_Driver.UsePPS && (channel == &_SSGChannel[2]) && (channel->Tone == 0xFF) && !_State.UseRhythmChannel))
+        if (!(!_Driver.UsePPS && (channel == &_SSGChannels[2]) && (channel->Tone == 0xFF) && !_State.UseRhythmChannel))
             SetSSGVolume(channel);
     }
 
@@ -210,6 +205,8 @@ void PMD::SSGMain(Channel * channel)
 uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
 {
     uint8_t Command = *si++;
+
+//  console::printf("SSG: %02X", Command);
 
     switch (Command)
     {
@@ -1013,8 +1010,8 @@ uint8_t * PMD::DecreaseSSGVolumeCommand(Channel *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
-    if (al)
-        _State.SSGVolumeAdjust = Limit(al + _State.SSGVolumeAdjust, 255, 0);
+    if (al != 0)
+        _State.SSGVolumeAdjust = std::clamp(al + _State.SSGVolumeAdjust, 0, 255);
     else
         _State.SSGVolumeAdjust = _State.DefaultSSGVolumeAdjust;
 

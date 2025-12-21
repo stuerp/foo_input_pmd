@@ -1,19 +1,14 @@
 
 // $VER: PMDRhythm.cpp (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include <pch.h>
 
 #include "PMD.h"
 
 #include "Utility.h"
-#include "Table.h"
+#include "Tables.h"
 
 #include "OPNAW.h"
-#include "PPZ.h"
-#include "PPS.h"
-#include "P86.h"
 
 void PMD::RhythmMain(Channel * channel)
 {
@@ -109,6 +104,8 @@ void PMD::RhythmMain(Channel * channel)
 uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
 {
     uint8_t Command = *si++;
+
+//  console::printf("RSS: %02X", Command);
 
     switch (Command)
     {
@@ -352,7 +349,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
 /// </summary>
 void PMD::SetRhythmDelay(int nsec)
 {
-    _OPNAW->SetRhythmDelay(nsec);
+    _OPNAW->SetRSSDelay(nsec);
 }
 
 #pragma region(Commands)
@@ -485,8 +482,8 @@ uint8_t * PMD::DecreaseRhythmVolumeCommand(Channel *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
-    if (al)
-        _State.RhythmVolumeAdjust = Limit(al + _State.RhythmVolumeAdjust, 255, 0);
+    if (al != 0)
+        _State.RhythmVolumeAdjust = std::clamp(al + _State.RhythmVolumeAdjust, 0, 255);
     else
         _State.RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust;
 

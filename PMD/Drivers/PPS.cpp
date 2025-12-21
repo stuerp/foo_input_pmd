@@ -1,15 +1,7 @@
-﻿
+
 // PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#include <Windows.h>
-#include <tchar.h>
-
-#include <stdlib.h>
-#include <math.h>
+#include <pch.h>
 
 #include "PPS.h"
 
@@ -28,7 +20,7 @@ bool PPSDriver::Initialize(uint32_t r, bool ip)
 {
     _Init();
 
-    SetOutputFrequency(r, ip);
+    SetSampleRate(r, ip);
 
     return true;
 }
@@ -39,7 +31,7 @@ void PPSDriver::_Init(void)
 
     ::memset(&_Header, 0, sizeof(PPSHEADER));
 
-    _SynthesisRate = FREQUENCY_44_1K;
+    _SampleRate = FREQUENCY_44_1K;
     _UseInterpolation = false;
 
     if (_Samples)
@@ -129,13 +121,13 @@ bool PPSDriver::Play(int num, int shift, int volshift)
 
     if (_LowCPUCheck)
     {
-        tick1 = ((8000 * al / 225) << 16) / _SynthesisRate;
+        tick1 = ((8000 * al / 225) << 16) / _SampleRate;
         tick_xor1 = tick1 & 0xffff;
         tick1 >>= 16;
     }
     else
     {
-        tick1 = ((16000 * al / 225) << 16) / _SynthesisRate;
+        tick1 = ((16000 * al / 225) << 16) / _SampleRate;
         tick_xor1 = tick1 & 0xffff;
         tick1 >>= 16;
     }
@@ -294,11 +286,11 @@ bool PPSDriver::SetParameter(int index, bool value)
 }
 
 /// <summary>
-/// Sets the synthesis rate.
+/// Sets the sample rate.
 /// </summary>
-bool PPSDriver::SetOutputFrequency(uint32_t rate, bool useInterpolation)
+bool PPSDriver::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 {
-    _SynthesisRate = (int) rate;
+    _SampleRate = (int) sampleRate;
     _UseInterpolation = useInterpolation;
 
     return true;

@@ -1,19 +1,14 @@
-﻿
+
 // $VER: PMDPPZ.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include <pch.h>
 
 #include "PMD.h"
 
 #include "Utility.h"
-#include "Table.h"
+#include "Tables.h"
 
 #include "OPNAW.h"
-#include "PPZ.h"
-#include "PPS.h"
-#include "P86.h"
 
 void PMD::PPZMain(Channel * channel)
 {
@@ -195,6 +190,8 @@ void PMD::PPZMain(Channel * channel)
 uint8_t * PMD::ExecutePPZCommand(Channel * channel, uint8_t * si)
 {
     uint8_t Command = *si++;
+
+//  console::printf("PPZ: %02X", Command);
 
     switch (Command)
     {
@@ -916,23 +913,23 @@ uint8_t * PMD::SetPPZMaskCommand(Channel * channel, uint8_t * si)
 /// </summary>
 uint8_t * PMD::InitializePPZ(Channel *, uint8_t * si)
 {
-    for (size_t i = 0; i < _countof(_PPZChannel); ++i)
+    for (size_t i = 0; i < _countof(_PPZChannels); ++i)
     {
         int16_t Offset = *(int16_t *) si;
 
         if (Offset != 0)
         {
-            _PPZChannel[i].Data = &_State.MData[Offset];
-            _PPZChannel[i].Length = 1;
-            _PPZChannel[i].KeyOffFlag = 0xFF;
-            _PPZChannel[i].LFO1MDepthCount1 = -1;        // LFO1MDepth Counter (Infinite)
-            _PPZChannel[i].LFO1MDepthCount2 = -1;
-            _PPZChannel[i].LFO2MDepthCount1 = -1;
-            _PPZChannel[i].LFO2MDepthCount2 = -1;
-            _PPZChannel[i].Tone = 0xFF;         // Rest
-            _PPZChannel[i].DefaultTone = 0xFF;  // Rest
-            _PPZChannel[i].Volume = 128;
-            _PPZChannel[i].PanAndVolume = 5;    // Center
+            _PPZChannels[i].Data = &_State.MData[Offset];
+            _PPZChannels[i].Length = 1;
+            _PPZChannels[i].KeyOffFlag = 0xFF;
+            _PPZChannels[i].LFO1MDepthCount1 = -1;        // LFO1MDepth Counter (Infinite)
+            _PPZChannels[i].LFO1MDepthCount2 = -1;
+            _PPZChannels[i].LFO2MDepthCount1 = -1;
+            _PPZChannels[i].LFO2MDepthCount2 = -1;
+            _PPZChannels[i].Tone = 0xFF;         // Rest
+            _PPZChannels[i].DefaultTone = 0xFF;  // Rest
+            _PPZChannels[i].Volume = 128;
+            _PPZChannels[i].PanAndVolume = 5;    // Center
         }
 
         si += 2;
@@ -948,8 +945,8 @@ uint8_t * PMD::DecreasePPZVolumeCommand(Channel *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
-    if (al)
-        _State.PPZVolumeAdjust = Limit(al + _State.PPZVolumeAdjust, 255, 0);
+    if (al != 0)
+        _State.PPZVolumeAdjust = std::clamp(al + _State.PPZVolumeAdjust, 0, 255);
     else
         _State.PPZVolumeAdjust = _State.DefaultPPZVolumeAdjust;
 

@@ -1,5 +1,5 @@
 
-/** $VER: Resources.h (2023.11.12) P. Stuer **/
+/** $VER: Resources.h (2025.12.21) P. Stuer **/
 
 #pragma once
 
@@ -13,7 +13,7 @@
 #define STR_COMPONENT_BASENAME      "foo_input_pmd"
 #define STR_COMPONENT_FILENAME      STR_COMPONENT_BASENAME ".dll"
 #define STR_COMPONENT_COMPANY_NAME  ""
-#define STR_COMPONENT_COPYRIGHT     "Copyright (c) 2023 P. Stuer. All rights reserved."
+#define STR_COMPONENT_COPYRIGHT     "Copyright (c) 2023-2026 P. Stuer. All rights reserved."
 #define STR_COMPONENT_COMMENTS      ""
 #define STR_COMPONENT_DESCRIPTION   "Adds playback of Professional Music Driver (PMD) files to foobar2000"
 
@@ -26,7 +26,7 @@
 
 #define NUM_FILE_MAJOR          0
 #define NUM_FILE_MINOR          4
-#define NUM_FILE_PATCH          1
+#define NUM_FILE_PATCH          2
 #define NUM_FILE_PRERELEASE     0
 
 #define STR_FILE_NAME           TEXT(STR_COMPONENT_FILENAME)
@@ -35,7 +35,7 @@
 
 #define NUM_PRODUCT_MAJOR       0
 #define NUM_PRODUCT_MINOR       4
-#define NUM_PRODUCT_PATCH       1
+#define NUM_PRODUCT_PATCH       2
 #define NUM_PRODUCT_PRERELEASE  0
 
 #define STR_PRODUCT_NAME        STR_INTERNAL_NAME

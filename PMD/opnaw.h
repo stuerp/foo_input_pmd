@@ -1,5 +1,5 @@
-﻿
-/** $VER: OPNAW.h (2023.10.18) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+
+/** $VER: OPNAW.h (2025.10.01) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -24,29 +24,29 @@
 class OPNAW : public OPNA
 {
 public:
-    OPNAW(File * file) : OPNA(file)
+    OPNAW(File * file) noexcept : OPNA(file)
     {
         Reset();
     }
 
-    virtual ~OPNAW() { }
+    virtual ~OPNAW() noexcept { }
 
-    bool Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation, const WCHAR * directoryPath);
-    void SetOutputFrequency(uint32_t clock, uint32_t outputFrequency, bool useInterpolation = false) noexcept;
+    bool Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation, const WCHAR * directoryPath) noexcept;
+    void Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation) noexcept;
 
-    void SetFMDelay(int nsec);
-    void SetSSGDelay(int nsec);
-    void SetADPCMDelay(int nsec);
-    void SetRhythmDelay(int nsec);
+    void SetFMDelay(int nsec) noexcept;
+    void SetSSGDelay(int nsec) noexcept;
+    void SetADPCMDelay(int nsec) noexcept;
+    void SetRSSDelay(int nsec) noexcept;
 
-    int GetFMDelay() const { return _FMDelay; }
-    int GetSSGDelay() const { return _SSGDelay; }
-    int GetADPCMDelay() { return _ADPCMDelay; }
-    int GetRSSDelay() const { return _RSSDelay; }
+    int GetFMDelay() const noexcept { return _FMDelay; }
+    int GetSSGDelay() const noexcept { return _SSGDelay; }
+    int GetADPCMDelay() const noexcept { return _ADPCMDelay; }
+    int GetRSSDelay() const noexcept { return _RSSDelay; }
 
-    void SetReg(uint32_t addr, uint32_t data);
+    void SetReg(uint32_t addr, uint32_t data) noexcept;
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
-    void ClearBuffer();
+    void ClearBuffer() noexcept;
 
 private:
     void Reset() noexcept;
@@ -54,11 +54,6 @@ private:
     void CalcWaitPCM(int waitcount);
 
     void MixInternal(Sample * sampleData, size_t sampleCount) noexcept;
-
-    inline int Limit(int value, int max, int min)
-    {
-        return (value > max) ? max : ((value < min) ? min : value);
-    }
 
     /// <summary>
     /// Normalized sinc function
@@ -71,8 +66,8 @@ private:
     }
 
 private:
-    uint32_t _OutputFrequency;      // in Hz
-    bool _UseLinearInterpolation;
+    uint32_t _SampleRate;      // in Hz
+    bool _UseInterpolation;
 
     int _FMDelay;           // in ns
     int _SSGDelay;          // in ns

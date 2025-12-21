@@ -1,5 +1,5 @@
-﻿
-/** $VER: PPZ.h (2023.10.18) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
+
+/** $VER: PPZ.h (2025.10.05) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
 
 #pragma once
 
@@ -64,8 +64,9 @@ struct PZIHEADER
 {
     char ID[4];                     // 'PZI1'
     char Dummy1[7];
-    uint8_t Count;                  // Number of PZI entries available
+    uint8_t Count;                  // Number of PZI entries used by the bank
     char Dummy2[22];
+
     PZIITEM PZIItem[128];
 };
 
@@ -78,12 +79,15 @@ struct PVIITEM
 struct PVIHEADER
 {
     char ID[4];                     // 'PVI2'
-    char Dummy1[0x0b - 4];
-    uint8_t Count;                  // Number of PVI entries available
-    char Dummy2[0x10 - 0x0b - 1];
+    char Dummy1[0x0B - 4];
+    uint8_t Count;                  // Number of PVI entries used by the bank
+    char Dummy2[0x10 - 0x0B - 1];
+
     PVIITEM PVIItem[128];
 };
 #pragma pack(pop)
+
+#pragma warning(disable: 4820) // 'x' bytes padding added after data member 'y'
 
 /// <summary>
 /// Represents a bank of PPZ samples.
@@ -127,6 +131,8 @@ public:
     bool _IsPVI;
 };
 
+#pragma warning(disable: 4820) // 'x' bytes padding added after data member 'y'
+
 /// <summary>
 /// Implements a driver that synthesizes up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit aside from the user's PC98 setup.
 /// It supports 2 kinds of PCM banks: .PVI and .PZI
@@ -148,7 +154,7 @@ public:
     void SetLoop(size_t channelNumber, size_t bankNumber, size_t instrumentNumber, int loopStart, int loopEnd);
     void AllStop();
     void SetPan(size_t channelNumber, int value);
-    void SetOutputFrequency(uint32_t outputFrequency, bool useInterpolation);
+    void SetSampleRate(uint32_t outputFrequency, bool useInterpolation);
     void SetSourceFrequency(size_t channelNumber, int sourceFrequency);
     void SetAllVolume(int volume);
     void SetVolume(int volume);
@@ -163,7 +169,7 @@ public:
     PPZBank _PPZBank[2];
 
 private:
-    void MoveSamplePointer(int i) noexcept;
+    void MoveSamplePointer(PPZChannel & channel) const noexcept;
 
     void Initialize();
 
@@ -182,11 +188,11 @@ private:
     bool _EmulateADPCM; // Should channel 8 emulate ADPCM?
     bool _UseInterpolation;
 
-    PPZChannel _Channel[MaxPPZChannels];
+    PPZChannel _Channels[MaxPPZChannels];
 
     int _PCMVolume; // Overall 86B Mixer volume
     int _Volume;
-    int _OutputFrequency;
+    int _SampleRate;
 
     Sample _VolumeTable[16][256];
 };

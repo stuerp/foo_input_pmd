@@ -1,19 +1,14 @@
-﻿
+
 // $VER: PMDFM.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include <pch.h>
 
 #include "PMD.h"
 
 #include "Utility.h"
-#include "Table.h"
+#include "Tables.h"
 
 #include "OPNAW.h"
-#include "PPZ.h"
-#include "PPS.h"
-#include "P86.h"
 
 void PMD::FMMain(Channel * channel)
 {
@@ -216,7 +211,9 @@ void PMD::FMMain(Channel * channel)
 
 uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
 {
-    uint8_t Command = *si++;
+    const uint8_t Command = *si++;
+
+//  console::printf("FM : %02X", Command);
 
     switch (Command)
     {
@@ -632,7 +629,7 @@ void PMD::SetFMVolumeCommand(Channel * channel)
 
     int Volume = (channel->VolumeBoost) ? channel->VolumeBoost - 1 : channel->Volume;
 
-    if (channel != &_EffectChannel)
+    if (channel != &_EffectChannels)
     {
         // Calculates the effect of volume down.
         if (_State.FMVolumeAdjust != 0)
@@ -865,11 +862,11 @@ void PMD::SetFMPannningInternal(Channel * channel, int value)
     if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
     {
         // For FM3, set all 4 parts.
-        _FMChannel[2].PanAndVolume = channel->PanAndVolume;
+        _FMChannels[2].PanAndVolume = channel->PanAndVolume;
 
-        _FMExtensionChannel[0].PanAndVolume = channel->PanAndVolume;
-        _FMExtensionChannel[1].PanAndVolume = channel->PanAndVolume;
-        _FMExtensionChannel[2].PanAndVolume = channel->PanAndVolume;
+        _FMExtensionChannels[0].PanAndVolume = channel->PanAndVolume;
+        _FMExtensionChannels[1].PanAndVolume = channel->PanAndVolume;
+        _FMExtensionChannels[2].PanAndVolume = channel->PanAndVolume;
     }
 
     if (channel->MuteMask == 0x00)
@@ -884,7 +881,7 @@ uint8_t * PMD::DecreaseFMVolumeCommand(Channel *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _State.FMVolumeAdjust = Limit(al + _State.FMVolumeAdjust, 255, 0);
+        _State.FMVolumeAdjust = std::clamp(al + _State.FMVolumeAdjust, 0, 255);
     else
         _State.FMVolumeAdjust = _State.DefaultFMVolumeAdjust;
 
@@ -992,19 +989,19 @@ uint8_t * PMD::SetFMChannel3ModeEx(Channel *, uint8_t * si)
     si += 2;
 
     if (ax)
-        InitializeFMChannel3(&_FMExtensionChannel[0], &_State.MData[ax]);
+        InitializeFMChannel3(&_FMExtensionChannels[0], &_State.MData[ax]);
 
     ax = *(int16_t *) si;
     si += 2;
 
     if (ax)
-         InitializeFMChannel3(&_FMExtensionChannel[1], &_State.MData[ax]);
+         InitializeFMChannel3(&_FMExtensionChannels[1], &_State.MData[ax]);
 
     ax = *(int16_t *) si;
     si += 2;
 
     if (ax)
-        InitializeFMChannel3(&_FMExtensionChannel[2], &_State.MData[ax]);
+        InitializeFMChannel3(&_FMExtensionChannels[2], &_State.MData[ax]);
 
     return si;
 }
@@ -1082,20 +1079,20 @@ uint8_t * PMD::SetFMSlotCommand(Channel * channel, uint8_t * si)
 
         if (SetFMChannel3Mode(channel))
         {
-            if (channel != &_FMChannel[2])
+            if (channel != &_FMChannels[2])
             {
-                if (_FMChannel[2].MuteMask == 0x00 && (_FMChannel[2].KeyOffFlag & 0x01) == 0)
-                    FMKeyOn(&_FMChannel[2]);
+                if (_FMChannels[2].MuteMask == 0x00 && (_FMChannels[2].KeyOffFlag & 0x01) == 0)
+                    FMKeyOn(&_FMChannels[2]);
 
-                if (channel != &_FMExtensionChannel[0])
+                if (channel != &_FMExtensionChannels[0])
                 {
-                    if (_FMExtensionChannel[0].MuteMask == 0x00 && (_FMExtensionChannel[0].KeyOffFlag & 0x01) == 0)
-                        FMKeyOn(&_FMExtensionChannel[0]);
+                    if (_FMExtensionChannels[0].MuteMask == 0x00 && (_FMExtensionChannels[0].KeyOffFlag & 0x01) == 0)
+                        FMKeyOn(&_FMExtensionChannels[0]);
 
-                    if (channel != &_FMExtensionChannel[1])
+                    if (channel != &_FMExtensionChannels[1])
                     {
-                        if (_FMExtensionChannel[1].MuteMask == 0x00 && (_FMExtensionChannel[1].KeyOffFlag & 0x01) == 0)
-                            FMKeyOn(&_FMExtensionChannel[1]);
+                        if (_FMExtensionChannels[1].MuteMask == 0x00 && (_FMExtensionChannels[1].KeyOffFlag & 0x01) == 0)
+                            FMKeyOn(&_FMExtensionChannels[1]);
                     }
                 }
             }
@@ -1124,11 +1121,11 @@ uint8_t * PMD::SetHardwareLFOCommand(Channel * channel, uint8_t * si)
     // Part_e is impossible because it is only for YM2608. For FM3, set all four parts
     if ((_Driver.CurrentChannel == 3) && (_Driver.FMSelector == 0))
     {
-        _FMChannel[2].PanAndVolume = channel->PanAndVolume;
+        _FMChannels[2].PanAndVolume = channel->PanAndVolume;
 
-        _FMExtensionChannel[0].PanAndVolume = channel->PanAndVolume;
-        _FMExtensionChannel[1].PanAndVolume = channel->PanAndVolume;
-        _FMExtensionChannel[2].PanAndVolume = channel->PanAndVolume;
+        _FMExtensionChannels[0].PanAndVolume = channel->PanAndVolume;
+        _FMExtensionChannels[1].PanAndVolume = channel->PanAndVolume;
+        _FMExtensionChannels[2].PanAndVolume = channel->PanAndVolume;
     }
 
     if (channel->MuteMask == 0x00)
@@ -1703,13 +1700,13 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
 {
     int al;
 
-    if (channel == &_FMChannel[2])
+    if (channel == &_FMChannels[2])
         al = 1;
     else
-    if (channel == &_FMExtensionChannel[0])
+    if (channel == &_FMExtensionChannels[0])
         al = 2;
     else
-    if (channel == &_FMExtensionChannel[1])
+    if (channel == &_FMExtensionChannels[1])
         al = 4;
     else
         al = 8;
@@ -1755,23 +1752,23 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
     _OPNAW->SetReg(0x27, (uint32_t) (Mode & 0xCF)); // Don't reset.
 
     // When moving to sound effect mode, the pitch is rewritten with the previous FM3 part
-    if (Mode == 0x3F || channel == &_FMChannel[2])
+    if (Mode == 0x3F || channel == &_FMChannels[2])
         return;
 
-    if (_FMChannel[2].MuteMask == 0x00)
-        SetFMPitch(&_FMChannel[2]);
+    if (_FMChannels[2].MuteMask == 0x00)
+        SetFMPitch(&_FMChannels[2]);
 
-    if (channel == &_FMExtensionChannel[0])
+    if (channel == &_FMExtensionChannels[0])
         return;
 
-    if (_FMExtensionChannel[0].MuteMask == 0x00)
-        SetFMPitch(&_FMExtensionChannel[0]);
+    if (_FMExtensionChannels[0].MuteMask == 0x00)
+        SetFMPitch(&_FMExtensionChannels[0]);
 
-    if (channel == &_FMExtensionChannel[1])
+    if (channel == &_FMExtensionChannels[1])
         return;
 
-    if (_FMExtensionChannel[1].MuteMask == 0x00)
-        SetFMPitch(&_FMExtensionChannel[1]);
+    if (_FMExtensionChannels[1].MuteMask == 0x00)
+        SetFMPitch(&_FMExtensionChannels[1]);
 }
 
 /// <summary>
@@ -1802,7 +1799,7 @@ void PMD::InitializeFMChannel3(Channel * channel, uint8_t * ax)
     channel->Tone = 0xFF;           // Rest
     channel->DefaultTone = 0xFF;    // Rest
     channel->Volume = 108;
-    channel->PanAndVolume = _FMChannel[2].PanAndVolume; // Use FM channel 3 value
+    channel->PanAndVolume = _FMChannels[2].PanAndVolume; // Use FM channel 3 value
     channel->MuteMask |= 0x20;
 }
 
@@ -1813,7 +1810,7 @@ uint8_t * PMD::GetFMInstrumentDefinition(Channel * channel, int instrumentNumber
 {
     if (_State.InstrumentDefinitions == nullptr)
     {
-        if (channel != &_EffectChannel)
+        if (channel != &_EffectChannels)
             return _State.VData + ((size_t) instrumentNumber << 5);
         else
             return _State.EData;
@@ -2079,8 +2076,8 @@ void PMD::CalcVolSlot(int dh, int dl, int al)
 /// </summary>
 void PMD::CalcFMLFO(Channel *, int al, int bl, uint8_t * vol_tbl)
 {
-    if (bl & 0x80) vol_tbl[0] = (uint8_t) Limit(vol_tbl[0] - al, 255, 0);
-    if (bl & 0x40) vol_tbl[1] = (uint8_t) Limit(vol_tbl[1] - al, 255, 0);
-    if (bl & 0x20) vol_tbl[2] = (uint8_t) Limit(vol_tbl[2] - al, 255, 0);
-    if (bl & 0x10) vol_tbl[3] = (uint8_t) Limit(vol_tbl[3] - al, 255, 0);
+    if (bl & 0x80) vol_tbl[0] = (uint8_t) std::clamp(vol_tbl[0] - al, 0, 255);
+    if (bl & 0x40) vol_tbl[1] = (uint8_t) std::clamp(vol_tbl[1] - al, 0, 255);
+    if (bl & 0x20) vol_tbl[2] = (uint8_t) std::clamp(vol_tbl[2] - al, 0, 255);
+    if (bl & 0x10) vol_tbl[3] = (uint8_t) std::clamp(vol_tbl[3] - al, 0, 255);
 }

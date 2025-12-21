@@ -1,11 +1,7 @@
 
 /** $VER: Preferences.cpp (2023.08.30) P. Stuer **/
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4711 5045 ALL_CPPCORECHECK_WARNINGS)
-
-#include "framework.h"
+#include "pch.h"
 
 #include <helpers/foobar2000+atl.h>
 #include <helpers/atl-misc.h>
@@ -150,7 +146,7 @@ private:
         {
             auto cb = (CComboBox) GetDlgItem(IDC_PLAYBACK_MODE);
 
-            for (int i = 0; i < _countof(PlaybackModes); ++i)
+            for (size_t i = 0; i < _countof(PlaybackModes); ++i)
                 cb.AddString(PlaybackModes[i]);
         }
 

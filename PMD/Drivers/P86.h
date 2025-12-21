@@ -1,4 +1,4 @@
-﻿
+
 // PMD's internal 86PCM driver for the PC-98's 86 soundboard / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60
 
 #pragma once
@@ -57,6 +57,8 @@ const int SampleRates[] =
     4135, 5513, 8270, 11025, 16540, 22050, 33080, 44100
 };
 
+#pragma warning(disable: 4820) // 'x' bytes padding added after data member 'y'
+
 /// <summary>
 /// Implements PMD's internal 86PCM driver.
 /// It replaces the ADPCM channel with 8-bit sample playback. Its stereo capabilities also adds a new functionality to panning.
@@ -74,7 +76,7 @@ public:
     bool Keyoff(void);
     int Load(const WCHAR * filePath);
 
-    void SetOutputFrequency(uint32_t sampleRate, bool useInterpolation);
+    void SetSampleRate(uint32_t sampleRate, bool useInterpolation);
     void SetVolume(int volume);
     bool SelectVolume(int value);
     bool SetPitch(int sampleRateIndex, uint32_t pitch);
@@ -115,7 +117,7 @@ private:
 
     bool _Enabled;
 
-    int _OutputFrequency;
+    int _SampleRate;
     bool _UseInterpolation;
     uint32_t _Pitch;
     int _Volume;

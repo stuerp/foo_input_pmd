@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="framework.h" />
+    <ClInclude Include="pch.h" />
     <ClInclude Include="Resources.h" />
     <ClInclude Include="PMDDecoder.h" />
     <ClInclude Include="Configuration.h" />
@@ -15,17 +15,17 @@
     <ClInclude Include="PMD\File.h" />
     <ClInclude Include="PMD\OPNA.h" />
     <ClInclude Include="PMD\OPNAW.h" />
-    <ClInclude Include="PMD\P86.h" />
+    <ClInclude Include="PMD\Drivers\P86.h" />
     <ClInclude Include="PMD\PMD.h" />
-    <ClInclude Include="PMD\PPS.h" />
-    <ClInclude Include="PMD\PPZ.h" />
-    <ClInclude Include="PMD\Table.h" />
+    <ClInclude Include="PMD\Drivers\PPS.h" />
+    <ClInclude Include="PMD\Drivers\PPZ.h" />
+    <ClInclude Include="PMD\Tables.h" />
     <ClInclude Include="PMD\Utility.h" />
     <ClInclude Include="PMD\RIFF.h" />
     <ClInclude Include="PMD\RIFFReader.h" />
     <ClInclude Include="PMD\WAVEReader.h" />
     <ClInclude Include="PMD\Effect.h" />
-    <ClInclude Include="PMD\Driver.h" />
+    <ClInclude Include="PMD\Drivers\Driver.h" />
     <ClInclude Include="PMD\Channel.h" />
     <ClInclude Include="PMD\State.h" />
   </ItemGroup>
@@ -41,11 +41,11 @@
     <ClCompile Include="PMD\File.cpp" />
     <ClCompile Include="PMD\OPNA.cpp" />
     <ClCompile Include="PMD\OPNAW.cpp" />
-    <ClCompile Include="PMD\P86.cpp" />
+    <ClCompile Include="PMD\Drivers\P86.cpp" />
     <ClCompile Include="PMD\PMD.cpp" />
-    <ClCompile Include="PMD\PPS.cpp" />
-    <ClCompile Include="PMD\PPZ.cpp" />
-    <ClCompile Include="PMD\Table.cpp" />
+    <ClCompile Include="PMD\Drivers\PPS.cpp" />
+    <ClCompile Include="PMD\Drivers\PPZ.cpp" />
+    <ClCompile Include="PMD\Tables.cpp" />
     <ClCompile Include="PMD\Utility.cpp" />
     <ClCompile Include="PMD\PMDEffect.cpp" />
     <ClCompile Include="PMD\PMDFM.cpp" />
@@ -56,11 +56,18 @@
     <ClCompile Include="PMD\PMDLFO.cpp" />
     <ClCompile Include="PMD\PMDPPZ.cpp" />
     <ClCompile Include="PMD\PMDSoftwareEnvelope.cpp" />
-    <ClCompile Include="PMD\Driver.cpp" />
+    <ClCompile Include="PMD\Drivers\Driver.cpp" />
+    <ClCompile Include="pch.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Build-FB2KComponent.ps1" />
     <None Include="PMD\ymfm\LICENSE" />
+    <None Include="LICENSE" />
+    <None Include="README.md" />
+    <None Include=".gitignore" />
+    <None Include=".gitattributes" />
+    <None Include=".editorconfig" />
+    <None Include="cpp.hint" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources.rc" />

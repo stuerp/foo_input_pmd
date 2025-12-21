@@ -1,5 +1,5 @@
-﻿
-/** $VER: OPNAW.h (2023.10.18) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+
+/** $VER: OPNAW.h (2025.10.01) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -37,20 +37,19 @@ public:
     OPNA(File * file);
     ~OPNA();
     
-    bool Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation = false, const WCHAR * directoryPath = nullptr);
-    void SetOutputFrequency(uint32_t clock, uint32_t outputFrequency, bool = false) noexcept;
-    void SetOutputFrequency(uint32_t outputFrequency) noexcept;
+    bool Initialize(uint32_t clock, uint32_t outputFrequency, const WCHAR * directoryPath) noexcept;
+    void Initialize(uint32_t clock, uint32_t outputFrequency) noexcept;
 
     bool LoadInstruments(const WCHAR *);
     bool HasADPCMROM() const noexcept { return _HasADPCMROM; }
-    bool HasPercussionSamples() const noexcept { return _InstrumentCounter == _countof(_Instrument); }
+    bool HasPercussionSamples() const noexcept { return _InstrumentCount == _countof(_Instruments); }
 
     void SetFMVolume(int dB);
     void SetSSGVolume(int dB);
     void SetADPCMVolume(int dB);
     void SetRhythmVolume(int dB);
     void SetInstrumentVolume(int index, int dB);
-    
+
     void SetReg(uint32_t addr, uint32_t value);
     uint32_t GetReg(uint32_t addr);
     
@@ -58,12 +57,12 @@ public:
     uint32_t ReadStatus() { return _Chip.read_status(); }       // Reads the status register.
     uint32_t ReadStatusEx() { return _Chip.read_status_hi(); }  // Reads the status register (extended addressing).
 
-    bool Count(uint32_t tickCount);
-    uint32_t GetNextTick();
+    bool AdvanceTimers(uint32_t tickCount) noexcept;
+    uint32_t GetNextTick() const noexcept;
     
     void Mix(Sample * sampleData, size_t sampleCount) noexcept;
     
-    static constexpr uint32_t DEFAULT_CLOCK = 3993600 * 2;
+    static constexpr uint32_t DefaultClockSpeed = 3993600 * 2;
 
 private:
     void MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept;
@@ -96,8 +95,8 @@ protected:
         int8_t Level;
     };
     
-    Instrument _Instrument[6];
-    uint32_t _InstrumentCounter;
+    Instrument _Instruments[6];
+    uint32_t _InstrumentCount;
 
     int32_t _MasterVolume;
 
@@ -107,7 +106,8 @@ protected:
     bool _HasADPCMROM;
 
 protected:
-    #pragma region(ymfm_interface)
+    #pragma region YMFM Interface
+
     virtual void generate(emulated_time output_start, emulated_time output_step, int32_t * buffer);
     
     void write_data(ymfm::access_class type, uint32_t base, uint32_t length, uint8_t const* src);
@@ -119,39 +119,40 @@ protected:
     virtual void ymfm_sync_mode_write(uint8_t data) override;
     
     virtual void ymfm_set_timer(uint32_t tnum, int32_t duration_in_clocks) override;
+
     #pragma endregion
 
 protected:
-    #pragma region(ymfm_interface)
-    emulated_time output_step;
-    emulated_time output_pos;
-    
-    emulated_time timer_period[2];
-    emulated_time timer_count[2];
+    #pragma region YMFM Interface
 
-    uint8_t reg27;
+    emulated_time _OutputStep;
+    emulated_time _OutputPosition;
+    
+    // Timer A and B
+    emulated_time _TimerPeriod[2];
+    emulated_time _TimerCounter[2];
+
+    uint8_t _Reg27;
+
     #pragma endregion
 
 private:
     void DeleteInstruments() noexcept;
 
 private:
-    #pragma region(ymfm_interface)
+    #pragma region YMFM Interface
+
     std::vector<uint8_t> _Data[ymfm::ACCESS_CLASSES];
 
     ymfm::ym2608 _Chip;
     typename ymfm::ym2608::output_data _Output;
 
     uint32_t _ClockSpeed;
-    uint32_t _OutputFrequency;
+    uint32_t _SampleRate;
 
     emulated_time _Pos;
     emulated_time _Step;
     uint64_t _TickCount;
+
     #pragma endregion
 };
-
-inline int Limit(int value, int max, int min)
-{
-    return ymfm::clamp(value, min, max);
-}

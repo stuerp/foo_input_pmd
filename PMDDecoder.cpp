@@ -1,14 +1,10 @@
 
-/** $VER: PMDDecoder.cpp (2023.10.07) P. Stuer **/
+/** $VER: PMDDecoder.cpp (2025.12.21) P. Stuer **/
 
-#include <CppCoreCheck/Warnings.h>
-
-#pragma warning(disable: 4625 4626 4710 4711 5045 ALL_CPPCORECHECK_WARNINGS)
+#include "pch.h"
 
 #include "PMDDecoder.h"
 #include "Configuration.h"
-
-#include "framework.h"
 
 #include <pfc/string-conv-lite.h>
 #include <shared/audio_math.h>
@@ -42,7 +38,7 @@ PMDDecoder::~PMDDecoder()
 /// <summary>
 /// Reads the PMD data from memory.
 /// </summary>
-bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const uint8_t * data, size_t size, uint32_t outputFrequency)
+bool PMDDecoder::Open(const uint8_t * data, size_t size, uint32_t outputFrequency, const char * filePath, const char * pdxSamplesPath)
 {
     _FilePath = filePath;
 
@@ -78,7 +74,7 @@ bool PMDDecoder::Open(const char * filePath, const char * pdxSamplesPath, const 
         }
 
         _PMD->Initialize(PDXSamplesPath);
-        _PMD->SetOutputFrequency(_SynthesisRate);
+        _PMD->SetSampleRate(_SynthesisRate);
 
         {
             WCHAR DirectoryPath[MAX_PATH];
@@ -253,15 +249,13 @@ static bool ConvertShiftJISToUTF8(const char * text, pfc::string8 & textDst)
 
     if (::MultiByteToWideChar(932, MB_PRECOMPOSED, text, -1, Wide, Size) != 0)
     {
-        const CHAR DefaultChar = '·';
-
-        Size = ::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, 0, 0, &DefaultChar, 0);
+        Size = ::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, nullptr, 0, nullptr, nullptr);
 
         if (Size != 0)
         {
             char * UTF8 = new char[(size_t) Size + 16];
 
-            if (::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, UTF8, Size, &DefaultChar, 0) != 0)
+            if (::WideCharToMultiByte(CP_UTF8, WC_NO_BEST_FIT_CHARS, Wide, -1, UTF8, Size, nullptr, nullptr) != 0)
                 textDst = UTF8;
 
             delete[] UTF8;
