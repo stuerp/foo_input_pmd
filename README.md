@@ -117,7 +117,7 @@ v0.4.2, 2025-12-21, *"Has it really been 2 years?"*
 * Fixed: Preferences dialog should adapt to High DPI settings now.
 * Fixed: Buffer overrun in PCM loader.
 * Fixed: PVI bank loader.
-* Fixed: Sign-extension bug that caused relative tempo change commands T± (FC FE) and t± (FC FD). Thanks to [HertzDevil](https://github.com/HertzDevil) for finding the bug.
+* Fixed: Sign-extension bug that caused relative tempo change commands T± (FC FE) and t± (FC FD) to misbehave. Thanks to [HertzDevil](https://github.com/HertzDevil) for finding the bug.
 
 v0.4.1, 2023-11-12, *"Release name missing in action"*
 
