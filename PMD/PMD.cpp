@@ -1,5 +1,5 @@
 
-// $VER: PMD.cpp (2025.12.21) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMD.cpp (2025.12.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <pch.h>
 
@@ -1272,291 +1272,6 @@ void PMD::InitializeOPN()
 }
 
 /// <summary>
-/// Executes a command. The execution is the same for all sound sources.
-/// </summary>
-uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
-{
-//  console::printf("   : %02X", command);
-
-    switch (command)
-    {
-        case 0xFF: si++; break;
-        case 0xFE: si++; break;
-
-        // Set the volume.
-        case 0xFD:
-            channel->Volume = *si++;
-            break;
-
-        case 0xFC:
-            si = ChangeTempoCommand(si);
-            break;
-
-        // Command "&": Tie notes together.
-        case 0xFB:
-            _Driver.TieNotesTogether = true;
-            break;
-
-        // Set detune.
-        case 0xFA:
-            channel->DetuneValue = *(int16_t *) si;
-            si += 2;
-            break;
-
-        // Set loop start.
-        case 0xF9:
-            si = SetStartOfLoopCommand(channel, si);
-            break;
-
-        // Set loop end.
-        case 0xF8:
-            si = SetEndOfLoopCommand(channel, si);
-            break;
-
-        // Exit loop.
-        case 0xF7:
-            si = ExitLoopCommand(channel, si);
-            break;
-
-        // Command "L": Set the loop data.
-        case 0xF6:
-            channel->LoopData = si;
-            break;
-
-        // Set transposition.
-        case 0xF5:
-            channel->Transposition1 = *(int8_t *) si++;
-            break;
-
-        // Increase volume by 3dB.
-        case 0xF4:
-            channel->Volume += 16;
-
-            if (channel->Volume > 255)
-                channel->Volume = 255;
-            break;
-
-        // Decrease volume by 3dB.
-        case 0xF3:
-            channel->Volume -= 16;
-
-            if (channel->Volume < 16)
-                channel->Volume = 0;
-            break;
-
-        case 0xF2:
-            si = SetModulation(channel, si);
-            break;
-
-        case 0xF1:
-            si = SetModulationMask(channel, si);
-            break;
-
-        case 0xF0:
-            si = SetSSGEnvelopeFormat1Command(channel, si);
-            break;
-
-        case 0xEB:
-            si = OPNARhythmKeyOn(si);
-            break;
-
-        case 0xEA:
-            si = SetOPNARhythmVolumeCommand(si);
-            break;
-
-        case 0xE9:
-            si = SetOPNARhythmPanningCommand(si);
-            break;
-
-        case 0xE8:
-            si = SetOPNARhythmMasterVolumeCommand(si);
-            break;
-
-        // Modify transposition.
-        case 0xE7:
-            channel->Transposition1 += *(int8_t *) si++;
-            break;
-
-        case 0xE6:
-            si = ModifyOPNARhythmMasterVolume(si);
-            break;
-
-        case 0xE5:
-            si = ModifyOPNARhythmVolume(si);
-            break;
-
-        // Set hardware LFO delay.
-        case 0xE4: si++; break;
-
-        // Set hardware LFO AM/FM (register B4)
-        case 0xE1: si++; break;
-
-        // Set hardware LFO speed (register 22)
-        case 0xE0: si++; break;
-
-        // Command "Z number": Set ticks per measure.
-        case 0xDF:
-            _State.BarLength = *si++;
-            break;
-
-        case 0xDD:
-            si = DecreaseVolumeForNextNote(channel, si);
-            break;
-
-        // Set status.
-        case 0xDC:
-            _State.Status = *si++;
-            break;
-
-        // Increment status.
-        case 0xDB:
-            _State.Status += *si++;
-            break;
-
-        case 0xD9: si++; break; // Unused
-        case 0xD8: si++; break; // Unused
-        case 0xD7: si++; break; // Unused
-
-        // Command "MD", "MDA", "MDB": Set LFO Depth Temporal Change
-        case 0xD6:
-            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
-            channel->LFO1MDepth = *(int8_t *) si++;
-            break;
-
-        // Modify detune.
-        case 0xD5:
-            channel->DetuneValue += *(int16_t *) si;
-            si += 2;
-            break;
-
-        case 0xD4:
-            si = SetSSGEffect(channel, si);
-            break;
-
-        case 0xD3:
-            si = SetFMEffect(channel, si);
-            break;
-
-        // Set fade-out speed.
-        case 0xD2:
-            _State.FadeOutSpeed = *si++;
-            _State.IsFadeOutSpeedSet = true;
-            break;
-
-        case 0xD1: si++; break; // Unused
-        case 0xD0: si++; break;
-        case 0xCF: si++; break;
-
-        // Set PCM Repeat.
-        case 0xCE: si += 6; break;
-
-        case 0xCD:
-            si = SetSSGEnvelopeFormat2Command(channel, si);
-            break;
-
-        // Set SSG Extend Mode.
-        case 0xCC: si++; break;
-
-        // Set modulation waveform.
-        case 0xCB:
-            channel->LFO1Waveform = *si++;
-            break;
-
-        case 0xC8: si += 3; break;
-        case 0xC7: si += 3; break;
-        case 0xC6: si += 6; break;
-        case 0xC5: si++; break;
-
-        // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
-        case 0xC4:
-            channel->EarlyKeyOffTimeoutPercentage = *si++;
-            break;
-
-        case 0xC2:
-            channel->LFO1Delay1 = channel->LFO1Delay2 = *si++;
-            InitializeLFOMain(channel);
-            break;
-
-        case 0xBF:
-            SwapLFO(channel);
-
-            si = SetModulation(channel, si);
-
-            SwapLFO(channel);
-            break;
-
-        case 0xBD:
-            SwapLFO(channel);
-
-            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
-            channel->LFO1MDepth = *(int8_t *) si++;
-
-            SwapLFO(channel);
-            break;
-
-        case 0xBC:
-            SwapLFO(channel);
-
-            channel->LFO1Waveform = *si++;
-
-            SwapLFO(channel);
-            break;
-
-        case 0xBB:
-            SwapLFO(channel);
-
-            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
-
-            SwapLFO(channel);
-            break;
-
-        case 0xBA:
-            si = SetVolumeMask(channel, si);
-            break;
-
-        case 0xB9:
-            SwapLFO(channel);
-
-            channel->LFO1Delay1 = channel->LFO1Delay2 = *si++;
-            InitializeLFOMain(channel);
-
-            SwapLFO(channel);
-            break;
-
-        case 0xB8: si += 2; break;
-
-        case 0xB7:
-            si = SetMDepthCountCommand(channel, si);
-            break;
-
-        case 0xB6: si++; break;
-        case 0xB5: si += 2; break;
-        case 0xB4: si += 16; break;
-
-        // Set Early Key Off Timeout 2. Stop note after n ticks or earlier depending on the result of B1/C4/FE happening first.
-        case 0xB3:
-            channel->EarlyKeyOffTimeout2 = *si++;
-            break;
-
-        // Set secondary transposition.
-        case 0xB2:
-            channel->Transposition2 = *(int8_t *) si++;
-            break;
-
-        // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
-        case 0xB1:
-            channel->EarlyKeyOffTimeoutRandomRange = *si++;
-            break;
-
-        default:
-            si--;
-            *si = 0x80;
-    }
-
-    return si;
-}
-
-/// <summary>
 ///
 /// </summary>
 void PMD::HandleTimerA()
@@ -1606,6 +1321,343 @@ void PMD::HandleTimerB()
 }
 
 #pragma region Commands
+
+/// <summary>
+/// Executes a command. The execution is the same for all sound sources.
+/// </summary>
+uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
+{
+    switch (command)
+    {
+        // 6.1. Instrument Number Setting, Command '@[@] insnum' / Command '@[@] insnum[,number1[,number2[,number3]]]'
+        case 0xFF: si++; break;
+
+        // Set Early Key Off Timeout.
+        case 0xFE: si++; break;
+
+        // 5.2. Volume Setting 2, Set the volume finely, 0–127 (FM) / 0–255 (PCM), 0–15 (SSG, SSG rhythm, PPZ), Command 'V number'
+        case 0xFD:
+        {
+            channel->Volume = *si++;
+            break;
+        }
+
+        case 0xFC:
+            si = SetTempoCommand(si);
+            break;
+
+        // 4.10. Tie/Slur Setting, Connects the sound before and after as a tie (&). Keyoff will not be done on the previous note. 
+        case 0xFB:
+        {
+            _Driver.TieNotesTogether = true;
+            break;
+        }
+
+        // 7.1. Detune Setting, Sets the detune (frequency shift value), Command 'D number' / Command 'DD number'
+        case 0xFA:
+        {
+            channel->DetuneValue = *(int16_t *) si;
+            si += 2;
+            break;
+        }
+
+        // Set loop start.
+        case 0xF9:
+            si = SetStartOfLoopCommand(channel, si);
+            break;
+
+        // Set loop end.
+        case 0xF8:
+            si = SetEndOfLoopCommand(channel, si);
+            break;
+
+        // 10.1. Local Loop Setting, Exit loop, Command ':'
+        case 0xF7:
+        {
+            si = ExitLoopCommand(channel, si);
+            break;
+        }
+
+        // Command "L": Set the loop data.
+        case 0xF6:
+            channel->LoopData = si;
+            break;
+
+        // Set transposition.
+        case 0xF5:
+            channel->Transposition1 = *(int8_t *) si++;
+            break;
+
+        // Increase volume by 3dB.
+        case 0xF4:
+            channel->Volume += 16;
+
+            if (channel->Volume > 255)
+                channel->Volume = 255;
+            break;
+
+        // Decrease volume by 3dB.
+        case 0xF3:
+            channel->Volume -= 16;
+
+            if (channel->Volume < 16)
+                channel->Volume = 0;
+            break;
+
+        case 0xF2:
+            si = SetModulation(channel, si);
+            break;
+
+        case 0xF1:
+            si = SetModulationMask(channel, si);
+            break;
+
+        // 8.1. SSG/PCM Software Envelope Setting, Sets a software envelope (only for OPN/OPNA's SSG/ADPCM channels), Command 'E number1, number2, number3, number4'
+        case 0xF0:
+        {
+            si = SetSSGEnvelopeFormat1Command(channel, si);
+            break;
+        }
+
+        // 14.1. Rhythm Sound Source Shot/Dump Control
+        case 0xEB:
+            si = PlayOPNARhythm(si);
+            break;
+
+        case 0xEA:
+            si = SetOPNARhythmVolumeCommand(si);
+            break;
+
+        case 0xE9:
+            si = SetOPNARhythmPanningCommand(si);
+            break;
+
+        case 0xE8:
+            si = SetOPNARhythmMasterVolumeCommand(si);
+            break;
+
+        // Modify transposition.
+        case 0xE7:
+            channel->Transposition1 += *(int8_t *) si++;
+            break;
+
+        // 14.2. Rhythm Sound Source Master Volume Setting
+        case 0xE6:
+            si = SetRelativeOPNARhythmMasterVolume(si);
+            break;
+
+        // 14.3. Rhythm Sound Source Individual Volume Setting
+        case 0xE5:
+            si = SetRelativeOPNARhythmVolume(si);
+            break;
+
+        case 0xE4: si++; break;
+        case 0xE1: si++; break;
+
+        case 0xE0: si++; break;
+
+        // Command "Z number": Set ticks per measure.
+        case 0xDF:
+            _State.BarLength = *si++;
+            break;
+
+        case 0xDD:
+            si = DecreaseVolumeForNextNote(channel, si);
+            break;
+
+        // Set status.
+        case 0xDC:
+            _State.Status = *si++;
+            break;
+
+        // Increment status.
+        case 0xDB:
+            _State.Status += *si++;
+            break;
+
+        // Unused
+        case 0xD9:
+            si++;
+            break;
+
+        // Unused
+        case 0xD8:
+            si++;
+            break;
+
+        // Unused
+        case 0xD7:
+            si++;
+            break;
+
+        // 9.7. LFO Depth Temporal Change Setting. Command "MD", "MDA", "MDB".
+        case 0xD6:
+            channel->LFO1MDepthSpeed1 =
+            channel->LFO1MDepthSpeed2 = *si++;
+            channel->LFO1MDepth       = *(int8_t *) si++;
+            break;
+
+        // 7.1. Detune Setting, Sets the detune (frequency shift value), Command 'DD number'
+        case 0xD5:
+        {
+            channel->DetuneValue += *(int16_t *) si;
+            si += 2;
+            break;
+        }
+
+        case 0xD4:
+            si = SetSSGEffect(channel, si);
+            break;
+
+        case 0xD3:
+            si = SetFMEffect(channel, si);
+            break;
+
+        // Set fade-out speed.
+        case 0xD2:
+            _State.FadeOutSpeed      = *si++;
+            _State.IsFadeOutSpeedSet = true;
+            break;
+
+        // Unused
+        case 0xD1: si++; break;
+
+        // Unused
+        case 0xD0: si++; break;
+
+        // Unused
+        case 0xCF: si++; break;
+
+        // Set PCM Repeat.
+        case 0xCE: si += 6; break;
+
+        // 8.1. SSG/PCM Software Envelope Setting, Sets a software envelope (only for OPN/OPNA's SSG/ADPCM channels), Command 'E number1, number2, number3, number4, number5, number6'
+        case 0xCD:
+        {
+            si = SetSSGEnvelopeFormat2Command(channel, si);
+            break;
+        }
+
+        case 0xCC: si++; break;
+
+        // 9.2. Software LFO Waveform Setting, Command 'MWA number'
+        case 0xCB:
+        {
+            channel->LFO1Waveform = *si++;
+            break;
+        }
+
+        case 0xC8: si += 3; break;
+        case 0xC7: si += 3; break;
+        case 0xC6: si += 6; break;
+        case 0xC5: si++; break;
+
+        // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
+        case 0xC4:
+            channel->EarlyKeyOffTimeoutPercentage = *si++;
+            break;
+
+        case 0xC2:
+            channel->LFO1Delay1 = channel->LFO1Delay2 = *si++;
+
+            InitializeLFOMain(channel);
+            break;
+
+        // 4.10. Tie/Slur Setting, Connects the sound before and after as a slur (&&). Keyoff will be done on the previous note. 
+        case 0xC1:
+            break;
+
+        case 0xBF:
+            SwapLFO(channel);
+
+            si = SetModulation(channel, si);
+
+            SwapLFO(channel);
+            break;
+
+        case 0xBD:
+            SwapLFO(channel);
+
+            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
+            channel->LFO1MDepth = *(int8_t *) si++;
+
+            SwapLFO(channel);
+            break;
+
+        // 9.2. Software LFO Waveform Setting, Set the LFO waveform, Command 'MWB number'
+        case 0xBC:
+        {
+            SwapLFO(channel);
+
+            channel->LFO1Waveform = *si++;
+
+            SwapLFO(channel);
+            break;
+        }
+
+        case 0xBB:
+            SwapLFO(channel);
+
+            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
+
+            SwapLFO(channel);
+            break;
+
+        case 0xBA:
+            si = SetVolumeMask(channel, si);
+            break;
+
+        case 0xB9:
+            SwapLFO(channel);
+
+            channel->LFO1Delay1 = channel->LFO1Delay2 = *si++;
+            InitializeLFOMain(channel);
+
+            SwapLFO(channel);
+            break;
+
+        case 0xB8:
+            si += 2;
+            break;
+
+        case 0xB7:
+            si = SetMDepthCountCommand(channel, si);
+            break;
+
+        case 0xB6:
+            si++;
+            break;
+
+        case 0xB5:
+            si += 2;
+            break;
+
+        case 0xB4:
+            si += 16;
+            break;
+
+        // Set Early Key Off Timeout 2. Stop note after n ticks or earlier depending on the result of B1/C4/FE happening first.
+        case 0xB3:
+            channel->EarlyKeyOffTimeout2 = *si++;
+            break;
+
+        // Set secondary transposition.
+        case 0xB2:
+            channel->Transposition2 = *(int8_t *) si++;
+            break;
+
+        // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
+        case 0xB1:
+            channel->EarlyKeyOffTimeoutRandomRange = *si++;
+            break;
+
+        default:
+            si--;
+            *si = 0x80;
+    }
+
+    return si;
+}
 
 /// <summary>
 /// Increases the volume for the next note only (Command "v").
@@ -1715,7 +1767,7 @@ uint8_t * PMD::SetHardwareLFOSwitchCommand(Channel * channel, uint8_t * si)
 }
 
 /// <summary>
-/// 
+/// 9.4. Software LFO Slot Setting, Sets the slot number to apply the effect of the software LFO to. (Sound Source FM)
 /// </summary>
 uint8_t * PMD::SetVolumeMask(Channel * channel, uint8_t * si)
 {
@@ -1730,15 +1782,16 @@ uint8_t * PMD::SetVolumeMask(Channel * channel, uint8_t * si)
     else
         channel->VolumeMask2 = channel->FMCarrier;
 
-    SetFMChannel3Mode(channel);
+    // For the FM channel 3, both pitch and volume LFOs are affected.
+    SetFMChannelLFOs(channel);
 
     return si;
 }
 
 /// <summary>
-/// Command 't' [Tempo Change 1] / Command 'T' [Tempo Change 2] / Command 't±' [Relative Tempo Change 1] / Command 'T±' [Relative Tempo Change 2] 
+/// Command 't' [Tempo Change 1] / Command 'T' [Tempo Change 2] / Command 't±' [Relative Tempo Change 1] / Command 'T±' [Relative Tempo Change 2] (11.1. Tempo setting 1) (11.2. Tempo setting 2)
 /// </summary>
-uint8_t * PMD::ChangeTempoCommand(uint8_t * si)
+uint8_t * PMD::SetTempoCommand(uint8_t * si)
 {
     int al = *si++;
 
@@ -1866,7 +1919,7 @@ uint8_t * PMD::SetEndOfLoopCommand(Channel * channel, uint8_t * si)
 }
 
 /// <summary>
-/// Command ':': Exit Loop
+/// Command ':': Exit Loop, 10.1. Local Loop Setting
 /// </summary>
 uint8_t * PMD::ExitLoopCommand(Channel * channel, uint8_t * si)
 {
@@ -1932,52 +1985,8 @@ uint8_t * PMD::SetMDepthCountCommand(Channel * channel, uint8_t * si)
 
     return si;
 }
+
 #pragma endregion
-
-/// <summary>
-/// Completely muting the [PartB] part (TL=127 and RR=15 and KEY-OFF). cy=1 ･･･ All slots are neiromasked
-/// </summary>
-int PMD::MuteFMChannel(Channel * channel)
-{
-    if (channel->ToneMask == 0)
-        return 1;
-
-    int dh = _Driver.CurrentChannel + 0x40 - 1;
-
-    if (channel->ToneMask & 0x80)
-    {
-        _OPNAW->SetReg((uint32_t) ( _Driver.FMSelector         + dh), 127);
-        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
-    }
-
-    dh += 4;
-
-    if (channel->ToneMask & 0x40)
-    {
-        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), 127);
-        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
-    }
-
-    dh += 4;
-
-    if (channel->ToneMask & 0x20)
-    {
-        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), 127);
-        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
-    }
-
-    dh += 4;
-
-    if (channel->ToneMask & 0x10)
-    {
-        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), 127);
-        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
-    }
-
-    FMKeyOff(channel);
-
-    return 0;
-}
 
 /// <summary>
 ///
@@ -2123,29 +2132,29 @@ int PMD::rnd(int ax)
 }
 
 /// <summary>
-/// Swap between LFO 1 and LFO 2.
+/// Swaps LFO 1 and LFO 2.
 /// </summary>
-void PMD::SwapLFO(Channel * channel)
+void PMD::SwapLFO(Channel * channel) noexcept
 {
-    Swap(&channel->LFO1Data, &channel->LFO2Data);
+    std::swap(channel->LFO1Data, channel->LFO2Data);
 
-    channel->ModulationMode  = ((channel->ModulationMode & 0x0F) << 4) + (channel->ModulationMode >> 4);
-    channel->ExtendMode = ((channel->ExtendMode & 0x0F) << 4) + (channel->ExtendMode >> 4);
+    channel->ModulationMode = ((channel->ModulationMode & 0x0F) << 4) + (channel->ModulationMode >> 4);
+    channel->ExtendMode     = ((channel->ExtendMode     & 0x0F) << 4) + (channel->ExtendMode >> 4);
 
-    Swap(&channel->LFO1Delay1, &channel->LFO2Delay1);
-    Swap(&channel->LFO1Speed1, &channel->LFO2Speed1);
-    Swap(&channel->LFO1Step1, &channel->LFO2Step1);
-    Swap(&channel->LFO1Time1, &channel->LFO2Time1);
-    Swap(&channel->LFO1Delay2, &channel->LFO2Delay2);
-    Swap(&channel->LFO1Speed2, &channel->LFO2Speed2);
-    Swap(&channel->LFO1Step2, &channel->LFO2Step2);
-    Swap(&channel->LFO1Time2, &channel->LFO2Time2);
-    Swap(&channel->LFO1MDepth, &channel->LFO2MDepth);
-    Swap(&channel->LFO1MDepthSpeed1, &channel->LFO2MDepthSpeed1);
-    Swap(&channel->LFO1MDepthSpeed2, &channel->LFO2MDepthSpeed2);
-    Swap(&channel->LFO1Waveform, &channel->LFO2Waveform);
-    Swap(&channel->LFO1MDepthCount1, &channel->LFO2MDepthCount1);
-    Swap(&channel->LFO1MDepthCount2, &channel->LFO2MDepthCount2);
+    std::swap(channel->LFO1Delay1, channel->LFO2Delay1);
+    std::swap(channel->LFO1Speed1, channel->LFO2Speed1);
+    std::swap(channel->LFO1Step1, channel->LFO2Step1);
+    std::swap(channel->LFO1Time1, channel->LFO2Time1);
+    std::swap(channel->LFO1Delay2, channel->LFO2Delay2);
+    std::swap(channel->LFO1Speed2, channel->LFO2Speed2);
+    std::swap(channel->LFO1Step2, channel->LFO2Step2);
+    std::swap(channel->LFO1Time2, channel->LFO2Time2);
+    std::swap(channel->LFO1MDepth, channel->LFO2MDepth);
+    std::swap(channel->LFO1MDepthSpeed1, channel->LFO2MDepthSpeed1);
+    std::swap(channel->LFO1MDepthSpeed2, channel->LFO2MDepthSpeed2);
+    std::swap(channel->LFO1Waveform, channel->LFO2Waveform);
+    std::swap(channel->LFO1MDepthCount1, channel->LFO2MDepthCount1);
+    std::swap(channel->LFO1MDepthCount2, channel->LFO2MDepthCount2);
 }
 
 /// <summary>
@@ -2398,6 +2407,8 @@ void PMD::InitializeChannels()
     {
         Offsets = (const uint16_t *) _State.MData;
 
+        const uint16_t MaxParts = 12;
+
         if (Offsets[0] != sizeof(uint16_t) * MaxParts) // 0x0018
             _State.InstrumentDefinitions = _State.MData + Offsets[12];
     }
@@ -2473,7 +2484,7 @@ int PMD::LoadPPCInternal(const WCHAR * filePath)
     _File->Read(Data, (uint32_t) Size);
     _File->Close();
 
-    int Result = LoadPPCInternal(Data, (int) Size);
+    int Result = LoadPPCInternal(Data, (size_t) Size);
 
     if (Result == ERR_SUCCESS)
         _PCMFilePath = filePath;
@@ -2486,14 +2497,18 @@ int PMD::LoadPPCInternal(const WCHAR * filePath)
 /// <summary>
 /// Loads the PPC data.
 /// </summary>
-int PMD::LoadPPCInternal(uint8_t * data, int size)
+int PMD::LoadPPCInternal(uint8_t * data, size_t size) noexcept
 {
     if (size < 0x10)
         return ERR_UNKNOWN_FORMAT;
 
-    const size_t PVIIdentifierSize = sizeof(PVIIdentifier) - 1; // Don't count the terminating zero.
-    const size_t PPCIdentifierSize = sizeof(PPCIdentifier) - 1; // Don't count the terminating zero.
-    const size_t PPCSize           = PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256);
+    const char * PVIIdentifier = "PVI2";
+    const size_t PVIIdentifierSize = ::strlen(PVIIdentifier);
+
+    const char * PPCIdentifier = "ADPCM DATA for  PMD ver.4.4-  ";
+    const size_t PPCIdentifierSize = ::strlen(PPCIdentifier);
+
+    const size_t PPCSize = PPCIdentifierSize + sizeof(uint16_t) + (sizeof(uint16_t) * 2 * 256);
 
     bool IsPVIData = false;
 
@@ -2533,7 +2548,7 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
     else
     if (::memcmp((char *) data, PPCIdentifier, PPCIdentifierSize) == 0) // PPC
     {
-        if (size < (int) PPCSize)
+        if (size < PPCSize)
             return ERR_UNKNOWN_FORMAT;
 
         uint16_t * Data = (uint16_t *)(data + PPCIdentifierSize);
@@ -2560,13 +2575,15 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
     }
 
     {
-        uint8_t Data[PPCSize + 128];
+        std::vector<uint8_t> Data;
+
+        Data.resize(PPCSize + 128);
 
         // Write the PCM data.
-        ::memcpy(Data,                     PPCIdentifier,      PPCIdentifierSize);
-        ::memcpy(Data + PPCIdentifierSize, &_SampleBank.Count, sizeof(Data) - PPCIdentifierSize);
+        ::memcpy(Data.data(),                     PPCIdentifier,      PPCIdentifierSize);
+        ::memcpy(Data.data() + PPCIdentifierSize, &_SampleBank.Count, Data.size() - PPCIdentifierSize);
 
-        WritePCMData(0, 0x25, Data);
+        WritePCMData(0, 0x25, Data.data());
     }
 
     // Write the data to PCMRAM.
@@ -2575,14 +2592,14 @@ int PMD::LoadPPCInternal(uint8_t * data, int size)
 
         if (IsPVIData)
         {
-            if (size < (int)(_SampleBank.Count - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
+            if (size < (_SampleBank.Count - (0x10 + sizeof(uint16_t) * 2 * 128)) * 32)
                 return ERR_UNKNOWN_FORMAT;
 
             Data = (uint16_t *)(data + 0x10 + (sizeof(uint16_t) * 2 * 128));
         }
         else
         {
-            if (size < (int)(_SampleBank.Count - (PPCSize / 2) * 32))
+            if (size < (_SampleBank.Count - (PPCSize / 2)) * 32)
                 return ERR_UNKNOWN_FORMAT;
 
             Data = (uint16_t *)(data + PPCSize);

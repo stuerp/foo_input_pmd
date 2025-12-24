@@ -1,5 +1,5 @@
 
-// $VER: PMDSSG.cpp (2023.10.29) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMDSSG.cpp (2025.12.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <pch.h>
 
@@ -204,64 +204,16 @@ void PMD::SSGMain(Channel * channel)
 
 uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
 {
-    uint8_t Command = *si++;
-
-//  console::printf("SSG: %02X", Command);
+    const uint8_t Command = *si++;
 
     switch (Command)
     {
-        case 0xFF: si++; break;
-
-        // Set early Key Off Timeout.
+        // Set Early Key Off Timeout.
         case 0xFE:
             channel->EarlyKeyOffTimeout = *si++;
             channel->EarlyKeyOffTimeoutRandomRange = 0;
             break;
-/*
-        case 0xFD:
-            channel->Volume = *si++;
-            break;
 
-        case 0xFC:
-            si = ChangeTempoCommand(si);
-            break;
-
-        // Command "&": Tie notes together.
-        case 0xFB:
-            _Driver.TieNotesTogether = true;
-            break;
-
-        // Set detune.
-        case 0xFA:
-            channel->DetuneValue = *(int16_t *) si;
-            si += 2;
-            break;
-
-        // Set loop start.
-        case 0xF9:
-            si = SetStartOfLoopCommand(channel, si);
-            break;
-
-        // Set loop end.
-        case 0xF8:
-            si = SetEndOfLoopCommand(channel, si);
-            break;
-
-        // Exit loop.
-        case 0xF7:
-            si = ExitLoopCommand(channel, si);
-            break;
-
-        // Command "L": Set the loop data.
-        case 0xF6:
-            channel->LoopData = si;
-            break;
-
-        // Set transposition.
-        case 0xF5:
-            channel->Transposition = *(int8_t *) si++;
-            break;
-*/
         // Increase volume by 3dB.
         case 0xF4:
             if (channel->Volume < 15)
@@ -273,19 +225,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             if (channel->Volume > 0)
                 channel->Volume--;
             break;
-/*
-        case 0xF2:
-            si = SetModulation(channel, si);
-            break;
 
-        case 0xF1:
-            si = SetModulationMask(channel, si);
-            break;
-
-        case 0xF0:
-            si = SetSSGEnvelopeFormat1Command(channel, si);
-            break;
-*/
         // Set SSG envelope.
         case 0xEF:
             _OPNAW->SetReg(si[0], si[1]);
@@ -301,178 +241,65 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             break;
 
         case 0xEC: si++; break;
-/*
-        case 0xEB:
-            si = OPNARhythmKeyOn(si);
-            break;
 
-        case 0xEA:
-            si = SetOPNARhythmVolumeCommand(si);
-            break;
-
-        case 0xE9:
-            si = SetOPNARhythmPanningCommand(si);
-            break;
-
-        case 0xE8:
-            si = SetOPNARhythmMasterVolumeCommand(si);
-            break;
-
-        // Modify transposition.
-        case 0xE7:
-            channel->Transposition += *(int8_t *) si++;
-            break;
-
-        case 0xE6:
-            si = ModifyOPNARhythmMasterVolume(si);
-            break;
-
-        case 0xE5:
-            si = ModifyOPNARhythmVolume(si);
-            break;
-
-        case 0xE4: si++; break;
-*/
-        // Increase volume.
+        // 5.5. Relative Volume Change, Command ') [^] % number'
         case 0xE3:
+        {
             channel->Volume += *si++;
 
             if (channel->Volume > 15)
                 channel->Volume = 15;
             break;
+        }
 
-        // Decrease volume.
+        // 5.5. Relative Volume Change, Command ') [^] % number'
         case 0xE2:
+        {
             channel->Volume -= *si++;
 
             if (channel->Volume < 0)
                 channel->Volume = 0;
             break;
-/*
-        case 0xE1: si++; break;
-        case 0xE0: si++; break;
+        }
 
-        // Command "Z number": Set ticks per measure.
-        case 0xDF:
-            _State.BarLength = *si++;
-            break;
-*/
         case 0xDE:
             si = IncreaseVolumeForNextNote(channel, si, 15);
             break;
-/*
-        case 0xDD:
-            si = DecreaseVolumeForNextNote(channel, si);
-            break;
 
-        // Set status.
-        case 0xDC:
-            _State.Status = *si++;
-            break;
-
-        // Increment status.
-        case 0xDB:
-            _State.Status += *si++;
-            break;
-*/
         // Set portamento.
         case 0xDA:
             si = SetSSGPortamentoCommand(channel, si);
             break;
-/*
-        case 0xD9: si++; break;
-        case 0xD8: si++; break;
-        case 0xD7: si++; break;
 
-        case 0xD6:
-            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
-            channel->LFO1MDepth = *(int8_t *) si++;
-            break;
-
-        case 0xD5:
-            channel->DetuneValue += *(int16_t *) si;
-            si += 2;
-            break;
-
-        case 0xD4:
-            si = SetSSGEffect(channel, si);
-            break;
-
-        case 0xD3:
-            si = SetFMEffect(channel, si);
-            break;
-
-        case 0xD2:
-            _State.FadeOutSpeed = *si++;
-            _State.FadeOutSpeedSet = true;
-            break;
-
-        case 0xD1: si++; break;
-*/
         case 0xD0:
             si = SetSSGPseudoEchoCommand(si);
             break;
-/*
-        case 0xCF: si++; break;
 
-        // Set PCM Repeat.
-        case 0xCE: si += 6; break;
-
-        // Set SSG Envelope (Format 2).
-        case 0xCD:
-            si = SetSSGEnvelopeFormat2Command(channel, si);
-            break;
-*/
-        // Set SSG Extend Mode (bit 0).
+        // 7.3. SSG Pitch Interval Correction Setting, Selects whether or not to adjust the SSG pitch interval, Set SSG Extend Mode (bit 0), Command 'DX number'
         case 0xCC:
+        {
             channel->ExtendMode = (channel->ExtendMode & 0xFE) | (*si++ & 0x01);
             break;
-/*
-        case 0xCB:
-            channel->LFO1Waveform = *si++;
-            break;
-*/
+        }
+
         // Set SSG Extend Mode (bit 1).
         case 0xCA:
             channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
             break;
 
-        // Set SSG Extend Mode (bit 2).
+        // 8.2. Software Envelope Speed Setting, Set SSG Extend Mode (bit 2), Command 'EX number'
         case 0xC9:
+        {
             channel->ExtendMode = (channel->ExtendMode & 0xFB) | ((*si++ & 0x01) << 2);
             break;
-/*
-        case 0xC8: si += 3; break;
-        case 0xC7: si += 3; break;
-        case 0xC6: si += 6; break;
-        case 0xC5: si++; break;
+        }
 
-        // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
-        case 0xC4:
-            channel->EarlyKeyOffTimeoutPercentage = *si++;
-            break;
-*/
         case 0xC3: si += 2; break;
-/*
-        case 0xC2:
-            channel->Delay1 = channel->Delay2 = *si++;
-            InitializeLFOMain(channel);
-            break;
-*/
-        case 0xC1: break;
 
         case 0xC0:
             si = SetSSGMaskCommand(channel, si);
             break;
-/*
-        case 0xBF:
-            SwapLFO(channel);
 
-            si = SetModulation(channel, si);
-
-            SwapLFO(channel);
-            break;
-*/
         case 0xBE:
             channel->ModulationMode = (channel->ModulationMode & 0x8F) | ((*si++ & 0x07) << 4);
 
@@ -482,67 +309,9 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
 
             SwapLFO(channel);
             break;
-/*
-        case 0xBD:
-            SwapLFO(channel);
 
-            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
-            channel->LFO1MDepth = *(int8_t *) si++;
-
-            SwapLFO(channel);
-            break;
-
-        case 0xBC:
-            SwapLFO(channel);
-
-            channel->LFO1Waveform = *si++;
-
-            SwapLFO(channel);
-            break;
-
-        case 0xBB:
-            SwapLFO(channel);
-
-            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
-
-            SwapLFO(channel);
-            break;
-*/
         case 0xBA: si++; break;
-/*
-        case 0xB9:
-            SwapLFO(channel);
 
-            channel->LFO1Delay1 = channel->LFO1Delay2 = *si++;
-            InitializeLFOMain(channel);
-
-            SwapLFO(channel);
-            break;
-
-        case 0xB8: si += 2; break;
-
-        case 0xB7:
-            si = SetMDepthCountCommand(channel, si);
-            break;
-
-        case 0xB6: si++; break;
-        case 0xB5: si += 2; break;
-        case 0xB4: si += 16; break;
-
-        // Set Early Key Off Timeout 2. Stop note after n ticks or earlier depending on the result of B1/C4/FE happening first.
-        case 0xB3:
-            channel->EarlyKeyOffTimeout2 = *si++;
-            break;
-
-        case 0xB2:
-            channel->Transposition2 = *(int8_t *) si++;
-            break;
-
-        // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
-        case 0xB1:
-            channel->EarlyKeyOffTimeoutRandomRange = *si++;
-            break;
-*/
         default:
             si = ExecuteCommand(channel, si, Command);
     }
@@ -558,7 +327,8 @@ void PMD::SetSSGDelay(int nsec)
     _OPNAW->SetSSGDelay(nsec);
 }
 
-#pragma region(Commands)
+#pragma region Commands
+
 /// <summary>
 ///
 /// </summary>

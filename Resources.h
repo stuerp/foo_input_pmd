@@ -6,16 +6,33 @@
 #define TOSTRING_IMPL(x) #x
 #define TOSTRING(x) TOSTRING_IMPL(x)
 
+#define NUM_FILE_MAJOR          0
+#define NUM_FILE_MINOR          4
+#define NUM_FILE_PATCH          3
+#define NUM_FILE_PRERELEASE     0
+
+#define NUM_PRODUCT_MAJOR       0
+#define NUM_PRODUCT_MINOR       4
+#define NUM_PRODUCT_PATCH       3
+#define NUM_PRODUCT_PRERELEASE  0
+
+#define STR_RELEASE_TAG         "-alpha1"
+
+
 /** Component specific **/
 
 #define STR_COMPONENT_NAME          "PMD Decoder"
-#define STR_COMPONENT_VERSION       TOSTRING(NUM_FILE_MAJOR) "." TOSTRING(NUM_FILE_MINOR) "." TOSTRING(NUM_FILE_PATCH) "." TOSTRING(NUM_FILE_PRERELEASE)
+#define STR_COMPONENT_VERSION       TOSTRING(NUM_FILE_MAJOR) "." TOSTRING(NUM_FILE_MINOR) "." TOSTRING(NUM_FILE_PATCH) "." TOSTRING(NUM_FILE_PRERELEASE) STR_RELEASE_TAG
 #define STR_COMPONENT_BASENAME      "foo_input_pmd"
 #define STR_COMPONENT_FILENAME      STR_COMPONENT_BASENAME ".dll"
 #define STR_COMPONENT_COMPANY_NAME  ""
 #define STR_COMPONENT_COPYRIGHT     "Copyright (c) 2023-2026 P. Stuer. All rights reserved."
 #define STR_COMPONENT_COMMENTS      ""
 #define STR_COMPONENT_DESCRIPTION   "Adds playback of Professional Music Driver (PMD) files to foobar2000"
+#define STR_COMPONENT_COMMENT       "\n" \
+                                    "Based on:\n" \
+                                    "- C60 PMDWin (http://c60.la.coocan.jp/)"
+#define STR_COMPONENT_URL           "https://github.com/stuerp/" STR_COMPONENT_BASENAME
 
 /** Generic **/
 
@@ -24,25 +41,15 @@
 #define STR_COMMENTS            TEXT(STR_COMPONENT_COMMENTS)
 #define STR_COPYRIGHT           TEXT(STR_COMPONENT_COPYRIGHT)
 
-#define NUM_FILE_MAJOR          0
-#define NUM_FILE_MINOR          4
-#define NUM_FILE_PATCH          2
-#define NUM_FILE_PRERELEASE     0
-
 #define STR_FILE_NAME           TEXT(STR_COMPONENT_FILENAME)
-#define STR_FILE_VERSION        TOSTRING(NUM_FILE_MAJOR) TEXT(".") TOSTRING(NUM_FILE_MINOR) TEXT(".") TOSTRING(NUM_FILE_PATCH) TEXT(".") TOSTRING(NUM_FILE_PRERELEASE)
+#define STR_FILE_VERSION        TEXT(STR_COMPONENT_VERSION)
 #define STR_FILE_DESCRIPTION    TEXT(STR_COMPONENT_DESCRIPTION)
 
-#define NUM_PRODUCT_MAJOR       0
-#define NUM_PRODUCT_MINOR       4
-#define NUM_PRODUCT_PATCH       2
-#define NUM_PRODUCT_PRERELEASE  0
-
 #define STR_PRODUCT_NAME        STR_INTERNAL_NAME
-#define STR_PRODUCT_VERSION     TOSTRING(NUM_PRODUCT_MAJOR) TEXT(".") TOSTRING(NUM_PRODUCT_MINOR) TEXT(".") TOSTRING(NUM_PRODUCT_PATCH) TEXT(".") TOSTRING(NUM_PRODUCT_PRERELEASE)
+#define STR_PRODUCT_VERSION     TEXT(TOSTRING(NUM_PRODUCT_MAJOR)) TEXT(".") TEXT(TOSTRING(NUM_PRODUCT_MINOR)) TEXT(".") TEXT(TOSTRING(NUM_PRODUCT_PATCH)) TEXT(".") TEXT(TOSTRING(NUM_PRODUCT_PRERELEASE)) TEXT(STR_RELEASE_TAG)
 
 #define STR_ABOUT_NAME          STR_INTERNAL_NAME
-#define STR_ABOUT_WEB           TEXT("https://github.com/stuerp/") STR_COMPONENT_BASENAME
+#define STR_ABOUT_WEB           TEXT(STR_COMPONENT_URL)
 #define STR_ABOUT_EMAIL         TEXT("mailto:peter.stuer@outlook.com")
 
 /** Preferences **/
@@ -72,7 +79,7 @@
 #define H_EB    14  // Edit box height
 #define H_CB    14  // Combo box height
 
-#pragma region("Samples path")
+#pragma region Samples path
 // Label
 #define W_A01    106
 #define H_A01    H_LB
@@ -92,7 +99,7 @@
 #define Y_A02    Y_A01 - 2
 #pragma endregion
 
-#pragma region("Playback")
+#pragma region Playback
 // Groupbox
 #define W_A04    W_A00 - 7 - 7
 #define X_A04    7
@@ -143,7 +150,7 @@
 #define H_A04    11 + H_A08 + 4 + H_A10 + 4
 #pragma endregion
 
-#pragma region("Synthesis rate")
+#pragma region Synthesis rate
 // Label: Synthesis rate
 #define W_A12   58
 #define H_A12   H_LB

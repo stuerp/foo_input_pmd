@@ -186,12 +186,14 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 * [pmdmini](https://github.com/mistydemeo/pmdmini)
 * [FMP/PMD plugin for KbMediaPlayer 1.0r6](https://www.purose.net/befis/download/kmp/)
 * [Kaja Tools](http://www5.airnet.ne.jp/kajapon/tool.html)
+* [Professional Music Driver](https://battleofthebits.com/lyceum/View/Professional+Music+Driver+%28PMD%29)
 
 ### Music Macro Language
 
 * [PMD MML Command Manual](https://pigu-a.github.io/pmddocs/pmdmml.htm)
 * [Video Game Music Preservation](http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language)
 * [Pedipanol](https://mml-guide.readthedocs.io/pmd/intro/)
+* [Professional Music Driver Effects Commands](https://battleofthebits.com/lyceum/View/Professional%20Music%20Driver%20Effects%20Commands)
 
 ### Songs
 

@@ -88,9 +88,6 @@ public:
     int ExtendedAttackLevel;
 
     int PanAndVolume;
-    int SSGMask;         // Tone / Noise / Mix
-    int InstrumentNumber;
-    int loopcheck; // 1 When the loop ends 1 When the loop ends 3
 
     int FMCarrier;
     int FMOperator1;
@@ -99,11 +96,15 @@ public:
     int FMOperator4;
     int FMSlotMask; // 1 FM slotmask
 
-    int ToneMask; // 1 maskdata for FM tone definition
+    int SSGMask;         // Tone / Noise / Mix
+    int InstrumentNumber;
+    int loopcheck;      // 1 When the loop ends 1 When the loop ends 3
 
-    int MuteMask; // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
-    int VolumeMask1; // Volume LFO mask
-    int VolumeMask2; // Volume LFO mask
+    int ToneMask;       // 1 maskdata for FM tone definition
+
+    int MuteMask;       // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
+    int VolumeMask1;    // Volume LFO mask
+    int VolumeMask2;    // Volume LFO mask
 
     // bit 3: none / bit 4: For PPZ/ADE / bit 5: s0 time / bit 6: m / bit 7: temporary
     int KeyOnFlag; // 1 After processing new scale/rest data, inc

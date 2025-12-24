@@ -1,5 +1,5 @@
 
-// $VER: PMDFM.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMDFM.cpp (2025.12.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <pch.h>
 
@@ -209,68 +209,28 @@ void PMD::FMMain(Channel * channel)
     _Driver.loop_work &= channel->loopcheck;
 }
 
+/// <summary>
+/// Executes an FM command.
+/// </summary>
 uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
 {
     const uint8_t Command = *si++;
 
-//  console::printf("FM : %02X", Command);
-
     switch (Command)
     {
+        // 6.1. Instrument Number Setting, Command '@[@] insnum' / Command '@[@] insnum[,number1[,number2[,number3]]]'
         case 0xFF:
+        {
             si = SetFMInstrument(channel, si);
             break;
+        }
 
         // Set Early Key Off Timeout.
         case 0xFE:
             channel->EarlyKeyOffTimeout = *si++;
             channel->EarlyKeyOffTimeoutRandomRange = 0;
             break;
-/*
-        case 0xFD:
-            channel->Volume = *si++;
-            break;
 
-        case 0xFC:
-            si = ChangeTempoCommand(si);
-            break;
-
-        // Command "&": Tie notes together.
-        case 0xFB:
-            _Driver.TieNotesTogether = true;
-            break;
-
-        // Set detune.
-        case 0xFA:
-            channel->DetuneValue = *(int16_t *) si;
-            si += 2;
-            break;
-
-        // Set loop start.
-        case 0xF9:
-            si = SetStartOfLoopCommand(channel, si);
-            break;
-
-        // Set loop end.
-        case 0xF8:
-            si = SetEndOfLoopCommand(channel, si);
-            break;
-
-        // Exit loop.
-        case 0xF7:
-            si = ExitLoopCommand(channel, si);
-            break;
-
-        // Command "L": Set the loop data.
-        case 0xF6:
-            channel->LoopData = si;
-            break;
-
-        // Set transposition.
-        case 0xF5:
-            channel->Transposition = *(int8_t *) si++;
-            break;
-*/
         // Increase volume by 3dB.
         case 0xF4:
             channel->Volume += 4;
@@ -286,15 +246,11 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
             if (channel->Volume < 4)
                 channel->Volume = 0;
             break;
-/*
-        case 0xF2:
-            si = SetModulation(channel, si);
-            break;
-*/
+
         case 0xF1:
             si = SetModulationMask(channel, si);
 
-            SetFMChannel3Mode(channel);
+            SetFMChannelLFOs(channel);
             break;
 
         case 0xF0: si += 4; break;
@@ -308,152 +264,66 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
         case 0xEE: si++; break;
         case 0xED: si++; break;
 
+        // 13.1. Pan setting 1
         case 0xEC:
-            si = SetFMPanning(channel, si);
-            break;
-/*
-        case 0xEB:
-            si = OPNARhythmKeyOn(si);
+            si = SetFMPan1(channel, si);
             break;
 
-        case 0xEA:
-            si = SetOPNARhythmVolumeCommand(si);
-            break;
-
-        case 0xE9:
-            si = SetOPNARhythmPanningCommand(si);
-            break;
-
-        case 0xE8:
-            si = SetOPNARhythmMasterVolumeCommand(si);
-            break;
-
-        // Modify transposition.
-        case 0xE7:
-            channel->Transposition += *(int8_t *) si++;
-            break;
-
-        case 0xE6:
-            si = ModifyOPNARhythmMasterVolume(si);
-            break;
-
-        case 0xE5:
-            si = ModifyOPNARhythmVolume(si);
-            break;
-*/
-        // Set hardware LFO delay.
+        // 9.13. Hardware LFO Delay Setting, Set hardware LFO delay.
         case 0xE4:
             channel->HardwareLFODelay = *si++;
             break;
 
-        // Increase volume.
+        // 5.5. Relative Volume Change, Command ') [^] % number'
         case 0xE3:
+        {
             channel->Volume += *si++;
 
             if (channel->Volume > 127)
                 channel->Volume = 127;
             break;
+        }
 
-        // Decrease volume.
+        // 5.5. Relative Volume Change, Command ') [^] % number'
         case 0xE2:
+        {
             channel->Volume -= *si++;
 
             if (channel->Volume < 0)
                 channel->Volume = 0;
             break;
+        }
 
         // Set hardware LFO AM/FM.
         case 0xE1:
             si = SetHardwareLFOCommand(channel, si);
             break;
 
-        // Set hardware LFO speed.
+        // 9.11. hardware LFO Switch/Depth Setting (OPNA), Sound Source FM(OPNA), Set hardware LFO speed (register 22)
         case 0xE0:
             _OPNAW->SetReg(0x22, *si++);
             break;
-/*
-        // Command "Z number": Set ticks per measure.
-        case 0xDF:
-            _State.BarLength = *si++;
-            break;
-*/
+
         case 0xDE:
             si = IncreaseVolumeForNextNote(channel, si, 128);
             break;
-/*
-        case 0xDD: 
-            si = DecreaseVolumeForNextNote(channel, si);
-            break;
 
-        // Set status.
-        case 0xDC:
-            _State.Status = *si++;
-            break;
-
-        // Increment status.
-        case 0xDB:
-            _State.Status += *si++;
-            break;
-*/
         // Set portamento.
         case 0xDA:
             si = SetFMPortamentoCommand(channel, si);
             break;
-/*
-        case 0xD9: si++; break;
-        case 0xD8: si++; break;
-        case 0xD7: si++; break;
-
-        case 0xD6:
-            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
-            channel->LFO1MDepth = *(int8_t *) si++;
-            break;
-
-        case 0xD5:
-            channel->DetuneValue += *(int16_t *) si;
-            si += 2;
-            break;
-
-        case 0xD4:
-            si = SetSSGEffect(channel, si);
-            break;
-
-        case 0xD3:
-            si = SetFMEffect(channel, si);
-            break;
-
-        case 0xD2:
-            _State.FadeOutSpeed = *si++;
-            _State.FadeOutSpeedSet = true;
-            break;
-
-        case 0xD1: si++; break;
-        case 0xD0: si++; break;
-*/
 
         case 0xCF:
             si = SetFMSlotCommand(channel, si);
             break;
-/*
-        // Set PCM Repeat.
-        case 0xCE: si += 6; break;
-*/
-        // Set SSG Envelope (Format 2).
-        case 0xCD: si += 5; break;
-/*
-        // Set SSG Extend Mode (bit 0).
-        case 0xCC: si++; break;
 
-        case 0xCB:
-            channel->LFO1Waveform = *si++;
-            break;
-*/
+        case 0xCD: si += 5; break;
+
         // Set SSG Extend Mode (bit 1).
         case 0xCA:
             channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
             break;
 
-        // Set SSG Extend Mode (bit 2).
         case 0xC9: si++; break;
 
         case 0xC8:
@@ -468,120 +338,98 @@ uint8_t * PMD::ExecuteFMCommand(Channel * channel, uint8_t * si)
             si = SetFMChannel3ModeEx(channel, si);
             break;
 
+        // 9.4. Software LFO Slot Setting, Sets the slot number to apply the effect of the software LFO to.
         case 0xC5:
             si = SetFMVolumeMaskSlotCommand(channel, si);
             break;
-/*
-        // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
-        case 0xC4:
-            channel->EarlyKeyOffTimeoutPercentage = *si++;
-            break;
-*/
+
+        // 13.2. Pan Setting 2
         case 0xC3:
-            si = SetFMPanningExtend(channel, si);
+            si = SetFMPan2(channel, si);
             break;
-/*
-        case 0xC2:
-            channel->Delay1 = channel->Delay2 = *si++;
-            InitializeLFOMain(channel);
-            break;
-*/
-        case 0xC1: break;
 
         case 0xC0:
             si = SetFMMaskCommand(channel, si);
             break;
-/*
-        case 0xBF:
-            SwapLFO(channel);
 
-            si = SetModulation(channel, si);
-
-            SwapLFO(channel);
-            break;
-*/
         case 0xBE:
             si = SetHardwareLFOSwitchCommand(channel, si);
 
-            SetFMChannel3Mode(channel);
-            break;
-/*
-        case 0xBD:
-            SwapLFO(channel);
-
-            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
-            channel->LFO1MDepth = *(int8_t *) si++;
-
-            SwapLFO(channel);
+            SetFMChannelLFOs(channel);
             break;
 
-        case 0xBC:
-            SwapLFO(channel);
-
-            channel->LFO1Waveform = *si++;
-
-            SwapLFO(channel);
-            break;
-
-        case 0xBB:
-            SwapLFO(channel);
-
-            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
-
-            SwapLFO(channel);
-            break;
-
-        case 0xBA:
-            si = SetVolumeMask(channel, si);
-            break;
-
-        case 0xB9:
-            SwapLFO(channel);
-
-            channel->LFO1Delay1 = channel->LFO1Delay2 = *si++;
-            InitializeLFOMain(channel);
-
-            SwapLFO(channel);
-            break;
-*/
+        // 6.3. FM TL Setting, Sets the TL (True Level, or operator volume) value of an FM instrument.
         case 0xB8:
-            si = SetFMTLSettingCommand(channel, si);
+        {
+            si = SetFMTrueLevelCommand(channel, si);
             break;
-/*
-        case 0xB7:
-            si = SetMDepthCountCommand(channel, si);
-            break;
-*/
+        }
+
+        // 6.4. FM FB Setting, Sets the FB (Feedback) value of an FM instrument.
         case 0xB6:
-            si = SetFMFeedbackLoops(channel, si);
+        {
+            si = SetFMFeedbackLoopsCommand(channel, si);
             break;
+        }
 
         case 0xB5:
+        {
             channel->SlotDelayMask = (~(*si++) << 4) & 0xF0;
-            channel->SlotDelayCounter = channel->SlotDelay = *si++;
+            channel->SlotDelayCounter =
+            channel->SlotDelay = *si++;
             break;
-/*
-        case 0xB4: si += 16; break;
+        }
 
-        // Set Early Key Off Timeout 2. Stop note after n ticks or earlier depending on the result of B1/C4/FE happening first.
-        case 0xB3:
-            channel->EarlyKeyOffTimeout2 = *si++;
-            break;
-
-        case 0xB2:
-            channel->Transposition2 = *(int8_t *) si++;
-            break;
-
-        // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
-        case 0xB1:
-            channel->EarlyKeyOffTimeoutRandomRange = *si++;
-            break;
-*/
         default:
             si = ExecuteCommand(channel, si, Command);
     }
 
     return si;
+}
+
+/// <summary>
+/// Completely muting the [PartB] part (TL=127 and RR=15 and KEY-OFF). cy=1 ･･･ All slots are neiromasked
+/// </summary>
+int PMD::MuteFMChannel(Channel * channel)
+{
+    if (channel->ToneMask == 0)
+        return 1;
+
+    int dh = _Driver.CurrentChannel + 0x40 - 1;
+
+    if (channel->ToneMask & 0x80)
+    {
+        _OPNAW->SetReg((uint32_t) ( _Driver.FMSelector         + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
+    }
+
+    dh += 4;
+
+    if (channel->ToneMask & 0x40)
+    {
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
+    }
+
+    dh += 4;
+
+    if (channel->ToneMask & 0x20)
+    {
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
+    }
+
+    dh += 4;
+
+    if (channel->ToneMask & 0x10)
+    {
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + dh), 127);
+        _OPNAW->SetReg((uint32_t) ((_Driver.FMSelector + 0x40) + dh), 127);
+    }
+
+    FMKeyOff(channel);
+
+    return 0;
 }
 
 /// <summary>
@@ -592,7 +440,7 @@ void PMD::SetFMDelay(int nsec)
     _OPNAW->SetFMDelay(nsec);
 }
 
-#pragma region(Commands)
+#pragma region Commands
 /// <summary>
 ///
 /// </summary>
@@ -816,7 +664,7 @@ uint8_t * PMD::SetFMInstrument(Channel * channel, uint8_t * si)
 /// <summary>
 /// Command "p <value>" (1: right, 2: left, 3: center (default))
 /// </summary>
-uint8_t * PMD::SetFMPanning(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetFMPan1(Channel * channel, uint8_t * si)
 {
     SetFMPannningInternal(channel, *si++);
 
@@ -826,7 +674,7 @@ uint8_t * PMD::SetFMPanning(Channel * channel, uint8_t * si)
 /// <summary>
 /// Command "px <value 1>, <value 2>" (value 1: -4 (pan to the left) to +4 (pan to the right), value 2: 0 (In phase) or 1 (Reverse phase)).
 /// </summary>
-uint8_t * PMD::SetFMPanningExtend(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetFMPan2(Channel * channel, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
@@ -1077,7 +925,7 @@ uint8_t * PMD::SetFMSlotCommand(Channel * channel, uint8_t * si)
         else
             channel->MuteMask |= 0x20;  // Part mask at s0
 
-        if (SetFMChannel3Mode(channel))
+        if (SetFMChannelLFOs(channel))
         {
             if (channel != &_FMChannels[2])
             {
@@ -1165,7 +1013,7 @@ uint8_t * PMD::SetFMAbsoluteDetuneCommand(Channel * channel, uint8_t * si)
         _State.FMSlot1Detune = 0;
     }
 
-    SetFMChannel3Mode2(channel);
+    SetFMChannel3LFOs(channel);
 
     return si;
 }
@@ -1201,18 +1049,17 @@ uint8_t * PMD::SetFMRelativeDetuneCommand(Channel * channel, uint8_t * si)
         _State.FMSlot1Detune = 0;
     }
 
-    SetFMChannel3Mode2(channel);
+    SetFMChannel3LFOs(channel);
 
     return si;
 }
 
-// Command: Sets the volume mask slot.
 /// <summary>
-///
+/// 9.4. Software LFO Slot Setting, Sets the slot number to apply the effect of the software LFO to.
 /// </summary>
 uint8_t * PMD::SetFMVolumeMaskSlotCommand(Channel * channel, uint8_t * si)
 {
-    int al = *si++ & 0x0F;
+    int al = *si++ & 0x0F; // Slot number
 
     if (al != 0)
     {
@@ -1223,15 +1070,15 @@ uint8_t * PMD::SetFMVolumeMaskSlotCommand(Channel * channel, uint8_t * si)
     else
         channel->VolumeMask1 = channel->FMCarrier;
 
-    SetFMChannel3Mode(channel);
+    SetFMChannelLFOs(channel);
 
     return si;
 }
 
 /// <summary>
-///
+/// 6.3. FM TL Setting, Sets the TL (True Level, or operator volume) value of an FM instrument.
 /// </summary>
-uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetFMTrueLevelCommand(Channel * channel, uint8_t * si)
 {
     int dh = 0x40 - 1 + _Driver.CurrentChannel;    // dh=TL FM Port Address
 
@@ -1240,13 +1087,13 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 
     int ch = (channel->FMSlotMask >> 4) | ((channel->FMSlotMask << 4) & 0xF0);
 
-    ah &= ch; // ah=slot to change 00004321
+    ah &= ch; // ah = Slot to change 00004321
 
     int dl = *(int8_t *) si++;
 
     if (al >= 0)
     {
-        dl &= 127;
+        dl &= 0x7F;
 
         if (ah & 1)
         {
@@ -1293,7 +1140,9 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 
         if (ah & 1)
         {
-            if ((dl = (int) channel->FMOperator1 + al) < 0)
+            dl = dl = (int) channel->FMOperator1 + al;
+
+            if (dl < 0)
             {
                 dl = 0;
 
@@ -1311,7 +1160,9 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 
         if (ah & 2)
         {
-            if ((dl = (int) channel->FMOperator2 + al) < 0)
+            dl = (int) channel->FMOperator2 + al;
+
+            if (dl < 0)
             {
                 dl = 0;
 
@@ -1329,7 +1180,9 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 
         if (ah & 4)
         {
-            if ((dl = (int) channel->FMOperator3 + al) < 0)
+            dl = (int) channel->FMOperator3 + al;
+
+            if (dl < 0)
             {
                 dl = 0;
 
@@ -1347,7 +1200,9 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 
         if (ah & 8)
         {
-            if ((dl = (int) channel->FMOperator4 + al) < 0)
+            dl = (int) channel->FMOperator4 + al;
+
+            if (dl < 0)
             {
                 dl = 0;
 
@@ -1366,13 +1221,13 @@ uint8_t * PMD::SetFMTLSettingCommand(Channel * channel, uint8_t * si)
 }
 
 /// <summary>
-///
+/// 6.4. FM FB Setting, Sets the FB (Feedback) value of an FM instrument.
 /// </summary>
-uint8_t * PMD::SetFMFeedbackLoops(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetFMFeedbackLoopsCommand(Channel * channel, uint8_t * si)
 {
     int dl;
 
-    int dh = _Driver.CurrentChannel + 0xb0 - 1;  // dh = Algorithm (alg) and Feedback Loops (fb) port address.
+    int dh = _Driver.CurrentChannel + 0xB0 - 1;  // dh = Algorithm (alg) and Feedback Loops (fb) port address.
     int al = *(int8_t *) si++;
 
     if (al >= 0)
@@ -1484,6 +1339,7 @@ uint8_t * PMD::SetFMFeedbackLoops(Channel * channel, uint8_t * si)
         }
     }
 }
+
 #pragma endregion
 
 /// <summary>
@@ -1681,22 +1537,22 @@ void PMD::InitializeFMInstrument(Channel * channel, int instrumentNumber, bool s
 }
 
 /// <summary>
-///
+/// Sets pitch and volume LFOs for FM channel 3.
 /// </summary>
-bool PMD::SetFMChannel3Mode(Channel * channel)
+bool PMD::SetFMChannelLFOs(Channel * channel)
 {
     if ((_Driver.CurrentChannel != 3) || (_Driver.FMSelector != 0))
         return false;
 
-    SetFMChannel3Mode2(channel);
+    SetFMChannel3LFOs(channel);
 
     return true;
 }
 
 /// <summary>
-///
+/// Sets pitch and volume LFOs for FM channel 3.
 /// </summary>
-void PMD::SetFMChannel3Mode2(Channel * channel)
+void PMD::SetFMChannel3LFOs(Channel * channel)
 {
     int al;
 
@@ -1774,7 +1630,7 @@ void PMD::SetFMChannel3Mode2(Channel * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::ClearFM3(int& ah, int& al)
+void PMD::ClearFM3(int & ah, int & al) noexcept
 {
     al ^= 0xFF;
 

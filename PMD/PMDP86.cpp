@@ -1,5 +1,5 @@
 
-// $VER: PMDP86.cpp (2023.10.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMDP86.cpp (2025.12.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <pch.h>
 
@@ -174,93 +174,22 @@ void PMD::P86Main(Channel * channel)
 
 uint8_t * PMD::ExecuteP86Command(Channel * channel, uint8_t * si)
 {
-    uint8_t Command = *si++;
-
-//  console::printf("P86: %02X", Command);
+    const uint8_t Command = *si++;
 
     switch (Command)
     {
+        // 6.1. Instrument Number Setting, Command '@[@] insnum' / Command '@[@] insnum[,number1[,number2[,number3]]]'
         case 0xFF:
+        {
             si = SetP86Instrument(channel, si);
             break;
+        }
 
         // Set Early Key Off Timeout.
         case 0xFE:
             channel->EarlyKeyOffTimeout = *si++;
             break;
-/*
-        case 0xFD:
-            channel->Volume = *si++;
-            break;
 
-        case 0xFC:
-            si = ChangeTempoCommand(si);
-            break;
-
-        // Command "&": Tie notes together.
-        case 0xFB:
-            _Driver.TieNotesTogether = true;
-            break;
-
-        // Set detune.
-        case 0xFA:
-            channel->DetuneValue = *(int16_t *) si;
-            si += 2;
-            break;
-
-        // Set loop start.
-        case 0xF9:
-            si = SetStartOfLoopCommand(channel, si);
-            break;
-
-        // Set loop end.
-        case 0xF8:
-            si = SetEndOfLoopCommand(channel, si);
-            break;
-
-        // Exit loop.
-        case 0xF7:
-            si = ExitLoopCommand(channel, si);
-            break;
-
-        // Command "L": Set the loop data.
-        case 0xF6:
-            channel->LoopData = si;
-            break;
-
-        // Set transposition.
-        case 0xF5:
-            channel->Transposition = *(int8_t *) si++;
-            break;
-
-        // Increase volume by 3dB.
-        case 0xF4:
-            channel->Volume += 16;
-
-            if (channel->Volume > 255)
-                channel->Volume = 255;
-            break;
-
-        // Decrease volume by 3dB.
-        case 0xF3:
-            channel->Volume -= 16;
-
-            if (channel->Volume < 16)
-                channel->Volume = 0;
-            break;
-
-        case 0xF2:
-            si = SetModulation(channel, si);
-            break;
-
-        case 0xF1:
-            si = SetModulationMask(channel, si);
-            break;
-
-        case 0xF0:
-            si = SetSSGEnvelopeFormat1Command(channel, si);
-            break;
-*/
         // Set SSG envelope.
         case 0xEF:
             _OPNAW->SetReg((uint32_t) (0x100 + si[0]), si[1]);
@@ -270,101 +199,38 @@ uint8_t * PMD::ExecuteP86Command(Channel * channel, uint8_t * si)
         case 0xEE: si++; break;
         case 0xED: si++; break;
 
+        // 13.1. Pan setting 1
         case 0xEC:
-            si = SetP86Panning(channel, si);
-            break;
-/*
-        case 0xEB:
-            si = OPNARhythmKeyOn(si);
+            si = SetP86Pan1(channel, si);
             break;
 
-        case 0xEA:
-            si = SetOPNARhythmVolumeCommand(si);
-            break;
-
-        case 0xE9:
-            si = SetOPNARhythmPanningCommand(si);
-            break;
-
-        case 0xE8:
-            si = SetOPNARhythmMasterVolumeCommand(si);
-            break;
-
-        // Modify transposition.
-        case 0xE7:
-            channel->Transposition += *(int8_t *) si++;
-            break;
-
-        case 0xE6:
-            si = ModifyOPNARhythmMasterVolume(si);
-            break;
-
-        case 0xE5:
-            si = ModifyOPNARhythmVolume(si);
-            break;
-
-        case 0xE4: si++; break;
-*/
-        // Increase volume.
+        // 5.5. Relative Volume Change, Command ') [^] % number'
         case 0xE3:
+        {
             channel->Volume += *si++;
 
             if (channel->Volume > 255)
                 channel->Volume = 255;
             break;
+        }
 
-        // Decrease volume.
+        // 5.5. Relative Volume Change, Command ') [^] % number'
         case 0xE2:
+        {
             channel->Volume -= *si++;
 
             if (channel->Volume < 0)
                 channel->Volume = 0;
             break;
-/*
-        case 0xE1: si++; break;
-        case 0xE0: si++; break;
+        }
 
-        // Command "Z number": Set ticks per measure.
-        case 0xDF:
-            _State.BarLength = *si++;
-            break;
-*/
         case 0xDE:
             si = IncreaseVolumeForNextNote(channel, si, 255);
             break;
-/*
-        case 0xDD:
-            si = DecreaseVolumeForNextNote(channel, si);
-            break;
 
-        // Set status.
-        case 0xDC:
-            _State.Status = *si++;
-            break;
-
-        // Increment status.
-        case 0xDB:
-            _State.Status += *si++;
-            break;
-*/
         // Set portamento.
         case 0xDA: si++; break;
-/*
-        case 0xD9: si++; break;
-        case 0xD8: si++; break;
-        case 0xD7: si++; break;
-*/
-        // Command "MD", "MDA", "MDB": Set LFO Depth Temporal Change
-        case 0xD6:
-            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
-            channel->LFO1MDepth = *(int8_t *) si++;
-            break;
-/*
-        case 0xD5:
-            channel->DetuneValue += *(int16_t *) si;
-            si += 2;
-            break;
-*/
+
         case 0xD4:
             si = SetSSGEffect(channel, si);
             break;
@@ -377,57 +243,28 @@ uint8_t * PMD::ExecuteP86Command(Channel * channel, uint8_t * si)
             _State.FadeOutSpeed = *si++;
             _State.IsFadeOutSpeedSet = true;
             break;
-/*
-        case 0xD1: si++; break;
-        case 0xD0: si++; break;
-        case 0xCF: si++; break;
-*/
+
         // Set PCM Repeat.
         case 0xCE:
             si = SetP86RepeatCommand(channel, si);
             break;
-/*
-        case 0xCD:
-            si = SetSSGEnvelopeFormat2Command(channel, si);
-            break;
 
-        // Set SSG Extend Mode (bit 0).
-        case 0xCC: si++; break;
-
-        case 0xCB:
-            channel->LFO1Waveform = *si++;
-            break;
-*/
         // Set SSG Extend Mode (bit 1).
         case 0xCA:
             channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
             break;
 
-        // Set SSG Extend Mode (bit 2).
+        // 8.2. Software Envelope Speed Setting, Set SSG Extend Mode (bit 2), Command 'EX number'
         case 0xC9:
+        {
             channel->ExtendMode = (channel->ExtendMode & 0xFB) | ((*si++ & 0x01) << 2);
             break;
-/*
-        case 0xC8: si += 3; break;
-        case 0xC7: si += 3; break;
-        case 0xC6: si += 6; break;
-        case 0xC5: si++; break;
+        }
 
-        // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
-        case 0xC4:
-            channel->EarlyKeyOffTimeoutPercentage = *si++;
-            break;
-*/
+        // 13.2. Pan Setting 2
         case 0xC3:
-            si = SetP86PanningExtend(channel, si);
+            si = SetP86Pan2(channel, si);
             break;
-/*
-        case 0xC2:
-            channel->Delay1 = channel->Delay2 = *si++;
-            InitializeLFOMain(channel);
-            break;
-*/
-        case 0xC1: break;
 
         case 0xC0:
             si = SetP86MaskCommand(channel, si);
@@ -440,35 +277,11 @@ uint8_t * PMD::ExecuteP86Command(Channel * channel, uint8_t * si)
         case 0xBB: si++; break;
         case 0xBA: si++; break;
         case 0xB9: si++; break;
-/*
-        case 0xB8: si += 2; break;
 
-        case 0xB7:
-            si = SetMDepthCountCommand(channel, si);
-            break;
-
-        case 0xB6: si++; break;
-        case 0xB5: si += 2; break;
-*/
         case 0xB4:
             si = InitializePPZ(channel, si);
             break;
-/*
-        // Set Early Key Off Timeout 2. Stop note after n ticks or earlier depending on the result of B1/C4/FE happening first.
-        case 0xB3:
-            channel->EarlyKeyOffTimeout2 = *si++;
-            break;
 
-        // Set secondary transposition.
-        case 0xB2:
-            channel->Transposition2 = *(int8_t *) si++;
-            break;
-
-        // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
-        case 0xB1:
-            channel->EarlyKeyOffTimeoutRandomRange = *si++;
-            break;
-*/
         default:
             si = ExecuteCommand(channel, si, Command);
     }
@@ -657,7 +470,7 @@ uint8_t * PMD::SetP86Instrument(Channel * channel, uint8_t * si)
 /// <summary>
 /// Command "p <value>" (1: right, 2: left, 3: center (default), 0: Reverse Phase)
 /// </summary>
-uint8_t * PMD::SetP86Panning(Channel *, uint8_t * si)
+uint8_t * PMD::SetP86Pan1(Channel *, uint8_t * si)
 {
     switch (*si++)
     {
@@ -683,7 +496,7 @@ uint8_t * PMD::SetP86Panning(Channel *, uint8_t * si)
 /// <summary>
 /// Command "px <value 1>, <value 2>" (value 1: < 0 (Pan to the right), > 0 (Pan to the left), 0 (Center), value 2: 0 (In phase) or 1 (Reverse phase)).
 /// </summary>
-uint8_t * PMD::SetP86PanningExtend(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetP86Pan2(Channel * channel, uint8_t * si)
 {
     int flag, value;
 

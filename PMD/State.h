@@ -102,43 +102,43 @@ public:
     bool PMDB2CompatibilityMode, DefaultPMDB2CompatibilityMode;
 
     // MData characteristics
-    uint8_t x68_flg;    // OPM flag
+    uint8_t x68_flg;                    // OPM flag
 
-    int Status; // Unused
+    int Status;                         // Unused
 
     int LoopCount;
 
     int FadeOutSpeed;
     bool IsFadeOutSpeedSet;
-    int FadeOutSpeedHQ;     // Fadeout speed (High Sound Quality)
+    int FadeOutSpeedHQ;                 // Fadeout speed (High Sound Quality)
     int FadeOutVolume;
 
-    int BarLength;  // Time signature 4/4 = 96 (default); E.g. time signature 3/4 = 72
-    int OpsCounter; // Shortest note counter
+    int BarLength;                      // Time signature 4/4 = 96 (default); E.g. time signature 3/4 = 72
+    int OpsCounter;                     // Shortest note counter
 
-    int SSGEffectFlag; // SSG sound effect on/off flag (substituted by user)
+    int SSGEffectFlag;                  // SSG sound effect on/off flag (substituted by user)
     int SSGNoiseFrequency;
     int OldSSGNoiseFrequency;
 
     int PCMStart;
     int PCMStop;
 
-    int Tempo;              // Timer B Tempo
-    int TempoPush;          // Timer B Tempo (for saving)
+    int Tempo;                          // Timer B Tempo
+    int TempoPush;                      // Timer B Tempo (for saving)
 
-    int MetronomeTempo;     // Duration of a quarter note (in ticks)
-    int MetronomeTempoPush; // Duration of a quarter note (in ticks) (for saving)
+    int MetronomeTempo;                 // Duration of a quarter note (in ticks)
+    int MetronomeTempoPush;             // Duration of a quarter note (in ticks) (for saving)
 
     bool StopAfterFadeout;
 
-    bool UseRhythmChannel;   // Use the PMD rhythm channel to sequence drums (by default SSG channel 3) instead of the OPNA's Rhythm Sound Source (RSS).
-//  int pcm_gs_flag;  // ADPCM use permission flag (0 allows)
+    bool UseRhythmChannel;              // Use the PMD rhythm channel to sequence drums (by default SSG channel 3) instead of the OPNA's Rhythm Sound Source (RSS).
+//  int pcm_gs_flag;                    // ADPCM use permission flag (0 allows)
 
     int BarCounter;
 
-    int RhythmPanAndVolume[6];  // Pan value and volume
+    int RhythmPanAndVolume[6];          // Pan value and volume
 
-    int RhythmChannelMask;      // Bit mask: bit is set to 1 if the corresponding drum channel is playing.
+    int RhythmChannelMask;              // Bit mask: bit is set to 1 if the corresponding drum channel is playing.
 
     int RhythmBassDrumOn;
     int RhythmSnareDrumOn;
@@ -160,10 +160,10 @@ public:
     int TimerATime;
 
     bool IsTimerBBusy;
-    int TimerBTempo;    // Current value of TimerB (= ff_tempo during ff)
+    int TimerBTempo;                    // Current value of TimerB (= ff_tempo during ff)
 
-    uint32_t OPNASampleRate;  // PCM output frequency (11k, 22k, 44k, 55k)
-    uint32_t PPZSampleRate;   // PPZ output frequency
+    uint32_t OPNASampleRate;            // PCM output frequency (11k, 22k, 44k, 55k)
+    uint32_t PPZSampleRate;             // PPZ output frequency
 
     bool IsUsingP86;
 };
