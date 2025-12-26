@@ -234,7 +234,7 @@ uint32_t OPNA::GetReg(uint32_t addr)
 #pragma region Timer processing
 
 /// <summary>
-/// Advances the timers until the next tick. (in μs)
+/// Advances the timers until the next tick (in μs).
 /// </summary>
 bool OPNA::AdvanceTimers(uint32_t nextTick) noexcept
 {
@@ -243,13 +243,13 @@ bool OPNA::AdvanceTimers(uint32_t nextTick) noexcept
     if (_Reg27 & 0x01)
     {
         if (_TimerCounter[0] > 0)
-            _TimerCounter[0] -= ((emulated_time) nextTick << (48 - 6)) / (1000000 >> 6);
+            _TimerCounter[0] -= ((emulated_time) nextTick << (48 - 6)) / (1'000'000 >> 6);
     }
 
     if (_Reg27 & 0x02)
     {
         if (_TimerCounter[1] > 0)
-            _TimerCounter[1] -= ((emulated_time) nextTick << (48 - 6)) / (1000000 >> 6);
+            _TimerCounter[1] -= ((emulated_time) nextTick << (48 - 6)) / (1'000'000 >> 6);
     }
 
     for (int i = 0; i < (int) _countof(_TimerCounter); ++i)
@@ -287,7 +287,7 @@ uint32_t OPNA::GetNextTick() const noexcept
     if (_TimerCounter[1] > 0)
         Tick = std::min(Tick, _TimerCounter[1]);
 
-    return (uint32_t) (((Tick + ((emulated_time) 1 << 48) / 1000000) * (1000000 >> 6)) >> (48 - 6));
+    return (uint32_t) (((Tick + ((emulated_time) 1 << 48) / 1'000'000) * (1'000'000 >> 6)) >> (48 - 6));
 
 }
 

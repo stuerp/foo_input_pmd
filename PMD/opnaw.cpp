@@ -39,7 +39,7 @@ void OPNAW::Initialize(uint32_t clockSpeed, uint32_t sampleRate, bool useInterpo
 void OPNAW::SetFMDelay(int ns) noexcept
 {
     _FMDelay      = ns;
-    _FMDelayCount = (int) (ns * _SampleRate / 1000000);
+    _FMDelayCount = (int) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
@@ -48,7 +48,7 @@ void OPNAW::SetFMDelay(int ns) noexcept
 void OPNAW::SetSSGDelay(int ns) noexcept
 {
     _SSGDelay      = ns;
-    _SSGDelayCount = (int) (ns * _SampleRate / 1000000);
+    _SSGDelayCount = (int) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
@@ -57,7 +57,7 @@ void OPNAW::SetSSGDelay(int ns) noexcept
 void OPNAW::SetADPCMDelay(int ns) noexcept
 {
     _ADPCMDelay      = ns;
-    _ADPCMDelayCount = (int) (ns * _SampleRate / 1000000);
+    _ADPCMDelayCount = (int) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
@@ -66,7 +66,7 @@ void OPNAW::SetADPCMDelay(int ns) noexcept
 void OPNAW::SetRSSDelay(int ns) noexcept
 {
     _RSSDelay      = ns;
-    _RSSDelayCount = (int) (ns * _SampleRate / 1000000);
+    _RSSDelayCount = (int) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
@@ -197,18 +197,18 @@ void OPNAW::Reset() noexcept
 /// </summary>
 void OPNAW::CalcWaitPCM(int value)
 {
-    _Counter += value % 1000;
-    value /= 1000;
+    _Counter += value % 1'000;
+    value /= 1'000;
 
-    if (_Counter > 1000)
+    if (_Counter > 1'000)
     {
         ++value;
-        _Counter -= 1000;
+        _Counter -= 1'000;
     }
 
     do
     {
-        size_t SampleCount = (_SrcWriteIndex + value > SRC_PCM_BUFFER_SIZE) ? SRC_PCM_BUFFER_SIZE - _SrcWriteIndex : (size_t) value;
+        const size_t SampleCount = (_SrcWriteIndex + value > SRC_PCM_BUFFER_SIZE) ? SRC_PCM_BUFFER_SIZE - _SrcWriteIndex : (size_t) value;
 
         ::memset(&_SrcBuffer[_SrcWriteIndex * 2], 0, SampleCount * 2 * sizeof(Sample));
 

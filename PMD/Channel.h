@@ -1,37 +1,19 @@
 
-/** $VER: Channel.h (2023.10.29) Represents a sound source channel (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: Channel.h (2025.12.26) Represents a sound source channel (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
 class Channel
 {
 public:
-    uint8_t * Rest(uint8_t * si, bool isVolumePushSet) noexcept
-    {
-        // Set to "rest".
-        Factor = 0;
-        Tone = 0xFF;
-    //  DefaultNote = 0xFF;
-
-        Length = *si;
-        KeyOnFlag++;
-        Data = si;
-
-        if (isVolumePushSet)
-            VolumeBoost = 0;
-
-        return si;
-    }
-
-public:
     uint8_t * Data;
     uint8_t * LoopData;
     int Length;
 
-    uint32_t Factor;  // 2 Power BLOCK/FNUM
+    uint32_t Factor;    // Current playing BLOCK/FNUM
     int DetuneValue;
 
-    int ModulationMode;  // bit 0: Tone, bit 1: Volume, bit 2: Same period, bit 3: Portamento
+    int HardwareLFOModulationMode;  // bit 0: Tone, bit 1: Volume, bit 2: Same period, bit 3: Portamento
     int ExtendMode; // bit 1: Detune, bit 2: LFO, bit 3: Env Normal/Extend
 
     // LFO 1
@@ -69,10 +51,10 @@ public:
     int Transposition1;
     int Transposition2;
 
-    int VolumeBoost; // bit 4: tone / bit 5: vol / bit 6: same period
+    int VolumeBoost;    // bit 4: tone / bit 5: vol / bit 6: same period
 
     int SSGEnvelopFlag; // -1 to extend
-    int ExtendedCount; // None=0 AR=1 DR=2 SR=3 RR=4
+    int ExtendedCount;  // None=0 AR=1 DR=2 SR=3 RR=4
 
     int AttackDuration;
     int DecayDepth;
@@ -87,28 +69,27 @@ public:
     int ExtendedReleaseRate;
     int ExtendedAttackLevel;
 
-    int PanAndVolume;
-
+    int FMPanAndVolume; // FM Panning + AMD + PMD
     int FMCarrier;
     int FMOperator1;
     int FMOperator3;
     int FMOperator2;
     int FMOperator4;
-    int FMSlotMask; // 1 FM slotmask
+    int FMSlotMask;
 
     int SSGMask;         // Tone / Noise / Mix
     int InstrumentNumber;
-    int loopcheck;      // 1 When the loop ends 1 When the loop ends 3
+    int loopcheck;      // When the loop ends
 
-    int ToneMask;       // 1 maskdata for FM tone definition
+    int ToneMask;       // Maskdata for FM tone definition
 
-    int MuteMask;       // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
+    int PartMask;       // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
     int VolumeMask1;    // Volume LFO mask
     int VolumeMask2;    // Volume LFO mask
 
     // bit 3: none / bit 4: For PPZ/ADE / bit 5: s0 time / bit 6: m / bit 7: temporary
-    int KeyOnFlag; // 1 After processing new scale/rest data, inc
-    int KeyOffFlag;  // 1 Flag indicating whether keyoff has been performed
+    int KeyOnFlag;      // Set after processing new scale/rest data, inc
+    int KeyOffFlag;     // Flag indicating whether KeyOff has been performed
 
     int HardwareLFODelay;
     int HardwareLFODelayCounter;
@@ -122,7 +103,7 @@ public:
 
     int AlgorithmAndFeedbackLoops;  // 1 Tone alg/fb
 
-    int GateTime; // Calculated from q/Q value
+    int GateTime;       // Calculated from q/Q value
 
     int EarlyKeyOffTimeout;
     int EarlyKeyOffTimeoutPercentage;

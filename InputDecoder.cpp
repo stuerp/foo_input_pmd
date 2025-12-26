@@ -133,14 +133,14 @@ public:
     /// </summary>
     void get_info(t_uint32, file_info & fileInfo, abort_callback &)
     {
-        double Length = _Decoder->GetLength() / 1000.;
+        double Length = _Decoder->GetLength() / 1'000.;
 
         fileInfo.set_length(Length);
 
         // General info tags
         fileInfo.info_set("encoding", "Synthesized");
 
-        double Loop = _Decoder->GetLoopLength() / 1000.;
+        double Loop = _Decoder->GetLoopLength() / 1'000.;
 
         if (Loop > 0.)
             fileInfo.info_set("loop_length", pfc::format_time_ex(Loop, 0));
@@ -232,7 +232,7 @@ public:
     {
         abortHandler.check();
 
-        _Decoder->SetPosition((uint32_t)(timeInSeconds * 1000.));
+        _Decoder->SetPosition((uint32_t)(timeInSeconds * 1'000.));
     }
 
     /// <summary>
@@ -253,7 +253,7 @@ public:
         if (!_IsDynamicInfoSet)
         {
             fileInfo.info_set_int("synthesis_rate", _SynthesisRate);
-            fileInfo.info_set_bitrate(((t_int64) _Decoder->GetBitsPerSample() * _Decoder->GetChannelCount() * _SynthesisRate + 500 /* rounding for bps to kbps*/) / 1000 /* bps to kbps */);
+            fileInfo.info_set_bitrate(((t_int64) _Decoder->GetBitsPerSample() * _Decoder->GetChannelCount() * _SynthesisRate + 500 /* rounding for bps to kbps*/) / 1'000 /* bps to kbps */);
 
             _IsDynamicInfoSet = true;
 

@@ -1,5 +1,5 @@
 
-// $VER: PMD.cpp (2025.12.23) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMD.cpp (2025.12.24) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <pch.h>
 
@@ -346,22 +346,20 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
                 SamplesDone += _SamplesToDo;
             }
 
+            if (_OPNAW->ReadStatus() & 0x01)
+                HandleTimerA();
+
+            if (_OPNAW->ReadStatus() & 0x02)
+                HandleTimerB();
+
+            _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Reset both timer A and B.
+
+            const uint32_t NextTick = _OPNAW->GetNextTick(); // in μs
+
+            _OPNAW->AdvanceTimers(NextTick);
+
             {
-                if (_OPNAW->ReadStatus() & 0x01)
-                    HandleTimerA();
-
-                if (_OPNAW->ReadStatus() & 0x02)
-                    HandleTimerB();
-
-                _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Reset both timer A and B.
-            }
-
-            uint32_t NextTick = _OPNAW->GetNextTick();  // in μs
-
-            {
-                _SamplesToDo = (size_t) ((double) NextTick * _State.OPNASampleRate / 1'000'000.0);
-
-                _OPNAW->AdvanceTimers(NextTick);
+                _SamplesToDo = (size_t) ((double) (NextTick * _State.OPNASampleRate) / 1'000'000.0);
 
                 ::memset(_SampleDst, 0, _SamplesToDo * sizeof(Stereo32bit));
 
@@ -400,9 +398,9 @@ void PMD::Render(int16_t * sampleData, size_t sampleCount)
                     _P86->Mix((Sample *) _SampleDst, _SamplesToDo);
             }
 
-            {
-                _Position += NextTick;
+            _Position += NextTick;
 
+            {
                 if (_State.FadeOutSpeedHQ > 0)
                 {
                     int Factor = (_State.LoopCount != -1) ? (int) ((1 << 10) * ::pow(512, -(double) (_Position - _FadeOutPosition) / 1'000 / _State.FadeOutSpeedHQ)) : 0;
@@ -442,17 +440,18 @@ uint32_t PMD::GetLoopNumber() const noexcept
 /// <summary>
 /// Gets the length of the song and loop part (in ms).
 /// </summary>
-bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * loopTickCount)
+bool PMD::GetLength(int * songLength, int * loopLength, int * songTicks, int * loopTicks)
 {
     DriverStart();
 
     _Position = 0;
     *songLength = 0;
 
-    int FMDelay    = _OPNAW->GetFMDelay();
-    int SSGDelay   = _OPNAW->GetSSGDelay();
-    int ADPCMDelay = _OPNAW->GetADPCMDelay();
-    int RSSDelay   = _OPNAW->GetRSSDelay();
+    // Save the original delay values.
+    const int FMDelay    = _OPNAW->GetFMDelay();
+    const int SSGDelay   = _OPNAW->GetSSGDelay();
+    const int ADPCMDelay = _OPNAW->GetADPCMDelay();
+    const int RSSDelay   = _OPNAW->GetRSSDelay();
 
     _OPNAW->SetFMDelay(0);
     _OPNAW->SetSSGDelay(0);
@@ -470,7 +469,7 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
 
             _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Reset both timer A and B.
 
-            uint32_t NextTick = _OPNAW->GetNextTick(); // in μs
+            const uint32_t NextTick = _OPNAW->GetNextTick(); // in μs
 
             _OPNAW->AdvanceTimers(NextTick);
 
@@ -480,52 +479,40 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * tickCount, int * l
         if ((_State.LoopCount == 1) && (*songLength == 0)) // When looping
         {
             *songLength = (int) (_Position / 1'000);
-            *tickCount = GetPositionInTicks();
+            *songTicks  = GetPositionInTicks();
         }
         else
         if (_State.LoopCount == -1) // End without loop
         {
-            *songLength = (int) (_Position / 1'000);
-            *loopLength = 0;
+            *songLength = (int) (_Position / 1'000); // in ms
+            *songTicks  = GetPositionInTicks(); // in ticks
 
-            *tickCount = GetPositionInTicks();
-            *loopTickCount = 0;
+            *loopLength = 0; // in ms
+            *loopTicks  = 0; // in ticks
 
-            DriverStop();
-
-            _OPNAW->SetFMDelay(FMDelay);
-            _OPNAW->SetSSGDelay(SSGDelay);
-            _OPNAW->SetADPCMDelay(ADPCMDelay);
-            _OPNAW->SetRSSDelay(RSSDelay);
-
-            return true;
+            goto Stop;
         }
         else
         if (GetPositionInTicks() >= 65536) // Forced termination.
         {
             *songLength = (int) (_Position / 1'000);
+            *songTicks  = GetPositionInTicks();
+
             *loopLength = *songLength;
+            *loopTicks  = *songTicks;
 
-            *tickCount = GetPositionInTicks();
-            *loopTickCount = *tickCount;
-
-            DriverStop();
-
-            _OPNAW->SetFMDelay(FMDelay);
-            _OPNAW->SetSSGDelay(SSGDelay);
-            _OPNAW->SetADPCMDelay(ADPCMDelay);
-            _OPNAW->SetRSSDelay(RSSDelay);
-
-            return true;
+            goto Stop;
         }
     }
     while (_State.LoopCount < 2);
 
-    *loopLength = (int) (_Position / 1'000) - *songLength;
-    *loopTickCount = GetPositionInTicks() - *tickCount;
+    *loopLength = (int) (_Position / 1'000) - *songLength; // in ms
+    *loopTicks  = GetPositionInTicks() - *songTicks; // in ticks
 
+Stop:
     DriverStop();
 
+    // Restore the original delay values.
     _OPNAW->SetFMDelay(FMDelay);
     _OPNAW->SetSSGDelay(SSGDelay);
     _OPNAW->SetADPCMDelay(ADPCMDelay);
@@ -569,7 +556,7 @@ void PMD::SetPosition(uint32_t position)
 
         _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
 
-        uint32_t TickCount = _OPNAW->GetNextTick();
+        const uint32_t TickCount = _OPNAW->GetNextTick();
 
         _OPNAW->AdvanceTimers(TickCount);
 
@@ -613,7 +600,7 @@ void PMD::SetPositionInTicks(int tickCount)
 
         _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
 
-        uint32_t TickCount = _OPNAW->GetNextTick();
+        const uint32_t TickCount = _OPNAW->GetNextTick();
 
         _OPNAW->AdvanceTimers(TickCount);
     }
@@ -782,7 +769,7 @@ int PMD::DisableChannel(int channel)
 
     int OldFMSelector = _Driver.FMSelector;
 
-    if (IsPlaying() && (_State.Channel[channel]->MuteMask == 0x00))
+    if (IsPlaying() && (_State.Channel[channel]->PartMask == 0x00))
     {
         switch (ChannelTable[channel][2])
         {
@@ -839,7 +826,7 @@ int PMD::DisableChannel(int channel)
         }
     }
 
-    _State.Channel[channel]->MuteMask |= 0x01;
+    _State.Channel[channel]->PartMask |= 0x01;
 
     _Driver.FMSelector = OldFMSelector;
 
@@ -861,10 +848,10 @@ int PMD::EnableChannel(int channel)
         return ERR_SUCCESS;
     }
 
-    if (_State.Channel[channel]->MuteMask == 0x00)
+    if (_State.Channel[channel]->PartMask == 0x00)
         return ERR_NOT_MASKED;
 
-    if ((_State.Channel[channel]->MuteMask &= 0xFE) != 0)
+    if ((_State.Channel[channel]->PartMask &= 0xFE) != 0)
         return ERR_EFFECT_USED;
 
     if (!IsPlaying())
@@ -1105,7 +1092,7 @@ void PMD::InitializeState()
     _State.LoopCount = 0;
     _State.BarCounter = 0;
     _State.OpsCounter = 0;
-    _State.TimerATime = 0;
+    _State.TimerACounter = 0;
 
     _State.PCMStart = 0;
     _State.PCMStop = 0;
@@ -1131,12 +1118,12 @@ void PMD::InitializeState()
 
     for (auto & FMChannel : _FMChannels)
     {
-        int PartMask  = FMChannel.MuteMask;
-        int KeyOnFlag = FMChannel.KeyOnFlag;
+        const int PartMask  = FMChannel.PartMask;
+        const int KeyOnFlag = FMChannel.KeyOnFlag;
 
         FMChannel =
         {
-            .MuteMask    = PartMask & 0x0F,
+            .PartMask    = PartMask & 0x0F,
             .KeyOnFlag   = KeyOnFlag,
             .Tone        = 0xFF,
             .DefaultTone = 0xFF
@@ -1145,12 +1132,12 @@ void PMD::InitializeState()
 
     for (auto & SSGChannel : _SSGChannels)
     {
-        int PartMask  = SSGChannel.MuteMask;
+        int PartMask  = SSGChannel.PartMask;
         int KeyOnFlag = SSGChannel.KeyOnFlag;
 
         SSGChannel =
         {
-            .MuteMask    = PartMask & 0x0F,
+            .PartMask    = PartMask & 0x0F,
             .KeyOnFlag   = KeyOnFlag,
             .Tone        = 0xFF,
             .DefaultTone = 0xFF
@@ -1158,24 +1145,24 @@ void PMD::InitializeState()
     }
 
     {
-        int PartMask = _ADPCMChannels.MuteMask;
+        int PartMask = _ADPCMChannels.PartMask;
         int KeyOnFlag = _ADPCMChannels.KeyOnFlag;
 
         ::memset(&_ADPCMChannels, 0, sizeof(Channel));
 
-        _ADPCMChannels.MuteMask = PartMask & 0x0F;
+        _ADPCMChannels.PartMask = PartMask & 0x0F;
         _ADPCMChannels.KeyOnFlag = KeyOnFlag;
         _ADPCMChannels.Tone = 0xFF;
         _ADPCMChannels.DefaultTone = 0xFF;
     }
 
     {
-        int PartMask = _RhythmChannels.MuteMask;
+        int PartMask = _RhythmChannels.PartMask;
         int KeyOnFlag = _RhythmChannels.KeyOnFlag;
 
         ::memset(&_RhythmChannels, 0, sizeof(Channel));
 
-        _RhythmChannels.MuteMask = PartMask & 0x0f;
+        _RhythmChannels.PartMask = PartMask & 0x0f;
         _RhythmChannels.KeyOnFlag = KeyOnFlag;
         _RhythmChannels.Tone = 0xFF;
         _RhythmChannels.DefaultTone = 0xFF;
@@ -1183,12 +1170,12 @@ void PMD::InitializeState()
 
     for (auto & FMExtensionChannel : _FMExtensionChannels)
     {
-        int PartMask  = FMExtensionChannel.MuteMask;
-        int KeyOnFlag = FMExtensionChannel.KeyOnFlag;
+        const int PartMask  = FMExtensionChannel.PartMask;
+        const int KeyOnFlag = FMExtensionChannel.KeyOnFlag;
 
         FMExtensionChannel =
         {
-            .MuteMask    = PartMask & 0x0F,
+            .PartMask    = PartMask & 0x0F,
             .KeyOnFlag   = KeyOnFlag,
             .Tone        = 0xFF,
             .DefaultTone = 0xFF
@@ -1197,12 +1184,12 @@ void PMD::InitializeState()
 
     for (auto & PPZChannel : _PPZChannels)
     {
-        int PartMask  = PPZChannel.MuteMask;
+        int PartMask  = PPZChannel.PartMask;
         int KeyOnFlag = PPZChannel.KeyOnFlag;
 
         PPZChannel =
         {
-            .MuteMask    = PartMask & 0x0F,
+            .PartMask    = PartMask & 0x0F,
             .KeyOnFlag   = KeyOnFlag,
             .Tone        = 0xFF,
             .DefaultTone = 0xFF
@@ -1279,9 +1266,9 @@ void PMD::HandleTimerA()
     _State.IsTimerABusy = true;
 
     {
-        _State.TimerATime++;
+        _State.TimerACounter++;
 
-        if ((_State.TimerATime & 0x07) == 0)
+        if ((_State.TimerACounter & 0x07) == 0)
             Fade();
 
         if ((_Effect.Priority != 0) && (!_Driver.UsePPS || (_Effect.Number == 0x80)))
@@ -1314,7 +1301,7 @@ void PMD::HandleTimerB()
         SetTimerBTempo();
         IncreaseBarCounter();
 
-        _Driver.OldTimerATime = _State.TimerATime;
+        _Driver.PreviousTimerACounter = _State.TimerACounter;
     }
 
     _State.IsTimerBBusy = false;
@@ -1329,10 +1316,7 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
 {
     switch (command)
     {
-        // 6.1. Instrument Number Setting, Command '@[@] insnum' / Command '@[@] insnum[,number1[,number2[,number3]]]'
         case 0xFF: si++; break;
-
-        // Set Early Key Off Timeout.
         case 0xFE: si++; break;
 
         // 5.2. Volume Setting 2, Set the volume finely, 0–127 (FM) / 0–255 (PCM), 0–15 (SSG, SSG rhythm, PPZ), Command 'V number'
@@ -1342,9 +1326,12 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
             break;
         }
 
+        // 11.1. Tempo Setting 1 / 11.2. Tempo Setting 2
         case 0xFC:
+        {
             si = SetTempoCommand(si);
             break;
+        }
 
         // 4.10. Tie/Slur Setting, Connects the sound before and after as a tie (&). Keyoff will not be done on the previous note. 
         case 0xFB:
@@ -1361,15 +1348,19 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
             break;
         }
 
-        // Set loop start.
+        // 10.1. Local Loop Setting, Start loop, Command '['
         case 0xF9:
+        {
             si = SetStartOfLoopCommand(channel, si);
             break;
+        }
 
-        // Set loop end.
+        // 10.1. Local Loop Setting, End loop, Command ']'
         case 0xF8:
+        {
             si = SetEndOfLoopCommand(channel, si);
             break;
+        }
 
         // 10.1. Local Loop Setting, Exit loop, Command ':'
         case 0xF7:
@@ -1378,39 +1369,53 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
             break;
         }
 
-        // Command "L": Set the loop data.
+        // 10.2. Global Loop Setting, Command 'L'
         case 0xF6:
+        {
             channel->LoopData = si;
             break;
+        }
 
-        // Set transposition.
+        // 4.14. Modulation Setting, Command '_ number'
         case 0xF5:
+        {
             channel->Transposition1 = *(int8_t *) si++;
             break;
+        }
 
-        // Increase volume by 3dB.
+        // 5.5. Relative Volume Change, Increase volume by 3dB.
         case 0xF4:
+        {
             channel->Volume += 16;
 
             if (channel->Volume > 255)
                 channel->Volume = 255;
             break;
+        }
 
-        // Decrease volume by 3dB.
+        // 5.5. Relative Volume Change, Decrease volume by 3dB.
         case 0xF3:
+        {
             channel->Volume -= 16;
 
             if (channel->Volume < 16)
                 channel->Volume = 0;
             break;
+        }
 
+        // 9.1. Software LFO Setting, Set software LFO A, Command 'MB number1, number2, number3, number4'
         case 0xF2:
+        {
             si = SetModulation(channel, si);
             break;
+        }
 
+        // 9.3. Software LFO Switch, Command '*A number'
         case 0xF1:
+        {
             si = SetModulationMask(channel, si);
             break;
+        }
 
         // 8.1. SSG/PCM Software Envelope Setting, Sets a software envelope (only for OPN/OPNA's SSG/ADPCM channels), Command 'E number1, number2, number3, number4'
         case 0xF0:
@@ -1421,81 +1426,97 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
 
         // 14.1. Rhythm Sound Source Shot/Dump Control
         case 0xEB:
+        {
             si = PlayOPNARhythm(si);
             break;
+        }
 
+        // 14.3. Rhythm Sound Source Individual Volume Setting, Set the volume for an individual rhythm channel, Command 'v number'
         case 0xEA:
+        {
             si = SetOPNARhythmVolumeCommand(si);
             break;
+        }
 
+        // 14.4. Rhythm Sound Source Output Position Setting, Command '\lb \ls \lc \lh \lt \li \mb \ms \mc \mh \mt \mi \rb \rs \rc \rh \rt \ri'
         case 0xE9:
+        {
             si = SetOPNARhythmPanningCommand(si);
             break;
+        }
 
+        // 14.2. Rhythm Sound Source Master Volume Setting, Sets the master volume of the rhythm sound source, Command 'V number'
         case 0xE8:
+        {
             si = SetOPNARhythmMasterVolumeCommand(si);
             break;
+        }
 
-        // Modify transposition.
+        // 4.14. Modulation Setting, Command '__ number'
         case 0xE7:
+        {
             channel->Transposition1 += *(int8_t *) si++;
             break;
+        }
 
         // 14.2. Rhythm Sound Source Master Volume Setting
         case 0xE6:
+        {
             si = SetRelativeOPNARhythmMasterVolume(si);
             break;
+        }
 
         // 14.3. Rhythm Sound Source Individual Volume Setting
         case 0xE5:
+        {
             si = SetRelativeOPNARhythmVolume(si);
             break;
+        }
 
         case 0xE4: si++; break;
         case 0xE1: si++; break;
-
         case 0xE0: si++; break;
 
-        // Command "Z number": Set ticks per measure.
+        // 4.11. Whole Note Length Setting, Sets the length of a whole note. Equivalent to the #Zenlen command, Command 'C number'
         case 0xDF:
+        {
             _State.BarLength = *si++;
             break;
+        }
 
+        // 5.5. Relative Volume Change, Command '( ^%number'
         case 0xDD:
+        {
             si = DecreaseVolumeForNextNote(channel, si);
             break;
+        }
 
-        // Set status.
+        // 15.9. Write to Status1, Command '~ number'
         case 0xDC:
+        {
             _State.Status = *si++;
             break;
+        }
 
-        // Increment status.
+        // 15.9. Write to Status1, Command '~ ±number'
         case 0xDB:
+        {
             _State.Status += *si++;
             break;
+        }
 
-        // Unused
-        case 0xD9:
-            si++;
-            break;
+        case 0xD9: si++; break;
+        case 0xD8: si++; break;
+        case 0xD7: si++; break;
 
-        // Unused
-        case 0xD8:
-            si++;
-            break;
-
-        // Unused
-        case 0xD7:
-            si++;
-            break;
-
-        // 9.7. LFO Depth Temporal Change Setting. Command "MD", "MDA", "MDB".
+        // 9.7. LFO Depth Temporal Change Setting, Command "MD", "MDA", "MDB"
         case 0xD6:
+        {
             channel->LFO1MDepthSpeed1 =
             channel->LFO1MDepthSpeed2 = *si++;
             channel->LFO1MDepth       = *(int8_t *) si++;
             break;
+        }
 
         // 7.1. Detune Setting, Sets the detune (frequency shift value), Command 'DD number'
         case 0xD5:
@@ -1505,30 +1526,31 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
             break;
         }
 
+        // 15.5. SSG Sound Effect Playback, Play SSG sound effect, Command 'n number'
         case 0xD4:
+        {
             si = SetSSGEffect(channel, si);
             break;
+        }
 
+        // 15.5. FM Sound Effect Playback, Play FM sound effect, Command 'N number'
         case 0xD3:
+        {
             si = SetFMEffect(channel, si);
             break;
+        }
 
-        // Set fade-out speed.
+        // 15.3. Fade Out Setting, Fades out from the specified position, Command 'F number'
         case 0xD2:
+        {
             _State.FadeOutSpeed      = *si++;
             _State.IsFadeOutSpeedSet = true;
             break;
+        }
 
-        // Unused
         case 0xD1: si++; break;
-
-        // Unused
         case 0xD0: si++; break;
-
-        // Unused
         case 0xCF: si++; break;
-
-        // Set PCM Repeat.
         case 0xCE: si += 6; break;
 
         // 8.1. SSG/PCM Software Envelope Setting, Sets a software envelope (only for OPN/OPNA's SSG/ADPCM channels), Command 'E number1, number2, number3, number4, number5, number6'
@@ -1552,37 +1574,51 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
         case 0xC6: si += 6; break;
         case 0xC5: si++; break;
 
-        // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
+        // 4.12. Sound Cut Setting 1, Shortens the sustain duration of following notes by x/8-th's of the actual note length. Valid range for x = 0 - 8, Command 'Q [%] numerical value'
         case 0xC4:
+        {
+            // Set Early Key Off Timeout Percentage. Stops note (length * pp / 100h) ticks early, added to value of command FE.
             channel->EarlyKeyOffTimeoutPercentage = *si++;
             break;
+        }
 
+        // 9.1. Software LFO Setting, Set software LFO A delay, Command 'MA number1'
         case 0xC2:
-            channel->LFO1Delay1 = channel->LFO1Delay2 = *si++;
+        {
+            channel->LFO1Delay1 =
+            channel->LFO1Delay2 = *si++;
 
             InitializeLFOMain(channel);
             break;
+        }
 
         // 4.10. Tie/Slur Setting, Connects the sound before and after as a slur (&&). Keyoff will be done on the previous note. 
         case 0xC1:
             break;
 
+        // 9.1. Software LFO Setting, Set software LFO B, Command 'MB number1, number2, number3, number4'
         case 0xBF:
+        {
             SwapLFO(channel);
 
             si = SetModulation(channel, si);
 
             SwapLFO(channel);
             break;
+        }
 
+        // 9.7. LFO Depth Temporal Change Setting, Command 'MDB number'
         case 0xBD:
+        {
             SwapLFO(channel);
 
-            channel->LFO1MDepthSpeed1 = channel->LFO1MDepthSpeed2 = *si++;
-            channel->LFO1MDepth = *(int8_t *) si++;
+            channel->LFO1MDepthSpeed1 =
+            channel->LFO1MDepthSpeed2 = *si++;
+            channel->LFO1MDepth       = *(int8_t *) si++;
 
             SwapLFO(channel);
             break;
+        }
 
         // 9.2. Software LFO Waveform Setting, Set the LFO waveform, Command 'MWB number'
         case 0xBC:
@@ -1595,61 +1631,72 @@ uint8_t * PMD::ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command)
             break;
         }
 
+        // 9.5. Software LFO Speed Setting, Set the LFO speed, Command 'MXB number'
         case 0xBB:
+        {
             SwapLFO(channel);
 
             channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
 
             SwapLFO(channel);
             break;
+        }
 
+        // 9.4. Software LFO Slot Setting, Sets the slot number to apply the effect of the software LFO to. (Sound Source FM)
         case 0xBA:
+        {
             si = SetVolumeMask(channel, si);
             break;
+        }
 
+        // 9.1. Software LFO Setting, Set software LFO B delay, Command 'MB number1'
         case 0xB9:
+        {
             SwapLFO(channel);
 
-            channel->LFO1Delay1 = channel->LFO1Delay2 = *si++;
+            channel->LFO1Delay1 =
+            channel->LFO1Delay2 = *si++;
+
             InitializeLFOMain(channel);
 
             SwapLFO(channel);
             break;
+        }
 
-        case 0xB8:
-            si += 2;
-            break;
+        case 0xB8: si += 2; break;
 
         case 0xB7:
+        {
             si = SetMDepthCountCommand(channel, si);
             break;
+        }
 
-        case 0xB6:
-            si++;
-            break;
+        case 0xB6: si++; break;
+        case 0xB5: si += 2; break;
+        case 0xB4: si += 16; break;
 
-        case 0xB5:
-            si += 2;
-            break;
-
-        case 0xB4:
-            si += 16;
-            break;
-
-        // Set Early Key Off Timeout 2. Stop note after n ticks or earlier depending on the result of B1/C4/FE happening first.
+        // 4.13. Sound Cut Setting 2, Command 'q [number1][-[number2]] [,number3]' / Command 'q [l length[.]][-[l length]] [,l length[.]]'
         case 0xB3:
+        {
+            // Set Early Key Off Timeout 2. Stop note after n ticks or earlier depending on the result of B1/C4/FE happening first.
             channel->EarlyKeyOffTimeout2 = *si++;
             break;
+        }
 
-        // Set secondary transposition.
+        // 4.16. Master Modulation Setting, Default global transpose, at the beginning of all channels except the rhythm channel, Command '_M number'
         case 0xB2:
+        {
             channel->Transposition2 = *(int8_t *) si++;
             break;
+        }
 
-        // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
+        // 4.13. Sound Cut Setting 2, Command 'q [number1][-[number2]] [,number3]' / Command 'q [l length[.]][-[l length]] [,l length[.]]'
         case 0xB1:
+        {
+            // Set Early Key Off Timeout Randomizer Range. (0..tt ticks, added to the value of command C4 and FE)
             channel->EarlyKeyOffTimeoutRandomRange = *si++;
             break;
+        }
 
         default:
             si--;
@@ -1692,44 +1739,53 @@ uint8_t * PMD::DecreaseVolumeForNextNote(Channel * channel, uint8_t * si)
 }
 
 /// <summary>
-/// 
+/// 15.4. Individual Sound Source Volume Down Setting, Command 'DF [±]number', Command 'DS [±]number', Command 'DP [±]number', Command 'DR [±]number', Command 'A number'
 /// </summary>
-uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8_t value)
+uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8_t value) noexcept
 {
     switch (value)
     {
+        // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DF number'
         case 0xFF:
             _State.FMVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
+        // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DF ±number'
         case 0xFE:
             si = DecreaseFMVolumeCommand(channel, si);
             break;
 
+        // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DS number'
         case 0xFD:
             _State.SSGVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
+        // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DS ±number'
         case 0xFC:
             si = DecreaseSSGVolumeCommand(channel, si);
             break;
 
+        // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DP number'
         case 0xFB:
             _State.ADPCMVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
+        // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DP ±number'
         case 0xFA:
             si = DecreaseADPCMVolumeCommand(channel, si);
             break;
 
+        // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DR number'
         case 0xF9:
             _State.RhythmVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
+        // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DR ±number'
         case 0xF8:
             si = DecreaseRhythmVolumeCommand(channel, si);
             break;
 
+        // 15.10. PCM Method Selection, Changes the PCM channel method, Command 'A number'
         case 0xF7:
             _State.PMDB2CompatibilityMode = ((*si++ & 0x01) == 0x01);
             break;
@@ -1751,11 +1807,11 @@ uint8_t * PMD::SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8
 }
 
 /// <summary>
-/// Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
+/// 9.11. Hardware LFO Switch/Depth Setting (OPNA), Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
 /// </summary>
 uint8_t * PMD::SetHardwareLFOSwitchCommand(Channel * channel, uint8_t * si)
 {
-    channel->ModulationMode = (channel->ModulationMode & 0x8F) | ((*si++ & 0x07) << 4);
+    channel->HardwareLFOModulationMode = (channel->HardwareLFOModulationMode & 0x8F) | ((*si++ & 0x07) << 4);
 
     SwapLFO(channel);
 
@@ -1941,14 +1997,17 @@ uint8_t * PMD::ExitLoopCommand(Channel * channel, uint8_t * si)
 /// <summary>
 /// Sets the modulation parameters.
 /// </summary>
-uint8_t * PMD::SetModulation(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetModulation(Channel * channel, uint8_t * si) noexcept
 {
     channel->LFO1Delay1 = *si;
     channel->LFO1Delay2 = *si++;
+
     channel->LFO1Speed1 = *si;
     channel->LFO1Speed2 = *si++;
+
     channel->LFO1Step1 = *(int8_t *) si;
     channel->LFO1Step2 = *(int8_t *) si++;
+
     channel->LFO1Time1 = *si;
     channel->LFO1Time2 = *si++;
 
@@ -1960,28 +2019,28 @@ uint8_t * PMD::SetModulation(Channel * channel, uint8_t * si)
 /// <summary>
 /// 
 /// </summary>
-uint8_t * PMD::SetMDepthCountCommand(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetMDepthCountCommand(Channel * channel, uint8_t * si) const noexcept
 {
     int al = *si++;
 
-    if (al >= 0x80)
+    if (al < 0x80)
     {
-        al &= 0x7f;
+        if (al == 0)
+            al = 255;
+
+        channel->LFO1MDepthCount1 = al;
+        channel->LFO1MDepthCount2 = al;
+    }
+    else
+    {
+        al &= 0x7F;
 
         if (al == 0)
             al = 255;
 
-        channel->LFO2MDepthCount1  = al;
+        channel->LFO2MDepthCount1 = al;
         channel->LFO2MDepthCount2 = al;
-
-        return si;
     }
-
-    if (al == 0)
-        al = 255;
-
-    channel->LFO1MDepthCount1  = al;
-    channel->LFO1MDepthCount2 = al;
 
     return si;
 }
@@ -2004,7 +2063,7 @@ int PMD::Transpose(Channel * channel, int srcTone)
     if (srcTone == 0x0F)
         return srcTone;
 
-    int Transposition = channel->Transposition1 + channel->Transposition2;
+    const int Transposition = channel->Transposition1 + channel->Transposition2;
 
     if (Transposition == 0)
         return srcTone;
@@ -2138,7 +2197,7 @@ void PMD::SwapLFO(Channel * channel) noexcept
 {
     std::swap(channel->LFO1Data, channel->LFO2Data);
 
-    channel->ModulationMode = ((channel->ModulationMode & 0x0F) << 4) + (channel->ModulationMode >> 4);
+    channel->HardwareLFOModulationMode = ((channel->HardwareLFOModulationMode & 0x0F) << 4) + (channel->HardwareLFOModulationMode >> 4);
     channel->ExtendMode     = ((channel->ExtendMode     & 0x0F) << 4) + (channel->ExtendMode >> 4);
 
     std::swap(channel->LFO1Delay1, channel->LFO2Delay1);
@@ -2321,7 +2380,7 @@ void PMD::InitializeChannels()
             _FMChannels[i].Data = &_State.MData[*Offsets];
 
         _FMChannels[i].Length = 1;
-        _FMChannels[i].KeyOffFlag = 0xFF;
+        _FMChannels[i].KeyOffFlag = -1;
         _FMChannels[i].LFO1MDepthCount1 = -1;    // LFO1MDepth Counter (-1 = infinite)
         _FMChannels[i].LFO1MDepthCount2 = -1;
         _FMChannels[i].LFO2MDepthCount1 = -1;
@@ -2329,7 +2388,7 @@ void PMD::InitializeChannels()
         _FMChannels[i].Tone = 0xFF;              // Rest
         _FMChannels[i].DefaultTone = 0xFF;       // Rest
         _FMChannels[i].Volume = 108;
-        _FMChannels[i].PanAndVolume = 0xC0;      // 3 << 6, Center
+        _FMChannels[i].FMPanAndVolume = 0xC0;      // 3 << 6, Center
         _FMChannels[i].FMSlotMask = 0xF0;
         _FMChannels[i].ToneMask = 0xFF;
 
@@ -2344,13 +2403,14 @@ void PMD::InitializeChannels()
             _SSGChannels[i].Data = &_State.MData[*Offsets];
 
         _SSGChannels[i].Length = 1;
-        _SSGChannels[i].KeyOffFlag = 0xFF;
+        _SSGChannels[i].KeyOffFlag = -1;
         _SSGChannels[i].LFO1MDepthCount1 = -1;   // LFO1MDepth Counter (-1 = infinite)
         _SSGChannels[i].LFO1MDepthCount2 = -1;
         _SSGChannels[i].LFO2MDepthCount1 = -1;
         _SSGChannels[i].LFO2MDepthCount2 = -1;
         _SSGChannels[i].Tone = 0xFF;             // Rest
         _SSGChannels[i].DefaultTone = 0xFF;      // Rest
+
         _SSGChannels[i].Volume = 8;
         _SSGChannels[i].SSGMask = 0x07;          // Tone
         _SSGChannels[i].SSGEnvelopFlag = 3;      // SSG ENV = NONE/normal
@@ -2365,15 +2425,16 @@ void PMD::InitializeChannels()
             _ADPCMChannels.Data = &_State.MData[*Offsets];
 
         _ADPCMChannels.Length = 1;
-        _ADPCMChannels.KeyOffFlag = 0xFF;
+        _ADPCMChannels.KeyOffFlag = -1;
         _ADPCMChannels.LFO1MDepthCount1 = -1;
         _ADPCMChannels.LFO1MDepthCount2 = -1;
         _ADPCMChannels.LFO2MDepthCount1 = -1;
         _ADPCMChannels.LFO2MDepthCount2 = -1;
         _ADPCMChannels.Tone = 0xFF;
         _ADPCMChannels.DefaultTone = 0xFF;
+
         _ADPCMChannels.Volume = 128;
-        _ADPCMChannels.PanAndVolume = 0xC0;      // 3 << 6, Center
+        _ADPCMChannels.FMPanAndVolume = 0xC0;      // 3 << 6, Center
 
         Offsets++;
     }
@@ -2385,13 +2446,14 @@ void PMD::InitializeChannels()
             _RhythmChannels.Data = &_State.MData[*Offsets];
 
         _RhythmChannels.Length = 1;
-        _RhythmChannels.KeyOffFlag = 0xFF;
+        _RhythmChannels.KeyOffFlag = -1;
         _RhythmChannels.LFO1MDepthCount1 = -1;
         _RhythmChannels.LFO1MDepthCount2 = -1;
         _RhythmChannels.LFO2MDepthCount1 = -1;
         _RhythmChannels.LFO2MDepthCount2 = -1;
         _RhythmChannels.Tone = 0xFF;             // Rest
         _RhythmChannels.DefaultTone = 0xFF;      // Rest
+
         _RhythmChannels.Volume = 15;
 
         Offsets++;

@@ -157,7 +157,7 @@ public:
     uint32_t FMChannel3Mode;
 
     bool IsTimerABusy;
-    int TimerATime;
+    int TimerACounter;
 
     bool IsTimerBBusy;
     int TimerBTempo;                    // Current value of TimerB (= ff_tempo during ff)

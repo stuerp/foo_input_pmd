@@ -21,7 +21,7 @@ void PMD::EffectMain(Channel * channel, int al)
         if (_Effect.Priority >= 2)
             return;
 
-        _SSGChannels[2].MuteMask |= 0x02;
+        _SSGChannels[2].PartMask |= 0x02;
 
         _Effect.Priority = 1;
         _Effect.Number = al;
@@ -58,7 +58,7 @@ void PMD::EffectMain(Channel * channel, int al)
             if (_Driver.UsePPS)
                 _PPS->Stop();
 
-            _SSGChannels[2].MuteMask |= 0x02;
+            _SSGChannels[2].PartMask |= 0x02;
 
             StartEffect(SSGEffects[al].Data);
 

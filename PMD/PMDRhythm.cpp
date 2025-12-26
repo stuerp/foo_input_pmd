@@ -21,13 +21,13 @@ void PMD::RhythmMain(Channel * channel)
     {
         uint8_t * Data = _State.RhythmData;
 
-        bool Success = false;
+        bool EndOfRhythmData = false;
         int al;
 
     rhyms00:
         do
         {
-            Success = true;
+            EndOfRhythmData = true;
 
             al = *Data++;
 
@@ -35,9 +35,9 @@ void PMD::RhythmMain(Channel * channel)
             {
                 if (al & 0x80)
                 {
-                    Data = RhythmKeyOn(channel, al, Data, &Success);
+                    Data = RhythmKeyOn(channel, al, Data, &EndOfRhythmData);
 
-                    if (!Success)
+                    if (!EndOfRhythmData)
                         continue;
                 }
                 else
@@ -57,7 +57,7 @@ void PMD::RhythmMain(Channel * channel)
                 return;
             }
         }
-        while (!Success);
+        while (!EndOfRhythmData);
 
         while (1)
         {
@@ -112,38 +112,47 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
     {
         case 0xF5: si++; break;
 
-        // Increase volume by 3dB.
+        // 5.5. Relative Volume Change, Increase volume by 3dB.
         case 0xF4:
+        {
             if (channel->Volume < 15)
                 channel->Volume++;
             break;
+        }
 
-        // Decrease volume by 3dB.
+        // 5.5. Relative Volume Change, Decrease volume by 3dB.
         case 0xF3:
+        {
             if (channel->Volume > 0)
                 channel->Volume--;
             break;
+        }
 
         case 0xF2: si += 4; break;
 
+        // 9.3. Software LFO Switch, Command '*A number'
         case 0xF1:
-            si = PDRSwitchCommand(channel, si);
+        {
+            si = SetPDROperationModeControlCommand(channel, si);
             break;
+        }
 
         case 0xF0: si += 4; break;
 
-        // Set SSG envelope.
+        // 15.1. FM Chip Direct Output, Direct register write. Writes val to address reg of the YM2608's internal memory, Command 'y number1, number2'
         case 0xEF:
+        {
             _OPNAW->SetReg(si[0], si[1]);
             si += 2;
             break;
+        }
 
         case 0xEE: si++; break;
         case 0xED: si++; break;
         case 0xEC: si++; break;
         case 0xE7: si++; break;
 
-        // 5.5. Relative Volume Change, Command ') [^] % number'
+        // 5.5. Relative Volume Change, Command ') %number'
         case 0xE3:
         {
             channel->Volume += *si++;
@@ -153,7 +162,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
             break;
         }
 
-        // 5.5. Relative Volume Change, Command ') [^] % number'
+        // 5.5. Relative Volume Change, Command ') %number'
         case 0xE2:
         {
             channel->Volume -= *si++;
@@ -163,11 +172,13 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
             break;
         }
 
+        // 5.5. Relative Volume Change, Command ') ^%number'
         case 0xDE:
+        {
             si = IncreaseVolumeForNextNote(channel, si, 15);
             break;
+        }
 
-        // Set portamento.
         case 0xDA: si++; break;
         case 0xD6: si += 2; break;
         case 0xCD: si += 5; break;
@@ -178,9 +189,12 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
         case 0xC3: si += 2; break;
         case 0xC2: si++; break;
 
+        // 15.7. Channel Mask Control, Sets the channel mask to on or off, Command 'm number'
         case 0xC0:
-            si = SetRhythmMaskCommand(channel, si);
+        {
+            si = SetRhythmChannelMaskCommand(channel, si);
             break;
+        }
 
         case 0xBF: si += 4; break;
         case 0xBE: si++; break;
@@ -225,7 +239,7 @@ uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool
 
     *success = true;
 
-    if (channel->MuteMask)
+    if (channel->PartMask != 0x00)
     {
         _State.UseRhythmChannel = false;
 
@@ -315,19 +329,19 @@ uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool
 /// <summary>
 /// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
 /// </summary>
-uint8_t * PMD::SetRhythmMaskCommand(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetRhythmChannelMaskCommand(Channel * channel, uint8_t * si) noexcept
 {
-    uint8_t Value = *si++;
+    const uint8_t Value = *si++;
 
     if (Value != 0)
     {
         if (Value < 2)
-            channel->MuteMask |= 0x40;
+            channel->PartMask |= 0x40;
         else
             si = SpecialC0ProcessingCommand(channel, si, Value);
     }
     else
-        channel->MuteMask &= 0xBF;
+        channel->PartMask &= 0xBF;
 
     return si;
 }
@@ -348,9 +362,9 @@ uint8_t * PMD::DecreaseRhythmVolumeCommand(Channel *, uint8_t * si)
 }
 
 /// <summary>
-///
+/// 9.3. Software LFO Switch, Command '*A number'
 /// </summary>
-uint8_t * PMD::PDRSwitchCommand(Channel *, uint8_t * si)
+uint8_t * PMD::SetPDROperationModeControlCommand(Channel *, uint8_t * si)
 {
     if (!_Driver.UsePPS)
         return si + 1;

@@ -51,12 +51,15 @@ void PPSDriver::_Init(void)
 
     data_xor1 = 0;
     data_xor2 = 0;
+
     tick1 = 0;
     tick2 = 0;
     tick_xor1 = 0;
     tick_xor2 = 0;
+
     volume1 = 0;
     volume2 = 0;
+
     _KeyOffVolume = 0;
 
     SetVolume(-10);
@@ -67,8 +70,10 @@ bool PPSDriver::Stop(void)
 {
     _IsPlaying = false;
 
-    data_offset1 = data_offset2 = nullptr;
-    data_size1 = data_size2 = 0;
+    data_offset1 =
+    data_offset2 = nullptr;
+    data_size1   =
+    data_size2   = 0;
 
     return true;
 }
@@ -100,13 +105,13 @@ bool PPSDriver::Play(int num, int shift, int volshift)
     // Don't play when the volume is below 0
     if (_IsPlaying && !_SingleNodeMode)
     {
-        //  ２重発音処理
-        volume2 = volume1;          // １音目を２音目に移動
+        //  ２ Polyphony processing
+        volume2      = volume1;          // １音目を２音目に移動
         data_offset2 = data_offset1;
-        data_size2 = data_size1;
-        data_xor2 = data_xor1;
-        tick2 = tick1;
-        tick_xor2 = tick_xor1;
+        data_size2   = data_size1;
+        data_xor2    = data_xor1;
+        tick2        = tick1;
+        tick_xor2    = tick_xor1;
     }
     else
     {
@@ -219,20 +224,19 @@ int PPSDriver::Load(const WCHAR * filePath)
 
         ::free(Data);
 
-        //  PPS correction (miniature noise countermeasure) / Attenuate by 160 samples
-        uint32_t j, start_pps, end_pps;
-
-        for (size_t i = 0; i < _countof(_Header.pcmnum); i++)
+        //  PPS correction (Small noise countermeasure) / Attenuate by 160 samples
+        for (size_t i = 0; i < _countof(_Header.pcmnum); ++i)
         {
-            end_pps   = (uint32_t) (_Header.pcmnum[i].Address - PPSHEADERSIZE * 2) + (uint32_t) (_Header.pcmnum[i].Size * 2);
-            start_pps = end_pps - 160;
+            const uint32_t End = (uint32_t) (_Header.pcmnum[i].Address - PPSHEADERSIZE * 2) + (uint32_t) (_Header.pcmnum[i].Size * 2);
 
-            if (start_pps < _Header.pcmnum[i].Address - PPSHEADERSIZE * 2)
-                start_pps = _Header.pcmnum[i].Address - PPSHEADERSIZE * 2;
+            uint32_t Begin = End - 160;
 
-            for (j = start_pps; j < end_pps; j++)
+            if (Begin < _Header.pcmnum[i].Address - PPSHEADERSIZE * 2)
+                Begin = _Header.pcmnum[i].Address - PPSHEADERSIZE * 2;
+
+            for (uint32_t j = Begin; j < End; ++j)
             {
-                _Samples[j] = (Sample) (_Samples[j] - (j - start_pps) * 16 / (end_pps - start_pps));
+                _Samples[j] = (Sample) (_Samples[j] - (j - Begin) * 16 / (End - Begin));
 
                 if (_Samples[j] < 0)
                     _Samples[j] = 0;
@@ -439,13 +443,15 @@ void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
         if (_LowCPUCheck)
         {
             data_xor1 += tick_xor1;
+
             if (data_xor1 >= 0x10000)
             {
                 data_size1--;
                 data_offset1++;
                 data_xor1 -= 0x10000;
             }
-            data_size1 -= tick1;
+
+            data_size1   -= tick1;
             data_offset1 += tick1;
         }
 

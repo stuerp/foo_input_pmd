@@ -66,7 +66,7 @@ private:
     }
 
 private:
-    uint32_t _SampleRate;      // in Hz
+    uint32_t _SampleRate;   // in Hz
     bool _UseInterpolation;
 
     int _FMDelay;           // in ns

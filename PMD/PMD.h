@@ -48,8 +48,6 @@ public:
     uint32_t GetLoopNumber() const noexcept;
 
     bool GetLength(int * songLength, int * loopLength, int * tickCount, int * loopTickCount);
-//  bool GetLength(int * songlength, int * loopLength);
-//  bool GetLengthInTicks(int * tickCount, int * loopTickCount);
 
     uint32_t GetPosition() const noexcept;
     void SetPosition(uint32_t position);
@@ -264,7 +262,7 @@ private:
     uint8_t * SetFMPan2(Channel * channel, uint8_t * si);
     uint8_t * SetFMPortamentoCommand(Channel * channel, uint8_t * si);
     uint8_t * SetFMVolumeMaskSlotCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetFMMaskCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetFMChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
     uint8_t * SetFMSlotCommand(Channel * channel, uint8_t * si);
     uint8_t * SetFMAbsoluteDetuneCommand(Channel * channel, uint8_t * si);
     uint8_t * SetFMRelativeDetuneCommand(Channel * channel, uint8_t * si);
@@ -304,7 +302,7 @@ private:
     uint8_t * SetSSGEnvelopeFormat1Command(Channel * channel, uint8_t * si);
     uint8_t * SetSSGEnvelopeFormat2Command(Channel * channel, uint8_t * si);
     uint8_t * SetSSGPortamentoCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetSSGMaskCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetSSGChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
     uint8_t * SetSSGEffect(Channel * channel, uint8_t * si);
 
     void SetSSGVolume(Channel * channel);
@@ -328,7 +326,7 @@ private:
     uint8_t * SetADPCMPortamentoCommand(Channel * channel, uint8_t * si);
     uint8_t * SetADPCMPan1(Channel * channel, uint8_t * si);
     uint8_t * SetADPCMRepeatCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetADPCMMaskCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetADPCMChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
     uint8_t * SetADPCMPan2(Channel * channel, uint8_t * si);
 
     void SetADPCMVolumeCommand(Channel * channel);
@@ -347,7 +345,7 @@ private:
     uint8_t * ExecuteRhythmCommand(Channel * channel, uint8_t * si);
     uint8_t * PlayOPNARhythm(uint8_t * si);
     uint8_t * DecreaseRhythmVolumeCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetRhythmMaskCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetRhythmChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
     uint8_t * RhythmKeyOn(Channel * channel, int al, uint8_t * bx, bool * success);
     uint8_t * SetOPNARhythmVolumeCommand(uint8_t * si);
     uint8_t * SetOPNARhythmPanningCommand(uint8_t * si);
@@ -368,7 +366,7 @@ private:
     uint8_t * SetP86Pan1(Channel * channel, uint8_t * si);
     uint8_t * SetP86RepeatCommand(Channel * channel, uint8_t * si);
     uint8_t * SetP86Pan2(Channel * channel, uint8_t * si);
-    uint8_t * SetP86MaskCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetP86ChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
 
     void SetP86Volume(Channel * channel);
     void SetP86Pitch(Channel * channel);
@@ -389,7 +387,7 @@ private:
     uint8_t * SetPPZPan1(Channel * channel, uint8_t * si);
     uint8_t * SetPPZPan2(Channel * channel, uint8_t * si);
     uint8_t * SetPPZRepeatCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetPPZMaskCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetPPZChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
 
     void SetPPZVolume(Channel * channel);
     void SetPPZPitch(Channel * channel);
@@ -426,19 +424,19 @@ private:
 
     #pragma endregion
 
-    uint8_t * SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8_t value);
+    uint8_t * SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8_t value) noexcept;
     uint8_t * SetTempoCommand(uint8_t * si);
-    uint8_t * SetSSGPseudoEchoCommand(uint8_t * si);
+    uint8_t * SetSSGNoiseFrequencyCommand(uint8_t * si);
 
     uint8_t * SetStartOfLoopCommand(Channel * channel, uint8_t * si);
     uint8_t * SetEndOfLoopCommand(Channel * channel, uint8_t * si);
     uint8_t * ExitLoopCommand(Channel * channel, uint8_t * si);
 
-    uint8_t * SetModulation(Channel * channel, uint8_t * si);
+    uint8_t * SetModulation(Channel * channel, uint8_t * si) noexcept;
 
     uint8_t * IncreaseVolumeForNextNote(Channel * channel, uint8_t * si, int maxVolume);
     uint8_t * DecreaseVolumeForNextNote(Channel * channel, uint8_t * si);
-    uint8_t * SetMDepthCountCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetMDepthCountCommand(Channel * channel, uint8_t * si) const noexcept;
 
     uint8_t * CalculateQ(Channel * channel, uint8_t * si);
     uint8_t * SetModulationMask(Channel * channel, uint8_t * si);
@@ -448,7 +446,7 @@ private:
     uint8_t * SetHardwareLFOSwitchCommand(Channel * channel, uint8_t * si);
     uint8_t * SetVolumeMask(Channel * channel, uint8_t * si);
 
-    uint8_t * PDRSwitchCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetPDROperationModeControlCommand(Channel * channel, uint8_t * si);
 
     int Transpose(Channel * channel, int al);
     int TransposeSSG(Channel * channel, int al);

@@ -112,6 +112,10 @@ branch. Pull requests are warmly welcome.
 
 ## Change Log
 
+v0.4.3, 2025-12-xx
+
+* Fixed: Extended FM part processing.
+
 v0.4.2, 2025-12-21, *"Has it really been 2 years?"*
 
 * Fixed: Preferences dialog should adapt to High DPI settings now.

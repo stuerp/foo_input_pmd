@@ -32,12 +32,11 @@ private:
 public:
     uint8_t _Flags;
 
-    bool TieNotesTogether;  // True if notes should be tied together ("&" command)
-    int OldTimerATime;      // TimerATime value at the previous interrupt
+    bool TieNotesTogether;      // True if notes should be tied together ("&" command)
+    int PreviousTimerACounter;  // TimerACounter value at the previous interrupt
 
-    int omote_key[3];       // FM keyondata table (=0)
-
-    int ura_key[3];         // FM keyondata back (=0x100)
+    int omote_key[3];           // FM keyondata table (=0)
+    int ura_key[3];             // FM keyondata back (=0x100)
 
     int AlgorithmAndFeedbackLoopsFM3; // Algorithm and feedback loops defined at the end of FM channel 3.
 
@@ -53,6 +52,6 @@ public:
     int IsVolumeBoostSet;   // Set when a modified volume for the next note has been set.
     int loop_work;          // Loop Work
     bool UsePPS;
-    int ModulationMode;         // Local LFO switch
+    int HardwareLFOModulationMode;         // Local LFO switch
 };
 #pragma warning(default: 4820)

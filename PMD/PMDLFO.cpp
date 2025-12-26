@@ -220,10 +220,10 @@ int PMD::StartPCMLFO(Channel * channel, int al)
 
 void PMD::StopLFO(Channel * channel)
 {
-    if ((channel->ModulationMode & 0x03) != 0)
+    if ((channel->HardwareLFOModulationMode & 0x03) != 0)
         SetLFO(channel); // Only execute the LFO once when preceded by a "&" command (Tie).
 
-    if ((channel->ModulationMode & 0x30) != 0)
+    if ((channel->HardwareLFOModulationMode & 0x30) != 0)
     {
         // Only execute the LFO once when preceded by a "&" command (Tie).
         SwapLFO(channel);
@@ -242,21 +242,21 @@ void PMD::InitializeLFO(Channel * channel)
     channel->HardwareLFODelayCounter = channel->HardwareLFODelay;
 
     if (channel->HardwareLFODelay != 0)
-        _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + _Driver.FMSelector + 0xB4 - 1), (uint32_t) (channel->PanAndVolume & 0xC0));
+        _OPNAW->SetReg((uint32_t) (_Driver.FMSelector + 0xB4 + (_Driver.CurrentChannel - 1)), (uint32_t) (channel->FMPanAndVolume & 0xC0));
 
     channel->SlotDelayCounter = channel->SlotDelay;
 
-    if ((channel->ModulationMode & 0x03) != 0)
+    if ((channel->HardwareLFOModulationMode & 0x03) != 0)
     {   // LFO not used
-        if ((channel->ModulationMode & 0x04) == 0)
+        if ((channel->HardwareLFOModulationMode & 0x04) == 0)
             InitializeLFOMain(channel); // Is keyon asynchronous?
 
         SetLFO(channel);
     }
 
-    if ((channel->ModulationMode & 0x30) != 0)
+    if ((channel->HardwareLFOModulationMode & 0x30) != 0)
     {   // LFO not used
-        if ((channel->ModulationMode & 0x40) == 0)
+        if ((channel->HardwareLFOModulationMode & 0x40) == 0)
         {
             SwapLFO(channel); // Is keyon asynchronous?
 
@@ -275,12 +275,12 @@ void PMD::InitializeLFO(Channel * channel)
 
 void PMD::InitializeLFOMain(Channel * channel)
 {
-    channel->LFO1Data   = 0;
-    channel->LFO1Delay1 = channel->LFO1Delay2;
-    channel->LFO1Speed1 = channel->LFO1Speed2;
-    channel->LFO1Step1  = channel->LFO1Step2;
-    channel->LFO1Time1  = channel->LFO1Time2;
-    channel->LFO1MDepthCount1   = channel->LFO1MDepthCount2;
+    channel->LFO1Data         = 0;
+    channel->LFO1Delay1       = channel->LFO1Delay2;
+    channel->LFO1Speed1       = channel->LFO1Speed2;
+    channel->LFO1Step1        = channel->LFO1Step2;
+    channel->LFO1Time1        = channel->LFO1Time2;
+    channel->LFO1MDepthCount1 = channel->LFO1MDepthCount2;
 
     // Square wave or random wave?
     if (channel->LFO1Waveform == 2 || channel->LFO1Waveform == 3)
@@ -308,7 +308,7 @@ int PMD::SetSSGLFO(Channel * channel)
     if (channel->ExtendMode & 0x02)
     {
         // Match with TimerA? If not, unconditionally process lfo
-        ch = _State.TimerATime - _Driver.OldTimerATime;
+        ch = _State.TimerACounter - _Driver.PreviousTimerACounter;
 
         if (ch == 0)
             return 0;
@@ -337,7 +337,7 @@ uint8_t * PMD::SetModulationMask(Channel * channel, uint8_t * si)
 
     al &= 7;
 
-    channel->ModulationMode = (channel->ModulationMode & 0xF8) | al;
+    channel->HardwareLFOModulationMode = (channel->HardwareLFOModulationMode & 0xF8) | al;
 
     InitializeLFOMain(channel);
 

@@ -26,11 +26,11 @@ void PMD::SSGMain(Channel * channel)
 
         _OPNAW->SetReg((uint32_t) (_Driver.CurrentChannel + 8 - 1), 0U); // Stop playing.
 
-        channel->KeyOffFlag = 0xFF;
+        channel->KeyOffFlag = -1;
     }
 
-    if (channel->MuteMask)
-        channel->KeyOffFlag = 0xFF;
+    if (channel->PartMask != 0x00)
+        channel->KeyOffFlag = -1;
     else
     if ((channel->KeyOffFlag & 0x03) == 0)
     {
@@ -38,13 +38,13 @@ void PMD::SSGMain(Channel * channel)
         {
             SSGKeyOff(channel);
 
-            channel->KeyOffFlag = 0xFF;
+            channel->KeyOffFlag = -1;
         }
     }
 
     if (channel->Length == 0)
     {
-        channel->ModulationMode &= 0xF7;
+        channel->HardwareLFOModulationMode &= 0xF7;
 
         // DATA READ
         while (1)
@@ -67,11 +67,12 @@ void PMD::SSGMain(Channel * channel)
 
                 if (channel->LoopData == nullptr)
                 {
-                    if (channel->MuteMask)
+                    if (channel->PartMask != 0x00)
                     {
                         _Driver.TieNotesTogether = false;
                         _Driver.IsVolumeBoostSet = 0;
                         _Driver.loop_work &= channel->loopcheck;
+
                         return;
                     }
                     else
@@ -93,25 +94,21 @@ void PMD::SSGMain(Channel * channel)
                     return;
                 }
                 else
-                if (channel->MuteMask)
+                if (channel->PartMask != 0x00)
                 {
                     if (!CheckSSGDrum(channel, *si))
                     {
-/*
                         si++;
 
-                        // Set to 'rest'.
-                        channel->fnum = 0;
-                        channel->Note = 0xFF;
-                        channel->Length = *si++;
-
+                        channel->Factor      = 0;
+                        channel->Tone        = 0xFF;
+                        channel->DefaultTone = 0xFF;
+                        channel->Length      = *si++;
+                        channel->Data        = si;
                         channel->KeyOnFlag++;
-                        channel->Data = si;
 
-                        if (--_Driver.IsVolumePushSet)
-                            channel->VolumePush = 0;
-*/
-                        si = channel->Rest(++si, (--_Driver.IsVolumeBoostSet) != 0);
+                        if (--_Driver.IsVolumeBoostSet)
+                            channel->VolumeBoost = 0;
 
                         _Driver.TieNotesTogether = false;
                         _Driver.IsVolumeBoostSet = 0;
@@ -119,7 +116,6 @@ void PMD::SSGMain(Channel * channel)
                     }
                 }
 
-                //  TONE SET
                 SetSSGTone(channel, TransposeSSG(channel, StartPCMLFO(channel, *si++)));
 
                 channel->Length = *si++;
@@ -155,17 +151,17 @@ void PMD::SSGMain(Channel * channel)
         }
     }
 
-    _Driver.ModulationMode = (channel->ModulationMode & 0x08);
+    _Driver.HardwareLFOModulationMode = (channel->HardwareLFOModulationMode & 0x08);
 
-    if (channel->ModulationMode != 0x00)
+    if (channel->HardwareLFOModulationMode != 0x00)
     {
-        if (channel->ModulationMode & 0x03)
+        if (channel->HardwareLFOModulationMode & 0x03)
         {
             if (SetSSGLFO(channel))
-                _Driver.ModulationMode |= (channel->ModulationMode & 0x03);
+                _Driver.HardwareLFOModulationMode |= (channel->HardwareLFOModulationMode & 0x03);
         }
 
-        if (channel->ModulationMode & 0x30)
+        if (channel->HardwareLFOModulationMode & 0x30)
         {
             SwapLFO(channel);
 
@@ -173,15 +169,15 @@ void PMD::SSGMain(Channel * channel)
             {
                 SwapLFO(channel);
 
-                _Driver.ModulationMode |= (channel->ModulationMode & 0x30);
+                _Driver.HardwareLFOModulationMode |= (channel->HardwareLFOModulationMode & 0x30);
             }
             else
                 SwapLFO(channel);
         }
 
-        if (_Driver.ModulationMode & 0x19)
+        if (_Driver.HardwareLFOModulationMode & 0x19)
         {
-            if (_Driver.ModulationMode & 0x08)
+            if (_Driver.HardwareLFOModulationMode & 0x08)
                 CalculatePortamento(channel);
 
             // Do not operate while using SSG channel 3 and the SSG drum is playing.
@@ -192,7 +188,7 @@ void PMD::SSGMain(Channel * channel)
 
     int temp = SSGPCMSoftwareEnvelope(channel);
 
-    if ((temp != 0) || _Driver.ModulationMode & 0x22 || (_State.FadeOutSpeed != 0))
+    if ((temp != 0) || _Driver.HardwareLFOModulationMode & 0x22 || (_State.FadeOutSpeed != 0))
     {
         // Do not operate while using SSG channel 3 and the SSG drum is playing.
         if (!(!_Driver.UsePPS && (channel == &_SSGChannels[2]) && (channel->Tone == 0xFF) && !_State.UseRhythmChannel))
@@ -208,41 +204,55 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
 
     switch (Command)
     {
-        // Set Early Key Off Timeout.
+        // 4.12. Sound Cut Setting 1, Command 'Q [%] numerical value' / 4.13. Sound Cut Setting 2, Command 'q [number1][-[number2]] [,number3]' / Command 'q [l length[.]][-[l length]] [,l length[.]]'
         case 0xFE:
+        {
             channel->EarlyKeyOffTimeout = *si++;
             channel->EarlyKeyOffTimeoutRandomRange = 0;
             break;
+        }
 
-        // Increase volume by 3dB.
+        // 5.5. Relative Volume Change, Increase volume by 3dB.
         case 0xF4:
+        {
             if (channel->Volume < 15)
                 channel->Volume++;
             break;
+        }
 
-        // Decrease volume by 3dB.
+        // 5.5. Relative Volume Change, Decrease volume by 3dB.
         case 0xF3:
+        {
             if (channel->Volume > 0)
                 channel->Volume--;
             break;
+        }
 
-        // Set SSG envelope.
+        // 15.1. FM Chip Direct Output, Direct register write. Writes val to address reg of the YM2608's internal memory, Command 'y number1, number2'
         case 0xEF:
+        {
             _OPNAW->SetReg(si[0], si[1]);
             si += 2;
             break;
+        }
 
+        // 6.6. Noise frequency setting, Command 'w number'
         case 0xEE:
+        {
             _State.SSGNoiseFrequency = *si++;
             break;
+        }
 
+        // 6.5. SSG/OPM Tone/Noise Output Selection, Command 'P number'
         case 0xED:
+        {
             channel->SSGMask = *si++;
             break;
+        }
 
         case 0xEC: si++; break;
 
-        // 5.5. Relative Volume Change, Command ') [^] % number'
+        // 5.5. Relative Volume Change, Command ') %number'
         case 0xE3:
         {
             channel->Volume += *si++;
@@ -252,7 +262,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             break;
         }
 
-        // 5.5. Relative Volume Change, Command ') [^] % number'
+        // 5.5. Relative Volume Change, Command ') %number'
         case 0xE2:
         {
             channel->Volume -= *si++;
@@ -262,18 +272,26 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
             break;
         }
 
+        // 5.5. Relative Volume Change, Command ') ^%number'
         case 0xDE:
+        {
             si = IncreaseVolumeForNextNote(channel, si, 15);
             break;
+        }
 
-        // Set portamento.
+        // 4.3. Portamento Setting
         case 0xDA:
+        {
             si = SetSSGPortamentoCommand(channel, si);
             break;
+        }
 
+        // 6.6. Noise Frequency Setting, Command 'w ±number'
         case 0xD0:
-            si = SetSSGPseudoEchoCommand(si);
+        {
+            si = SetSSGNoiseFrequencyCommand(si);
             break;
+        }
 
         // 7.3. SSG Pitch Interval Correction Setting, Selects whether or not to adjust the SSG pitch interval, Set SSG Extend Mode (bit 0), Command 'DX number'
         case 0xCC:
@@ -296,12 +314,17 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
 
         case 0xC3: si += 2; break;
 
+        // 15.7. Channel Mask Control, Sets the channel mask to on or off, Command 'm number'
         case 0xC0:
-            si = SetSSGMaskCommand(channel, si);
+        {
+            si = SetSSGChannelMaskCommand(channel, si);
             break;
+        }
 
+        // 9.11. Hardware LFO Switch/Depth Setting (OPNA), Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
         case 0xBE:
-            channel->ModulationMode = (channel->ModulationMode & 0x8F) | ((*si++ & 0x07) << 4);
+        {
+            channel->HardwareLFOModulationMode = (channel->HardwareLFOModulationMode & 0x8F) | ((*si++ & 0x07) << 4);
 
             SwapLFO(channel);
 
@@ -309,6 +332,7 @@ uint8_t * PMD::ExecuteSSGCommand(Channel * channel, uint8_t * si)
 
             SwapLFO(channel);
             break;
+        }
 
         case 0xBA: si++; break;
 
@@ -338,8 +362,8 @@ void PMD::SetSSGTone(Channel * channel, int tone)
     {
         channel->Tone = tone;
 
-        int Octave = (tone & 0xF0) >> 4;
-        int Note   = (tone & 0x0F);
+        const int Octave = (tone & 0xF0) >> 4;
+        const int Note   = (tone & 0x0F);
 
         int Factor = SSGScaleFactor[Note];
 
@@ -347,7 +371,7 @@ void PMD::SetSSGTone(Channel * channel, int tone)
         {
             Factor >>= Octave - 1;
 
-            int Carry = Factor & 1;
+            const int Carry = Factor & 1;
 
             Factor = (Factor >> 1) + Carry;
         }
@@ -358,7 +382,7 @@ void PMD::SetSSGTone(Channel * channel, int tone)
     {
         channel->Tone = 0xFF;
 
-        if (channel->ModulationMode & 0x11)
+        if (channel->HardwareLFOModulationMode & 0x11)
             return;
 
         channel->Factor = 0; // Don't use LFO pitch.
@@ -375,14 +399,14 @@ void PMD::SetSSGVolume(Channel * channel)
     if ((channel->SSGEnvelopFlag == 3) || ((channel->SSGEnvelopFlag == -1) && (channel->ExtendedCount == 0)))
         return;
 
-    uint32_t Register = (uint32_t) (_Driver.CurrentChannel + 8 - 1);
+    const uint32_t Register = (uint32_t) (_Driver.CurrentChannel + 8 - 1);
 
     int dl = (channel->VolumeBoost) ? channel->VolumeBoost - 1 : channel->Volume;
 
     // Volume Down calculation
     dl = ((256 - _State.SSGVolumeAdjust) * dl) >> 8;
 
-    // Fade-out calclation
+    // Fade-out calculation
     dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
 
     // Envelope calculation
@@ -417,16 +441,16 @@ void PMD::SetSSGVolume(Channel * channel)
     }
 
     // Volume LFO calculation
-    if ((channel->ModulationMode & 0x22) == 0)
+    if ((channel->HardwareLFOModulationMode & 0x22) == 0)
     {
         _OPNAW->SetReg(Register, (uint32_t) dl);
         return;
     }
 
     {
-        int ax = (channel->ModulationMode & 0x02) ? channel->LFO1Data : 0;
+        int ax = (channel->HardwareLFOModulationMode & 0x02) ? channel->LFO1Data : 0;
 
-        if (channel->ModulationMode & 0x20)
+        if (channel->HardwareLFOModulationMode & 0x20)
             ax += channel->LFO2Data;
 
         dl += ax;
@@ -459,10 +483,10 @@ void PMD::SetSSGPitch(Channel * channel)
         {
             Pitch -= channel->DetuneValue;
 
-            if (channel->ModulationMode & 0x01)
+            if (channel->HardwareLFOModulationMode & 0x01)
                 Pitch -= channel->LFO1Data;
 
-            if (channel->ModulationMode & 0x10)
+            if (channel->HardwareLFOModulationMode & 0x10)
                 Pitch -= channel->LFO2Data;
         }
         else
@@ -481,14 +505,14 @@ void PMD::SetSSGPitch(Channel * channel)
             }
 
             // Extended DETUNE (LFO) calculation
-            if (channel->ModulationMode & 0x11)
+            if (channel->HardwareLFOModulationMode & 0x11)
             {
-                if (channel->ModulationMode & 0x01)
+                if (channel->HardwareLFOModulationMode & 0x01)
                     dx = channel->LFO1Data;
                 else
                     dx = 0;
 
-                if (channel->ModulationMode & 0x10)
+                if (channel->HardwareLFOModulationMode & 0x10)
                     dx += channel->LFO2Data;
 
                 if (dx != 0)
@@ -576,13 +600,13 @@ void PMD::SetSSGInstrument(Channel * channel, int instrumentNumber)
 //  Command "E number1, number2, number3, number4": Set the SSG Envelope (Format 1).
 uint8_t * PMD::SetSSGEnvelopeFormat1Command(Channel * channel, uint8_t * si)
 {
-    channel->AttackDuration = *si;
+    channel->AttackDuration         = *si;
     channel->ExtendedAttackDuration = *si++;
-    channel->DecayDepth = *(int8_t *) si++;
-    channel->SustainRate = *si;
-    channel->ExtendedSustainRate = *si++;
-    channel->ReleaseRate = *si;
-    channel->ExtendedReleaseRate = *si++;
+    channel->DecayDepth             = *(int8_t *) si++;
+    channel->SustainRate            = *si;
+    channel->ExtendedSustainRate    = *si++;
+    channel->ReleaseRate            = *si;
+    channel->ExtendedReleaseRate    = *si++;
 
     if (channel->SSGEnvelopFlag == -1)
     {
@@ -597,11 +621,11 @@ uint8_t * PMD::SetSSGEnvelopeFormat1Command(Channel * channel, uint8_t * si)
 uint8_t * PMD::SetSSGEnvelopeFormat2Command(Channel * channel, uint8_t * si)
 {
     channel->AttackDuration = *si++ & 0x1F;
-    channel->DecayDepth = *si++ & 0x1F;
-    channel->SustainRate = *si++ & 0x1F;
-    channel->ReleaseRate = *si & 0x0F;
-    channel->SustainLevel = ((*si++ >> 4) & 0x0F) ^ 0x0F;
-    channel->AttackLevel = *si++ & 0x0F;
+    channel->DecayDepth     = *si++ & 0x1F;
+    channel->SustainRate    = *si++ & 0x1F;
+    channel->ReleaseRate    = *si & 0x0F;
+    channel->SustainLevel   = ((*si++ >> 4) & 0x0F) ^ 0x0F;
+    channel->AttackLevel    = *si++ & 0x0F;
 
     // Move from normal to expanded?
     if (channel->SSGEnvelopFlag != -1)
@@ -617,14 +641,14 @@ uint8_t * PMD::SetSSGEnvelopeFormat2Command(Channel * channel, uint8_t * si)
 
 uint8_t * PMD::SetSSGPortamentoCommand(Channel * channel, uint8_t * si)
 {
-    if (channel->MuteMask)
+    if (channel->PartMask != 0x00)
     {
         // Set to 'rest'.
         channel->Factor = 0;
-        channel->Tone = 0xFF;
+        channel->Tone   = 0xFF;
         channel->Length = si[2];
+        channel->Data   = si + 3;
         channel->KeyOnFlag++;
-        channel->Data = si + 3;
 
         if (--_Driver.IsVolumeBoostSet)
             channel->VolumeBoost = 0;
@@ -656,7 +680,7 @@ uint8_t * PMD::SetSSGPortamentoCommand(Channel * channel, uint8_t * si)
 
     channel->PortamentoQuotient = ax / channel->Length;
     channel->PortamentoRemainder = ax % channel->Length;
-    channel->ModulationMode |= 0x08; // Enable portamento.
+    channel->HardwareLFOModulationMode |= 0x08; // Enable portamento.
 
     if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
     {
@@ -689,9 +713,9 @@ uint8_t * PMD::SetSSGPortamentoCommand(Channel * channel, uint8_t * si)
 // Command "n": SSG Sound Effect Playback
 uint8_t * PMD::SetSSGEffect(Channel * channel, uint8_t * si)
 {
-    int al = *si++;
+    const int al = *si++;
 
-    if (channel->MuteMask)
+    if (channel->PartMask != 0x00)
         return si;
 
     if (al != 0)
@@ -706,8 +730,10 @@ uint8_t * PMD::SetSSGEffect(Channel * channel, uint8_t * si)
     return si;
 }
 
-// Command "w"
-uint8_t * PMD::SetSSGPseudoEchoCommand(uint8_t * si)
+/// <summary>
+/// 6.6. Noise Frequency Setting, Command 'w ±number'
+/// </summary>
+uint8_t * PMD::SetSSGNoiseFrequencyCommand(uint8_t * si)
 {
     _State.SSGNoiseFrequency += *(int8_t *) si++;
 
@@ -723,20 +749,20 @@ uint8_t * PMD::SetSSGPseudoEchoCommand(uint8_t * si)
 /// <summary>
 /// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
 /// </summary>
-uint8_t * PMD::SetSSGMaskCommand(Channel * channel, uint8_t * si)
+uint8_t * PMD::SetSSGChannelMaskCommand(Channel * channel, uint8_t * si) noexcept
 {
-    uint8_t Value = *si++;
+    const uint8_t Value = *si++;
 
     if (Value != 0)
     {
         if (Value < 2)
         {
-            channel->MuteMask |= 0x40;
+            channel->PartMask |= 0x40;
 
-            if (channel->MuteMask == 0x40)
+            if (channel->PartMask == 0x40)
             {
-                int ah = ((1 << (_Driver.CurrentChannel - 1)) | (4 << _Driver.CurrentChannel));
-                uint32_t al = _OPNAW->GetReg(0x07);
+                const int ah = ((1 << (_Driver.CurrentChannel - 1)) | (4 << _Driver.CurrentChannel));
+                const uint32_t al = _OPNAW->GetReg(0x07);
 
                 _OPNAW->SetReg(0x07, ah | al);
             }
@@ -745,7 +771,7 @@ uint8_t * PMD::SetSSGMaskCommand(Channel * channel, uint8_t * si)
             si = SpecialC0ProcessingCommand(channel, si, Value);
     }
     else
-        channel->MuteMask &= 0xBF; // 1011 1111
+        channel->PartMask &= 0xBF; // 1011 1111
 
     return si;
 }
@@ -756,7 +782,7 @@ uint8_t * PMD::SetSSGMaskCommand(Channel * channel, uint8_t * si)
 bool PMD::CheckSSGDrum(Channel * channel, int al)
 {
     // Do not stop the drum during the SSG mask. SSG drums are not playing.
-    if ((channel->MuteMask & 0x01) || ((channel->MuteMask & 0x02) == 0))
+    if ((channel->PartMask & 0x01) || ((channel->PartMask & 0x02) == 0))
         return false;
 
     // Do not turn off normal sound effects.
@@ -771,14 +797,14 @@ bool PMD::CheckSSGDrum(Channel * channel, int al)
     if (_Effect.Priority == 1)
         StopEffect(); // Turn off the SSG drum.
 
-    channel->MuteMask &= 0xFD;
+    channel->PartMask &= 0xFD;
 
-    return (channel->MuteMask == 0x00);
+    return (channel->PartMask == 0x00);
 }
 
 uint8_t * PMD::DecreaseSSGVolumeCommand(Channel *, uint8_t * si)
 {
-    int al = *(int8_t *) si++;
+    const int al = *(int8_t *) si++;
 
     if (al != 0)
         _State.SSGVolumeAdjust = std::clamp(al + _State.SSGVolumeAdjust, 0, 255);

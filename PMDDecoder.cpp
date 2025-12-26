@@ -211,9 +211,9 @@ uint32_t PMDDecoder::GetPosition() const noexcept
 /// <summary>
 /// Sets the current decoding position (in ms).
 /// </summary>
-void PMDDecoder::SetPosition(uint32_t milliseconds) const noexcept
+void PMDDecoder::SetPosition(uint32_t value) const noexcept
 {
-    _PMD->SetPosition(milliseconds);
+    _PMD->SetPosition(value);
 };
 
 /// <summary>

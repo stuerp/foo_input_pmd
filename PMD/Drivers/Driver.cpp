@@ -22,6 +22,7 @@ void PMD::DriverMain()
 
     _Driver.FMSelector = 0x100;
 
+    // Process FM channel 4, 5 and 6.
     for (i = 0; i < 3; ++i)
     {
         _Driver.CurrentChannel = i + 1;
@@ -30,12 +31,14 @@ void PMD::DriverMain()
 
     _Driver.FMSelector = 0;
 
+    // Process FM channel 1, 2 and 3.
     for (i = 0; i < 3; ++i)
     {
         _Driver.CurrentChannel = i + 1;
         FMMain(&_FMChannels[i]);
     }
 
+    // Process FM extension channel 1, 2 and 3.
     for (i = 0; i < 3; ++i)
     {
         _Driver.CurrentChannel = 3;

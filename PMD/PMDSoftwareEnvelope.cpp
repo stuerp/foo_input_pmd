@@ -14,12 +14,12 @@ int PMD::SSGPCMSoftwareEnvelope(Channel * channel)
 {
     if (channel->ExtendMode & 0x04)
     {
-        if (_State.TimerATime == _Driver.OldTimerATime)
+        if (_State.TimerACounter == _Driver.PreviousTimerACounter)
             return 0;
 
         int cl = 0;
 
-        for (int i = 0; i < _State.TimerATime - _Driver.OldTimerATime; ++i)
+        for (int i = 0; i < _State.TimerACounter - _Driver.PreviousTimerACounter; ++i)
         {
             if (SSGPCMSoftwareEnvelopeMain(channel))
                 cl = 1;
