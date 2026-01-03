@@ -7,7 +7,7 @@
 
 #pragma warning(disable: 4355) // 'this' used in base member initializer list
 
-OPNA::OPNA(File * file) :
+opna_t::opna_t(File * file) :
     _File(file),
 
     _Instruments{},
@@ -38,7 +38,7 @@ OPNA::OPNA(File * file) :
         tltable[i + FM_TLPOS] = (int32_t) (uint32_t(65536.0 * ::pow(2.0, i * -16.0 / (int) FM_TLENTS)) - 1);
 }
 
-OPNA::~OPNA()
+opna_t::~opna_t()
 {
     DeleteInstruments();
 }
@@ -46,7 +46,7 @@ OPNA::~OPNA()
 /// <summary>
 /// Initializes the module.
 /// </summary>
-bool OPNA::Initialize(uint32_t clockSpeed, uint32_t sampleRate, const WCHAR * directoryPath) noexcept
+bool opna_t::Initialize(uint32_t clockSpeed, uint32_t sampleRate, const WCHAR * directoryPathDrums) noexcept
 {
     Initialize(clockSpeed, sampleRate);
 
@@ -64,7 +64,7 @@ bool OPNA::Initialize(uint32_t clockSpeed, uint32_t sampleRate, const WCHAR * di
     for (int i = 0; i < (int) _countof(_Instruments); ++i)
         SetInstrumentVolume(i, 0);
 
-    LoadInstruments(directoryPath);
+    LoadInstruments(directoryPathDrums);
 
     return true;
 }
@@ -72,7 +72,7 @@ bool OPNA::Initialize(uint32_t clockSpeed, uint32_t sampleRate, const WCHAR * di
 /// <summary>
 /// Initializes the module.
 /// </summary>
-void OPNA::Initialize(uint32_t clockSpeed, uint32_t sampleRate) noexcept
+void opna_t::Initialize(uint32_t clockSpeed, uint32_t sampleRate) noexcept
 {
     _ClockSpeed = clockSpeed;
 
@@ -88,7 +88,7 @@ void OPNA::Initialize(uint32_t clockSpeed, uint32_t sampleRate) noexcept
 /// <summary>
 /// Sets the FM sound source volume, in dB.
 /// </summary>
-void OPNA::SetFMVolume(int dB)
+void opna_t::SetFMVolume(int dB)
 {
     dB = std::min(dB, 20);
 
@@ -100,7 +100,7 @@ void OPNA::SetFMVolume(int dB)
 /// <summary>
 /// Sets the SSG (Software-Controlled Sound Generator) sound source volume, in dB.
 /// </summary>
-void OPNA::SetSSGVolume(int dB)
+void opna_t::SetSSGVolume(int dB)
 {
     dB = std::min(dB, 20);
 
@@ -112,7 +112,7 @@ void OPNA::SetSSGVolume(int dB)
 /// <summary>
 /// Sets the ADPCM sound source volume, in dB.
 /// </summary>
-void OPNA::SetADPCMVolume(int dB)
+void opna_t::SetADPCMVolume(int dB)
 {
     dB = std::min(dB, 20);
 
@@ -124,7 +124,7 @@ void OPNA::SetADPCMVolume(int dB)
 /// <summary>
 /// Sets the Rhythm sound source master volume, in dB.
 /// </summary>
-void OPNA::SetRhythmVolume(int dB)
+void opna_t::SetRhythmVolume(int dB)
 {
     dB = std::min(dB, 20);
 
@@ -138,7 +138,7 @@ void OPNA::SetRhythmVolume(int dB)
 /// <summary>
 /// Sets the volume of the specified instrument, in dB.
 /// </summary>
-void OPNA::SetInstrumentVolume(int index, int dB)
+void opna_t::SetInstrumentVolume(int index, int dB)
 {
     dB = std::min(dB, 20);
 
@@ -152,7 +152,7 @@ void OPNA::SetInstrumentVolume(int index, int dB)
 /// <summary>
 /// Sets the value of a register.
 /// </summary>
-void OPNA::SetReg(uint32_t addr, uint32_t value)
+void opna_t::SetReg(uint32_t addr, uint32_t value)
 {
     if ((0x10 <= addr) && (addr <= 0x1F) && !_HasADPCMROM)
     {
@@ -210,7 +210,7 @@ void OPNA::SetReg(uint32_t addr, uint32_t value)
 /// <summary>
 /// Gets the value of a register.
 /// </summary>
-uint32_t OPNA::GetReg(uint32_t addr)
+uint32_t opna_t::GetReg(uint32_t addr)
 {
     uint32_t addr1 = 0 + 2 * ((addr >> 8) & 3);
     uint8_t data1 = addr & 0xff;
@@ -236,7 +236,7 @@ uint32_t OPNA::GetReg(uint32_t addr)
 /// <summary>
 /// Advances the timers until the next tick (in μs).
 /// </summary>
-bool OPNA::AdvanceTimers(uint32_t nextTick) noexcept
+bool opna_t::AdvanceTimers(uint32_t nextTick) noexcept
 {
     bool Result = false;
 
@@ -274,7 +274,7 @@ bool OPNA::AdvanceTimers(uint32_t nextTick) noexcept
 /// <summary>
 /// Gets the number of μs until the next timer tick occurs.
 /// </summary>
-uint32_t OPNA::GetNextTick() const noexcept
+uint32_t opna_t::GetNextTick() const noexcept
 {
     if (_TimerCounter[0] == 0 && _TimerCounter[1] == 0)
         return 0;
@@ -298,9 +298,9 @@ uint32_t OPNA::GetNextTick() const noexcept
 /// <summary>
 /// Synthesizes a buffer of rhythm samples.
 /// </summary>
-void OPNA::Mix(Sample * sampleData, size_t sampleCount) noexcept
+void opna_t::Mix(sample_t * sampleData, size_t sampleCount) noexcept
 {
-    Sample * SampleData = sampleData;
+    sample_t * SampleData = sampleData;
     size_t SampleCount = sampleCount;
 
     while (SampleCount-- != 0)
@@ -322,12 +322,12 @@ void OPNA::Mix(Sample * sampleData, size_t sampleCount) noexcept
 /// <summary>
 /// Mixes the rhythm instrument samples with the existing synthesized samples.
 /// </summary>
-void OPNA::MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept
+void opna_t::MixRhythmSamples(sample_t * sampleData, size_t sampleCount) noexcept
 {
     if (!((_InstrumentMask & 0x3F) && _Instruments[0].Samples && (_MasterVolume < 128)))
         return;
 
-    Sample * SampleDataEnd = sampleData + (sampleCount * 2);
+    sample_t * SampleDataEnd = sampleData + (sampleCount * 2);
 
     for (size_t i = 0; i < _countof(_Instruments); ++i)
     {
@@ -341,7 +341,7 @@ void OPNA::MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept
             int MaskL = -((Ins.Pan >> 1) & 1);
             int MaskR = - (Ins.Pan       & 1);
 
-            for (Sample * SampleData = sampleData; (SampleData < SampleDataEnd) && (Ins.Pos < Ins.Size); SampleData += 2)
+            for (sample_t * SampleData = sampleData; (SampleData < SampleDataEnd) && (Ins.Pos < Ins.Size); SampleData += 2)
             {
                 int32_t Sample = (Ins.Samples[Ins.Pos / 1024] * Vol) >> 12;
 
@@ -357,10 +357,10 @@ void OPNA::MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept
 /// <summary>
 /// Stores the sample.
 /// </summary>
-void OPNA::StoreSample(Sample & sampleData, int32_t sampleValue)
+void opna_t::StoreSample(sample_t & sampleData, int32_t sampleValue)
 {
-    if constexpr(sizeof(Sample) == 2)
-        sampleData = (Sample) std::clamp(sampleData + sampleValue, -0x8000, 0x7FFF);
+    if constexpr(sizeof(sample_t) == 2)
+        sampleData = (sample_t) std::clamp(sampleData + sampleValue, -0x8000, 0x7FFF);
     else
         sampleData += sampleValue;
 }
@@ -372,7 +372,7 @@ void OPNA::StoreSample(Sample & sampleData, int32_t sampleValue)
 /// <summary>
 /// Loads the samples for the rhythm instruments.
 /// </summary>
-bool OPNA::LoadInstruments(const WCHAR * directoryPath)
+bool opna_t::LoadInstruments(const WCHAR * directoryPath)
 {
     _HasADPCMROM = false;
 
@@ -459,7 +459,7 @@ bool OPNA::LoadInstruments(const WCHAR * directoryPath)
 /// <summary>
 /// Deletes the rhythm instrument samples.
 /// </summary>
-void OPNA::DeleteInstruments() noexcept
+void opna_t::DeleteInstruments() noexcept
 {
     for (auto & Instrument : _Instruments)
     {
@@ -476,18 +476,18 @@ void OPNA::DeleteInstruments() noexcept
 #pragma region ymfm_interface
 
 /// <summary>
-/// Generate one output sample of output..
+/// Generates one output sample.
 /// </summary>
-void OPNA::generate(emulated_time output_start, emulated_time, int32_t * buffer)
+void opna_t::generate(emulated_time output_start, emulated_time, int32_t * buffer)
 {
-    // Generate at the appropriate sample rate
+    // Generate at the appropriate sample rate.
     for (; _Pos <= output_start; _Pos += _Step)
         _Chip.generate(&_Output);
 
-    // Add the final result to the buffer
-    int32_t out0 = _Output.data[0];
-    int32_t out1 = _Output.data[1 % ymfm::ym2608::OUTPUTS];
-    int32_t out2 = _Output.data[2 % ymfm::ym2608::OUTPUTS];
+    // Add the final result to the buffer.
+    const int32_t out0 = _Output.data[0];
+    const int32_t out1 = _Output.data[1 % ymfm::ym2608::OUTPUTS];
+    const int32_t out2 = _Output.data[2 % ymfm::ym2608::OUTPUTS];
 
     *buffer++ += out0 + out2;
     *buffer++ += out1 + out2;
@@ -495,10 +495,12 @@ void OPNA::generate(emulated_time output_start, emulated_time, int32_t * buffer)
     _TickCount++;
 }
 
-// Writes data to the ADPCM-A buffer.
-void OPNA::write_data(ymfm::access_class type, uint32_t base, uint32_t length, uint8_t const * src)
+/// <summary>
+/// Writes data to the ADPCM-A buffer. 
+/// </summary>
+void opna_t::write_data(ymfm::access_class type, uint32_t base, uint32_t length, uint8_t const * src)
 {
-    uint32_t end = base + length;
+    const uint32_t end = base + length;
 
     if (end > _Data[type].size())
         _Data[type].resize(end);
@@ -506,8 +508,10 @@ void OPNA::write_data(ymfm::access_class type, uint32_t base, uint32_t length, u
     ::memcpy(&_Data[type][base], src, length);
 }
 
-// Reads data from the ADPCM-A buffer (Callback).
-uint8_t OPNA::ymfm_external_read(ymfm::access_class type, uint32_t offset)
+/// <summary>
+/// Reads data from the ADPCM-A buffer (Callback).
+/// </summary>
+uint8_t opna_t::ymfm_external_read(ymfm::access_class type, uint32_t offset)
 {
     if (!_HasADPCMROM && (type == ymfm::ACCESS_ADPCM_A))
         return 0;
@@ -517,14 +521,18 @@ uint8_t OPNA::ymfm_external_read(ymfm::access_class type, uint32_t offset)
     return (uint8_t) ((offset < data.size()) ? data[offset] : 0U);
 }
 
-// Writes data from the ADPCM-A buffer (Callback).
-void OPNA::ymfm_external_write(ymfm::access_class type, uint32_t address, uint8_t data)
+/// <summary>
+/// Writes data to the ADPCM-A buffer (Callback). 
+/// </summary>
+void opna_t::ymfm_external_write(ymfm::access_class type, uint32_t address, uint8_t data)
 {
     write_data(type, address, 1, &data);
 }
 
-// Clears the time (Callback).
-void OPNA::ymfm_sync_mode_write(uint8_t value)
+/// <summary>
+/// Clears the timer. (Callback).
+/// </summary>
+void opna_t::ymfm_sync_mode_write(uint8_t value)
 {
     _Reg27 = value;
 
@@ -544,8 +552,10 @@ void OPNA::ymfm_sync_mode_write(uint8_t value)
     ymfm_interface::ymfm_sync_mode_write(_Reg27);
 }
 
-// Sets the timer (Callback).
-void OPNA::ymfm_set_timer(uint32_t timerIndex, int32_t duration_in_clocks)
+/// <summary>
+/// Sets the timer (Callback).
+/// </summary>
+void opna_t::ymfm_set_timer(uint32_t timerIndex, int32_t duration_in_clocks)
 {
     if (duration_in_clocks >= 0)
     {
@@ -558,4 +568,5 @@ void OPNA::ymfm_set_timer(uint32_t timerIndex, int32_t duration_in_clocks)
         _TimerCounter[timerIndex] = 0;
     }
 }
+
 #pragma endregion

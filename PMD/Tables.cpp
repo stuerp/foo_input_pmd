@@ -1,5 +1,5 @@
 
-// Professional Music Driver [P.M.D.] version 4.8 Constant Tables / Programmed By M. Kajihara / Windows Converted by C60
+/** $VER: Tables.cpp (2026.01.03) Professional Music Driver [P.M.D.] version 4.8 Constant Tables / Programmed by M. Kajihara / Windows converted by C60 **/
 
 #include <pch.h>
 
@@ -237,20 +237,20 @@ const int FMToneCarrier[] =
     0xee, 0xee, 0xee, 0xee, 0xcc, 0x88, 0x88, 0x00
 };
 
-const int SSGRhythmDefinitions[][3] =
+const uint32_t SSGRhythmDefinitions[][3] =
 {
     // Register, Pan/Volume, Mask
     { 0x18, 0xdf, 0x01 }, // Bass Drum
     { 0x19, 0xdf, 0x02 }, // Snare Drum 1
-    { 0x1c, 0x5f, 0x10 }, // Low Tom
-    { 0x1c, 0xdf, 0x10 }, // Middle Tom
-    { 0x1c, 0x9f, 0x10 }, // Hight Tom
-    { 0x1d, 0xd3, 0x20 }, // Rim Shot
+    { 0x1C, 0x5f, 0x10 }, // Low Tom
+    { 0x1C, 0xdf, 0x10 }, // Middle Tom
+    { 0x1C, 0x9f, 0x10 }, // Hight Tom
+    { 0x1D, 0xd3, 0x20 }, // Rim Shot
     { 0x19, 0xdf, 0x02 }, // Snare Drum 2 (Clap)
-    { 0x1b, 0x9c, 0x88 }, // Closed Hi-Hat
-    { 0x1a, 0x9d, 0x04 }, // Open Hi-Hat
-    { 0x1a, 0xdf, 0x04 }, // Crash Cymbal
-    { 0x1a, 0x5e, 0x04 }  // Ride Cymbal
+    { 0x1B, 0x9c, 0x88 }, // Closed Hi-Hat
+    { 0x1A, 0x9d, 0x04 }, // Open Hi-Hat
+    { 0x1A, 0xdf, 0x04 }, // Crash Cymbal
+    { 0x1A, 0x5e, 0x04 }  // Ride Cymbal
 };
 
 // SSG Effect Table
@@ -485,7 +485,6 @@ const int DM_029[] = { // click                    1994-05-25 23:14:24
     -1
 };
 
-
 // Effect for Rusty
 
 const int RS_006[] = { // batan                    1993-01-08 01:44:30
@@ -628,7 +627,7 @@ const int RS_035[] = { // JARARAN                  1993-06-29 13:02:17
     -1
 };
 
-// Effect for ポゼッショナー
+// Effect for ポゼッショナー (Possessioner)
 
 const int PO_011[] = { // Rain fall                1990-06-22 05:55:43
     254,221,  1,  3, 55, 10, 16, 39,  0,  0,  0,
@@ -1163,7 +1162,7 @@ const int ND_039[] = { // BISYU                    1992-01-27 17:31:52
     -1
 };
 
-const SSGEffect SSGEffects[] =
+const ssg_effect_t SSGEffects[] =
 {
     { 1, D_000  }, //   0  BDRM
     { 1, D_001  }, //   1  SIMONDS

@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.h (2025.10.01) P. Stuer **/
+/** $VER: PMDPlayer.h (2025.10.01) P. Stuer **/
 
 #pragma once
 
@@ -7,24 +7,26 @@
 
 #include <PMD.h>
 
-/// <summary>
-/// Implements a PMD decoder
-/// </summary>
 #pragma warning(disable: 4820) // x bytes padding added after last data member
-class PMDDecoder
+
+/// <summary>
+/// Implements a PMD player.
+/// </summary>
+class pmd_decoder_t
 {
 public:
-    PMDDecoder();
-    ~PMDDecoder();
+    pmd_decoder_t();
+    ~pmd_decoder_t();
 
-    bool Open(const uint8_t * data, size_t size, uint32_t outputFrequency, const char * filePath, const char * pdxSamplesPath);
+    bool Open(const uint8_t * data, size_t size, uint32_t sampleRate, const char * filePath, const char * pdxSamplesPath);
 
-    void Initialize() const noexcept;
+    void Initialize() noexcept;
     size_t Render(audio_chunk & audioChunk, size_t sampleCount) noexcept;
 
     bool IsPMD(const uint8_t * data, size_t size) const noexcept;
 
-    #pragma region(State)
+    #pragma region State
+
     uint32_t GetPosition() const noexcept;
     void SetPosition(uint32_t seconds) const noexcept;
 
@@ -42,29 +44,35 @@ public:
     uint32_t GetTickCount() const noexcept { return _TickCount; }
     uint32_t GetLoopTickCount() const noexcept { return _LoopTickCount; }
 
-    const pfc::string8 & GetTitle() const noexcept { return _Title; }
-    const pfc::string8 & GetComposer() const noexcept { return _Composer; }
-    const pfc::string8 & GetArranger() const noexcept { return _Arranger; }
-    const pfc::string8 & GetMemo() const noexcept { return _Memo; }
+    const pfc::string GetTitle() const noexcept { return _Title; }
+    const pfc::string GetArranger() const noexcept { return _Arranger; } // Artist
+    const pfc::string GetComposer() const noexcept { return _Composer; }
+    const pfc::string GetMemo() const noexcept { return _Memo; }
+
+    const pfc::string GetPCMFileName() const noexcept { return _PCMFileName; }
+    const pfc::string GetPPSFileName() const noexcept { return _PPSFileName; }
+    const pfc::string GetPPZFileName(size_t index) const noexcept { return (index == 1) ? _PPZFileName1 : ((index == 2) ? _PPZFileName2 : pfc::string()); }
+
     #pragma endregion
 
-    #pragma region(Configuration)
+    #pragma region Configuration
+
     uint32_t GetMaxLoopNumber() const noexcept { return _MaxLoopNumber; }
     void SetMaxLoopNumber(uint32_t value) noexcept { _MaxLoopNumber = value; }
 
     uint32_t GetFadeOutDuration() const noexcept { return _FadeOutDuration; }
     void SetFadeOutDuration(uint32_t value) noexcept { _FadeOutDuration = value; }
+
     #pragma endregion
 
 private:
     bool IsBusy() const noexcept;
 
 private:
-    pfc::string8 _FilePath;
+    pfc::string _FilePath;
     uint8_t * _Data;
     size_t _Size;
 
-    // State
     PMD * _PMD;
 
     uint32_t _Length;           // Length of the song in ms.
@@ -73,17 +81,22 @@ private:
     uint32_t _TickCount;        // Number of ticks in the song.
     uint32_t _LoopTickCount;    // Number of ticks in the loop part of the song.
 
-    pfc::string8 _Title;
-    pfc::string8 _Composer;
-    pfc::string8 _Arranger;
-    pfc::string8 _Memo;
+    pfc::string _Title;
+    pfc::string _Composer;
+    pfc::string _Arranger;
+    pfc::string _Memo;
 
-    pfc::array_t<int16_t> _Samples;
+    pfc::string _PCMFileName;
+    pfc::string _PPSFileName;
+    pfc::string _PPZFileName1;
+    pfc::string _PPZFileName2;
+
+    pfc::array_t<int16_t> _Frames;
 
     // Configuration
     uint32_t _MaxLoopNumber;    // Maximum number of times to loop. 0 if looping is disabled.
     uint32_t _FadeOutDuration;  // Fade out duration (in ms).
-    uint32_t _SynthesisRate;    // Fade out duration (in Hz).
+    uint32_t _SampleRate;    // Fade out duration (in Hz).
 
     static const size_t BlockSize = 512; // Number of samples per block
 

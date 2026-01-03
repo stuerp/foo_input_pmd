@@ -16,7 +16,7 @@
 #define FREQUENCY_22_0K     22050
 #define FREQUENCY_11_0K     11025
 
-typedef int32_t Sample;
+typedef int32_t sample_t;
 
 #define MAX_PPS 14
 
@@ -42,26 +42,26 @@ const size_t PPSHEADERSIZE = (sizeof(uint16_t) * 2 + sizeof(uint8_t) * 2) * MAX_
 /// PCM driver for the SSG (Software-controlled Sound Generator)
 /// 4-bit 16000Hz PCM playback on the SSG Channel 3. It can also play 2 samples simultanelously, but at a lower quality.
 /// </summary>
-class PPSDriver
+class pps_t
 {
 public:
-    PPSDriver(File * file);
-    virtual ~PPSDriver();
+    pps_t(File * file);
+    virtual ~pps_t();
 
-    bool Initialize(uint32_t r, bool ip);
-    bool Stop(void);
-    bool Play(int num, int shift, int volshift);
+    bool Initialize(uint32_t sampleRate, bool useInterpolation);
+    bool Stop();
+    bool Start(int num, int shift, int volshift);
 
     bool SetParameter(int index, bool value);
     bool SetSampleRate(uint32_t r, bool ip);
     void SetVolume(int volume);
 
-    void Mix(Sample * sampleData, size_t sampleCount);
+    void Mix(frame32_t * frames, size_t frameCount) noexcept;
 
     int Load(const WCHAR * filePath);
 
 private:
-    void _Init(void);
+    void Reset(void);
     void ReadHeader(File * file, PPSHEADER & ph);
 
 private:
@@ -73,11 +73,11 @@ private:
     int _SampleRate;
     bool _UseInterpolation;
 
-    Sample _EmitTable[16];
+    sample_t _EmitTable[16];
 
-    Sample * _Samples;
-    Sample * data_offset1;
-    Sample * data_offset2;
+    sample_t * _Samples;
+    sample_t * data_offset1;
+    sample_t * data_offset2;
 
     bool _IsPlaying;
 
@@ -95,5 +95,5 @@ private:
     int volume1;
     int volume2;
 
-    Sample _KeyOffVolume;
+    sample_t _KeyOffVolume;
 };

@@ -1,26 +1,26 @@
 
-/** $VER: PMD.h (2025.12.21) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: PMD.h (2026.01.03) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
 #include <pch.h>
 
+#include "Driver.h"
+
 #include "OPNAW.h"
 
-#include "Drivers\Driver.h"
-
-#include "Drivers\PPS.h"
-#include "Drivers\PPZ.h"
-#include "Drivers\P86.h"
+#include "PPS.h"
+#include "PPZ.h"
+#include "P86.h"
 
 #include "State.h"
 #include "Effect.h"
 
-typedef int Sample;
+typedef int sample_t;
 
 #pragma pack(push)
 #pragma pack(2)
-struct SampleBank
+struct sample_bank_t
 {
     uint16_t Count;
     uint16_t Address[256][2];
@@ -67,43 +67,43 @@ public:
     void SetFadeOutDurationHQ(int speed);
 
     // Gets the PCM file path.
-    std::wstring& GetPCMFilePath()
+    std::wstring & GetPCMFilePath()
     {
         return _PCMFilePath;
     }
 
     // Gets the PCM file name.
-    std::wstring& GetPCMFileName()
+    std::wstring & GetPCMFileName()
     {
         return _PCMFileName;
     }
 
     // Gets the PPS file path.
-    std::wstring& GetPPSFilePath()
+    std::wstring & GetPPSFilePath()
     {
         return _PPSFilePath;
     }
 
     // Gets the PPS file name.
-    std::wstring& GetPPSFileName()
+    std::wstring & GetPPSFileName()
     {
         return _PPSFileName;
     }
 
     // Gets the PPZ file path.
-    std::wstring& GetPPZFilePath(size_t bufferNumber)
+    std::wstring & GetPPZFilePath(size_t bufferNumber)
     {
         return _PPZ->_PPZBank[bufferNumber]._FilePath;
     }
 
     // Gets the PPZ file name.
-    std::wstring& GetPPZFileName(size_t bufferNumber)
+    std::wstring & GetPPZFileName(size_t bufferNumber)
     {
         return _PPZFileName[bufferNumber];
     }
 
-    void UsePPS(bool value) noexcept;
-    void UseSSG(bool value) noexcept;
+    void UsePPSForDrums(bool value) noexcept;
+    void UseSSGForDrums(bool value) noexcept;
 
     bool HasADPCMROM() const noexcept
     {
@@ -173,16 +173,16 @@ public:
 
     void SetRhythmVolumeAdjustment(int value)
     {
-        _State.RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust = value;
+        _State._RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust = value;
 
-        _State.RhythmVolume = 48 * 4 * (256 - _State.RhythmVolumeAdjust) / 1024;
+        _State._RhythmVolume = 48 * 4 * (256 - _State._RhythmVolumeAdjust) / 1024;
 
-        _OPNAW->SetReg(0x11, (uint32_t) _State.RhythmVolume);
+        _OPNAW->SetReg(0x11, (uint32_t) _State._RhythmVolume);  // Rhythm Part: Set RTL (Total Level)
     }
 
     int GetRhythmVolumeAdjustment() const noexcept
     {
-        return _State.RhythmVolumeAdjust;
+        return _State._RhythmVolumeAdjust;
     }
 
     int GetDefaultRhythmVolumeAdjustment() const noexcept
@@ -223,7 +223,7 @@ public:
 
     bool GetMemo(const uint8_t * data, size_t size, int al, char * text, size_t textSize);
 
-    Channel * GetChannel(int channelNumber) const noexcept;
+    channel_t * GetChannel(int channelNumber) const noexcept;
 
 private:
     void Reset();
@@ -235,7 +235,7 @@ private:
     void DriverStart();
     void DriverStop();
 
-    uint8_t * ExecuteCommand(Channel * channel, uint8_t * si, uint8_t command);
+    uint8_t * ExecuteCommand(channel_t * channel, uint8_t * si, uint8_t command);
 
     void Mute();
     void InitializeChannels();
@@ -249,45 +249,45 @@ private:
 
     void GetText(const uint8_t * data, size_t size, int al, char * text, size_t max) const noexcept;
 
-    bool CheckSSGDrum(Channel * channel, int al);
+    bool CheckSSGDrum(channel_t * channel, int al);
 
     #pragma region FM Sound Source
 
-    void FMMain(Channel * channel);
+    void FMMain(channel_t * channel) noexcept;
 
-    uint8_t * ExecuteFMCommand(Channel * channel, uint8_t * si);
-    uint8_t * DecreaseFMVolumeCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetFMInstrument(Channel * channel, uint8_t * si);
-    uint8_t * SetFMPan1(Channel * channel, uint8_t * si);
-    uint8_t * SetFMPan2(Channel * channel, uint8_t * si);
-    uint8_t * SetFMPortamentoCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetFMVolumeMaskSlotCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetFMChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
-    uint8_t * SetFMSlotCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetFMAbsoluteDetuneCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetFMRelativeDetuneCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetFMChannel3ModeEx(Channel * channel, uint8_t * si);
-    uint8_t * SetFMTrueLevelCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetFMFeedbackLoopsCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetFMEffect(Channel * channel, uint8_t * si);
+    uint8_t * ExecuteFMCommand(channel_t * channel, uint8_t * si);
+    uint8_t * DecreaseFMVolumeCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMInstrument(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMPan1(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMPan2(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMPortamentoCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMVolumeMaskSlotCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept;
+    uint8_t * SetFMSlotCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMAbsoluteDetuneCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMRelativeDetuneCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMChannel3ModeEx(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMTrueLevelCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMFeedbackLoopsCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMEffect(channel_t * channel, uint8_t * si);
 
-    void SetFMVolumeCommand(Channel * channel);
-    void SetFMPitch(Channel * channel);
-    void FMKeyOn(Channel * channel);
-    void FMKeyOff(Channel * channel);
+    void SetFMVolumeCommand(channel_t * channel);
+    void SetFMPitch(channel_t * channel);
+    void FMKeyOn(channel_t * channel);
+    void FMKeyOff(channel_t * channel);
     void SetFMDelay(int nsec);
-    void SetFMTone(Channel * channel, int al);
+    void SetFMTone(channel_t * channel, int al);
 
-    bool SetFMChannelLFOs(Channel * channel);
-    void SetFMChannel3LFOs(Channel * channel);
+    bool SetFMChannelLFOs(channel_t * channel);
+    void SetFMChannel3LFOs(channel_t * channel);
 
-    void InitializeFMInstrument(Channel * channel, int instrumentNumber, bool setFM3 = false);
-    uint8_t * GetFMInstrumentDefinition(Channel * channel, int dl);
-    void ResetFMInstrument(Channel * channel);
+    void InitializeFMInstrument(channel_t * channel, int instrumentNumber, bool setFM3 = false);
+    uint8_t * GetFMInstrumentDefinition(channel_t * channel, int dl);
+    void ResetFMInstrument(channel_t * channel);
 
-    void SetFMPannningInternal(Channel * channel, int al);
+    void SetFMPannningInternal(channel_t * channel, int al);
 
-    int MuteFMChannel(Channel * channel);
+    int MuteFMChannel(channel_t * channel);
 
     void ClearFM3(int & ah, int & al) noexcept;
 
@@ -295,58 +295,58 @@ private:
 
     #pragma region SSG Sound Source
 
-    void SSGMain(Channel * channel);
+    void SSGMain(channel_t * channel);
 
-    uint8_t * ExecuteSSGCommand(Channel * channel, uint8_t * si);
-    uint8_t * DecreaseSSGVolumeCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetSSGEnvelopeFormat1Command(Channel * channel, uint8_t * si);
-    uint8_t * SetSSGEnvelopeFormat2Command(Channel * channel, uint8_t * si);
-    uint8_t * SetSSGPortamentoCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetSSGChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
-    uint8_t * SetSSGEffect(Channel * channel, uint8_t * si);
+    uint8_t * ExecuteSSGCommand(channel_t * channel, uint8_t * si);
+    uint8_t * DecreaseSSGVolumeCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetSSGEnvelopeFormat1Command(channel_t * channel, uint8_t * si);
+    uint8_t * SetSSGEnvelopeFormat2Command(channel_t * channel, uint8_t * si);
+    uint8_t * SetSSGPortamentoCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetSSGChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept;
+    uint8_t * SetSSGEffect(channel_t * channel, uint8_t * si);
 
-    void SetSSGVolume(Channel * channel);
-    void SetSSGPitch(Channel * channel);
-    void SSGKeyOn(Channel * channel);
-    void SSGKeyOff(Channel * channel);
+    void SetSSGVolume(channel_t * channel);
+    void SetSSGPitch(channel_t * channel);
+    void SSGKeyOn(channel_t * channel);
+    void SSGKeyOff(channel_t * channel);
     void SetSSGDelay(int nsec);
-    void SetSSGTone(Channel * channel, int al);
+    void SetSSGTone(channel_t * channel, int al);
 
-    void SetSSGInstrument(Channel * channel, int al);
+    void SetSSGDrumInstrument(channel_t * channel, int al);
 
     #pragma endregion
 
     #pragma region ADPCM Sound Source
 
-    void ADPCMMain(Channel * channel);
+    void ADPCMMain(channel_t * channel);
 
-    uint8_t * ExecuteADPCMCommand(Channel * channel, uint8_t * si);
-    uint8_t * DecreaseADPCMVolumeCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetADPCMInstrument(Channel * channel, uint8_t * si);
-    uint8_t * SetADPCMPortamentoCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetADPCMPan1(Channel * channel, uint8_t * si);
-    uint8_t * SetADPCMRepeatCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetADPCMChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
-    uint8_t * SetADPCMPan2(Channel * channel, uint8_t * si);
+    uint8_t * ExecuteADPCMCommand(channel_t * channel, uint8_t * si);
+    uint8_t * DecreaseADPCMVolumeCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetADPCMInstrument(channel_t * channel, uint8_t * si);
+    uint8_t * SetADPCMPortamentoCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetADPCMPan1(channel_t * channel, uint8_t * si);
+    uint8_t * SetADPCMRepeatCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetADPCMChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept;
+    uint8_t * SetADPCMPan2(channel_t * channel, uint8_t * si);
 
-    void SetADPCMVolumeCommand(Channel * channel);
-    void SetADPCMPitch(Channel * channel);
-    void ADPCMKeyOn(Channel * channel);
-    void ADPCMKeyOff(Channel * channel);
+    void SetADPCMVolumeCommand(channel_t * channel);
+    void SetADPCMPitch(channel_t * channel);
+    void ADPCMKeyOn(channel_t * channel);
+    void ADPCMKeyOff(channel_t * channel);
     void SetADPCMDelay(int nsec);
-    void SetADPCMTone(Channel * channel, int al);
+    void SetADPCMTone(channel_t * channel, int al);
 
     #pragma endregion
 
     #pragma region Rhythm Sound Source
 
-    void RhythmMain(Channel * channel);
+    void RhythmMain(channel_t * channel);
 
-    uint8_t * ExecuteRhythmCommand(Channel * channel, uint8_t * si);
+    uint8_t * ExecuteRhythmCommand(channel_t * channel, uint8_t * si);
     uint8_t * PlayOPNARhythm(uint8_t * si);
-    uint8_t * DecreaseRhythmVolumeCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetRhythmChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
-    uint8_t * RhythmKeyOn(Channel * channel, int al, uint8_t * bx, bool * success);
+    uint8_t * DecreaseRhythmVolumeCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetRhythmChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept;
+    uint8_t * RhythmKeyOn(channel_t * channel, int al, uint8_t * bx, bool * success);
     uint8_t * SetOPNARhythmVolumeCommand(uint8_t * si);
     uint8_t * SetOPNARhythmPanningCommand(uint8_t * si);
     uint8_t * SetOPNARhythmMasterVolumeCommand(uint8_t * si);
@@ -359,49 +359,49 @@ private:
 
     #pragma region P86
 
-    void P86Main(Channel * channel);
+    void P86Main(channel_t * channel);
 
-    uint8_t * ExecuteP86Command(Channel * channel, uint8_t * si);
-    uint8_t * SetP86Instrument(Channel * channel, uint8_t * si);
-    uint8_t * SetP86Pan1(Channel * channel, uint8_t * si);
-    uint8_t * SetP86RepeatCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetP86Pan2(Channel * channel, uint8_t * si);
-    uint8_t * SetP86ChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
+    uint8_t * ExecuteP86Command(channel_t * channel, uint8_t * si);
+    uint8_t * SetP86Instrument(channel_t * channel, uint8_t * si);
+    uint8_t * SetP86Pan1(channel_t * channel, uint8_t * si);
+    uint8_t * SetP86RepeatCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetP86Pan2(channel_t * channel, uint8_t * si);
+    uint8_t * SetP86ChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept;
 
-    void SetP86Volume(Channel * channel);
-    void SetP86Pitch(Channel * channel);
-    void P86KeyOn(Channel * channel);
-    void P86KeyOff(Channel * channel);
-    void SetP86Tone(Channel * channel, int al);
+    void SetP86Volume(channel_t * channel);
+    void SetP86Pitch(channel_t * channel);
+    void P86KeyOn(channel_t * channel);
+    void P86KeyOff(channel_t * channel);
+    void SetP86Tone(channel_t * channel, int al);
 
     #pragma endregion
 
     #pragma region PPZ
 
-    void PPZMain(Channel * channel);
+    void PPZMain(channel_t * channel);
 
-    uint8_t * ExecutePPZCommand(Channel * channel, uint8_t * si);
-    uint8_t * DecreasePPZVolumeCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetPPZInstrument(Channel * channel, uint8_t * si);
-    uint8_t * SetPPZPortamentoCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetPPZPan1(Channel * channel, uint8_t * si);
-    uint8_t * SetPPZPan2(Channel * channel, uint8_t * si);
-    uint8_t * SetPPZRepeatCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetPPZChannelMaskCommand(Channel * channel, uint8_t * si) noexcept;
+    uint8_t * ExecutePPZCommand(channel_t * channel, uint8_t * si);
+    uint8_t * DecreasePPZVolumeCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetPPZInstrument(channel_t * channel, uint8_t * si);
+    uint8_t * SetPPZPortamentoCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetPPZPan1(channel_t * channel, uint8_t * si);
+    uint8_t * SetPPZPan2(channel_t * channel, uint8_t * si);
+    uint8_t * SetPPZRepeatCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetPPZChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept;
 
-    void SetPPZVolume(Channel * channel);
-    void SetPPZPitch(Channel * channel);
-    void PPZKeyOn(Channel * channel);
-    void PPZKeyOff(Channel * channel);
-    void SetPPZTone(Channel * channel, int al);
+    void SetPPZVolume(channel_t * channel);
+    void SetPPZPitch(channel_t * channel);
+    void PPZKeyOn(channel_t * channel);
+    void PPZKeyOff(channel_t * channel);
+    void SetPPZTone(channel_t * channel, int al);
 
     #pragma endregion
 
     #pragma region Effect
 
-    void EffectMain(Channel * channel, int al);
+    void EffectMain(channel_t * channel, int al);
 
-    void PlayEffect();
+    void PlayEffect() noexcept;
     void StartEffect(const int * si);
     void StopEffect();
     void Sweep();
@@ -410,65 +410,65 @@ private:
 
     #pragma region LFO
 
-    void LFOMain(Channel * channel);
+    void LFOMain(channel_t * channel);
 
-    void InitializeLFO(Channel * channel);
-    void InitializeLFOMain(Channel * channel);
+    void InitializeLFO(channel_t * channel);
+    void InitializeLFOMain(channel_t * channel);
 
-    int SetLFO(Channel * channel);
-    int SetSSGLFO(Channel * channel);
-    void SwapLFO(Channel * channel) noexcept;
-    int StartLFO(Channel * channel, int al);
-    int StartPCMLFO(Channel * channel, int al);
-    void StopLFO(Channel * channel);
+    int SetLFO(channel_t * channel);
+    int SetSSGLFO(channel_t * channel);
+    void SwapLFO(channel_t * channel) noexcept;
+    int StartLFO(channel_t * channel, int al);
+    int StartPCMLFO(channel_t * channel, int al);
+    void StopLFO(channel_t * channel);
 
     #pragma endregion
 
-    uint8_t * SpecialC0ProcessingCommand(Channel * channel, uint8_t * si, uint8_t value) noexcept;
+    uint8_t * SpecialC0ProcessingCommand(channel_t * channel, uint8_t * si, uint8_t value) noexcept;
     uint8_t * SetTempoCommand(uint8_t * si);
     uint8_t * SetSSGNoiseFrequencyCommand(uint8_t * si);
 
-    uint8_t * SetStartOfLoopCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetEndOfLoopCommand(Channel * channel, uint8_t * si);
-    uint8_t * ExitLoopCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetStartOfLoopCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetEndOfLoopCommand(channel_t * channel, uint8_t * si);
+    uint8_t * ExitLoopCommand(channel_t * channel, uint8_t * si);
 
-    uint8_t * SetModulation(Channel * channel, uint8_t * si) noexcept;
+    uint8_t * SetModulation(channel_t * channel, uint8_t * si) noexcept;
 
-    uint8_t * IncreaseVolumeForNextNote(Channel * channel, uint8_t * si, int maxVolume);
-    uint8_t * DecreaseVolumeForNextNote(Channel * channel, uint8_t * si);
-    uint8_t * SetMDepthCountCommand(Channel * channel, uint8_t * si) const noexcept;
+    uint8_t * IncreaseVolumeForNextNote(channel_t * channel, uint8_t * si, int maxVolume);
+    uint8_t * DecreaseVolumeForNextNote(channel_t * channel, uint8_t * si);
+    uint8_t * SetMDepthCountCommand(channel_t * channel, uint8_t * si) const noexcept;
 
-    uint8_t * CalculateQ(Channel * channel, uint8_t * si);
-    uint8_t * SetModulationMask(Channel * channel, uint8_t * si);
+    uint8_t * CalculateQ(channel_t * channel, uint8_t * si);
+    uint8_t * SetModulationMask(channel_t * channel, uint8_t * si);
 
-    uint8_t * SetHardwareLFOCommand(Channel * channel, uint8_t * si);
-    uint8_t * InitializePPZ(Channel * channel, uint8_t * si);
-    uint8_t * SetHardwareLFOSwitchCommand(Channel * channel, uint8_t * si);
-    uint8_t * SetVolumeMask(Channel * channel, uint8_t * si);
+    uint8_t * SetHardwareLFOCommand(channel_t * channel, uint8_t * si);
+    uint8_t * InitializePPZ(channel_t * channel, uint8_t * si);
+    uint8_t * SetHardwareLFOSwitchCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetVolumeMask(channel_t * channel, uint8_t * si);
 
-    uint8_t * SetPDROperationModeControlCommand(Channel * channel, uint8_t * si);
+    uint8_t * SetPDROperationModeControlCommand(channel_t * channel, uint8_t * si);
 
-    int Transpose(Channel * channel, int al);
-    int TransposeSSG(Channel * channel, int al);
+    int Transpose(channel_t * channel, int al);
+    int TransposeSSG(channel_t * channel, int al);
 
-    uint8_t CalcPanOut(Channel * channel);
+    uint8_t CalcPanOut(channel_t * channel);
     void CalcFMBlock(int * cx, int * ax);
-    void InitializeFMChannel3(Channel * channel, uint8_t * ax);
-    void SpecialFM3Processing(Channel * channel, int ax, int cx);
+    void InitializeFMChannel3(channel_t * channel, uint8_t * ax);
+    void SpecialFM3Processing(channel_t * channel, int ax, int cx);
 
     int rnd(int ax);
 
-    void CalcFMLFO(Channel * channel, int al, int bl, uint8_t * vol_tbl);
+    void CalcFMLFO(channel_t * channel, int al, int bl, uint8_t * vol_tbl);
     void CalcVolSlot(int dh, int dl, int al);
-    void CalculatePortamento(Channel * channel);
+    void CalculatePortamento(channel_t * channel);
 
-    int SSGPCMSoftwareEnvelope(Channel * channel);
-    int SSGPCMSoftwareEnvelopeMain(Channel * channel);
-    int SSGPCMSoftwareEnvelopeSub(Channel * channel);
-    int ExtendedSSGPCMSoftwareEnvelopeMain(Channel * channel);
+    int SSGPCMSoftwareEnvelope(channel_t * channel);
+    int SSGPCMSoftwareEnvelopeMain(channel_t * channel);
+    int SSGPCMSoftwareEnvelopeSub(channel_t * channel);
+    int ExtendedSSGPCMSoftwareEnvelopeMain(channel_t * channel);
 
-    void ExtendedSSGPCMSoftwareEnvelopeSub(Channel * channel, int ah);
-    void SetStepUsingMDValue(Channel * channel);
+    void ExtendedSSGPCMSoftwareEnvelopeSub(channel_t * channel, int ah);
+    void SetStepUsingMDValue(channel_t * channel);
 
     void WritePCMData(uint16_t pcmstart, uint16_t pcmstop, const uint8_t * pcmData);
     void ReadPCMData(uint16_t pcmstart, uint16_t pcmstop, uint8_t * pcmData);
@@ -485,36 +485,44 @@ private:
 
     File * _File;
 
-    OPNAW * _OPNAW;
+    opnaw_t * _OPNAW;
 
-    PPZDriver * _PPZ; 
-    PPSDriver * _PPS;
-    P86Driver * _P86;
+    ppz_t * _PPZ; 
+    pps_t * _PPS;
+    p86_t * _P86;
+
+    bool _UsePPSForDrums;   // Use the PPS.
+    bool _UseSSGForDrums;   // Use the SSG to play drum instruments for the K/R commands.
+
+    int _SSGNoiseFrequency;
 
     State _State;
     Driver _Driver;
-    Effect _Effect;
+    effect_t _SSGEffect;
 
-    Channel _FMChannels[MaxFMChannels];
-    Channel _SSGChannels[MaxSSGChannels];
-    Channel _ADPCMChannels;
-    Channel _RhythmChannels;
-    Channel _FMExtensionChannels[MaxFMExtensionChannels];
-    Channel _DummyChannels;
-    Channel _EffectChannels;
-    Channel _PPZChannels[MaxPPZChannels];
+    channel_t _FMChannels[MaxFMChannels];
+    channel_t _SSGChannels[MaxSSGChannels];
+    channel_t _ADPCMChannel;
+    channel_t _RhythmChannel;
 
-    static const size_t MaxSamples = 30000;
+    channel_t _FMExtensionChannels[MaxFMExtensionChannels];
+    channel_t _EffectChannel;
 
-    Stereo16bit _SampleSrc[MaxSamples];
-    Stereo32bit _SampleDst[MaxSamples];
-    Stereo32bit _SampleTmp[MaxSamples];
+    channel_t _PPZChannels[MaxPPZChannels];
+
+    channel_t _DummyChannel;
+
+    static const size_t MaxFrames = 30000;
+
+    frame16_t _SrcFrames[MaxFrames];
+    frame32_t _DstFrames[MaxFrames];
+    frame32_t _TmpFrames[MaxFrames];
 
     uint8_t _MData[64 * 1024];
     uint8_t _VData[ 8 * 1024];
     uint8_t _EData[64 * 1024];
 
-    SampleBank _SampleBank;
+    sample_bank_t _SampleBank;
 
     std::wstring _PCMFileName;      // P86 or PPC
     std::wstring _PCMFilePath;
@@ -525,16 +533,20 @@ private:
     std::wstring _PPZFileName[2];   // PVI or PPZ
     std::wstring _PPZFilePath[2];
 
-    #pragma region(Dynamic Settings)
+    #pragma region Dynamic Settings
 
     bool _IsPlaying;
+    bool _IsUsingP86;
 
-    Stereo16bit * _SamplePtr;
-    size_t _SamplesToDo;
+    frame16_t * _FramePtr;
+    size_t _FramesToDo;
 
     int64_t _Position;          // Time from start of playing (in μs)
     int64_t _FadeOutPosition;   // SetFadeOutDurationHQ start time
     int _Seed;                  // Random seed
+
+    int _OldSSGNoiseFrequency;
+    int _OldInstrumentNumber;
 
     #pragma endregion
 };

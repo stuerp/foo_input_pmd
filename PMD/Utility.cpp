@@ -57,7 +57,7 @@ char * RemoveEscapeSequences(char * dst, const char * src)
 }
 
 // Converts 2-byte full-width (zen-kaku) Kanji characters to half-width (han-kaku) characters.
-char * ZenToHan(char * dst, const char * src)
+char * Zen2ToHan(char * dst, const char * src)
 {
     #pragma warning(disable: 4566)
     static const wchar_t * CodeTable[] =
@@ -231,7 +231,6 @@ char * ZenToHan(char * dst, const char * src)
         L"ﾟ",    // 85dd
         L"\x85\xde",  // 85de
         L"\x85\xdf",  // 85df
-
         L"ﾜ",    // 85e0
         L"ｶ",    // 85e1
         L"ｹ",    // 85e2

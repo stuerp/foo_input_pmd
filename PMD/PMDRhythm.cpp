@@ -10,14 +10,16 @@
 
 #include "OPNAW.h"
 
-void PMD::RhythmMain(Channel * channel)
+void PMD::RhythmMain(channel_t * channel)
 {
     if (channel->Data == nullptr)
         return;
 
     uint8_t * si = channel->Data;
 
-    if (--channel->Length == 0)
+    channel->Length--;
+
+    if (channel->Length == 0)
     {
         uint8_t * Data = _State.RhythmData;
 
@@ -41,7 +43,7 @@ void PMD::RhythmMain(Channel * channel)
                         continue;
                 }
                 else
-                    _State.UseRhythmChannel = false;
+                    _State.UseRhythmChannel = false; // Rest
 
                 al = *Data++;
 
@@ -51,8 +53,8 @@ void PMD::RhythmMain(Channel * channel)
                 channel->KeyOnFlag++;
 
                 _Driver.TieNotesTogether = false;
-                _Driver.IsVolumeBoostSet = 0;
-                _Driver.loop_work &= channel->loopcheck;
+                _Driver._IsVolumeBoostSet = 0;
+                _Driver._LoopWork &= channel->loopcheck;
 
                 return;
             }
@@ -81,6 +83,7 @@ void PMD::RhythmMain(Channel * channel)
 
             if (Data != nullptr)
             {
+                // "L" command
                 si = Data;
 
                 channel->loopcheck = 1;
@@ -90,21 +93,21 @@ void PMD::RhythmMain(Channel * channel)
                 _State.RhythmData = &_State.DummyRhythmData;
 
                 _Driver.TieNotesTogether = false;
-                _Driver.IsVolumeBoostSet = 0;
-                _Driver.loop_work &= channel->loopcheck;
+                _Driver._IsVolumeBoostSet = 0;
+                _Driver._LoopWork &= channel->loopcheck;
 
                 return;
             }
         }
     }
 
-    _Driver.loop_work &= channel->loopcheck;
+    _Driver._LoopWork &= channel->loopcheck;
 }
 
 /// <summary>
 /// Executes a command on the RSS.
 /// </summary>
-uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
+uint8_t * PMD::ExecuteRhythmCommand(channel_t * channel, uint8_t * si)
 {
     const uint8_t Command = *si++;
 
@@ -162,7 +165,7 @@ uint8_t * PMD::ExecuteRhythmCommand(Channel * channel, uint8_t * si)
             break;
         }
 
-        // 5.5. Relative Volume Change, Command ') %number'
+        // 5.5. Relative Volume Change, Command '( %number'
         case 0xE2:
         {
             channel->Volume -= *si++;
@@ -227,7 +230,7 @@ void PMD::SetRhythmDelay(int nsec)
 /// <summary>
 ///
 /// </summary>
-uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool * success)
+uint8_t * PMD::RhythmKeyOn(channel_t * channel, int al, uint8_t * rhythmData, bool * success)
 {
     if (al & 0x40)
     {
@@ -257,46 +260,46 @@ uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool
         _State.RhythmData = rhythmData;
     }
 
-    if (_State.UseSSG)
+    if (_UseSSGForDrums)
     {
-        for (int cl = 0; cl < 11; cl++)
+        for (size_t cl = 0; cl < 11; ++cl)
         {
             if (al & (1 << cl))
             {
-                _OPNAW->SetReg((uint32_t) SSGRhythmDefinitions[cl][0], (uint32_t) SSGRhythmDefinitions[cl][1]);
+                auto & RhytmDefinition = SSGRhythmDefinitions[cl];
 
-                int dl = SSGRhythmDefinitions[cl][2] & _State.RhythmMask;
+                _OPNAW->SetReg(RhytmDefinition[0], RhytmDefinition[1]);
 
-                if (dl)
+                uint32_t Mask = RhytmDefinition[2] & _State._RhythmMask;
+
+                if (Mask)
                 {
-                    if (dl < 0x80)
-                        _OPNAW->SetReg(0x10, (uint32_t) dl);
+                    if (Mask < 0x80)
+                        _OPNAW->SetReg(0x10, Mask);         // Rhythm Part: Set KON
                     else
                     {
-                        _OPNAW->SetReg(0x10, 0x84);
+                        _OPNAW->SetReg(0x10, 0x84);         // Rhythm Part: Set KON
 
-                        dl = _State.RhythmMask & 0x08;
+                        Mask = _State._RhythmMask & 0x08;
 
-                        if (dl)
-                            _OPNAW->SetReg(0x10, (uint32_t) dl);
+                        if (Mask)
+                            _OPNAW->SetReg(0x10, Mask);     // Rhythm Part: Set KON
                     }
                 }
             }
         }
     }
 
-    if (_State.FadeOutVolume != 0)
+    if (_State._FadeOutVolume != 0)
     {
-        if (_State.UseSSG)
+        if (_UseSSGForDrums)
         {
-            int dl = _State.RhythmVolume;
+            const int Value = (_State._FadeOutVolume != 0) ? ((256 - _State._FadeOutVolume) * _State._RhythmVolume) >> 8 : _State._RhythmVolume;
 
-            dl = ((256 - _State.FadeOutVolume) * _State.RhythmVolume) >> 8;
-
-            _OPNAW->SetReg(0x11, (uint32_t) dl);
+            _OPNAW->SetReg(0x11, (uint32_t) Value);         // Rhythm Part: Set RTL (Total Level)
         }
 
-        if (!_Driver.UsePPS)
+        if (!_UsePPSForDrums)
             return _State.RhythmData; // No sound during fadeout when using PPS.
     }
 
@@ -315,11 +318,11 @@ uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool
                 Bits >>= 1;
             }
 
-            SetSSGInstrument(channel, InstrumentNumber);
+            SetSSGDrumInstrument(channel, InstrumentNumber);
 
             Bits >>= 1;
         }
-        while (_Driver.UsePPS && (Bits != 0)); // If PPS is used, try playing the second or more notes.
+        while (_UsePPSForDrums && (Bits != 0)); // If PPS is used, try playing the second or more notes.
     }
 
     return _State.RhythmData;
@@ -329,7 +332,7 @@ uint8_t * PMD::RhythmKeyOn(Channel * channel, int al, uint8_t * rhythmData, bool
 /// <summary>
 /// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
 /// </summary>
-uint8_t * PMD::SetRhythmChannelMaskCommand(Channel * channel, uint8_t * si) noexcept
+uint8_t * PMD::SetRhythmChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
 {
     const uint8_t Value = *si++;
 
@@ -349,14 +352,14 @@ uint8_t * PMD::SetRhythmChannelMaskCommand(Channel * channel, uint8_t * si) noex
 /// <summary>
 ///
 /// </summary>
-uint8_t * PMD::DecreaseRhythmVolumeCommand(Channel *, uint8_t * si)
+uint8_t * PMD::DecreaseRhythmVolumeCommand(channel_t *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 
     if (al != 0)
-        _State.RhythmVolumeAdjust = std::clamp(al + _State.RhythmVolumeAdjust, 0, 255);
+        _State._RhythmVolumeAdjust = std::clamp(al + _State._RhythmVolumeAdjust, 0, 255);
     else
-        _State.RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust;
+        _State._RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust;
 
     return si;
 }
@@ -364,9 +367,9 @@ uint8_t * PMD::DecreaseRhythmVolumeCommand(Channel *, uint8_t * si)
 /// <summary>
 /// 9.3. Software LFO Switch, Command '*A number'
 /// </summary>
-uint8_t * PMD::SetPDROperationModeControlCommand(Channel *, uint8_t * si)
+uint8_t * PMD::SetPDROperationModeControlCommand(channel_t *, uint8_t * si)
 {
-    if (!_Driver.UsePPS)
+    if (!_UsePPSForDrums)
         return si + 1;
 
 //  ppsdrv->SetParameter((*si & 1) << 1, *si & 1); // Preliminary
@@ -381,16 +384,16 @@ uint8_t * PMD::SetPDROperationModeControlCommand(Channel *, uint8_t * si)
 // Starts/stops each sound in the rhythm sound channels.
 uint8_t * PMD::PlayOPNARhythm(uint8_t * si)
 {
-    int Channel = *si++ & _State.RhythmMask;
+    const uint32_t Channel = (uint8_t) (*si++ & _State._RhythmMask);
 
     if (Channel == 0)
         return si;
 
-    if (_State.FadeOutVolume != 0)
+    if (_State._FadeOutVolume != 0)
     {
-        int Volume = ((256 - _State.FadeOutVolume) * _State.RhythmVolume) >> 8;
+        const int Volume = (_State._FadeOutVolume != 0) ? ((256 - _State._FadeOutVolume) * _State._RhythmVolume) >> 8 : _State._RhythmVolume;
 
-        _OPNAW->SetReg(0x11, (uint32_t) Volume);
+        _OPNAW->SetReg(0x11, (uint32_t) Volume); // Rhythm Part: Set RTL (Total Level)
     }
 
     if (Channel < 0x80)
@@ -450,38 +453,42 @@ uint8_t * PMD::PlayOPNARhythm(uint8_t * si)
     return si;
 }
 
-// Command "\V number", 14.2. Rhythm Sound Source Master Volume Setting
+/// <summary>
+/// Sets the Rhythm volume. Command "\V number", 14.2. Rhythm Sound Source Master Volume Setting
+/// </summary>
 uint8_t * PMD::SetOPNARhythmMasterVolumeCommand(uint8_t * si)
 {
-    int dl = *si++;
+    int Volume = *si++;
 
-    if (_State.RhythmVolumeAdjust != 0)
-        dl = ((256 - _State.RhythmVolumeAdjust) * dl) >> 8;
+    if (_State._RhythmVolumeAdjust != 0)
+        Volume = ((256 - _State._RhythmVolumeAdjust) * Volume) >> 8;
 
-    _State.RhythmVolume = dl;
+    _State._RhythmVolume = Volume;
 
-    if (_State.FadeOutVolume != 0)
-        dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
+    if (_State._FadeOutVolume != 0)
+        Volume = ((256 - _State._FadeOutVolume) * Volume) >> 8;
 
-    _OPNAW->SetReg(0x11, (uint32_t) dl);
+    _OPNAW->SetReg(0x11, (uint32_t) Volume); // Rhythm Part: Set RTL (Total Level)
 
     return si;
 }
 
-// Command "\V ±number", 14.2. Rhythm Sound Source Master Volume Setting
+/// <summary>
+/// Sets the Rhythm volume relative to the current value. Command "\V ±number", 14.2. Rhythm Sound Source Master Volume Setting
+/// </summary>
 uint8_t * PMD::SetRelativeOPNARhythmMasterVolume(uint8_t * si)
 {
-    int dl = _State.RhythmVolume + *(int8_t *) si++;
+    int Volume = _State._RhythmVolume + *(int8_t *) si++;
 
-    if (dl >= 64)
-        dl = (dl & 0x80) ? 0 : 63;
+    if (Volume >= 64)
+        Volume = (Volume & 0x80) ? 0 : 63;
 
-    _State.RhythmVolume = dl;
+    _State._RhythmVolume = Volume;
 
-    if (_State.FadeOutVolume != 0)
-        dl = ((256 - _State.FadeOutVolume) * dl) >> 8;
+    if (_State._FadeOutVolume != 0)
+        Volume = ((256 - _State._FadeOutVolume) * Volume) >> 8;
 
-    _OPNAW->SetReg(0x11, (uint32_t) dl);
+    _OPNAW->SetReg(0x11, (uint32_t) Volume); // Rhythm Part: Set RTL (Total Level)
 
     return si;
 }

@@ -4,4 +4,4 @@
 #pragma once
 
 char * RemoveEscapeSequences(char * dest, const char * src);
-char * ZenToHan(char * dest, const char * src);
+char * Zen2ToHan(char * dest, const char * src);

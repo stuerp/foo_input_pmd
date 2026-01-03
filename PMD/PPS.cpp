@@ -5,31 +5,40 @@
 
 #include "PPS.h"
 
-PPSDriver::PPSDriver(File * file) : _File(file), _Samples()
+pps_t::pps_t(File * file) : _File(file), _Samples()
 {
-    _Init();
+    Reset();
 }
 
-PPSDriver::~PPSDriver()
+pps_t::~pps_t()
 {
     if (_Samples)
+    {
         ::free(_Samples);
+        _Samples = nullptr;
+    }
 }
 
-bool PPSDriver::Initialize(uint32_t r, bool ip)
+/// <summary>
+/// Initializes this instance.
+/// </summary>
+bool pps_t::Initialize(uint32_t sampleRate, bool useInterpolation)
 {
-    _Init();
+    Reset();
 
-    SetSampleRate(r, ip);
+    SetSampleRate(sampleRate, useInterpolation);
 
     return true;
 }
 
-void PPSDriver::_Init(void)
+/// <summary>
+/// Resets this instance.
+/// </summary>
+void pps_t::Reset()
 {
     _FilePath[0] = '\0';
 
-    ::memset(&_Header, 0, sizeof(PPSHEADER));
+    ::memset(&_Header, 0, sizeof(_Header));
 
     _SampleRate = FREQUENCY_44_1K;
     _UseInterpolation = false;
@@ -46,14 +55,16 @@ void PPSDriver::_Init(void)
 
     data_offset1 = nullptr;
     data_offset2 = nullptr;
-    data_size1 = 0;
-    data_size2 = 0;
+
+    data_size1   = 0;
+    data_size2   = 0;
 
     data_xor1 = 0;
     data_xor2 = 0;
 
     tick1 = 0;
     tick2 = 0;
+
     tick_xor1 = 0;
     tick_xor2 = 0;
 
@@ -65,26 +76,31 @@ void PPSDriver::_Init(void)
     SetVolume(-10);
 }
 
-//  00H PDR 停止
-bool PPSDriver::Stop(void)
+/// <summary>
+/// Stops the PDR. (00H PDR 停止)
+/// </summary>
+bool pps_t::Stop(void)
 {
     _IsPlaying = false;
 
-    data_offset1 =
+    data_offset1 = nullptr;
     data_offset2 = nullptr;
-    data_size1   =
+
+    data_size1   = 0;
     data_size2   = 0;
 
     return true;
 }
 
-//  01H PDR 再生
-bool PPSDriver::Play(int num, int shift, int volshift)
+/// <summary>
+/// Starts the PDR. (01H PDR 再生)
+/// </summary>
+bool pps_t::Start(int sampleNumber, int shift, int volshift)
 {
-    if (_Header.pcmnum[num].Address == 0)
+    if (_Header.pcmnum[sampleNumber].Address == 0)
         return false;
 
-    int al = 225 + _Header.pcmnum[num].ToneOffset;
+    int al = 225 + _Header.pcmnum[sampleNumber].ToneOffset;
 
     al = al % 256;
 
@@ -99,7 +115,7 @@ bool PPSDriver::Play(int num, int shift, int volshift)
             al = 255;
     }
 
-    if (_Header.pcmnum[num].VolumeOffset + volshift >= 15)
+    if (_Header.pcmnum[sampleNumber].VolumeOffset + volshift >= 15)
         return false;
 
     // Don't play when the volume is below 0
@@ -119,9 +135,9 @@ bool PPSDriver::Play(int num, int shift, int volshift)
         data_size2 = 0;            // ２音目は停止中
     }
 
-    volume1      = _Header.pcmnum[num].VolumeOffset + volshift;
-    data_offset1 = &_Samples[(_Header.pcmnum[num].Address - PPSHEADERSIZE) * 2];
-    data_size1   = _Header.pcmnum[num].Size * 2;  // １音目を消して再生
+    volume1      = _Header.pcmnum[sampleNumber].VolumeOffset + volshift;
+    data_offset1 = &_Samples[(_Header.pcmnum[sampleNumber].Address - PPSHEADERSIZE) * 2];
+    data_size1   = _Header.pcmnum[sampleNumber].Size * 2;  // １音目を消して再生
     data_xor1    = 0;
 
     if (_LowCPUCheck)
@@ -142,8 +158,10 @@ bool PPSDriver::Play(int num, int shift, int volshift)
     return true;
 }
 
-//  PPS 読み込み
-int PPSDriver::Load(const WCHAR * filePath)
+/// <summary>
+/// Loads PPS library.
+/// </summary>
+int pps_t::Load(const WCHAR * filePath)
 {
     Stop();
 
@@ -191,7 +209,7 @@ int PPSDriver::Load(const WCHAR * filePath)
 
     Size -= PPSHEADERSIZE;
 
-    if ((_Samples = (Sample *) malloc(Size * sizeof(Sample) * 2 / sizeof(uint8_t))) == NULL)
+    if ((_Samples = (sample_t *) malloc(Size * sizeof(sample_t) * 2 / sizeof(uint8_t))) == NULL)
     {
         _File->Close();
 
@@ -211,7 +229,7 @@ int PPSDriver::Load(const WCHAR * filePath)
         {
             // Convert the sample format.
             uint8_t * Src = Data;
-            Sample * Dst = _Samples;
+            sample_t * Dst = _Samples;
 
             for (size_t i = 0; i < Size / (int) sizeof(uint8_t); ++i)
             {
@@ -236,7 +254,7 @@ int PPSDriver::Load(const WCHAR * filePath)
 
             for (uint32_t j = Begin; j < End; ++j)
             {
-                _Samples[j] = (Sample) (_Samples[j] - (j - Begin) * 16 / (End - Begin));
+                _Samples[j] = (sample_t) (_Samples[j] - (j - Begin) * 16 / (End - Begin));
 
                 if (_Samples[j] < 0)
                     _Samples[j] = 0;
@@ -252,9 +270,9 @@ int PPSDriver::Load(const WCHAR * filePath)
 }
 
 /// <summary>
-/// Reads  the header.
+/// Reads the header.
 /// </summary>
-void PPSDriver::ReadHeader(File * file, PPSHEADER & header)
+void pps_t::ReadHeader(File * file, PPSHEADER & header)
 {
     uint8_t Data[84];
 
@@ -272,7 +290,7 @@ void PPSDriver::ReadHeader(File * file, PPSHEADER & header)
 /// <summary>
 /// Sets a parameter.
 /// </summary>
-bool PPSDriver::SetParameter(int index, bool value)
+bool pps_t::SetParameter(int index, bool value)
 {
     switch (index)
     {
@@ -292,7 +310,7 @@ bool PPSDriver::SetParameter(int index, bool value)
 /// <summary>
 /// Sets the sample rate.
 /// </summary>
-bool PPSDriver::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
+bool pps_t::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 {
     _SampleRate = (int) sampleRate;
     _UseInterpolation = useInterpolation;
@@ -303,7 +321,7 @@ bool PPSDriver::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 /// <summary>
 /// Sets the volume.
 /// </summary>
-void PPSDriver::SetVolume(int vol)
+void pps_t::SetVolume(int vol)
 {
     double Base = 0x4000 * 2 / 3.0 * ::pow(10.0, vol / 40.0);
 
@@ -316,7 +334,10 @@ void PPSDriver::SetVolume(int vol)
     _EmitTable[0] = 0;
 }
 
-void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
+/// <summary>
+/// Mixes the samples of the PPS.
+/// </summary>
+void pps_t::Mix(frame32_t * frames, size_t frameCount) noexcept
 {
 /*
     static const int table[16*16] =
@@ -342,7 +363,9 @@ void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
     if (!_IsPlaying && (_KeyOffVolume == 0))
         return;
 
-    for (size_t i = 0; i < sampleCount; i++)
+    auto Samples = (sample_t *) frames;
+
+    for (size_t i = 0; i < frameCount; ++i)
     {
         int al1, al2, ah1, ah2;
 
@@ -376,7 +399,7 @@ void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
         else
             ah1 = ah2 = 0;
 
-        Sample data;
+        sample_t data;
 
         //    al1 = table[(al1 << 4) + ah1];
         //    psg.SetReg(0x0a, al1);
@@ -392,14 +415,13 @@ void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
 
         data += _KeyOffVolume;
 
-        *sampleData++ += data;
-        *sampleData++ += data;
+        *Samples++ += data;
+        *Samples++ += data;
 
         //    psg.Mix(dest, 1);
         //    dest += 2;
-
         if (data_size2 > 1)
-        {  // ２音合成再生
+        {
             data_xor2 += tick_xor2;
 
             if (data_xor2 >= 0x10000)
@@ -455,16 +477,17 @@ void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
             data_offset1 += tick1;
         }
 
-        if (data_size1 <= 1 && data_size2 <= 1)
-        {    // 両方停止
+        if (data_size1 <= 1 && data_size2 <= 1) // Both are stopped
+        {
             if (_IsPlaying)
                 _KeyOffVolume += _EmitTable[data_offset1[data_size1 - 1]];
 
-            _IsPlaying = false;    // 発音停止
+            _IsPlaying = false; // Stop playing
         }
         else
         if (data_size1 <= 1 && data_size2 > 1)
-        {  // １音目のみが停止
+        {
+            // Only the note stops.
             volume1 = volume2;
             data_size1 = data_size2;
             data_offset1 = data_offset2;
@@ -475,11 +498,12 @@ void PPSDriver::Mix(Sample * sampleData, size_t sampleCount)  // 合成
         }
         else
         if (data_size1 > 1 && data_size2 < 1)
-        {  // ２音目のみが停止
-            if (data_offset2 != NULL)
+        {
+            // Only the note stops.
+            if (data_offset2 != nullptr)
             {
                 _KeyOffVolume += _EmitTable[data_offset2[data_size2 - 1]];
-                data_offset2 = NULL;
+                data_offset2 = nullptr;
             }
         }
     }

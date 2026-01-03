@@ -1,5 +1,5 @@
 
-/** $VER: Resources.h (2025.12.26) P. Stuer **/
+/** $VER: Resources.h (2026.01.03) P. Stuer **/
 
 #pragma once
 
@@ -16,8 +16,10 @@
 #define NUM_PRODUCT_PATCH       3
 #define NUM_PRODUCT_PRERELEASE  0
 
-#define STR_RELEASE_TAG         ""
+#define STR_RELEASE_TAG         "-rc0"
 
+#define GUID_COMPONENT      { 0xfcd5756a,0x1db5,0x4783,{0xa0,0x74,0xe5,0xc1,0xc1,0x06,0x4e,0xe6 }}
+#define GUID_PREFERENCES    { 0xea2369b2,0xf82e,0x425a,{0xbd,0x39,0x2f,0x4d,0xcf,0xe1,0x9e,0x38 }}
 
 /** Component specific **/
 
@@ -69,7 +71,7 @@
 #define IDC_USE_PPS                 IDC_SYNTHESIS_RATE + 1
 #define IDC_USE_SSG                 IDC_USE_PPS + 1
 
-#pragma region("Layout")
+#pragma region Layout
 
 #define W_A00   332 // Dialog width as set by foobar2000, in dialog units
 #define H_A00   288 // Dialog height as set by foobar2000, in dialog units
@@ -80,6 +82,7 @@
 #define H_CB    14  // Combo box height
 
 #pragma region Samples path
+
 // Label
 #define W_A01    106
 #define H_A01    H_LB
@@ -97,9 +100,11 @@
 #define H_A02    H_EB
 #define X_A02    X_A01 + W_A01 + 3
 #define Y_A02    Y_A01 - 2
+
 #pragma endregion
 
 #pragma region Playback
+
 // Groupbox
 #define W_A04    W_A00 - 7 - 7
 #define X_A04    7
@@ -148,9 +153,11 @@
     #define Y_A11    Y_A10 + 2
 
 #define H_A04    11 + H_A08 + 4 + H_A10 + 4
+
 #pragma endregion
 
 #pragma region Synthesis rate
+
 // Label: Synthesis rate
 #define W_A12   58
 #define H_A12   H_LB
@@ -168,15 +175,16 @@
 #define H_A14    H_LB
 #define X_A14    X_A13 + W_A13 + 3
 #define Y_A14    Y_A13 + 2
+
 #pragma endregion
 
-// Checkbox: Use PPS
+// Checkbox: Use PPS to play drum sounds
 #define X_A15    7
 #define Y_A15    Y_A04 + H_A04 + 4
 #define W_A15    W_A00 - 5 - 6
 #define H_A15    10
 
-// Checkbox: Use SSG
+// Checkbox: Use SSG to play drum sounds
 #define X_A16    7
 #define Y_A16    Y_A15 + H_A15 + 4
 #define W_A16    W_A00 - 5 - 6

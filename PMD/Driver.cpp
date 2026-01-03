@@ -9,62 +9,63 @@ void PMD::DriverMain()
 {
     int i;
 
-    _Driver.loop_work = 3;
+    _Driver._LoopWork = 3;
 
     if (_State.x68_flg == 0)
     {
         for (i = 0; i < 3; ++i)
         {
-            _Driver.CurrentChannel = i + 1;
+            _Driver._CurrentChannel = i + 1;
             SSGMain(&_SSGChannels[i]);
         }
     }
 
-    _Driver.FMSelector = 0x100;
+    _Driver._FMSelector = 0x100;
 
     // Process FM channel 4, 5 and 6.
     for (i = 0; i < 3; ++i)
     {
-        _Driver.CurrentChannel = i + 1;
+        _Driver._CurrentChannel = i + 1;
         FMMain(&_FMChannels[i + 3]);
     }
 
-    _Driver.FMSelector = 0;
+    _Driver._FMSelector = 0;
 
     // Process FM channel 1, 2 and 3.
     for (i = 0; i < 3; ++i)
     {
-        _Driver.CurrentChannel = i + 1;
+        _Driver._CurrentChannel = i + 1;
+
         FMMain(&_FMChannels[i]);
     }
 
     // Process FM extension channel 1, 2 and 3.
     for (i = 0; i < 3; ++i)
     {
-        _Driver.CurrentChannel = 3;
+        _Driver._CurrentChannel = 3;
         FMMain(&_FMExtensionChannels[i]);
     }
 
     if (_State.x68_flg == 0x00)
     {
-        RhythmMain(&_RhythmChannels);
+        RhythmMain(&_RhythmChannel);
 
-        if (_State.IsUsingP86)
-            P86Main(&_ADPCMChannels);
+        if (_IsUsingP86)
+            P86Main(&_ADPCMChannel);
         else
-            ADPCMMain(&_ADPCMChannels);
+            ADPCMMain(&_ADPCMChannel);
     }
 
     if (_State.x68_flg != 0xFF)
     {
         for (i = 0; i < 8; ++i)
         {
-            _Driver.CurrentChannel = i;
+            _Driver._CurrentChannel = i;
             PPZMain(&_PPZChannels[i]);
         }
     }
 
-    if (_Driver.loop_work == 0)
+    if (_Driver._LoopWork == 0)
         return;
 
     for (i = 0; i < MaxFMChannels; ++i)
@@ -82,14 +83,14 @@ void PMD::DriverMain()
             _FMExtensionChannels[i].loopcheck = 0;
     }
 
-    if (_ADPCMChannels.loopcheck != 3)
-        _ADPCMChannels.loopcheck = 0;
+    if (_ADPCMChannel.loopcheck != 3)
+        _ADPCMChannel.loopcheck = 0;
 
-    if (_RhythmChannels.loopcheck != 3)
-        _RhythmChannels.loopcheck = 0;
+    if (_RhythmChannel.loopcheck != 3)
+        _RhythmChannel.loopcheck = 0;
 
-    if (_EffectChannels.loopcheck != 3)
-        _EffectChannels.loopcheck = 0;
+    if (_EffectChannel.loopcheck != 3)
+        _EffectChannel.loopcheck = 0;
 
     for (i = 0; i < MaxPPZChannels; ++i)
     {
@@ -97,7 +98,7 @@ void PMD::DriverMain()
             _PPZChannels[i].loopcheck = 0;
     }
 
-    if (_Driver.loop_work != 3)
+    if (_Driver._LoopWork != 3)
     {
         _State.LoopCount++;
 
@@ -121,8 +122,8 @@ void PMD::DriverStart()
 
     DriverStop();
 
-    _SamplePtr = _SampleSrc;
-    _SamplesToDo = 0;
+    _FramePtr = _SrcFrames;
+    _FramesToDo = 0;
     _Position = 0;
 
     InitializeState();
@@ -142,7 +143,7 @@ void PMD::DriverStop()
 
     _State.LoopCount = -1;
     _State.FadeOutSpeed = 0;
-    _State.FadeOutVolume = 0xFF;
+    _State._FadeOutVolume = 0xFF;
 
     Mute();
 }

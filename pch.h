@@ -1,5 +1,5 @@
 
-/** $VER: pch.h (2025.10.01) P. Stuer **/
+/** $VER: pch.h (2026.01.03) P. Stuer **/
 
 #pragma once
 
@@ -11,20 +11,38 @@
 
 #define NOMINMAX
 
-#include <WinSock2.h>
-#include <Windows.h>
-#include <winnls.h>
+#include <helpers\foobar2000+atl.h>
+#include <helpers\helpers.h>
 
-#define FOOBAR2000_TARGET_VERSION 82
+#include <wincodec.h>
 
-#include <sdk/foobar2000-lite.h>
+#include <comdef.h> // For _com_error
 
-#include <ctype.h>
-#include <malloc.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 #include <strsafe.h>
 
-#include <cmath>
 #include <algorithm>
+#include <bit>
+#include <cassert>
+#include <cmath>
+#include <cstdlib>
+#include <cstdint>
+#include <ranges>
+#include <string>
+
+#ifndef Assert
+#if defined(DEBUG) || defined(_DEBUG)
+#define Assert(b) do {if (!(b)) { ::OutputDebugStringA("Assert: " #b "\n");}} while(0)
+#else
+#define Assert(b)
+#endif
+#endif
+
+#define TOSTRING_IMPL(x) #x
+#define TOSTRING(x) TOSTRING_IMPL(x)
+
+#ifndef THIS_HINSTANCE
+EXTERN_C IMAGE_DOS_HEADER __ImageBase;
+#define THIS_HINSTANCE ((HINSTANCE) &__ImageBase)
+#endif
+
+ constexpr WCHAR NegativeInfinity[3] = { '-', 0x221E, '\0' };

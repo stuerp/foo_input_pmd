@@ -1,5 +1,5 @@
 
-/** $VER: OPNAW.h (2025.10.01) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: OPNAW.h (2026.01.03) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -8,10 +8,10 @@
 
 #include <ymfm_opn.h>
 
-typedef int32_t Sample;
-typedef int64_t emulated_time; // We use an int64_t as emulated time, as a 16.48 fixed point value
+typedef int32_t sample_t;
+typedef int64_t emulated_time; // We use an int64_t for emulated time, as a 16.48 fixed point value
   
-struct Stereo32bit
+struct frame32_t
 {
     int32_t Left;
     int32_t Right;
@@ -19,7 +19,7 @@ struct Stereo32bit
 
 #pragma pack(push)
 #pragma pack(2)
-struct Stereo16bit
+struct frame16_t
 {
     int16_t Left;
     int16_t Right;
@@ -31,14 +31,14 @@ struct Stereo16bit
 /// Implements a YM2608, aka OPNA, is a sixteen-channel sound chip developed by Yamaha.
 /// It's a member of Yamaha's OPN family of FM synthesis chips, and the successor to the YM2203. It was notably used in NEC's PC-8801/PC-9801 series computers.
 /// </summary>
-class OPNA : public ymfm::ymfm_interface
+class opna_t : public ymfm::ymfm_interface
 {
 public:
-    OPNA(File * file);
-    ~OPNA();
+    opna_t(File * file);
+    ~opna_t();
     
-    bool Initialize(uint32_t clock, uint32_t outputFrequency, const WCHAR * directoryPath) noexcept;
-    void Initialize(uint32_t clock, uint32_t outputFrequency) noexcept;
+    bool Initialize(uint32_t clock, uint32_t sampleRate, const WCHAR * directoryPath) noexcept;
+    void Initialize(uint32_t clock, uint32_t sampleRate) noexcept;
 
     bool LoadInstruments(const WCHAR *);
     bool HasADPCMROM() const noexcept { return _HasADPCMROM; }
@@ -50,7 +50,7 @@ public:
     void SetRhythmVolume(int dB);
     void SetInstrumentVolume(int index, int dB);
 
-    void SetReg(uint32_t addr, uint32_t value);
+    void SetReg(uint32_t reg, uint32_t value);
     uint32_t GetReg(uint32_t addr);
     
     void Reset() { _Chip.reset(); }
@@ -60,13 +60,13 @@ public:
     bool AdvanceTimers(uint32_t tickCount) noexcept;
     uint32_t GetNextTick() const noexcept;
     
-    void Mix(Sample * sampleData, size_t sampleCount) noexcept;
+    void Mix(sample_t * sampleData, size_t sampleCount) noexcept;
     
     static constexpr uint32_t DefaultClockSpeed = 3993600 * 2;
 
 private:
-    void MixRhythmSamples(Sample * sampleData, size_t sampleCount) noexcept;
-    void StoreSample(Sample & sample, int32_t data);
+    void MixRhythmSamples(sample_t * sampleData, size_t sampleCount) noexcept;
+    void StoreSample(sample_t & sample, int32_t data);
 
     uint32_t GetSampleRate() const { return _Chip.sample_rate(_ClockSpeed); }
 

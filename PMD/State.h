@@ -77,21 +77,20 @@ public:
 
     uint16_t * RhythmDataTable;         // Rhythm Data table
 
-    bool UseSSG;                        // Use the SSG to sequence drum instruments for the K/R commands.
     bool UseInterpolation;
     bool UseInterpolationPPZ;
     bool UseInterpolationPPS;
     bool UseInterpolationP86;
 
-    Channel * Channel[MaxChannels];
+    channel_t * Channel[MaxChannels];
 
-    int RhythmMask;                     // Rhythm sound source mask. Compatible with x8c/10h bit
-    int RhythmVolume;                   // Rhythm volume
+    uint32_t _RhythmMask;               // Rhythm sound source mask. Compatible with x8c/10h bit
+    int _RhythmVolume;                   // Rhythm volume
 
     int FMVolumeAdjust, DefaultFMVolumeAdjust;
     int SSGVolumeAdjust, DefaultSSGVolumeAdjust;
     int ADPCMVolumeAdjust, DefaultADPCMVolumeAdjust;
-    int RhythmVolumeAdjust, DefaultRhythmVolumeAdjust;
+    int _RhythmVolumeAdjust, DefaultRhythmVolumeAdjust;
     int PPZVolumeAdjust, DefaultPPZVolumeAdjust;
 
     int FMSlot1Detune;
@@ -111,14 +110,10 @@ public:
     int FadeOutSpeed;
     bool IsFadeOutSpeedSet;
     int FadeOutSpeedHQ;                 // Fadeout speed (High Sound Quality)
-    int FadeOutVolume;
+    int _FadeOutVolume;
 
     int BarLength;                      // Time signature 4/4 = 96 (default); E.g. time signature 3/4 = 72
     int OpsCounter;                     // Shortest note counter
-
-    int SSGEffectFlag;                  // SSG sound effect on/off flag (substituted by user)
-    int SSGNoiseFrequency;
-    int OldSSGNoiseFrequency;
 
     int PCMStart;
     int PCMStop;
@@ -164,7 +159,5 @@ public:
 
     uint32_t OPNASampleRate;            // PCM output frequency (11k, 22k, 44k, 55k)
     uint32_t PPZSampleRate;             // PPZ output frequency
-
-    bool IsUsingP86;
 };
 #pragma warning(default: 4820) // x bytes padding added after last data member

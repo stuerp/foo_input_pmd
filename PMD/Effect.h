@@ -3,30 +3,42 @@
 
 #pragma once
 
-class Effect
+#pragma warning(disable: 4820) // x bytes padding added after last data member
+
+class effect_t
 {
 public:
-    Effect()
+    effect_t() noexcept
     {
-        ::memset(this, 0, sizeof(*this));
+        _Address = nullptr;
 
-        Number = 0xFF;
+        _TonePeriod  = 0;
+        _TonePeriodIncrement  = 0;
+        _ToneCounter = 0;
+
+        _NoisePeriod  = 0;
+        _NoisePeriodIncrement = 0;
+        _NoiseCounter = 0;
+
+        _Priority = 0;
+        _Number   = 0xFF;
+
+        Flags = 0;
     }
 
 public:
-    int * Address;
+    int * _Address;
 
-    int ToneSweepFrequency;
-    int ToneSweepIncrement;
-    int ToneSweepCounter;
+    int _TonePeriod;
+    int _TonePeriodIncrement;
+    int _ToneCounter;
 
-    int NoiseSweepFrequency;
-    int NoiseSweepIncrement;
-    int NoiseSweepCounter;
+    int _NoisePeriod;
+    int _NoisePeriodIncrement;
+    int _NoiseCounter;
 
-    int Priority;
-    int Number;
-    int PreviousInstrumentNumber;
+    int _Priority;
+    int _Number;
 
     int Flags; // 0x01: Pitch correction / 0x02: Volume correction
 };

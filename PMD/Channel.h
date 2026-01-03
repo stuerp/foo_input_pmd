@@ -1,9 +1,9 @@
 
-/** $VER: Channel.h (2025.12.26) Represents a sound source channel (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: Channel.h (2026.01.03) Represents a sound source channel (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
-class Channel
+class channel_t
 {
 public:
     uint8_t * Data;
@@ -11,7 +11,7 @@ public:
     int Length;
 
     uint32_t Factor;    // Current playing BLOCK/FNUM
-    int DetuneValue;
+    int _DetuneValue;
 
     int HardwareLFOModulationMode;  // bit 0: Tone, bit 1: Volume, bit 2: Same period, bit 3: Portamento
     int ExtendMode; // bit 1: Detune, bit 2: LFO, bit 3: Env Normal/Extend
@@ -43,7 +43,7 @@ public:
     int LFO2MDepthCount1, LFO2MDepthCount2;
 
     // Portamento
-    int Portamento;
+    int _Portamento;
     int PortamentoQuotient;
     int PortamentoRemainder;
 
@@ -69,7 +69,8 @@ public:
     int ExtendedReleaseRate;
     int ExtendedAttackLevel;
 
-    int FMPanAndVolume; // FM Panning + AMD + PMD
+    int _PanAndVolume;
+
     int FMCarrier;
     int FMOperator1;
     int FMOperator3;

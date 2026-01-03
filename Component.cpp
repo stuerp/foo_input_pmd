@@ -1,9 +1,9 @@
 
-/** $VER: Component.cpp (2023.11.12) P. Stuer **/
+/** $VER: Component.cpp (2026.01.03) P. Stuer **/
 
 #include "pch.h"
 
-#include <sdk/componentversion.h>
+#include <sdk\componentversion.h>
 
 #include "Resources.h"
 

@@ -1,12 +1,12 @@
  
-/** $VER: InputDecoder.cpp (2023.08.30) P. Stuer **/
+/** $VER: InputDecoder.cpp (2026.01.03) P. Stuer **/
 
 #include "pch.h"
 
-#include <sdk/input_impl.h>
-#include <sdk/input_file_type.h>
-#include <sdk/file_info_impl.h>
-#include <sdk/tag_processor.h>
+#include <sdk\input_impl.h>
+#include <sdk\input_file_type.h>
+#include <sdk\file_info_impl.h>
+#include <sdk\tag_processor.h>
 
 #include "Configuration.h"
 #include "Resources.h"
@@ -15,17 +15,18 @@
 
 #pragma hdrstop
 
+#pragma warning(disable: 4820) // x bytes padding added after last data member
+
 /// <summary>
 /// Implements an input decoder.
 /// </summary>
-#pragma warning(disable: 4820) // x bytes padding added after last data member
 class InputDecoder : public input_stubs
 {
 public:
     InputDecoder() noexcept :
         _File(), _FilePath(), _FileStats(),
-        _SynthesisRate(DefaultSynthesisRate),
         _Decoder(),
+        _SynthesisRate(DefaultSynthesisRate),
         _LoopNumber(),
         _IsDynamicInfoSet(false)
     {
@@ -42,7 +43,8 @@ public:
     }
 
 public:
-    #pragma region("input_impl")
+    #pragma region input_impl
+
     /// <summary>
     /// Opens the specified file and parses it.
     /// </summary>
@@ -76,7 +78,7 @@ public:
             {
                 const auto NativeFilePath = filesystem::g_get_native_path(filePath, abortHandler);
 
-                _Decoder = new PMDDecoder();
+                _Decoder = new pmd_decoder_t();
 
                 if (!_Decoder->Open(Data.get_ptr(), (size_t) _FileStats.m_size, (uint32_t) CfgSynthesisRate, NativeFilePath, CfgSamplesPath.get()))
                     throw exception_io_data("Invalid PMD file");
@@ -91,14 +93,18 @@ public:
 
     static bool g_is_our_path(const char *, const char * extension)
     {
-        return (::stricmp_utf8(extension, "m") == 0) || (::stricmp_utf8(extension, "m2") == 0);
+        for (const auto & Extention : { "m", "m2", "mz" })
+        {
+            if (::stricmp_utf8(extension, Extention) == 0)
+                return true;
+        }
+
+        return false;
     }
 
     static GUID g_get_guid()
     {
-        static const GUID Guid = {0xfcd5756a,0x1db5,0x4783,{0xa0,0x74,0xe5,0xc1,0xc1,0x06,0x4e,0xe6}};
-
-        return Guid;
+        return GUID_COMPONENT;
     }
 
     static const char * g_get_name()
@@ -108,16 +114,18 @@ public:
 
     static GUID g_get_preferences_guid()
     {
-        return PreferencesPageGUID;
+        return GUID_PREFERENCES;
     }
 
     static bool g_is_low_merit()
     {
         return false;
     }
+
     #pragma endregion
 
-    #pragma region("input_info_reader")
+    #pragma region input_info_reader
+
     unsigned get_subsong_count()
     {
         return 1;
@@ -150,10 +158,17 @@ public:
         fileInfo.meta_add("artist", _Decoder->GetArranger());
         fileInfo.meta_add("composer", _Decoder->GetComposer());
         fileInfo.meta_add("memo", _Decoder->GetMemo());
+
+        fileInfo.meta_add("pcm_filename", _Decoder->GetPCMFileName());
+        fileInfo.meta_add("pps_filename", _Decoder->GetPPSFileName());
+        fileInfo.meta_add("ppz_filename_1", _Decoder->GetPPZFileName(1));
+        fileInfo.meta_add("ppz_filename_2", _Decoder->GetPPZFileName(2));
     }
+
     #pragma endregion
 
-    #pragma region("input_info_reader_v2")
+    #pragma region input_info_reader_v2
+
     t_filestats2 get_stats2(uint32_t stats, abort_callback & abortHandler)
     {
         return _File->get_stats2_(stats, abortHandler);
@@ -163,9 +178,11 @@ public:
     {
         return _FileStats;
     }
+
     #pragma endregion
 
-    #pragma region("input_info_writer")
+    #pragma region input_info_writer
+
     /// <summary>
     /// Set the tags for the specified file.
     /// </summary>
@@ -183,9 +200,11 @@ public:
     {
         throw exception_tagging_unsupported();
     }
+
     #pragma endregion
 
-    #pragma region("input_decoder")
+    #pragma region input_decoder
+
     /// <summary>
     /// Initializes the decoder before playing the specified subsong. Resets playback position to the beginning of specified subsong.
     /// </summary>
@@ -284,25 +303,27 @@ public:
     {
         _File->on_idle(abortHandler);
     }
+
     #pragma endregion
 
 private:
     service_ptr_t<file> _File;
-    pfc::string8 _FilePath;
+    pfc::string _FilePath;
     t_filestats _FileStats;
 
-    uint32_t _SynthesisRate;
+    pmd_decoder_t * _Decoder;
 
-    PMDDecoder * _Decoder;
+    uint32_t _SynthesisRate;
 
     // Dynamic track info
     uint32_t _LoopNumber;
 
     bool _IsDynamicInfoSet;
 };
+
 #pragma warning(default: 4820) // x bytes padding added after last data member
 
 // Declare the supported file types to make it show in "open file" dialog etc.
-DECLARE_FILE_TYPE("Professional Music Driver (PMD) files", "*.m;*.m2;*.mz");
+DECLARE_FILE_TYPE("PMD (Professional Music Driver) files", "*.m;*.m2;*.mz");
 
 static input_factory_t<InputDecoder> _InputDecoderFactory;

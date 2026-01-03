@@ -105,16 +105,14 @@ Open `foo_input_pmd.sln` with Visual Studio and build the solution.
 
 To create the component first build the x86 configuration and next the x64 configuration.
 
-## Contributing
-
-If you'd like to contribute, please fork the repository and use a feature
-branch. Pull requests are warmly welcome.
-
 ## Change Log
 
-v0.4.3, 2025-12-xx
+v0.4.3, 2026-01-03
 
-* Fixed: Extended FM part processing.
+* Improved: Try to load .MZ files as PMD files.
+* Fixed: Incorrect rest processing led to incorrect playback length.
+* Fixed: Set Pan 2 command (px ±value1 [, value2])
+* Fixed: "Use PPS" option was ignored.
 
 v0.4.2, 2025-12-21, *"Has it really been 2 years?"*
 
@@ -166,6 +164,7 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 * C60 for [PMDWin](http://c60.la.coocan.jp/) a library to render PMD files to PCM.
   * The PMD driver is a heavily modified version of [PMDWin](http://c60.la.coocan.jp/) 0.52.
 * [Aaron Giles](https://github.com/aaronsgiles) for [ymfm](https://github.com/aaronsgiles/ymfm.git).
+* [Myon98](https://github.com/myon98) for [98fmplayer](https://github.com/myon98/98fmplayer).
 
 ## Reference Material
 

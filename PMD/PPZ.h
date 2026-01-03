@@ -23,31 +23,7 @@
 #define X_N0                0x80
 #define DELTA_N0            0x7F
 
-typedef int32_t Sample;
-
-struct PPZChannel
-{
-    bool IsPVI;
-    bool HasLoop;
-    bool IsPlaying;
-    int Volume;
-    int PanValue;
-
-    int SourceFrequency;
-    int SampleNumber;
-
-    int PCMStartL;
-    int PCMAddL;
-    int PCMAddH;
-
-    uint8_t * PCMStartH;
-    uint8_t * PCMEnd;
-    uint8_t * PCMEndRounded;
-    uint8_t * PCMLoopStart;
-
-    uint32_t LoopStartOffset;
-    uint32_t LoopEndOffset;
-};
+typedef int32_t sample_t;
 
 #pragma pack(push)
 #pragma pack(1)
@@ -87,24 +63,22 @@ struct PVIHEADER
 };
 #pragma pack(pop)
 
-#pragma warning(disable: 4820) // 'x' bytes padding added after data member 'y'
-
 /// <summary>
 /// Represents a bank of PPZ samples.
 /// </summary>
-class PPZBank
+class ppz_bank_t
 {
 public:
-    PPZBank() : _PZIHeader(), _Data(), _Size(), _IsPVI()
+    ppz_bank_t() noexcept : _PZIHeader(), _Data(), _Size(), _IsPVI()
     {
     }
 
-    virtual ~PPZBank()
+    virtual ~ppz_bank_t() noexcept
     {
         Reset();
     }
 
-    void Reset()
+    void Reset() noexcept
     {
         _FilePath.clear();
 
@@ -120,7 +94,10 @@ public:
         _IsPVI = false;
     }
 
-    bool IsEmpty() const { return _Data == nullptr; }
+    bool IsEmpty() const noexcept
+    {
+        return _Data == nullptr;
+    }
 
 public:
     std::wstring _FilePath;
@@ -134,16 +111,45 @@ public:
 #pragma warning(disable: 4820) // 'x' bytes padding added after data member 'y'
 
 /// <summary>
+/// Represents a PPZ channel.
+/// </summary>
+struct ppz_channel_t
+{
+    bool _IsPVI;
+    bool _HasLoop;
+    bool _IsPlaying;
+    int _Volume;
+    int _PanValue;
+
+    int _SourceFrequency;
+    int _SampleNumber;
+
+    int _PCMStartL;
+    int _PCMAddL;
+    int _PCMAddH;
+
+    uint8_t * _PCMStartH;
+    uint8_t * _PCMEnd;
+    uint8_t * _PCMEndRounded;
+    uint8_t * _PCMLoopStart;
+
+    uint32_t _LoopStartOffset;
+    uint32_t _LoopEndOffset;
+};
+
+#pragma warning(disable: 4820) // 'x' bytes padding added after data member 'y'
+
+/// <summary>
 /// Implements a driver that synthesizes up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit aside from the user's PC98 setup.
 /// It supports 2 kinds of PCM banks: .PVI and .PZI
 /// </summary>
-class PPZDriver
+class ppz_t
 {
 public:
-    PPZDriver(File * file);
-    virtual ~PPZDriver();
+    ppz_t(File * file);
+    virtual ~ppz_t();
 
-    void Initialize(uint32_t outputFrequency, bool useInterpolation);
+    void Initialize(uint32_t sampleRate, bool useInterpolation);
     void Play(size_t channelNumber, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop);
     void Stop(size_t channelNumber);
     int Load(const WCHAR * filePath, size_t bankNumber);
@@ -163,13 +169,13 @@ public:
 //  FIFOBUFF_SET; // 1AH (PPZ8)FIFOﾊﾞｯﾌｧの変更
 //  RATE_SET; // 1BH (PPZ8)WSS詳細ﾚｰﾄ設定
 
-    void Mix(Sample * sampleData, size_t sampleCount) noexcept;
+    void Mix(frame32_t * frames, size_t frameCount) noexcept;
 
 public:
-    PPZBank _PPZBank[2];
+    ppz_bank_t _PPZBank[2];
 
 private:
-    void MoveSamplePointer(PPZChannel & channel) const noexcept;
+    void MoveSamplePointer(ppz_channel_t & channel) const noexcept;
 
     void Initialize();
 
@@ -188,11 +194,11 @@ private:
     bool _EmulateADPCM; // Should channel 8 emulate ADPCM?
     bool _UseInterpolation;
 
-    PPZChannel _Channels[MaxPPZChannels];
+    ppz_channel_t _Channels[MaxPPZChannels];
 
     int _PCMVolume; // Overall 86B Mixer volume
     int _Volume;
     int _SampleRate;
 
-    Sample _VolumeTable[16][256];
+    sample_t _VolumeTable[16][256];
 };

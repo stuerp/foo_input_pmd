@@ -6,8 +6,9 @@
 #include "PMDDecoder.h"
 #include "Configuration.h"
 
-#include <pfc/string-conv-lite.h>
-#include <shared/audio_math.h>
+#include <pfc\string-conv-lite.h>
+#include <shared\audio_math.h>
+
 #include <pathcch.h>
 
 #pragma comment(lib, "pathcch")
@@ -19,17 +20,17 @@ static bool ConvertShiftJISToUTF8(const char * text, pfc::string8 & utf8);
 /// <summary>
 /// Initializes a new instance.
 /// </summary>
-PMDDecoder::PMDDecoder() :
+pmd_decoder_t::pmd_decoder_t() :
     _FilePath(), _Data(), _Size(), _PMD(), _Length(), _LoopLength(), _TickCount(), _LoopTickCount(),
-    _MaxLoopNumber(DefaultLoopCount), _FadeOutDuration(DefaultFadeOutDuration), _SynthesisRate(DefaultSynthesisRate)
+    _MaxLoopNumber(DefaultLoopCount), _FadeOutDuration(DefaultFadeOutDuration), _SampleRate(DefaultSynthesisRate)
 {
-    _Samples.set_count((t_size) BlockSize * ChannelCount);
+    _Frames.set_count((t_size) BlockSize * ChannelCount);
 }
 
 /// <summary>
 /// Deletes an instance.
 /// </summary>
-PMDDecoder::~PMDDecoder()
+pmd_decoder_t::~pmd_decoder_t()
 {
     delete[] _Data;
     delete _PMD;
@@ -38,7 +39,7 @@ PMDDecoder::~PMDDecoder()
 /// <summary>
 /// Reads the PMD data from memory.
 /// </summary>
-bool PMDDecoder::Open(const uint8_t * data, size_t size, uint32_t outputFrequency, const char * filePath, const char * pdxSamplesPath)
+bool pmd_decoder_t::Open(const uint8_t * data, size_t size, uint32_t sampleRate, const char * filePath, const char * directoryPathDrums)
 {
     _FilePath = filePath;
 
@@ -56,25 +57,25 @@ bool PMDDecoder::Open(const uint8_t * data, size_t size, uint32_t outputFrequenc
         _Size = size;
     }
 
-    _SynthesisRate = outputFrequency;
+    _SampleRate = sampleRate;
 
     delete _PMD;
     _PMD = new PMD();
 
     {
         WCHAR FilePath[MAX_PATH];
-        WCHAR PDXSamplesPath[MAX_PATH];
+        WCHAR DirectoryPathDrums[MAX_PATH];
 
         {
             if (::MultiByteToWideChar(CP_UTF8, 0, filePath, -1, FilePath, _countof(FilePath)) == 0)
                 return false;
 
-            if (::MultiByteToWideChar(CP_UTF8, 0, pdxSamplesPath, -1, PDXSamplesPath, _countof(PDXSamplesPath)) == 0)
+            if (::MultiByteToWideChar(CP_UTF8, 0, directoryPathDrums, -1, DirectoryPathDrums, _countof(DirectoryPathDrums)) == 0)
                 return false;
         }
 
-        _PMD->Initialize(PDXSamplesPath);
-        _PMD->SetSampleRate(_SynthesisRate);
+        _PMD->Initialize(DirectoryPathDrums);
+        _PMD->SetSampleRate(_SampleRate);
 
         {
             WCHAR DirectoryPath[MAX_PATH];
@@ -93,7 +94,7 @@ bool PMDDecoder::Open(const uint8_t * data, size_t size, uint32_t outputFrequenc
                 Paths.push_back(L".\\");
 
                 if (::wcslen(DirectoryPath) > 0)
-                    Paths.push_back(PDXSamplesPath);
+                    Paths.push_back(DirectoryPathDrums);
 
                 if (!_PMD->SetSearchPaths(Paths))
                     return false;
@@ -124,6 +125,28 @@ bool PMDDecoder::Open(const uint8_t * data, size_t size, uint32_t outputFrequenc
             _PMD->GetMemo(data, size, 4, Memo, _countof(Memo));
             ConvertShiftJISToUTF8(Memo, _Memo);
         }
+
+        {
+            std::wstring FileName = _PMD->GetPCMFileName();
+
+            if (!FileName.empty())
+                _PCMFileName = pfc::utf8FromWide(FileName.c_str());
+
+            FileName = _PMD->GetPPSFileName();
+
+            if (!FileName.empty())
+                _PPSFileName = pfc::utf8FromWide(FileName.c_str());
+
+            FileName = _PMD->GetPPZFileName(0);
+
+            if (!FileName.empty())
+                _PPZFileName1 = pfc::utf8FromWide(FileName.c_str());
+
+            FileName = _PMD->GetPPZFileName(1);
+
+            if (!FileName.empty())
+                _PPZFileName2 = pfc::utf8FromWide(FileName.c_str());
+        }
     }
 
     return true;
@@ -132,7 +155,7 @@ bool PMDDecoder::Open(const uint8_t * data, size_t size, uint32_t outputFrequenc
 /// <summary>
 /// Returns true if  the buffer points to PMD data.
 /// </summary>
-bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
+bool pmd_decoder_t::IsPMD(const uint8_t * data, size_t size) const noexcept
 {
     return PMD::IsPMD(data, size);
 }
@@ -140,10 +163,11 @@ bool PMDDecoder::IsPMD(const uint8_t * data, size_t size) const noexcept
 /// <summary>
 /// Initializes the decoder.
 /// </summary>
-void PMDDecoder::Initialize() const noexcept
+void pmd_decoder_t::Initialize() noexcept
 {
-    _PMD->UsePPS(CfgUsePPS);
-    _PMD->UseSSG(CfgUseSSG);
+    _PMD->UsePPSForDrums(CfgUsePPS);
+    _PMD->UseSSGForDrums(CfgUseSSG);
+
     _PMD->Start();
 /*
     for (int i = 0; i < MaxChannels; ++i)
@@ -154,29 +178,23 @@ void PMDDecoder::Initialize() const noexcept
     console::printf("PMDDecoder: ADPCM ROM %sloaded.", (_PMD->HasADPCMROM() ? "" : "not "));
     console::printf("PMDDecoder: Percussion samples %sloaded.", (_PMD->HasPercussionSamples() ? "" : "not "));
 
-    std::wstring FileName = _PMD->GetPCMFileName();
+    if (!_PCMFileName.empty())
+        console::printf("PMDDecoder: Requires PCM samples from \"%s\": %sfound.", _PCMFileName.c_str(), (_PMD->GetPCMFilePath().empty() ? "not " : ""));
 
-    if (!FileName.empty())
-        console::printf("PMDDecoder: Requires PCM samples from \"%s\": %sfound.", pfc::utf8FromWide(FileName.c_str()).c_str(), (_PMD->GetPCMFilePath().empty() ? "not " : ""));
+    if (!_PPSFileName.empty())
+        console::printf("PMDDecoder: Requires PPS samples from \"%s\": %sfound.", _PPSFileName.c_str(), (_PMD->GetPPSFilePath().empty() ? "not " : ""));
 
-    FileName = _PMD->GetPPSFileName();
+    if (!_PPZFileName1.empty())
+        console::printf("PMDDecoder: Requires PPZ samples from \"%s\": %sfound.", _PPZFileName1.c_str(), (_PMD->GetPPZFilePath(0).empty() ? "not " : ""));
 
-    if (!FileName.empty())
-        console::printf("PMDDecoder: Requires PPS samples from \"%s\": %sfound.", pfc::utf8FromWide(FileName.c_str()).c_str(), (_PMD->GetPPSFilePath().empty() ? "not " : ""));
-
-    for (size_t i = 0; i < 2; ++i)
-    {
-        FileName = _PMD->GetPPZFileName(i);
-
-        if (!FileName.empty())
-            console::printf("PMDDecoder: Requires PPZ samples from \"%s\": %sfound.", pfc::utf8FromWide(FileName.c_str()).c_str(), (_PMD->GetPPZFilePath(i).empty() ? "not " : ""));
-    }
+    if (!_PPZFileName2.empty())
+        console::printf("PMDDecoder: Requires PPZ samples from \"%s\": %sfound.", _PPZFileName2.c_str(), (_PMD->GetPPZFilePath(1).empty() ? "not " : ""));
 }
 
 /// <summary>
 /// Renders a chunk of audio samples.
 /// </summary>
-size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
+size_t pmd_decoder_t::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
 {
     uint32_t TotalTickCount = _TickCount;
 
@@ -193,9 +211,9 @@ size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
     if ((CfgPlaybackMode == PlaybackModes::LoopWithFadeOut) && (_MaxLoopNumber > 0) && (GetLoopNumber() > _MaxLoopNumber - 1))
         _PMD->SetFadeOutDurationHQ((int) _FadeOutDuration);
 
-    _PMD->Render(&_Samples[0], BlockSize);
+    _PMD->Render(&_Frames[0], BlockSize);
 
-    audioChunk.set_data_fixedpoint(&_Samples[0], (t_size) BlockSize * ((t_size) BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
+    audioChunk.set_data_fixedpoint(&_Frames[0], (t_size) BlockSize * ((t_size) BitsPerSample / 8 * ChannelCount), SampleRate, ChannelCount, BitsPerSample, audio_chunk::g_guess_channel_config(ChannelCount));
 
     return sampleCount;
 }
@@ -203,7 +221,7 @@ size_t PMDDecoder::Render(audio_chunk & audioChunk, size_t sampleCount) noexcept
 /// <summary>
 /// Gets the current decoding position (in ms).
 /// </summary>
-uint32_t PMDDecoder::GetPosition() const noexcept
+uint32_t pmd_decoder_t::GetPosition() const noexcept
 {
     return _PMD->GetPosition();
 }
@@ -211,7 +229,7 @@ uint32_t PMDDecoder::GetPosition() const noexcept
 /// <summary>
 /// Sets the current decoding position (in ms).
 /// </summary>
-void PMDDecoder::SetPosition(uint32_t value) const noexcept
+void pmd_decoder_t::SetPosition(uint32_t value) const noexcept
 {
     _PMD->SetPosition(value);
 };
@@ -219,7 +237,7 @@ void PMDDecoder::SetPosition(uint32_t value) const noexcept
 /// <summary>
 /// Gets the number of the current loop. 0 if not looped yet.
 /// </summary>
-uint32_t PMDDecoder::GetLoopNumber() const noexcept
+uint32_t pmd_decoder_t::GetLoopNumber() const noexcept
 {
     return (uint32_t) _PMD->GetLoopNumber();
 }
@@ -228,7 +246,7 @@ uint32_t PMDDecoder::GetLoopNumber() const noexcept
 /// Returns true if a track is being decoded.
 /// </summary>
 /// <returns></returns>
-bool PMDDecoder::IsBusy() const noexcept
+bool pmd_decoder_t::IsBusy() const noexcept
 {
     return _PMD->IsPlaying();
 }
