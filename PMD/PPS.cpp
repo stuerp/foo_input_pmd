@@ -1,5 +1,5 @@
 
-// PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
+/** $VER: PPS.cpp (2026.01.04) PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60 **/
 
 #include <pch.h>
 
@@ -50,26 +50,23 @@ void pps_t::Reset()
     }
 
     _IsPlaying = false;
-    _SingleNodeMode = false;
-    _LowCPUCheck = false;
+    _IsMonophonic = false;
+    _IsSlowCPU = false;
 
-    data_offset1 = nullptr;
-    data_offset2 = nullptr;
+    _Volume1 = 0;
+    _Data1 = nullptr;
+    _Size1   = 0;
+    _DataXOr1 = 0;
+    _Tick1 = 0;
+    _TickXOr1 = 0;
 
-    data_size1   = 0;
-    data_size2   = 0;
+    _Volume2 = 0;
+    _Data2 = nullptr;
+    _Size2   = 0;
+    _DataXOr2 = 0;
+    _Tick2 = 0;
+    _TickXOr2 = 0;
 
-    data_xor1 = 0;
-    data_xor2 = 0;
-
-    tick1 = 0;
-    tick2 = 0;
-
-    tick_xor1 = 0;
-    tick_xor2 = 0;
-
-    volume1 = 0;
-    volume2 = 0;
 
     _KeyOffVolume = 0;
 
@@ -83,11 +80,11 @@ bool pps_t::Stop(void)
 {
     _IsPlaying = false;
 
-    data_offset1 = nullptr;
-    data_offset2 = nullptr;
+    _Data1 = nullptr;
+    _Data2 = nullptr;
 
-    data_size1   = 0;
-    data_size2   = 0;
+    _Size1   = 0;
+    _Size2   = 0;
 
     return true;
 }
@@ -95,63 +92,48 @@ bool pps_t::Stop(void)
 /// <summary>
 /// Starts the PDR. (01H PDR 再生)
 /// </summary>
-bool pps_t::Start(int sampleNumber, int shift, int volshift)
+bool pps_t::Start(int sampleNumber, int toneShift, int volumeShift)
 {
-    if (_Header.pcmnum[sampleNumber].Address == 0)
+    const auto & PPSSample = _Header.PPSSamples[sampleNumber];
+
+    if (PPSSample._Offset == 0)
         return false;
 
-    int al = 225 + _Header.pcmnum[sampleNumber].ToneOffset;
+    int32_t ToneOffset = (225 + PPSSample._Tone) % 256;
 
-    al = al % 256;
-
-    if (shift < 0)
+    if (toneShift < 0)
     {
-        if ((al += shift) <= 0)
-            al = 1;
+        if ((ToneOffset += toneShift) <= 0)
+            ToneOffset = 1;
     }
     else
     {
-        if ((al += shift) > 255)
-            al = 255;
+        if ((ToneOffset += toneShift) > 255)
+            ToneOffset = 255;
     }
 
-    if (_Header.pcmnum[sampleNumber].VolumeOffset + volshift >= 15)
+    if (PPSSample._Volume + volumeShift >= 15)
         return false;
 
-    // Don't play when the volume is below 0
-    if (_IsPlaying && !_SingleNodeMode)
+    if (_IsPlaying && !_IsMonophonic)
     {
-        //  ２ Polyphony processing
-        volume2      = volume1;          // １音目を２音目に移動
-        data_offset2 = data_offset1;
-        data_size2   = data_size1;
-        data_xor2    = data_xor1;
-        tick2        = tick1;
-        tick_xor2    = tick_xor1;
+        _Volume2  = _Volume1;
+        _Data2    = _Data1;
+        _Size2    = _Size1;
+        _DataXOr2 = _DataXOr1;
+        _Tick2    = _Tick1;
+        _TickXOr2 = _TickXOr1;
     }
     else
-    {
-        //  １音目で再生
-        data_size2 = 0;            // ２音目は停止中
-    }
+        _Size2 = 0;
 
-    volume1      = _Header.pcmnum[sampleNumber].VolumeOffset + volshift;
-    data_offset1 = &_Samples[(_Header.pcmnum[sampleNumber].Address - PPSHEADERSIZE) * 2];
-    data_size1   = _Header.pcmnum[sampleNumber].Size * 2;  // １音目を消して再生
-    data_xor1    = 0;
-
-    if (_LowCPUCheck)
-    {
-        tick1 = ((8000 * al / 225) << 16) / _SampleRate;
-        tick_xor1 = tick1 & 0xffff;
-        tick1 >>= 16;
-    }
-    else
-    {
-        tick1 = ((16000 * al / 225) << 16) / _SampleRate;
-        tick_xor1 = tick1 & 0xffff;
-        tick1 >>= 16;
-    }
+    _Volume1  = PPSSample._Volume + volumeShift;
+    _Data1    = &_Samples[(PPSSample._Offset - PPSHEADERSIZE) * 2];
+    _Size1    = PPSSample._Size * 2;
+    _DataXOr1 = 0;
+    _Tick1    = (((_IsSlowCPU ? 8000 : 16000) * ToneOffset / 225) << 16) / _SampleRate;
+    _TickXOr1 = _Tick1 & 0xFFFF;
+    _Tick1 >>= 16;
 
     _IsPlaying = true;
 
@@ -159,7 +141,7 @@ bool pps_t::Start(int sampleNumber, int shift, int volshift)
 }
 
 /// <summary>
-/// Loads PPS library.
+/// Loads a PPS sample library.
 /// </summary>
 int pps_t::Load(const WCHAR * filePath)
 {
@@ -243,14 +225,14 @@ int pps_t::Load(const WCHAR * filePath)
         ::free(Data);
 
         //  PPS correction (Small noise countermeasure) / Attenuate by 160 samples
-        for (size_t i = 0; i < _countof(_Header.pcmnum); ++i)
+        for (size_t i = 0; i < _countof(_Header.PPSSamples); ++i)
         {
-            const uint32_t End = (uint32_t) (_Header.pcmnum[i].Address - PPSHEADERSIZE * 2) + (uint32_t) (_Header.pcmnum[i].Size * 2);
+            const uint32_t End = (uint32_t) (_Header.PPSSamples[i]._Offset - PPSHEADERSIZE * 2) + (uint32_t) (_Header.PPSSamples[i]._Size * 2);
 
             uint32_t Begin = End - 160;
 
-            if (Begin < _Header.pcmnum[i].Address - PPSHEADERSIZE * 2)
-                Begin = _Header.pcmnum[i].Address - PPSHEADERSIZE * 2;
+            if (Begin < _Header.PPSSamples[i]._Offset - PPSHEADERSIZE * 2)
+                Begin = _Header.PPSSamples[i]._Offset - PPSHEADERSIZE * 2;
 
             for (uint32_t j = Begin; j < End; ++j)
             {
@@ -278,12 +260,12 @@ void pps_t::ReadHeader(File * file, PPSHEADER & header)
 
     file->Read(Data, sizeof(Data));
 
-    for (size_t i = 0; i < _countof(header.pcmnum); ++i)
+    for (size_t i = 0; i < _countof(header.PPSSamples); ++i)
     {
-        header.pcmnum[i].Address      = (uint16_t) (Data[i * 6]     | (Data[i * 6 + 1] << 8));
-        header.pcmnum[i].Size         = (uint16_t) (Data[i * 6 + 2] | (Data[i * 6 + 3] << 8));
-        header.pcmnum[i].ToneOffset   =             Data[i * 6 + 4];
-        header.pcmnum[i].VolumeOffset =             Data[i * 6 + 5];
+        header.PPSSamples[i]._Offset = (uint16_t) (Data[i * 6]     | (Data[i * 6 + 1] << 8));
+        header.PPSSamples[i]._Size   = (uint16_t) (Data[i * 6 + 2] | (Data[i * 6 + 3] << 8));
+        header.PPSSamples[i]._Tone   =             Data[i * 6 + 4];
+        header.PPSSamples[i]._Volume =             Data[i * 6 + 5];
     }
 }
 
@@ -295,11 +277,11 @@ bool pps_t::SetParameter(int index, bool value)
     switch (index)
     {
         case 0:
-            _SingleNodeMode = value;
+            _IsMonophonic = value;
             return true;
 
         case 1:
-            _LowCPUCheck = value;
+            _IsSlowCPU = value;
             return true;
 
         default:
@@ -321,9 +303,9 @@ bool pps_t::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 /// <summary>
 /// Sets the volume.
 /// </summary>
-void pps_t::SetVolume(int vol)
+void pps_t::SetVolume(int volume)
 {
-    double Base = 0x4000 * 2 / 3.0 * ::pow(10.0, vol / 40.0);
+    double Base = 0x4000 * 2 / 3.0 * ::pow(10.0, volume / 40.0);
 
     for (int i = 15; i >= 1; i--)
     {
@@ -367,143 +349,128 @@ void pps_t::Mix(frame32_t * frames, size_t frameCount) noexcept
 
     for (size_t i = 0; i < frameCount; ++i)
     {
-        int al1, al2, ah1, ah2;
+        int l1, l2, h1, h2;
 
-        if (data_size1 > 1)
+        if (_Size1 > 1)
         {
-            al1 = * data_offset1      - volume1;
-            al2 = *(data_offset1 + 1) - volume1;
+            l1 = * _Data1      - _Volume1;
+            l2 = *(_Data1 + 1) - _Volume1;
 
-            if (al1 < 0)
-                al1 = 0;
+            if (l1 < 0)
+                l1 = 0;
 
-            if (al2 < 0)
-                al2 = 0;
+            if (l2 < 0)
+                l2 = 0;
         }
         else
+            l1 = l2 = 0;
+
+        if (_Size2 > 1)
         {
-            al1 = al2 = 0;
-        }
+            h1 = * _Data2      - _Volume2;
+            h2 = *(_Data2 + 1) - _Volume2;
 
-        if (data_size2 > 1)
-        {
-            ah1 = * data_offset2      - volume2;
-            ah2 = *(data_offset2 + 1) - volume2;
+            if (h1 < 0)
+                h1 = 0;
 
-            if (ah1 < 0)
-                ah1 = 0;
-
-            if (ah2 < 0)
-                ah2 = 0;
+            if (h2 < 0)
+                h2 = 0;
         }
         else
-            ah1 = ah2 = 0;
+            h1 = h2 = 0;
 
-        sample_t data;
-
-        //    al1 = table[(al1 << 4) + ah1];
-        //    psg.SetReg(0x0a, al1);
-        if (_UseInterpolation)
-        {
-            data = (_EmitTable[al1] * (0x10000 - data_xor1) + _EmitTable[al2] * data_xor1 +
-                    _EmitTable[ah1] * (0x10000 - data_xor2) + _EmitTable[ah2] * data_xor2) / 0x10000;
-        }
-        else
-            data = _EmitTable[al1] + _EmitTable[ah1];
+        sample_t Sample = _UseInterpolation ? (_EmitTable[l1] * (0x10000 - _DataXOr1) + _EmitTable[l2] * _DataXOr1 + _EmitTable[h1] * (0x10000 - _DataXOr2) + _EmitTable[h2] * _DataXOr2) / 0x10000 : (_EmitTable[l1] + _EmitTable[h1]);
 
         _KeyOffVolume = (_KeyOffVolume * 255) / 256;
 
-        data += _KeyOffVolume;
+        Sample += _KeyOffVolume;
 
-        *Samples++ += data;
-        *Samples++ += data;
+        *Samples++ += Sample;
+        *Samples++ += Sample;
 
-        //    psg.Mix(dest, 1);
-        //    dest += 2;
-        if (data_size2 > 1)
+        if (_Size2 > 1)
         {
-            data_xor2 += tick_xor2;
+            _DataXOr2 += _TickXOr2;
 
-            if (data_xor2 >= 0x10000)
+            if (_DataXOr2 >= 0x10000)
             {
-                data_size2--;
-                data_offset2++;
-                data_xor2 -= 0x10000;
+                _Size2--;
+                _Data2++;
+                _DataXOr2 -= 0x10000;
             }
 
-            data_size2 -= tick2;
-            data_offset2 += tick2;
+            _Size2 -= _Tick2;
+            _Data2 += _Tick2;
 
-            if (_LowCPUCheck)
+            if (_IsSlowCPU)
             {
-                data_xor2 += tick_xor2;
+                _DataXOr2 += _TickXOr2;
 
-                if (data_xor2 >= 0x10000)
+                if (_DataXOr2 >= 0x10000)
                 {
-                    data_size2--;
-                    data_offset2++;
-                    data_xor2 -= 0x10000;
+                    _Size2--;
+                    _Data2++;
+                    _DataXOr2 -= 0x10000;
                 }
 
-                data_size2 -= tick2;
-                data_offset2 += tick2;
+                _Size2 -= _Tick2;
+                _Data2 += _Tick2;
             }
         }
 
-        data_xor1 += tick_xor1;
+        _DataXOr1 += _TickXOr1;
 
-        if (data_xor1 >= 0x10000)
+        if (_DataXOr1 >= 0x10000)
         {
-            data_size1--;
-            data_offset1++;
-            data_xor1 -= 0x10000;
+            _Size1--;
+            _Data1++;
+            _DataXOr1 -= 0x10000;
         }
 
-        data_size1 -= tick1;
-        data_offset1 += tick1;
+        _Size1 -= _Tick1;
+        _Data1 += _Tick1;
 
-        if (_LowCPUCheck)
+        if (_IsSlowCPU)
         {
-            data_xor1 += tick_xor1;
+            _DataXOr1 += _TickXOr1;
 
-            if (data_xor1 >= 0x10000)
+            if (_DataXOr1 >= 0x10000)
             {
-                data_size1--;
-                data_offset1++;
-                data_xor1 -= 0x10000;
+                _Size1--;
+                _Data1++;
+                _DataXOr1 -= 0x10000;
             }
 
-            data_size1   -= tick1;
-            data_offset1 += tick1;
+            _Size1   -= _Tick1;
+            _Data1 += _Tick1;
         }
 
-        if (data_size1 <= 1 && data_size2 <= 1) // Both are stopped
+        if (_Size1 <= 1 && _Size2 <= 1) // Both are stopped
         {
             if (_IsPlaying)
-                _KeyOffVolume += _EmitTable[data_offset1[data_size1 - 1]];
+                _KeyOffVolume += _EmitTable[_Data1[_Size1 - 1]];
 
             _IsPlaying = false; // Stop playing
         }
         else
-        if (data_size1 <= 1 && data_size2 > 1)
+        if (_Size1 <= 1 && _Size2 > 1)
         {
-            // Only the note stops.
-            volume1 = volume2;
-            data_size1 = data_size2;
-            data_offset1 = data_offset2;
-            data_xor1 = data_xor2;
-            tick1 = tick2;
-            tick_xor1 = tick_xor2;
-            data_size2 = 0;
+            _Volume1  = _Volume2;
+            _Size1    = _Size2;
+            _Data1    = _Data2;
+            _DataXOr1 = _DataXOr2;
+            _Tick1    = _Tick2;
+            _TickXOr1 = _TickXOr2;
+
+            _Size2 = 0;
         }
         else
-        if (data_size1 > 1 && data_size2 < 1)
+        if (_Size1 > 1 && _Size2 < 1)
         {
-            // Only the note stops.
-            if (data_offset2 != nullptr)
+            if (_Data2 != nullptr)
             {
-                _KeyOffVolume += _EmitTable[data_offset2[data_size2 - 1]];
-                data_offset2 = nullptr;
+                _KeyOffVolume += _EmitTable[_Data2[_Size2 - 1]];
+                _Data2 = nullptr;
             }
         }
     }

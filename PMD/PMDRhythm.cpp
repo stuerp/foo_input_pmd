@@ -17,9 +17,9 @@ void PMD::RhythmMain(channel_t * channel)
 
     uint8_t * si = channel->Data;
 
-    channel->Length--;
+    channel->_Size--;
 
-    if (channel->Length == 0)
+    if (channel->_Size == 0)
     {
         uint8_t * Data = _State.RhythmData;
 
@@ -49,12 +49,13 @@ void PMD::RhythmMain(channel_t * channel)
 
                 _State.RhythmData = Data;
 
-                channel->Length = al;
+                channel->_Size = al;
                 channel->KeyOnFlag++;
 
-                _Driver.TieNotesTogether = false;
-                _Driver._IsVolumeBoostSet = 0;
-                _Driver._LoopWork &= channel->loopcheck;
+                _Driver._IsTieSet = false;
+                _Driver._VolumeBoostCount = 0;
+
+                _Driver._LoopCheck &= channel->_LoopCheck;
 
                 return;
             }
@@ -77,31 +78,33 @@ void PMD::RhythmMain(channel_t * channel)
             }
 
             channel->Data = (uint8_t *) --si;
-            channel->loopcheck = 3;
 
-            Data = channel->LoopData;
+            channel->_LoopCheck = 0x03;
+
+            Data = channel->_LoopData;
 
             if (Data != nullptr)
             {
-                // "L" command
+                // Start executing a loop.
                 si = Data;
 
-                channel->loopcheck = 1;
+                channel->_LoopCheck = 0x01;
             }
             else
             {
                 _State.RhythmData = &_State.DummyRhythmData;
 
-                _Driver.TieNotesTogether = false;
-                _Driver._IsVolumeBoostSet = 0;
-                _Driver._LoopWork &= channel->loopcheck;
+                _Driver._IsTieSet = false;
+                _Driver._VolumeBoostCount = 0;
+
+                _Driver._LoopCheck &= channel->_LoopCheck;
 
                 return;
             }
         }
     }
 
-    _Driver._LoopWork &= channel->loopcheck;
+    _Driver._LoopCheck &= channel->_LoopCheck;
 }
 
 /// <summary>
@@ -266,11 +269,11 @@ uint8_t * PMD::RhythmKeyOn(channel_t * channel, int al, uint8_t * rhythmData, bo
         {
             if (al & (1 << cl))
             {
-                auto & RhytmDefinition = SSGRhythmDefinitions[cl];
+                auto & SSGRhythm = SSGRhythms[cl];
 
-                _OPNAW->SetReg(RhytmDefinition[0], RhytmDefinition[1]);
+                _OPNAW->SetReg(SSGRhythm.Register, SSGRhythm.Value);
 
-                uint32_t Mask = RhytmDefinition[2] & _State._RhythmMask;
+                uint32_t Mask = SSGRhythm.Mask & _State._RhythmMask;
 
                 if (Mask)
                 {
@@ -354,10 +357,10 @@ uint8_t * PMD::SetRhythmChannelMaskCommand(channel_t * channel, uint8_t * si) no
 /// </summary>
 uint8_t * PMD::DecreaseRhythmVolumeCommand(channel_t *, uint8_t * si)
 {
-    int al = *(int8_t *) si++;
+    int32_t Value = *(int8_t *) si++;
 
-    if (al != 0)
-        _State._RhythmVolumeAdjust = std::clamp(al + _State._RhythmVolumeAdjust, 0, 255);
+    if (Value != 0)
+        _State._RhythmVolumeAdjust = std::clamp(Value + _State._RhythmVolumeAdjust, 0, 255);
     else
         _State._RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust;
 
@@ -497,16 +500,16 @@ uint8_t * PMD::SetRelativeOPNARhythmMasterVolume(uint8_t * si)
 // b: Bass Drum, s: Snare Drum, c: Cymbal, h: Hi-Hat, t: Tom, i: Rim Shot
 uint8_t * PMD::SetOPNARhythmVolumeCommand(uint8_t * si)
 {
-    int dl = *si & 0x1f;
-    int dh = *si++ >> 5;
+    int32_t Value    = *si & 0x1f;
+    int32_t Register = *si++ >> 5;
 
-    int * bx = &_State.RhythmPanAndVolume[dh - 1];
+    int32_t * bx = &_State.RhythmPanAndVolume[Register - 1];
 
-    dh = 0x18 - 1 + dh;
-    dl |= (*bx & 0xc0);
-    *bx = dl;
+    Register = 0x18 - 1 + Register;
+    Value |= (*bx & 0xc0);
+    *bx = Value;
 
-    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
+    _OPNAW->SetReg((uint32_t) Register, (uint32_t) Value);
 
     return si;
 }
@@ -515,12 +518,12 @@ uint8_t * PMD::SetOPNARhythmVolumeCommand(uint8_t * si)
 // b: Bass Drum, s: Snare Drum, c: Cymbal, h: Hi-Hat, t: Tom, i: Rim Shot
 uint8_t * PMD::SetRelativeOPNARhythmVolume(uint8_t * si)
 {
-    int * bx = &_State.RhythmPanAndVolume[*si - 1];
+    int32_t * bx = &_State.RhythmPanAndVolume[*si - 1];
 
-    int dh = *si++ + 0x18 - 1;
+    int32_t Register = *si++ + 0x18 - 1;
+    int32_t Value = *bx & 0x1F;
 
-    int dl = *bx & 0x1F;
-    int al = (*(int8_t *) si++ + dl);
+    int32_t al = (*(int8_t *) si++ + Value);
 
     if (al > 31)
         al = 31;
@@ -528,10 +531,10 @@ uint8_t * PMD::SetRelativeOPNARhythmVolume(uint8_t * si)
     if (al < 0)
         al = 0;
 
-    dl = (al &= 0x1F);
-    dl = *bx = ((*bx & 0xE0) | dl);
+    Value = (al &= 0x1F);
+    Value = *bx = ((*bx & 0xE0) | Value);
 
-    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
+    _OPNAW->SetReg((uint32_t) Register, (uint32_t) Value);
 
     return si;
 }
@@ -539,18 +542,18 @@ uint8_t * PMD::SetRelativeOPNARhythmVolume(uint8_t * si)
 // Command "\p?"
 uint8_t * PMD::SetOPNARhythmPanningCommand(uint8_t * si)
 {
-    int dl = (*si & 0x03) << 6;     // Pan value
-    int dh = (*si++ >> 5) & 0x07;   // Instrument
+    int32_t Value = (*si & 0x03) << 6;     // Pan value
+    int32_t Register = (*si++ >> 5) & 0x07;   // Instrument
 
-    int * bx = &_State.RhythmPanAndVolume[dh - 1];
+    int * bx = &_State.RhythmPanAndVolume[Register - 1];
 
-    dl |= (*bx & 0x1F);
+    Value |= (*bx & 0x1F);
 
-    *bx = dl;
+    *bx = Value;
 
-    dh += 0x18 - 1;
+    Register += 0x18 - 1;
 
-    _OPNAW->SetReg((uint32_t) dh, (uint32_t) dl);
+    _OPNAW->SetReg((uint32_t) Register, (uint32_t) Value);
 
     return si;
 }

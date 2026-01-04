@@ -17,7 +17,7 @@ void PMD::ADPCMMain(channel_t * channel)
 
     uint8_t * si = channel->Data;
 
-    channel->Length--;
+    channel->_Size--;
 
     if (channel->PartMask != 0x00)
     {
@@ -26,7 +26,7 @@ void PMD::ADPCMMain(channel_t * channel)
     else
     if ((channel->KeyOffFlag & 0x03) == 0)
     {
-        if (channel->Length <= channel->GateTime)
+        if (channel->_Size <= channel->GateTime)
         {
             ADPCMKeyOff(channel);
 
@@ -34,7 +34,7 @@ void PMD::ADPCMMain(channel_t * channel)
         }
     }
 
-    if (channel->Length == 0)
+    if (channel->_Size == 0)
     {
         channel->HardwareLFOModulationMode &= 0xF7;
 
@@ -48,16 +48,18 @@ void PMD::ADPCMMain(channel_t * channel)
             if (*si == 0x80)
             {
                 channel->Data = si;
-                channel->loopcheck = 3;
+                channel->_LoopCheck = 0x03;
+
                 channel->Tone = 0xFF;
 
-                if (channel->LoopData == nullptr)
+                if (channel->_LoopData == nullptr)
                 {
                     if (channel->PartMask != 0x00)
                     {
-                        _Driver.TieNotesTogether = false;
-                        _Driver._IsVolumeBoostSet = 0;
-                        _Driver._LoopWork &= channel->loopcheck;
+                        _Driver._IsTieSet = false;
+                        _Driver._VolumeBoostCount = 0;
+
+                        _Driver._LoopCheck &= channel->_LoopCheck;
 
                         return;
                     }
@@ -65,9 +67,10 @@ void PMD::ADPCMMain(channel_t * channel)
                         break;
                 }
 
-                si = channel->LoopData;
+                // Start executing a loop.
+                si = channel->_LoopData;
 
-                channel->loopcheck = 1;
+                channel->_LoopCheck = 0x01;
             }
             else
             {
@@ -75,7 +78,7 @@ void PMD::ADPCMMain(channel_t * channel)
                 {
                     si = SetADPCMPortamentoCommand(channel, ++si);
 
-                    _Driver._LoopWork &= channel->loopcheck;
+                    _Driver._LoopCheck &= channel->_LoopCheck;
 
                     return;
                 }
@@ -87,30 +90,30 @@ void PMD::ADPCMMain(channel_t * channel)
                     // Set to 'rest'.
                     channel->Factor = 0;
                     channel->Tone   = 0xFF;
-                    channel->Length = *si++;
+                    channel->_Size = *si++;
                     channel->KeyOnFlag++;
 
                     channel->Data = si;
 
-                    if (--_Driver._IsVolumeBoostSet)
+                    if (--_Driver._VolumeBoostCount)
                         channel->VolumeBoost = 0;
 
-                    _Driver.TieNotesTogether = false;
-                    _Driver._IsVolumeBoostSet = 0;
+                    _Driver._IsTieSet = false;
+                    _Driver._VolumeBoostCount = 0;
                     break;
                 }
 
                 SetADPCMTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
 
-                channel->Length = *si++;
+                channel->_Size = *si++;
 
                 si = CalculateQ(channel, si);
 
                 if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
                 {
-                    if (--_Driver._IsVolumeBoostSet)
+                    if (--_Driver._VolumeBoostCount)
                     {
-                        _Driver._IsVolumeBoostSet = 0;
+                        _Driver._VolumeBoostCount = 0;
                         channel->VolumeBoost = 0;
                     }
                 }
@@ -124,13 +127,13 @@ void PMD::ADPCMMain(channel_t * channel)
                 channel->KeyOnFlag++;
                 channel->Data = si;
 
-                _Driver.TieNotesTogether = false;
-                _Driver._IsVolumeBoostSet = 0;
+                _Driver._IsTieSet = false;
+                _Driver._VolumeBoostCount = 0;
 
                 // Don't perform Key Off if a "&" command (Tie) follows immediately.
                 channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
 
-                _Driver._LoopWork &= channel->loopcheck;
+                _Driver._LoopCheck &= channel->_LoopCheck;
 
                 return;
             }
@@ -175,7 +178,7 @@ void PMD::ADPCMMain(channel_t * channel)
     if ((temp != 0) || _Driver._HardwareLFOModulationMode & 0x22 || (_State.FadeOutSpeed != 0))
         SetADPCMVolumeCommand(channel);
 
-    _Driver._LoopWork &= channel->loopcheck;
+    _Driver._LoopCheck &= channel->_LoopCheck;
 }
 
 uint8_t * PMD::ExecuteADPCMCommand(channel_t * channel, uint8_t * si)
@@ -611,16 +614,17 @@ uint8_t * PMD::SetADPCMPortamentoCommand(channel_t * channel, uint8_t * si)
         // Set to 'rest'.
         channel->Factor = 0;
         channel->Tone   = 0xFF;
-        channel->Length = si[2];
+        channel->_Size = si[2];
         channel->Data   = si + 3;
         channel->KeyOnFlag++;
 
-        if (--_Driver._IsVolumeBoostSet)
+        if (--_Driver._VolumeBoostCount)
             channel->VolumeBoost = 0;
 
-        _Driver.TieNotesTogether = false;
-        _Driver._IsVolumeBoostSet = 0;
-        _Driver._LoopWork &= channel->loopcheck;
+        _Driver._IsTieSet = false;
+        _Driver._VolumeBoostCount = 0;
+
+        _Driver._LoopCheck &= channel->_LoopCheck;
 
         return si + 3; // Skip when muted
     }
@@ -639,21 +643,21 @@ uint8_t * PMD::SetADPCMPortamentoCommand(channel_t * channel, uint8_t * si)
 
     ax -= bx_;
 
-    channel->Length = *si++;
+    channel->_Size = *si++;
 
     si = CalculateQ(channel, si);
 
-    channel->PortamentoQuotient = ax / channel->Length;
-    channel->PortamentoRemainder = ax % channel->Length;
+    channel->PortamentoQuotient = ax / channel->_Size;
+    channel->PortamentoRemainder = ax % channel->_Size;
     channel->HardwareLFOModulationMode |= 0x08; // Enable portamento.
 
     if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
     {
-        if (--_Driver._IsVolumeBoostSet)
+        if (--_Driver._VolumeBoostCount)
         {
             channel->VolumeBoost = 0;
 
-            _Driver._IsVolumeBoostSet = 0;
+            _Driver._VolumeBoostCount = 0;
         }
     }
 
@@ -666,13 +670,13 @@ uint8_t * PMD::SetADPCMPortamentoCommand(channel_t * channel, uint8_t * si)
     channel->KeyOnFlag++;
     channel->Data = si;
 
-    _Driver.TieNotesTogether = false;
-    _Driver._IsVolumeBoostSet = 0;
+    _Driver._IsTieSet = false;
+    _Driver._VolumeBoostCount = 0;
 
     // Don't perform Key Off if a "&" command (Tie) follows immediately.
     channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
 
-    _Driver._LoopWork &= channel->loopcheck;
+    _Driver._LoopCheck &= channel->_LoopCheck;
 
     return si;
 }

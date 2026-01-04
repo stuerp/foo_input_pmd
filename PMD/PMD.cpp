@@ -287,7 +287,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 /// </summary>
 void PMD::Start()
 {
-    if (_State.IsTimerABusy || _State.IsTimerBBusy)
+    if (_InTimerAInterrupt || _InTimerBInterrupt)
     {
         _Driver._Flags |= DriverStartRequested; // Delay the start of the driver until timer processing has finished.
 
@@ -302,7 +302,7 @@ void PMD::Start()
 /// </summary>
 void PMD::Stop()
 {
-    if (_State.IsTimerABusy || _State.IsTimerBBusy)
+    if (_InTimerAInterrupt || _InTimerBInterrupt)
     {
         _Driver._Flags |= DriverStopRequested; // Delay stopping the driver until timer processing has finished.
     }
@@ -347,10 +347,10 @@ void PMD::Render(int16_t * frames, size_t frameCount)
             }
 
             if (_OPNAW->ReadStatus() & 0x01)
-                HandleTimerA();
+                HandleTimerAInterrupt();
 
             if (_OPNAW->ReadStatus() & 0x02)
-                HandleTimerB();
+                HandleTimerBInterrupt();
 
             _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Reset both timer A and B.
 
@@ -462,10 +462,10 @@ bool PMD::GetLength(int * songLength, int * loopLength, int * songTicks, int * l
     {
         {
             if (_OPNAW->ReadStatus() & 0x01)
-                HandleTimerA();
+                HandleTimerAInterrupt();
 
             if (_OPNAW->ReadStatus() & 0x02)
-                HandleTimerB();
+                HandleTimerBInterrupt();
 
             _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Reset both timer A and B.
 
@@ -549,10 +549,10 @@ void PMD::SetPosition(uint32_t position)
     while (_Position < NewPosition)
     {
         if (_OPNAW->ReadStatus() & 0x01)
-            HandleTimerA();
+            HandleTimerAInterrupt();
 
         if (_OPNAW->ReadStatus() & 0x02)
-            HandleTimerB();
+            HandleTimerBInterrupt();
 
         _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
 
@@ -593,10 +593,10 @@ void PMD::SetPositionInTicks(int tickCount)
     while (((_State.BarLength * _State.BarCounter) + _State.OpsCounter) < tickCount)
     {
         if (_OPNAW->ReadStatus() & 0x01)
-            HandleTimerA();
+            HandleTimerAInterrupt();
 
         if (_OPNAW->ReadStatus() & 0x02)
-            HandleTimerB();
+            HandleTimerBInterrupt();
 
         _OPNAW->SetReg(0x27, _State.FMChannel3Mode | 0x30); // Timer Reset (Both timer A and B)
 
@@ -814,7 +814,7 @@ int PMD::DisableChannel(int channel)
             case 4:
             {
                 if (_SSGEffect._Number < 11)
-                    StopEffect();
+                    SSGStopEffect();
                 break;
             }
 
@@ -974,13 +974,14 @@ void PMD::Reset()
         _State.EData = _EData;
     }
 
+    _InTimerAInterrupt = false;
+    _InTimerBInterrupt = false;
+
     _State.OPNASampleRate = FREQUENCY_44_1K;
     _State.PPZSampleRate = FREQUENCY_44_1K;
 
     _State.StopAfterFadeout = false;
-    _State.IsTimerBBusy = false;
 
-    _State.IsTimerABusy = false;
     _State.TimerBTempo = 0x100;
 
     _IsUsingP86 = false;
@@ -1270,11 +1271,11 @@ void PMD::InitializeOPN()
 }
 
 /// <summary>
-///
+/// Handles an interrupt from timer A.
 /// </summary>
-void PMD::HandleTimerA()
+void PMD::HandleTimerAInterrupt()
 {
-    _State.IsTimerABusy = true;
+    _InTimerAInterrupt = true;
 
     {
         _State.TimerACounter++;
@@ -1283,18 +1284,18 @@ void PMD::HandleTimerA()
             Fade();
 
         if ((_SSGEffect._Priority != 0) && (!_UsePPSForDrums || (_SSGEffect._Number == 0x80)))
-            PlayEffect(); // Use the SSG to play an effect.
+            SSGPlayEffect();
     }
 
-    _State.IsTimerABusy = false;
+    _InTimerAInterrupt = false;
 }
 
 /// <summary>
-///
+/// Handles an interrupt from timer B.
 /// </summary>
-void PMD::HandleTimerB()
+void PMD::HandleTimerBInterrupt()
 {
-    _State.IsTimerBBusy = true;
+    _InTimerBInterrupt = true;
 
     if (_Driver._Flags != DriverIdle)
     {
@@ -1315,7 +1316,7 @@ void PMD::HandleTimerB()
         _Driver._PreviousTimerACounter = _State.TimerACounter;
     }
 
-    _State.IsTimerBBusy = false;
+    _InTimerBInterrupt = false;
 }
 
 #pragma region Commands
@@ -1347,7 +1348,7 @@ uint8_t * PMD::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_t command
         // 4.10. Tie/Slur Setting, Connects the sound before and after as a tie (&). Keyoff will not be done on the previous note. 
         case 0xFB:
         {
-            _Driver.TieNotesTogether = true;
+            _Driver._IsTieSet = true;
             break;
         }
 
@@ -1383,7 +1384,11 @@ uint8_t * PMD::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_t command
         // 10.2. Global Loop Setting, Command 'L'
         case 0xF6:
         {
-            channel->LoopData = si;
+            channel->_LoopData = si;
+
+            // Prevent an endless loop.
+            if (*channel->_LoopData == 0x80)
+                channel->_LoopData = nullptr;
             break;
         }
 
@@ -1728,7 +1733,7 @@ uint8_t * PMD::IncreaseVolumeForNextNote(channel_t * channel, uint8_t * si, int 
         Volume = maxVolume;
 
     channel->VolumeBoost = Volume;
-    _Driver._IsVolumeBoostSet = true;
+    _Driver._VolumeBoostCount = 1;
 
     return si;
 }
@@ -1744,7 +1749,7 @@ uint8_t * PMD::DecreaseVolumeForNextNote(channel_t * channel, uint8_t * si)
         Volume = 1;
 
     channel->VolumeBoost = Volume;
-    _Driver._IsVolumeBoostSet = true;
+    _Driver._VolumeBoostCount = 1;
 
     return si;
 }
@@ -1974,7 +1979,7 @@ uint8_t * PMD::SetEndOfLoopCommand(channel_t * channel, uint8_t * si)
     else // Loop endlessly.
     {
         si++; // Skip loop count.
-        channel->loopcheck = 1;
+        channel->_LoopCheck = 0x01;
     }
 
     // Jump to offset + 2.
@@ -2131,7 +2136,7 @@ uint8_t * PMD::CalculateQ(channel_t * channel, uint8_t * si)
     int dl = channel->EarlyKeyOffTimeout;
 
     if (channel->EarlyKeyOffTimeoutPercentage != 0)
-        dl += (channel->Length * channel->EarlyKeyOffTimeoutPercentage) >> 8;
+        dl += (channel->_Size * channel->EarlyKeyOffTimeoutPercentage) >> 8;
 
     if (channel->EarlyKeyOffTimeoutRandomRange != 0)
     {
@@ -2152,7 +2157,7 @@ uint8_t * PMD::CalculateQ(channel_t * channel, uint8_t * si)
 
     if (channel->EarlyKeyOffTimeout2 != 0)
     {
-        int dh = channel->Length - channel->EarlyKeyOffTimeout2;
+        int dh = channel->_Size - channel->EarlyKeyOffTimeout2;
 
         if (dh < 0)
         {
@@ -2390,7 +2395,7 @@ void PMD::InitializeChannels()
         else
             _FMChannels[i].Data = &_State.MData[*Offsets];
 
-        _FMChannels[i].Length = 1;
+        _FMChannels[i]._Size = 1;
         _FMChannels[i].KeyOffFlag = -1;
         _FMChannels[i].LFO1MDepthCount1 = -1;    // LFO1MDepth Counter (-1 = infinite)
         _FMChannels[i].LFO1MDepthCount2 = -1;
@@ -2413,7 +2418,7 @@ void PMD::InitializeChannels()
         else
             _SSGChannels[i].Data = &_State.MData[*Offsets];
 
-        _SSGChannels[i].Length = 1;
+        _SSGChannels[i]._Size = 1;
         _SSGChannels[i].KeyOffFlag = -1;
         _SSGChannels[i].LFO1MDepthCount1 = -1;   // LFO1MDepth Counter (-1 = infinite)
         _SSGChannels[i].LFO1MDepthCount2 = -1;
@@ -2435,7 +2440,7 @@ void PMD::InitializeChannels()
         else
             _ADPCMChannel.Data = &_State.MData[*Offsets];
 
-        _ADPCMChannel.Length = 1;
+        _ADPCMChannel._Size = 1;
         _ADPCMChannel.KeyOffFlag = -1;
         _ADPCMChannel.LFO1MDepthCount1 = -1;
         _ADPCMChannel.LFO1MDepthCount2 = -1;
@@ -2456,7 +2461,7 @@ void PMD::InitializeChannels()
         else
             _RhythmChannel.Data = &_State.MData[*Offsets];
 
-        _RhythmChannel.Length = 1;
+        _RhythmChannel._Size = 1;
         _RhythmChannel.KeyOffFlag = -1;
         _RhythmChannel.LFO1MDepthCount1 = -1;
         _RhythmChannel.LFO1MDepthCount2 = -1;

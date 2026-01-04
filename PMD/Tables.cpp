@@ -57,9 +57,10 @@ const int FMScaleFactor[] =
     0x0410, // A
     0x044e, // B-
     0x048f, // B
+
     0x0ee8, // 0x0c
     0x0e12, // 0x0d
-    0x0d48 // 0x0e
+    0x0d48  // 0x0e
 };
 
 // SSG Scale Factor
@@ -77,9 +78,10 @@ const int SSGScaleFactor[] =
     0x08dd, // A
     0x085e, // B-
     0x07e6, // B
+
     0x8080, // 0x0c
     0x8080, // 0x0d
-    0xe0a0 // 0x0e
+    0xe0a0  // 0x0e
 };
 
 // ADPCM Scale Factor
@@ -97,9 +99,10 @@ const int PCMScaleFactor[] =
     0x52c4 * 2, // A
     0x57b1 * 2, // A+
     0x5ce8 * 2, // B
-    0x3e80,  // 0x0c
-    0x3c73,  // 0x0d
-    0x7400  // 0x0e
+
+    0x3e80,     // 0x0c
+    0x3c73,     // 0x0d
+    0x7400      // 0x0e
 };
 
 // P86 Scale Factor
@@ -209,7 +212,6 @@ const uint32_t P86ScaleFactor[] =
     0xff0D76A2
 };
 
-
 // PPZ Scale Factor
 const int PPZScaleFactor[] =
 {
@@ -225,9 +227,10 @@ const int PPZScaleFactor[] =
     0xd747, // A
     0xe418, // A+
     0xf1a5, // B
+
     0x3e80, // 0x0c
     0x42de, // 0x0d
-    0x7400 // 0x0e
+    0x7400  // 0x0e
 };
 
 // FM Tone Carrier table
@@ -237,7 +240,7 @@ const int FMToneCarrier[] =
     0xee, 0xee, 0xee, 0xee, 0xcc, 0x88, 0x88, 0x00
 };
 
-const uint32_t SSGRhythmDefinitions[][3] =
+const ssg_rhythm_t SSGRhythms[] =
 {
     // Register, Pan/Volume, Mask
     { 0x18, 0xdf, 0x01 }, // Bass Drum
@@ -287,6 +290,7 @@ const int D_005[] = {  // Rim Shot                 1990-06-22 05:51:57
       2, 55,  0,  0, 62, 16, 44,  1,  0,100,  0,
     -1
 };
+
 const int D_006[] = {  // Snare Drum 2             1990-06-22 05:52:36
      16,  0,  0, 15, 55, 16,184, 11,  0,  0,-15,
     -1

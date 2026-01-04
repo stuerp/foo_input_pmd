@@ -243,8 +243,8 @@ private:
     void ConvertTimerBTempoToMetronomeTempo();
     void ConvertMetronomeTempoToTimerBTempo();
     void SetTimerBTempo();
-    void HandleTimerA();
-    void HandleTimerB();
+    void HandleTimerAInterrupt();
+    void HandleTimerBInterrupt();
     void IncreaseBarCounter();
 
     void GetText(const uint8_t * data, size_t size, int al, char * text, size_t max) const noexcept;
@@ -399,12 +399,12 @@ private:
 
     #pragma region Effect
 
-    void EffectMain(channel_t * channel, int al);
+    void SSGEffectMain(channel_t * channel, int al);
 
-    void PlayEffect() noexcept;
-    void StartEffect(const int * si);
-    void StopEffect();
-    void Sweep();
+    void SSGPlayEffect() noexcept;
+    void SSGStartEffect(const int * si);
+    void SSGStopEffect();
+    void SSGSweep();
 
     #pragma endregion
 
@@ -534,6 +534,9 @@ private:
     std::wstring _PPZFilePath[2];
 
     #pragma region Dynamic Settings
+
+    bool _InTimerAInterrupt;
+    bool _InTimerBInterrupt;
 
     bool _IsPlaying;
     bool _IsUsingP86;

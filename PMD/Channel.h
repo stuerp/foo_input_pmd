@@ -1,5 +1,5 @@
 
-/** $VER: Channel.h (2026.01.03) Represents a sound source channel (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: Channel.h (2026.01.04) Represents a sound source channel (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -7,8 +7,10 @@ class channel_t
 {
 public:
     uint8_t * Data;
-    uint8_t * LoopData;
-    int Length;
+    uint8_t * _LoopData;
+    int32_t _Size;
+
+    uint8_t _LoopCheck; // Used to check When a loop ends.
 
     uint32_t Factor;    // Current playing BLOCK/FNUM
     int _DetuneValue;
@@ -80,7 +82,6 @@ public:
 
     int SSGMask;         // Tone / Noise / Mix
     int InstrumentNumber;
-    int loopcheck;      // When the loop ends
 
     int ToneMask;       // Maskdata for FM tone definition
 
@@ -102,7 +103,7 @@ public:
     int SlotDelayCounter;
     int SlotDelayMask;
 
-    int AlgorithmAndFeedbackLoops;  // 1 Tone alg/fb
+    int AlgorithmAndFeedbackLoops;
 
     int GateTime;       // Calculated from q/Q value
 

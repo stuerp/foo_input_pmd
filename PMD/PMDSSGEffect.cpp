@@ -10,7 +10,7 @@
 
 #include "OPNAW.h"
 
-void PMD::EffectMain(channel_t * channel, int effectNumber)
+void PMD::SSGEffectMain(channel_t * channel, int effectNumber)
 {
     if (_UsePPSForDrums && (effectNumber & 0x80))
     {
@@ -55,25 +55,28 @@ void PMD::EffectMain(channel_t * channel, int effectNumber)
 
             _SSGChannels[2].PartMask |= 0x02;
 
-            StartEffect(SSGEffects[effectNumber].Data);
+            SSGStartEffect(SSGEffects[effectNumber].Data);
 
             _SSGEffect._Priority = SSGEffects[effectNumber].Priority;
         }
     }
 }
 
-void PMD::PlayEffect() noexcept
+/// <summary>
+/// Plays an SSG effect.
+/// </summary>
+void PMD::SSGPlayEffect() noexcept
 {
     if (--_SSGEffect._ToneCounter)
-        Sweep();
+        SSGSweep();
     else
-        StartEffect(_SSGEffect._Address);
+        SSGStartEffect(_SSGEffect._Address);
 }
 
 /// <summary>
 /// Starts to play an effect on the SSG.
 /// </summary>
-void PMD::StartEffect(const int * si)
+void PMD::SSGStartEffect(const int * si)
 {
     int ToneCounter = *si++;
 
@@ -109,13 +112,13 @@ void PMD::StartEffect(const int * si)
         _OldSSGNoiseFrequency = _SSGEffect._NoisePeriod;
     }
     else
-        StopEffect();
+        SSGStopEffect();
 }
 
 /// <summary>
 /// Stops the SSG from playing an effect.
 /// </summary>
-void PMD::StopEffect()
+void PMD::SSGStopEffect()
 {
     if (_UsePPSForDrums)
         _PPS->Stop();
@@ -130,7 +133,7 @@ void PMD::StopEffect()
 /// <summary>
 /// Performs the tone and noise sweep.
 /// </summary>
-void PMD::Sweep()
+void PMD::SSGSweep()
 {
     // Sweep the tone.
     {

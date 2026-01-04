@@ -17,7 +17,7 @@ void PMD::FMMain(channel_t * channel) noexcept
 
     uint8_t * si = channel->Data;
 
-    channel->Length--;
+    channel->_Size--;
 
     if (channel->PartMask != 0x00)
     {
@@ -26,7 +26,7 @@ void PMD::FMMain(channel_t * channel) noexcept
     else
     if ((channel->KeyOffFlag & 0x03) == 0)
     {
-        if (channel->Length <= channel->GateTime)
+        if (channel->_Size <= channel->GateTime)
         {
             FMKeyOff(channel);
 
@@ -34,14 +34,14 @@ void PMD::FMMain(channel_t * channel) noexcept
         }
     }
 
-    if (channel->Length == 0)
+    if (channel->_Size == 0)
     {
         if (channel->PartMask == 0x00)
             channel->HardwareLFOModulationMode &= 0xF7;
 
         while (1)
         {
-            if ((*si != 0xDA) && (*si > 0x80))
+            if ((*si > 0x80) && (*si != 0xDA))
             {
                 si = ExecuteFMCommand(channel, si);
             }
@@ -49,16 +49,18 @@ void PMD::FMMain(channel_t * channel) noexcept
             if (*si == 0x80)
             {
                 channel->Data = si;
-                channel->loopcheck = 3;
                 channel->Tone = 0xFF;
 
-                if (channel->LoopData == nullptr)
+                channel->_LoopCheck = 0x03;
+
+                if (channel->_LoopData == nullptr)
                 {
                     if (channel->PartMask != 0x00)
                     {
-                        _Driver.TieNotesTogether = false;
-                        _Driver._IsVolumeBoostSet = 0;
-                        _Driver._LoopWork &= channel->loopcheck;
+                        _Driver._IsTieSet = false;
+                        _Driver._VolumeBoostCount = 0;
+
+                        _Driver._LoopCheck &= channel->_LoopCheck;
 
                         return;
                     }
@@ -67,15 +69,16 @@ void PMD::FMMain(channel_t * channel) noexcept
                 }
 
                 // Start executing a loop.
-                si = channel->LoopData;
-                channel->loopcheck = 1;
+                si = channel->_LoopData;
+
+                channel->_LoopCheck = 0x01;
             }
             else
             if (*si == 0xDA)
             {
                 si = SetFMPortamentoCommand(channel, ++si);
 
-                _Driver._LoopWork &= channel->loopcheck;
+                _Driver._LoopCheck &= channel->_LoopCheck;
 
                 return;
             }
@@ -84,15 +87,15 @@ void PMD::FMMain(channel_t * channel) noexcept
             {
                 SetFMTone(channel, Transpose(channel, StartLFO(channel, *si++)));
 
-                channel->Length = *si++;
+                channel->_Size = *si++;
 
                 si = CalculateQ(channel, si);
 
                 if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
                 {
-                    if (--_Driver._IsVolumeBoostSet)
+                    if (--_Driver._VolumeBoostCount)
                     {
-                        _Driver._IsVolumeBoostSet = 0;
+                        _Driver._VolumeBoostCount = 0;
                         channel->VolumeBoost = 0;
                     }
                 }
@@ -104,13 +107,13 @@ void PMD::FMMain(channel_t * channel) noexcept
                 channel->KeyOnFlag++;
                 channel->Data = si;
 
-                _Driver.TieNotesTogether = false;
-                _Driver._IsVolumeBoostSet = 0;
+                _Driver._IsTieSet = false;
+                _Driver._VolumeBoostCount = 0;
 
                 // Don't perform Key Off if a "&" command (Tie) follows immediately.
                 channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
 
-                _Driver._LoopWork &= channel->loopcheck;
+                _Driver._LoopCheck &= channel->_LoopCheck;
 
                 return;
             }
@@ -122,16 +125,16 @@ void PMD::FMMain(channel_t * channel) noexcept
                 channel->Factor      = 0;
                 channel->Tone        = 0xFF;
                 channel->DefaultTone = 0xFF;
-                channel->Length      = *si++;
+                channel->_Size      = *si++;
                 channel->KeyOnFlag++;
 
                 channel->Data = si;
 
-                if (--_Driver._IsVolumeBoostSet)
+                if (--_Driver._VolumeBoostCount)
                     channel->VolumeBoost = 0;
 
-                _Driver.TieNotesTogether = false;
-                _Driver._IsVolumeBoostSet = 0;
+                _Driver._IsTieSet = false;
+                _Driver._VolumeBoostCount = 0;
                 break;
             }
         }
@@ -190,7 +193,8 @@ void PMD::FMMain(channel_t * channel) noexcept
             if (_Driver._HardwareLFOModulationMode & 0x22)
             {
                 SetFMVolumeCommand(channel);
-                _Driver._LoopWork &= channel->loopcheck;
+
+                _Driver._LoopCheck &= channel->_LoopCheck;
 
                 return;
             }
@@ -200,7 +204,7 @@ void PMD::FMMain(channel_t * channel) noexcept
             SetFMVolumeCommand(channel);
     }
 
-    _Driver._LoopWork &= channel->loopcheck;
+    _Driver._LoopCheck &= channel->_LoopCheck;
 }
 
 /// <summary>
@@ -783,16 +787,17 @@ uint8_t * PMD::SetFMPortamentoCommand(channel_t * channel, uint8_t * si)
         // Set to 'rest'.
         channel->Factor = 0;
         channel->Tone   = 0xFF;
-        channel->Length = si[2];
+        channel->_Size = si[2];
         channel->Data   = si + 3;
         channel->KeyOnFlag++;
 
-        if (--_Driver._IsVolumeBoostSet)
+        if (--_Driver._VolumeBoostCount)
             channel->VolumeBoost = 0;
 
-        _Driver.TieNotesTogether = false;
-        _Driver._IsVolumeBoostSet = 0;
-        _Driver._LoopWork &= channel->loopcheck;
+        _Driver._IsTieSet = false;
+        _Driver._VolumeBoostCount = 0;
+
+        _Driver._LoopCheck &= channel->_LoopCheck;
 
         return si + 3;
     }
@@ -823,21 +828,21 @@ uint8_t * PMD::SetFMPortamentoCommand(channel_t * channel, uint8_t * si)
     bx = (bx & 0x7ff) - (cx & 0x7ff);
     ax += bx;
 
-    channel->Length = *si++;
+    channel->_Size = *si++;
 
     si = CalculateQ(channel, si);
 
-    channel->PortamentoQuotient  = ax / channel->Length;
-    channel->PortamentoRemainder = ax % channel->Length;
+    channel->PortamentoQuotient  = ax / channel->_Size;
+    channel->PortamentoRemainder = ax % channel->_Size;
 
     channel->HardwareLFOModulationMode |= 0x08; // Enable portamento.
 
     if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
     {
-        if (--_Driver._IsVolumeBoostSet)
+        if (--_Driver._VolumeBoostCount)
         {
             channel->VolumeBoost = 0;
-            _Driver._IsVolumeBoostSet = 0;
+            _Driver._VolumeBoostCount = 0;
         }
     }
 
@@ -848,13 +853,13 @@ uint8_t * PMD::SetFMPortamentoCommand(channel_t * channel, uint8_t * si)
     channel->KeyOnFlag++;
     channel->Data = si;
 
-    _Driver.TieNotesTogether = false;
-    _Driver._IsVolumeBoostSet = 0;
+    _Driver._IsTieSet = false;
+    _Driver._VolumeBoostCount = 0;
 
     // Don't perform Key Off if a "&" command (Tie) follows immediately.
     channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
 
-    _Driver._LoopWork &= channel->loopcheck;
+    _Driver._LoopCheck &= channel->_LoopCheck;
 
     return si;
 }
@@ -1685,7 +1690,7 @@ void PMD::ClearFM3(int & ah, int & al) noexcept
 void PMD::InitializeFMChannel3(channel_t * channel, uint8_t * ax)
 {
     channel->Data = ax;
-    channel->Length = 1;
+    channel->_Size = 1;
     channel->KeyOffFlag = -1;
     channel->LFO1MDepthCount1 = -1; // Infinity
     channel->LFO1MDepthCount2 = -1; // Infinity

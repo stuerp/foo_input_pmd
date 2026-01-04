@@ -1,5 +1,5 @@
 
-// PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60
+/** $VER: PPS.h (2026.01.04) PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60 **/
 
 #pragma once
 
@@ -26,11 +26,11 @@ struct PPSHEADER
 {
     struct
     {
-        uint16_t Address;
-        uint16_t Size;
-        uint8_t ToneOffset;
-        uint8_t VolumeOffset;
-    } pcmnum[MAX_PPS];
+        uint16_t _Offset;
+        uint16_t _Size;
+        uint8_t _Tone;
+        uint8_t _Volume;
+    } PPSSamples[MAX_PPS];
 };
 #pragma pack(pop)
 
@@ -76,24 +76,24 @@ private:
     sample_t _EmitTable[16];
 
     sample_t * _Samples;
-    sample_t * data_offset1;
-    sample_t * data_offset2;
 
     bool _IsPlaying;
+    bool _IsMonophonic;
+    bool _IsSlowCPU;      // Play at half frequency?
 
-    bool _SingleNodeMode;
-    bool _LowCPUCheck;      // Play at half frequency?
+    int _Volume1;
+    sample_t * _Data1;
+    int _Size1;
+    int _DataXOr1;
+    int _Tick1;
+    int _TickXOr1;
 
-    int data_xor1;          // Current position (decimal part)
-    int data_xor2;          // Current position (decimal part)
-    int tick1;
-    int tick2;
-    int tick_xor1;
-    int tick_xor2;
-    int data_size1;
-    int data_size2;
-    int volume1;
-    int volume2;
+    int _Volume2;
+    sample_t * _Data2;
+    int _Size2;
+    int _DataXOr2;
+    int _Tick2;
+    int _TickXOr2;
 
     sample_t _KeyOffVolume;
 };

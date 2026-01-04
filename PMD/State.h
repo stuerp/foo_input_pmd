@@ -85,7 +85,7 @@ public:
     channel_t * Channel[MaxChannels];
 
     uint32_t _RhythmMask;               // Rhythm sound source mask. Compatible with x8c/10h bit
-    int _RhythmVolume;                   // Rhythm volume
+    int _RhythmVolume;                  // Rhythm volume
 
     int FMVolumeAdjust, DefaultFMVolumeAdjust;
     int SSGVolumeAdjust, DefaultSSGVolumeAdjust;
@@ -151,10 +151,8 @@ public:
 
     uint32_t FMChannel3Mode;
 
-    bool IsTimerABusy;
     int TimerACounter;
 
-    bool IsTimerBBusy;
     int TimerBTempo;                    // Current value of TimerB (= ff_tempo during ff)
 
     uint32_t OPNASampleRate;            // PCM output frequency (11k, 22k, 44k, 55k)

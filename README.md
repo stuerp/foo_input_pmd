@@ -107,12 +107,13 @@ To create the component first build the x86 configuration and next the x64 confi
 
 ## Change Log
 
-v0.4.3, 2026-01-03
+v0.5.0, 2026-01-xx
 
 * Improved: Try to load .MZ files as PMD files.
 * Fixed: Incorrect rest processing led to incorrect playback length.
 * Fixed: Set Pan 2 command (px ±value1 [, value2])
 * Fixed: "Use PPS" option was ignored.
+* Fixed: Added endless loop detection to 'L' command. Fix for mjgensk1_98/MF98N03.M.
 
 v0.4.2, 2025-12-21, *"Has it really been 2 years?"*
 

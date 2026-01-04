@@ -144,7 +144,7 @@ int PMD::StartLFO(channel_t * channel, int al)
     {
         channel->_Portamento = 0; // Reset the portamento.
 
-        if (!_Driver.TieNotesTogether)
+        if (!_Driver._IsTieSet)
             InitializeLFO(channel);
         else
             StopLFO(channel);
@@ -181,7 +181,7 @@ int PMD::StartPCMLFO(channel_t * channel, int al)
 
     channel->_Portamento = 0; // Initialize the portamento.
 
-    if (_Driver.TieNotesTogether)
+    if (_Driver._IsTieSet)
     {
         SSGPCMSoftwareEnvelope(channel); // Only execute the software envelope once when preceded by a "&" command (Tie).
         StopLFO(channel);

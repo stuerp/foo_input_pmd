@@ -26,9 +26,9 @@ public:
 private:
     void Reset() noexcept
     {
-        _Flags = 0;
+        _Flags     = 0x00;
+        _LoopCheck = 0x00;
 
-        TieNotesTogether = false;
         _PreviousTimerACounter = 0;
 
         ::memset(omote_key, 0, _countof(omote_key));
@@ -40,20 +40,21 @@ private:
         _LoopEnd = 0;
         _LoopRelease = 0;
 
-        _IsFMSlotDetuneSet = false;
         _Slot3Flags = 0;
         _FMSelector = 0;
 
         _CurrentChannel = 0;
-        _IsVolumeBoostSet = 0;
-        _LoopWork = 0;
+        _VolumeBoostCount = 0;
         _HardwareLFOModulationMode = 0;
+
+        _IsTieSet = false;
+        _IsFMSlotDetuneSet = false;
     }
 
 public:
     uint8_t _Flags;
+    uint8_t _LoopCheck;
 
-    bool TieNotesTogether;      // True if notes should be tied together ("&" command)
     int _PreviousTimerACounter;  // TimerACounter value at the previous interrupt
 
     int omote_key[3];           // FM keyondata table (=0)
@@ -65,13 +66,14 @@ public:
     int _LoopEnd;            // PCM loop end address
     int _LoopRelease;        // PCM loop release address
 
-    bool _IsFMSlotDetuneSet;    // Is FM3 using detune?
     int _Slot3Flags;            // Required sound effect mode flag for each FM3 slot
     int _FMSelector;         // Head (0x000) or tail (0x100)
 
     int _CurrentChannel;
-    int _IsVolumeBoostSet;   // Set when a modified volume for the next note has been set.
-    int _LoopWork;
-    int _HardwareLFOModulationMode;         // Local LFO switch
+    int _VolumeBoostCount;              // Set when a modified volume for the next note has been set.
+    int _HardwareLFOModulationMode;     // Local LFO switch
+
+    bool _IsTieSet;                     // True if notes should be tied together ("&" command)
+    bool _IsFMSlotDetuneSet;            // Is FM3 using detune?
 };
 #pragma warning(default: 4820)
