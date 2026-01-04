@@ -64,9 +64,9 @@ public:
     p86_t(File * file);
     virtual ~p86_t();
 
-    bool Initialize(uint32_t sampleRate, bool useInterpolation);
+    bool Initialize(uint32_t sampleRate, bool useInterpolation) noexcept;
     bool Stop(void);
-    void Play();
+    void Start();
 
     bool Keyoff(void);
     int Load(const WCHAR * filePath);

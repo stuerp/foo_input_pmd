@@ -1,5 +1,5 @@
 
-/** $VER: Driver.h (2023.10.29) Driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: Driver.h (2026.01.04) Driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -8,6 +8,7 @@ const uint8_t DriverStartRequested = 0x01;
 const uint8_t DriverStopRequested = 0x02;
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
+
 class Driver
 {
 public:
@@ -41,7 +42,7 @@ private:
         _LoopRelease = 0;
 
         _Slot3Flags = 0;
-        _FMSelector = 0;
+        _FMSelector = 0x000;
 
         _CurrentChannel = 0;
         _VolumeBoostCount = 0;
@@ -66,8 +67,8 @@ public:
     int _LoopEnd;            // PCM loop end address
     int _LoopRelease;        // PCM loop release address
 
-    int _Slot3Flags;            // Required sound effect mode flag for each FM3 slot
-    int _FMSelector;         // Head (0x000) or tail (0x100)
+    int _Slot3Flags;                    // Required sound effect mode flag for each FM3 slot
+    int _FMSelector;                    // 0x000 or 0x100
 
     int _CurrentChannel;
     int _VolumeBoostCount;              // Set when a modified volume for the next note has been set.
@@ -76,4 +77,5 @@ public:
     bool _IsTieSet;                     // True if notes should be tied together ("&" command)
     bool _IsFMSlotDetuneSet;            // Is FM3 using detune?
 };
+
 #pragma warning(default: 4820)

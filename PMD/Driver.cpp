@@ -11,7 +11,7 @@ void PMD::DriverMain()
 
     _Driver._LoopCheck = 0x03;
 
-    if (_State.x68_flg == 0)
+    if (_State.x68_flg == 0x00)
     {
         for (i = 0; i < 3; ++i)
         {
@@ -29,7 +29,7 @@ void PMD::DriverMain()
         FMMain(&_FMChannels[i + 3]);
     }
 
-    _Driver._FMSelector = 0;
+    _Driver._FMSelector = 0x000;
 
     // Process FM channel 1, 2 and 3.
     for (i = 0; i < 3; ++i)

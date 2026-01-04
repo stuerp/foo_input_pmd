@@ -21,7 +21,10 @@ p86_t::~p86_t()
         ::free(_Data);
 }
 
-bool p86_t::Initialize(uint32_t sampleRate, bool useInterpolation)
+/// <summary>
+/// Initializes this instance.
+/// </summary>
+bool p86_t::Initialize(uint32_t sampleRate, bool useInterpolation) noexcept
 {
     InitializeInternal();
 
@@ -30,6 +33,9 @@ bool p86_t::Initialize(uint32_t sampleRate, bool useInterpolation)
     return true;
 }
 
+/// <summary>
+/// Initializes this instance.
+/// </summary>
 void p86_t::InitializeInternal()
 {
     ::memset(&_Header, 0, sizeof(_Header));
@@ -158,7 +164,7 @@ int p86_t::Load(const WCHAR * filePath)
 }
 
 /// <summary>
-/// 
+/// Sets the sample rate.
 /// </summary>
 void p86_t::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 {
@@ -172,7 +178,7 @@ void p86_t::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 }
 
 /// <summary>
-/// 
+/// Initializes the volume lookup table.
 /// </summary>
 void p86_t::InitializeVolume(int value)
 {
@@ -180,7 +186,7 @@ void p86_t::InitializeVolume(int value)
 }
 
 /// <summary>
-/// 
+/// Sets the volume.
 /// </summary>
 bool p86_t::SetVolume(int value)
 {
@@ -355,9 +361,9 @@ bool p86_t::SetLoop(int loopStart, int loopEnd, int releaseStart, bool isADPCM)
 }
 
 /// <summary>
-/// 
+/// Starts playing a sample.
 /// </summary>
-void p86_t::Play()
+void p86_t::Start()
 {
     _CurrAddr = _SampleAddr;
     _CurrOffs = 0;
@@ -368,7 +374,7 @@ void p86_t::Play()
 }
 
 /// <summary>
-/// 
+/// Stops playing a sample.
 /// </summary>
 bool p86_t::Stop(void)
 {
@@ -396,7 +402,7 @@ bool p86_t::Keyoff(void)
 }
 
 /// <summary>
-/// 
+/// Mixes the samples of the PPS.
 /// </summary>
 void p86_t::Mix(frame32_t * frames, size_t frameCount) noexcept
 {

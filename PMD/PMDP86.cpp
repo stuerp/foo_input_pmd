@@ -12,10 +12,10 @@
 
 void PMD::P86Main(channel_t * channel)
 {
-    if (channel->Data == nullptr)
+    if (channel->_Data == nullptr)
         return;
 
-    uint8_t * si = channel->Data;
+    uint8_t * si = channel->_Data;
 
     channel->_Size--;
 
@@ -45,7 +45,7 @@ void PMD::P86Main(channel_t * channel)
             else
             if (*si == 0x80)
             {
-                channel->Data = si;
+                channel->_Data = si;
                 channel->Tone = 0xFF;
 
                 channel->_LoopCheck = 0x03;
@@ -83,7 +83,7 @@ void PMD::P86Main(channel_t * channel)
                     channel->_Size      = *si++;
                     channel->KeyOnFlag++;
 
-                    channel->Data = si;
+                    channel->_Data = si;
 
                     if (--_Driver._VolumeBoostCount)
                         channel->VolumeBoost = 0;
@@ -115,7 +115,7 @@ void PMD::P86Main(channel_t * channel)
                     P86KeyOn(channel);
 
                 channel->KeyOnFlag++;
-                channel->Data = si;
+                channel->_Data = si;
 
                 _Driver._IsTieSet = false;
                 _Driver._VolumeBoostCount = 0;
@@ -210,20 +210,20 @@ uint8_t * PMD::ExecuteP86Command(channel_t * channel, uint8_t * si)
         // 5.5. Relative Volume Change, Command ') %number'
         case 0xE3:
         {
-            channel->Volume += *si++;
+            channel->_Volume += *si++;
 
-            if (channel->Volume > 255)
-                channel->Volume = 255;
+            if (channel->_Volume > 255)
+                channel->_Volume = 255;
             break;
         }
 
         // 5.5. Relative Volume Change, Command '( %number'
         case 0xE2:
         {
-            channel->Volume -= *si++;
+            channel->_Volume -= *si++;
 
-            if (channel->Volume < 0)
-                channel->Volume = 0;
+            if (channel->_Volume < 0)
+                channel->_Volume = 0;
             break;
         }
 
@@ -351,7 +351,7 @@ void PMD::SetP86Tone(channel_t * channel, int tone)
 /// </summary>
 void PMD::SetP86Volume(channel_t * channel)
 {
-    int al = channel->VolumeBoost ? channel->VolumeBoost : channel->Volume;
+    int al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
 
     // Calculate volume down.
     al = ((256 - _State.ADPCMVolumeAdjust) * al) >> 8;
@@ -457,7 +457,7 @@ void PMD::P86KeyOn(channel_t * channel)
     if (channel->Tone == 0xFF)
         return;
 
-    _P86->Play();
+    _P86->Start();
 }
 
 /// <summary>

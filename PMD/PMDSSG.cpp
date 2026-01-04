@@ -12,10 +12,10 @@
 
 void PMD::SSGMain(channel_t * channel)
 {
-    if (channel->Data == nullptr)
+    if (channel->_Data == nullptr)
         return;
 
-    uint8_t * si = channel->Data;
+    uint8_t * si = channel->_Data;
 
     channel->_Size--;
 
@@ -61,7 +61,7 @@ void PMD::SSGMain(channel_t * channel)
             else
             if (*si == 0x80)
             {
-                channel->Data = si;
+                channel->_Data = si;
                 channel->Tone = 0xFF;
 
                 channel->_LoopCheck = 0x03;
@@ -109,7 +109,7 @@ void PMD::SSGMain(channel_t * channel)
                         channel->_Size = *si++;
                         channel->KeyOnFlag++;
 
-                        channel->Data = si;
+                        channel->_Data = si;
 
                         if (--_Driver._VolumeBoostCount)
                             channel->VolumeBoost = 0;
@@ -140,7 +140,7 @@ void PMD::SSGMain(channel_t * channel)
                 SSGKeyOn(channel);
 
                 channel->KeyOnFlag++;
-                channel->Data = si;
+                channel->_Data = si;
 
                 _Driver._IsTieSet = false;
                 _Driver._VolumeBoostCount = 0;
@@ -219,16 +219,16 @@ uint8_t * PMD::ExecuteSSGCommand(channel_t * channel, uint8_t * si)
         // 5.5. Relative Volume Change, Increase volume by 3dB.
         case 0xF4:
         {
-            if (channel->Volume < 15)
-                channel->Volume++;
+            if (channel->_Volume < 15)
+                channel->_Volume++;
             break;
         }
 
         // 5.5. Relative Volume Change, Decrease volume by 3dB.
         case 0xF3:
         {
-            if (channel->Volume > 0)
-                channel->Volume--;
+            if (channel->_Volume > 0)
+                channel->_Volume--;
             break;
         }
 
@@ -259,20 +259,20 @@ uint8_t * PMD::ExecuteSSGCommand(channel_t * channel, uint8_t * si)
         // 5.5. Relative Volume Change, Command ') %number'
         case 0xE3:
         {
-            channel->Volume += *si++;
+            channel->_Volume += *si++;
 
-            if (channel->Volume > 15)
-                channel->Volume = 15;
+            if (channel->_Volume > 15)
+                channel->_Volume = 15;
             break;
         }
 
         // 5.5. Relative Volume Change, Command ') %number'
         case 0xE2:
         {
-            channel->Volume -= *si++;
+            channel->_Volume -= *si++;
 
-            if (channel->Volume < 0)
-                channel->Volume = 0;
+            if (channel->_Volume < 0)
+                channel->_Volume = 0;
             break;
         }
 
@@ -405,7 +405,7 @@ void PMD::SetSSGVolume(channel_t * channel)
 
     const uint32_t Register = (uint32_t) (_Driver._CurrentChannel + 8 - 1);
 
-    int dl = (channel->VolumeBoost) ? channel->VolumeBoost - 1 : channel->Volume;
+    int dl = (channel->VolumeBoost) ? channel->VolumeBoost - 1 : channel->_Volume;
 
     // Volume Down calculation
     dl = ((256 - _State.SSGVolumeAdjust) * dl) >> 8;
@@ -657,7 +657,7 @@ uint8_t * PMD::SetSSGPortamentoCommand(channel_t * channel, uint8_t * si)
         channel->Factor = 0;
         channel->Tone   = 0xFF;
         channel->_Size = si[2];
-        channel->Data   = si + 3;
+        channel->_Data   = si + 3;
         channel->KeyOnFlag++;
 
         if (--_Driver._VolumeBoostCount)
@@ -708,7 +708,7 @@ uint8_t * PMD::SetSSGPortamentoCommand(channel_t * channel, uint8_t * si)
     SSGKeyOn(channel);
 
     channel->KeyOnFlag++;
-    channel->Data = si;
+    channel->_Data = si;
 
     _Driver._IsTieSet = false;
     _Driver._VolumeBoostCount = 0;

@@ -34,7 +34,7 @@ public:
     PMD();
     virtual ~PMD();
 
-    bool Initialize(const WCHAR * directoryPath);
+    bool Initialize(const WCHAR * directoryPath) noexcept;
 
     static bool IsPMD(const uint8_t * data, size_t size) noexcept;
 
@@ -93,7 +93,7 @@ public:
     // Gets the PPZ file path.
     std::wstring & GetPPZFilePath(size_t bufferNumber)
     {
-        return _PPZ->_PPZBank[bufferNumber]._FilePath;
+        return _PPZ->_PPZBanks[bufferNumber]._FilePath;
     }
 
     // Gets the PPZ file name.
@@ -268,7 +268,7 @@ private:
     uint8_t * SetFMRelativeDetuneCommand(channel_t * channel, uint8_t * si);
     uint8_t * SetFMChannel3ModeEx(channel_t * channel, uint8_t * si);
     uint8_t * SetFMTrueLevelCommand(channel_t * channel, uint8_t * si);
-    uint8_t * SetFMFeedbackLoopsCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetFMFeedbackLoopCommand(channel_t * channel, uint8_t * si);
     uint8_t * SetFMEffect(channel_t * channel, uint8_t * si);
 
     void SetFMVolumeCommand(channel_t * channel);

@@ -82,7 +82,7 @@ public:
     bool UseInterpolationPPS;
     bool UseInterpolationP86;
 
-    channel_t * Channel[MaxChannels];
+    channel_t * _Channels[MaxChannels];
 
     uint32_t _RhythmMask;               // Rhythm sound source mask. Compatible with x8c/10h bit
     int _RhythmVolume;                  // Rhythm volume

@@ -48,7 +48,7 @@ public:
     pps_t(File * file);
     virtual ~pps_t();
 
-    bool Initialize(uint32_t sampleRate, bool useInterpolation);
+    bool Initialize(uint32_t sampleRate, bool useInterpolation) noexcept;
     bool Stop();
     bool Start(int num, int shift, int volshift);
 

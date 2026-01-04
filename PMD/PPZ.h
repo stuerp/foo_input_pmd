@@ -149,10 +149,13 @@ public:
     ppz_t(File * file);
     virtual ~ppz_t();
 
-    void Initialize(uint32_t sampleRate, bool useInterpolation);
+    void Initialize(uint32_t sampleRate, bool useInterpolation) noexcept;
+
     void Play(size_t channelNumber, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop);
     void Stop(size_t channelNumber);
+
     int Load(const WCHAR * filePath, size_t bankNumber);
+
     void SetInstrument(size_t ch, size_t bankNumber, size_t instrumentNumber);
     void SetVolume(size_t channelNumber, int volume);
     void SetPitch(size_t channelNumber, uint32_t pitch);
@@ -172,21 +175,16 @@ public:
     void Mix(frame32_t * frames, size_t frameCount) noexcept;
 
 public:
-    ppz_bank_t _PPZBank[2];
+    ppz_bank_t _PPZBanks[2];
 
 private:
     void MoveSamplePointer(ppz_channel_t & channel) const noexcept;
 
-    void Initialize();
+    void InitializeInternal() noexcept;
 
     void CreateVolumeTable(int volume);
     void ReadHeader(File * file, PZIHEADER & pziheader);
     void ReadHeader(File * file, PVIHEADER & pviheader);
-
-    inline int Clamp(int value, int min, int max) const noexcept
-    {
-        return value > max ? max : (value < min ? min : value);
-    }
 
 private:
     File * _File;
@@ -196,9 +194,9 @@ private:
 
     ppz_channel_t _Channels[MaxPPZChannels];
 
-    int _PCMVolume; // Overall 86B Mixer volume
-    int _Volume;
-    int _SampleRate;
+    int32_t _MasterVolume; // Overall 86B Mixer volume
+    int32_t _Volume;
+    int32_t _SampleRate;
 
     sample_t _VolumeTable[16][256];
 };

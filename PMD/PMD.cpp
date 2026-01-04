@@ -41,10 +41,11 @@ PMD::~PMD()
 }
 
 #pragma region Public
+
 /// <summary>
 /// Initializes the driver.
 /// </summary>
-bool PMD::Initialize(const WCHAR * directoryPathDrums)
+bool PMD::Initialize(const WCHAR * directoryPathDrums) noexcept
 {
     WCHAR DirectoryPathDrums[MAX_PATH] = { 0 };
 
@@ -60,7 +61,7 @@ bool PMD::Initialize(const WCHAR * directoryPathDrums)
     _PPS->Initialize(_State.OPNASampleRate, false);
     _P86->Initialize(_State.OPNASampleRate, false);
 
-    if (_OPNAW->Initialize(OPNAClock, FREQUENCY_55_5K, false, DirectoryPathDrums) == false)
+    if (!_OPNAW->Initialize(OPNAClock, FREQUENCY_55_5K, false, DirectoryPathDrums))
         return false;
 
     {
@@ -769,16 +770,16 @@ int PMD::DisableChannel(int channel)
 
     int OldFMSelector = _Driver._FMSelector;
 
-    if (IsPlaying() && (_State.Channel[channel]->PartMask == 0x00))
+    if (IsPlaying() && (_State._Channels[channel]->PartMask == 0x00))
     {
         switch (ChannelTable[channel][2])
         {
             case 0:
             {
                 _Driver._CurrentChannel = ChannelTable[channel][1];
-                _Driver._FMSelector = 0;
+                _Driver._FMSelector = 0x000;
 
-                MuteFMChannel(_State.Channel[channel]);
+                MuteFMChannel(_State._Channels[channel]);
                 break;
             }
 
@@ -787,7 +788,7 @@ int PMD::DisableChannel(int channel)
                 _Driver._CurrentChannel = ChannelTable[channel][1];
                 _Driver._FMSelector = 0x100;
 
-                MuteFMChannel(_State.Channel[channel]);
+                MuteFMChannel(_State._Channels[channel]);
                 break;
             }
 
@@ -826,7 +827,7 @@ int PMD::DisableChannel(int channel)
         }
     }
 
-    _State.Channel[channel]->PartMask |= 0x01;
+    _State._Channels[channel]->PartMask |= 0x01;
 
     _Driver._FMSelector = OldFMSelector;
 
@@ -848,10 +849,10 @@ int PMD::EnableChannel(int channel)
         return ERR_SUCCESS;
     }
 
-    if (_State.Channel[channel]->PartMask == 0x00)
+    if (_State._Channels[channel]->PartMask == 0x00)
         return ERR_NOT_MASKED;
 
-    if ((_State.Channel[channel]->PartMask &= 0xFE) != 0)
+    if ((_State._Channels[channel]->PartMask &= 0xFE) != 0)
         return ERR_EFFECT_USED;
 
     if (!IsPlaying())
@@ -859,22 +860,22 @@ int PMD::EnableChannel(int channel)
 
     int OldFMSelector = _Driver._FMSelector;
 
-    if (_State.Channel[channel]->Data)
+    if (_State._Channels[channel]->_Data != nullptr)
     {
-        if (ChannelTable[channel][2] == 0)
-        {   // FM sound source (Front)
-            _Driver._FMSelector = 0;
+        if (ChannelTable[channel][2] == 0) // FM sound source (Front)
+        {   
+            _Driver._FMSelector = 0x000;
             _Driver._CurrentChannel = ChannelTable[channel][1];
 
-            ResetFMInstrument(_State.Channel[channel]);
+            ResetFMInstrument(_State._Channels[channel]);
         }
         else
-        if (ChannelTable[channel][2] == 1)
-        {   // FM sound source (Back)
+        if (ChannelTable[channel][2] == 1) // FM sound source (Back)
+        {   
             _Driver._FMSelector = 0x100;
             _Driver._CurrentChannel = ChannelTable[channel][1];
 
-            ResetFMInstrument(_State.Channel[channel]);
+            ResetFMInstrument(_State._Channels[channel]);
         }
     }
 
@@ -911,11 +912,12 @@ bool PMD::GetMemo(const uint8_t * data, size_t size, int index, char * text, siz
 /// </summary>
 channel_t * PMD::GetChannel(int channelNumber) const noexcept
 {
-    if (channelNumber >= (int) _countof(_State.Channel))
+    if (channelNumber >= (int) _countof(_State._Channels))
         return nullptr;
 
-    return _State.Channel[channelNumber];
+    return _State._Channels[channelNumber];
 }
+
 #pragma endregion
 
 /// <summary>
@@ -991,36 +993,36 @@ void PMD::Reset()
     _State.UseInterpolationPPS = false;
 
     {
-        _State.Channel[ 0] = &_FMChannels[0];
-        _State.Channel[ 1] = &_FMChannels[1];
-        _State.Channel[ 2] = &_FMChannels[2];
-        _State.Channel[ 3] = &_FMChannels[3];
-        _State.Channel[ 4] = &_FMChannels[4];
-        _State.Channel[ 5] = &_FMChannels[5];
+        _State._Channels[ 0] = &_FMChannels[0];
+        _State._Channels[ 1] = &_FMChannels[1];
+        _State._Channels[ 2] = &_FMChannels[2];
+        _State._Channels[ 3] = &_FMChannels[3];
+        _State._Channels[ 4] = &_FMChannels[4];
+        _State._Channels[ 5] = &_FMChannels[5];
 
-        _State.Channel[ 6] = &_SSGChannels[0];
-        _State.Channel[ 7] = &_SSGChannels[1];
-        _State.Channel[ 8] = &_SSGChannels[2];
+        _State._Channels[ 6] = &_SSGChannels[0];
+        _State._Channels[ 7] = &_SSGChannels[1];
+        _State._Channels[ 8] = &_SSGChannels[2];
 
-        _State.Channel[ 9] = &_ADPCMChannel;
+        _State._Channels[ 9] = &_ADPCMChannel;
 
-        _State.Channel[10] = &_RhythmChannel;
+        _State._Channels[10] = &_RhythmChannel;
 
-        _State.Channel[11] = &_FMExtensionChannels[0];
-        _State.Channel[12] = &_FMExtensionChannels[1];
-        _State.Channel[13] = &_FMExtensionChannels[2];
+        _State._Channels[11] = &_FMExtensionChannels[0];
+        _State._Channels[12] = &_FMExtensionChannels[1];
+        _State._Channels[13] = &_FMExtensionChannels[2];
 
-        _State.Channel[14] = &_DummyChannel; // Unused
-        _State.Channel[15] = &_EffectChannel;
+        _State._Channels[14] = &_DummyChannel; // Unused
+        _State._Channels[15] = &_EffectChannel;
 
-        _State.Channel[16] = &_PPZChannels[0];
-        _State.Channel[17] = &_PPZChannels[1];
-        _State.Channel[18] = &_PPZChannels[2];
-        _State.Channel[19] = &_PPZChannels[3];
-        _State.Channel[20] = &_PPZChannels[4];
-        _State.Channel[21] = &_PPZChannels[5];
-        _State.Channel[22] = &_PPZChannels[6];
-        _State.Channel[23] = &_PPZChannels[7];
+        _State._Channels[16] = &_PPZChannels[0];
+        _State._Channels[17] = &_PPZChannels[1];
+        _State._Channels[18] = &_PPZChannels[2];
+        _State._Channels[19] = &_PPZChannels[3];
+        _State._Channels[20] = &_PPZChannels[4];
+        _State._Channels[21] = &_PPZChannels[5];
+        _State._Channels[22] = &_PPZChannels[6];
+        _State._Channels[23] = &_PPZChannels[7];
     }
 
     SetFMVolumeAdjustment(0);
@@ -1334,7 +1336,7 @@ uint8_t * PMD::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_t command
         // 5.2. Volume Setting 2, Set the volume finely, 0–127 (FM) / 0–255 (PCM), 0–15 (SSG, SSG rhythm, PPZ), Command 'V number'
         case 0xFD:
         {
-            channel->Volume = *si++;
+            channel->_Volume = *si++;
             break;
         }
 
@@ -1402,20 +1404,20 @@ uint8_t * PMD::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_t command
         // 5.5. Relative Volume Change, Increase volume by 3dB.
         case 0xF4:
         {
-            channel->Volume += 16;
+            channel->_Volume += 16;
 
-            if (channel->Volume > 255)
-                channel->Volume = 255;
+            if (channel->_Volume > 255)
+                channel->_Volume = 255;
             break;
         }
 
         // 5.5. Relative Volume Change, Decrease volume by 3dB.
         case 0xF3:
         {
-            channel->Volume -= 16;
+            channel->_Volume -= 16;
 
-            if (channel->Volume < 16)
-                channel->Volume = 0;
+            if (channel->_Volume < 16)
+                channel->_Volume = 0;
             break;
         }
 
@@ -1727,7 +1729,7 @@ uint8_t * PMD::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_t command
 /// </summary>
 uint8_t * PMD::IncreaseVolumeForNextNote(channel_t * channel, uint8_t * si, int maxVolume)
 {
-    int Volume = (int) channel->Volume + *si++ + 1;
+    int Volume = (int) channel->_Volume + *si++ + 1;
 
     if (Volume > maxVolume)
         Volume = maxVolume;
@@ -1743,7 +1745,7 @@ uint8_t * PMD::IncreaseVolumeForNextNote(channel_t * channel, uint8_t * si, int 
 /// </summary>
 uint8_t * PMD::DecreaseVolumeForNextNote(channel_t * channel, uint8_t * si)
 {
-    int Volume = channel->Volume - *si++;
+    int Volume = channel->_Volume - *si++;
 
     if (Volume < 1)
         Volume = 1;
@@ -2390,11 +2392,7 @@ void PMD::InitializeChannels()
 
     for (size_t i = 0; i < _countof(_FMChannels); ++i)
     {
-        if (_State.MData[*Offsets] == 0x80) // Do not play.
-            _FMChannels[i].Data = nullptr;
-        else
-            _FMChannels[i].Data = &_State.MData[*Offsets];
-
+        _FMChannels[i]._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
         _FMChannels[i]._Size = 1;
         _FMChannels[i].KeyOffFlag = -1;
         _FMChannels[i].LFO1MDepthCount1 = -1;    // LFO1MDepth Counter (-1 = infinite)
@@ -2403,21 +2401,17 @@ void PMD::InitializeChannels()
         _FMChannels[i].LFO2MDepthCount2 = -1;
         _FMChannels[i].Tone = 0xFF;              // Rest
         _FMChannels[i].DefaultTone = 0xFF;       // Rest
-        _FMChannels[i].Volume = 108;
+        _FMChannels[i]._Volume = 108;
         _FMChannels[i]._PanAndVolume = 0xC0;      // 3 << 6, Center
-        _FMChannels[i].FMSlotMask = 0xF0;
-        _FMChannels[i].ToneMask = 0xFF;
+        _FMChannels[i]._FMSlotMask = 0xF0;
+        _FMChannels[i]._ToneMask = 0xFF;
 
         Offsets++;
     }
 
     for (size_t i = 0; i < _countof(_SSGChannels); ++i)
     {
-        if (_State.MData[*Offsets] == 0x80) // Do not play.
-            _SSGChannels[i].Data = nullptr;
-        else
-            _SSGChannels[i].Data = &_State.MData[*Offsets];
-
+        _SSGChannels[i]._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
         _SSGChannels[i]._Size = 1;
         _SSGChannels[i].KeyOffFlag = -1;
         _SSGChannels[i].LFO1MDepthCount1 = -1;   // LFO1MDepth Counter (-1 = infinite)
@@ -2427,7 +2421,7 @@ void PMD::InitializeChannels()
         _SSGChannels[i].Tone = 0xFF;             // Rest
         _SSGChannels[i].DefaultTone = 0xFF;      // Rest
 
-        _SSGChannels[i].Volume = 8;
+        _SSGChannels[i]._Volume = 8;
         _SSGChannels[i].SSGMask = 0x07;          // Tone
         _SSGChannels[i].SSGEnvelopFlag = 3;      // SSG ENV = NONE/normal
 
@@ -2435,11 +2429,7 @@ void PMD::InitializeChannels()
     }
 
     {
-        if (_State.MData[*Offsets] == 0x80) // Do not play
-            _ADPCMChannel.Data = nullptr;
-        else
-            _ADPCMChannel.Data = &_State.MData[*Offsets];
-
+        _ADPCMChannel._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
         _ADPCMChannel._Size = 1;
         _ADPCMChannel.KeyOffFlag = -1;
         _ADPCMChannel.LFO1MDepthCount1 = -1;
@@ -2449,18 +2439,14 @@ void PMD::InitializeChannels()
         _ADPCMChannel.Tone = 0xFF;              // Rest
         _ADPCMChannel.DefaultTone = 0xFF;       // Rest
 
-        _ADPCMChannel.Volume = 128;
+        _ADPCMChannel._Volume = 128;
         _ADPCMChannel._PanAndVolume = 0xC0;    // 3 << 6, Center
 
         Offsets++;
     }
 
     {
-        if (_State.MData[*Offsets] == 0x80) // Do not play
-            _RhythmChannel.Data = nullptr;
-        else
-            _RhythmChannel.Data = &_State.MData[*Offsets];
-
+        _RhythmChannel._Data = (_State.MData[*Offsets] != 0x80) ? _RhythmChannel._Data = &_State.MData[*Offsets] : nullptr;
         _RhythmChannel._Size = 1;
         _RhythmChannel.KeyOffFlag = -1;
         _RhythmChannel.LFO1MDepthCount1 = -1;
@@ -2470,7 +2456,7 @@ void PMD::InitializeChannels()
         _RhythmChannel.Tone = 0xFF;             // Rest
         _RhythmChannel.DefaultTone = 0xFF;      // Rest
 
-        _RhythmChannel.Volume = 15;
+        _RhythmChannel._Volume = 15;
 
         Offsets++;
     }
@@ -2526,8 +2512,6 @@ void PMD::ConvertMetronomeTempoToTimerBTempo()
 
         if (0x112C % _State.MetronomeTempo >= 128)
             al--;
-
-//      al = 256 - (0x112C * 2 / _State.MetronomeTempo + 1) / 2;
     }
     else
         al = 0;
@@ -2646,7 +2630,7 @@ int PMD::LoadPPCInternal(uint8_t * data, size_t size) noexcept
         uint8_t Data[0x26 * 32];
 
         // Compare the data with the PCMRAM header.
-        ReadPCMData(0, 0x25, Data);
+        ReadPCMData(0x0000, 0x0025, Data);
 
         if (::memcmp(Data + PPCIdentifierSize, &_SampleBank, sizeof(_SampleBank)) == 0)
             return ERR_ALREADY_LOADED;
@@ -2661,7 +2645,7 @@ int PMD::LoadPPCInternal(uint8_t * data, size_t size) noexcept
         ::memcpy(Data.data(),                     PPCIdentifier,      PPCIdentifierSize);
         ::memcpy(Data.data() + PPCIdentifierSize, &_SampleBank.Count, Data.size() - PPCIdentifierSize);
 
-        WritePCMData(0, 0x25, Data.data());
+        WritePCMData(0x0000, 0x0025, Data.data());
     }
 
     // Write the data to PCMRAM.
@@ -2683,10 +2667,10 @@ int PMD::LoadPPCInternal(uint8_t * data, size_t size) noexcept
             Data = (uint16_t *)(data + PPCSize);
         }
 
-        uint16_t pcmstart = 0x26;
-        uint16_t pcmstop = _SampleBank.Count;
+        const uint16_t StartOffset = 0x0026;
+        const uint16_t StopOffset  = _SampleBank.Count;
 
-        WritePCMData(pcmstart, pcmstop, (const uint8_t *) Data);
+        WritePCMData(StartOffset, StopOffset, (const uint8_t *) Data);
     }
 
     return ERR_SUCCESS;
@@ -2701,13 +2685,13 @@ void PMD::ReadPCMData(uint16_t startAddress, uint16_t stopAddress, uint8_t * dat
     _OPNAW->SetReg(0x110, 0x00);
     _OPNAW->SetReg(0x110, 0x80);
     _OPNAW->SetReg(0x100, 0x20);
-    _OPNAW->SetReg(0x101, 0x02); // x8
-    _OPNAW->SetReg(0x10c, 0xff);
-    _OPNAW->SetReg(0x10d, 0xff);
+    _OPNAW->SetReg(0x101, 0x02);
+    _OPNAW->SetReg(0x10C, 0xFF);
+    _OPNAW->SetReg(0x10D, 0xFF);
     _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(startAddress));
     _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(startAddress));
-    _OPNAW->SetReg(0x104, 0xff);
-    _OPNAW->SetReg(0x105, 0xff);
+    _OPNAW->SetReg(0x104, 0xFF);
+    _OPNAW->SetReg(0x105, 0xFF);
 
     *data = (uint8_t) _OPNAW->GetReg(0x108);
     *data = (uint8_t) _OPNAW->GetReg(0x108);
@@ -2729,7 +2713,7 @@ void PMD::WritePCMData(uint16_t startAddress, uint16_t stopAddress, const uint8_
 //  _OPNAW->SetReg(0x110, 0x17); // Mask everything except brdy (=timer interrupt does not occur)
     _OPNAW->SetReg(0x110, 0x80);
     _OPNAW->SetReg(0x100, 0x60);
-    _OPNAW->SetReg(0x101, 0x02); // x8
+    _OPNAW->SetReg(0x101, 0x02);
     _OPNAW->SetReg(0x10c, 0xff);
     _OPNAW->SetReg(0x10d, 0xff);
     _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(startAddress));
@@ -2766,7 +2750,7 @@ void PMD::GetText(const uint8_t * data, size_t size, int index, char * text, siz
 {
     *text = '\0';
 
-    if (data == nullptr || size < 0x0019)
+    if ((data == nullptr) || size < 0x0019)
         return;
 
     const uint8_t * Data = &data[1];

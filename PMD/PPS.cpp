@@ -22,7 +22,7 @@ pps_t::~pps_t()
 /// <summary>
 /// Initializes this instance.
 /// </summary>
-bool pps_t::Initialize(uint32_t sampleRate, bool useInterpolation)
+bool pps_t::Initialize(uint32_t sampleRate, bool useInterpolation) noexcept
 {
     Reset();
 

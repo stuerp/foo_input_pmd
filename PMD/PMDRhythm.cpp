@@ -12,10 +12,10 @@
 
 void PMD::RhythmMain(channel_t * channel)
 {
-    if (channel->Data == nullptr)
+    if (channel->_Data == nullptr)
         return;
 
-    uint8_t * si = channel->Data;
+    uint8_t * si = channel->_Data;
 
     channel->_Size--;
 
@@ -68,7 +68,7 @@ void PMD::RhythmMain(channel_t * channel)
             {
                 if (al < 0x80)
                 {
-                    channel->Data = si;
+                    channel->_Data = si;
 
                     Data = _State.RhythmData = &_State.MData[_State.RhythmDataTable[al]];
                     goto rhyms00;
@@ -77,7 +77,7 @@ void PMD::RhythmMain(channel_t * channel)
                 si = ExecuteRhythmCommand(channel, si - 1);
             }
 
-            channel->Data = (uint8_t *) --si;
+            channel->_Data = (uint8_t *) --si;
 
             channel->_LoopCheck = 0x03;
 
@@ -121,16 +121,16 @@ uint8_t * PMD::ExecuteRhythmCommand(channel_t * channel, uint8_t * si)
         // 5.5. Relative Volume Change, Increase volume by 3dB.
         case 0xF4:
         {
-            if (channel->Volume < 15)
-                channel->Volume++;
+            if (channel->_Volume < 15)
+                channel->_Volume++;
             break;
         }
 
         // 5.5. Relative Volume Change, Decrease volume by 3dB.
         case 0xF3:
         {
-            if (channel->Volume > 0)
-                channel->Volume--;
+            if (channel->_Volume > 0)
+                channel->_Volume--;
             break;
         }
 
@@ -161,20 +161,20 @@ uint8_t * PMD::ExecuteRhythmCommand(channel_t * channel, uint8_t * si)
         // 5.5. Relative Volume Change, Command ') %number'
         case 0xE3:
         {
-            channel->Volume += *si++;
+            channel->_Volume += *si++;
 
-            if (channel->Volume > 16)
-                channel->Volume = 16;
+            if (channel->_Volume > 16)
+                channel->_Volume = 16;
             break;
         }
 
         // 5.5. Relative Volume Change, Command '( %number'
         case 0xE2:
         {
-            channel->Volume -= *si++;
+            channel->_Volume -= *si++;
 
-            if (channel->Volume < 0)
-                channel->Volume = 0;
+            if (channel->_Volume < 0)
+                channel->_Volume = 0;
             break;
         }
 

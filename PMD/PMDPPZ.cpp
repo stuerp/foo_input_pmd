@@ -12,10 +12,10 @@
 
 void PMD::PPZMain(channel_t * channel)
 {
-    if (channel->Data == nullptr)
+    if (channel->_Data == nullptr)
         return;
 
-    uint8_t * si = channel->Data;
+    uint8_t * si = channel->_Data;
 
     channel->_Size--;
 
@@ -47,7 +47,7 @@ void PMD::PPZMain(channel_t * channel)
             else
             if (*si == 0x80)
             {
-                channel->Data = si;
+                channel->_Data = si;
                 channel->Tone = 0xFF;
 
                 channel->_LoopCheck = 0x03;
@@ -94,7 +94,7 @@ void PMD::PPZMain(channel_t * channel)
                     channel->_Size      = *si++;
                     channel->KeyOnFlag++;
 
-                    channel->Data = si;
+                    channel->_Data = si;
 
                     if (--_Driver._VolumeBoostCount)
                         channel->VolumeBoost = 0;
@@ -126,7 +126,7 @@ void PMD::PPZMain(channel_t * channel)
                     PPZKeyOn(channel);
 
                 channel->KeyOnFlag++;
-                channel->Data = si;
+                channel->_Data = si;
 
                 _Driver._IsTieSet = false;
                 _Driver._VolumeBoostCount = 0;
@@ -225,20 +225,20 @@ uint8_t * PMD::ExecutePPZCommand(channel_t * channel, uint8_t * si)
         // 5.5. Relative Volume Change, Command ') %number'
         case 0xE3:
         {
-            channel->Volume += *si++;
+            channel->_Volume += *si++;
 
-            if (channel->Volume > 255)
-                channel->Volume = 255;
+            if (channel->_Volume > 255)
+                channel->_Volume = 255;
             break;
         }
 
         // 5.5. Relative Volume Change, Command '( %number'
         case 0xE2:
         {
-            channel->Volume -= *si++;
+            channel->_Volume -= *si++;
 
-            if (channel->Volume < 0)
-                channel->Volume = 0;
+            if (channel->_Volume < 0)
+                channel->_Volume = 0;
             break;
         }
 
@@ -344,7 +344,7 @@ void PMD::SetPPZTone(channel_t * channel, int tone)
 /// </summary>
 void PMD::SetPPZVolume(channel_t * channel)
 {
-    int al = channel->VolumeBoost ? channel->VolumeBoost : channel->Volume;
+    int al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
 
     // Calculate volume down.
     al = ((256 - _State.PPZVolumeAdjust) * al) >> 8;
@@ -554,7 +554,7 @@ uint8_t * PMD::SetPPZPortamentoCommand(channel_t * channel, uint8_t * si)
         channel->Factor = 0;
         channel->Tone   = 0xFF;
         channel->_Size = si[2];
-        channel->Data   = si + 3;
+        channel->_Data   = si + 3;
         channel->KeyOnFlag++;
 
         if (--_Driver._VolumeBoostCount)
@@ -607,7 +607,7 @@ uint8_t * PMD::SetPPZPortamentoCommand(channel_t * channel, uint8_t * si)
         PPZKeyOn(channel);
 
     channel->KeyOnFlag++;
-    channel->Data = si;
+    channel->_Data = si;
 
     _Driver._IsTieSet = false;
     _Driver._VolumeBoostCount = 0;
@@ -687,7 +687,7 @@ uint8_t * PMD::InitializePPZ(channel_t *, uint8_t * si)
 
         if (Offset != 0)
         {
-            _PPZChannels[i].Data = &_State.MData[Offset];
+            _PPZChannels[i]._Data = &_State.MData[Offset];
             _PPZChannels[i]._Size = 1;
             _PPZChannels[i].KeyOffFlag = -1;
             _PPZChannels[i].LFO1MDepthCount1 = -1;        // LFO1MDepth Counter (Infinite)
@@ -696,7 +696,7 @@ uint8_t * PMD::InitializePPZ(channel_t *, uint8_t * si)
             _PPZChannels[i].LFO2MDepthCount2 = -1;
             _PPZChannels[i].Tone = 0xFF;         // Rest
             _PPZChannels[i].DefaultTone = 0xFF;  // Rest
-            _PPZChannels[i].Volume = 128;
+            _PPZChannels[i]._Volume = 128;
             _PPZChannels[i]._PanAndVolume = 5;    // Center
         }
 

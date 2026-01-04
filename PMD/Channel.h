@@ -6,7 +6,7 @@
 class channel_t
 {
 public:
-    uint8_t * Data;
+    uint8_t * _Data;
     uint8_t * _LoopData;
     int32_t _Size;
 
@@ -49,7 +49,7 @@ public:
     int PortamentoQuotient;
     int PortamentoRemainder;
 
-    int Volume;
+    int _Volume;
     int Transposition1;
     int Transposition2;
 
@@ -78,12 +78,12 @@ public:
     int FMOperator3;
     int FMOperator2;
     int FMOperator4;
-    int FMSlotMask;
+    int _FMSlotMask;
 
     int SSGMask;         // Tone / Noise / Mix
     int InstrumentNumber;
 
-    int ToneMask;       // Maskdata for FM tone definition
+    int _ToneMask;       // Maskdata for FM tone definition
 
     int PartMask;       // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
     int VolumeMask1;    // Volume LFO mask

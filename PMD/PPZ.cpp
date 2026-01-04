@@ -1,5 +1,5 @@
 
-/** $VER: PPZ.cpp (2026.01.03) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
+/** $VER: PPZ.cpp (2026.01.04) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
 
 #include <pch.h>
 
@@ -28,7 +28,7 @@ static const int ADPCMEmulationVolume[256] =
 
 ppz_t::ppz_t(File * file) : _File(file)
 {
-    Initialize();
+    InitializeInternal();
 }
 
 ppz_t::~ppz_t()
@@ -36,9 +36,9 @@ ppz_t::~ppz_t()
 }
 
 //  00H Initialize
-void ppz_t::Initialize(uint32_t sampleRate, bool useInterpolation)
+void ppz_t::Initialize(uint32_t sampleRate, bool useInterpolation) noexcept
 {
-    Initialize();
+    InitializeInternal();
 
     SetSampleRate(sampleRate, useInterpolation);
 }
@@ -46,40 +46,40 @@ void ppz_t::Initialize(uint32_t sampleRate, bool useInterpolation)
 // 01H Start PCM
 void ppz_t::Play(size_t ch, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop)
 {
-    ppz_bank_t & pb = _PPZBank[bankNumber];
+    ppz_bank_t & Bank = _PPZBanks[bankNumber];
 
-    if ((ch >= _countof(_Channels)) || pb.IsEmpty())
+    if ((ch >= _countof(_Channels)) || Bank.IsEmpty())
         return;
 
-    _Channels[ch]._IsPVI = pb._IsPVI;
-    _Channels[ch]._IsPlaying = true;
+    _Channels[ch]._IsPVI        = Bank._IsPVI;
+    _Channels[ch]._IsPlaying    = true;
     _Channels[ch]._SampleNumber = sampleNumber;
-    _Channels[ch]._PCMStartL = 0;
+    _Channels[ch]._PCMStartL    = 0;
 
     if ((ch == 7) && _EmulateADPCM)
     {
-        _Channels[ch]._PCMStartH     = &pb._Data[Clamp(((int) start)    * 64, 0, pb._Size - 1)];
-        _Channels[ch]._PCMEndRounded = &pb._Data[Clamp(((int) stop - 1) * 64, 0, pb._Size - 1)];
+        _Channels[ch]._PCMStartH     = &Bank._Data[std::clamp(((int) start)    * 64, 0, Bank._Size - 1)];
+        _Channels[ch]._PCMEndRounded = &Bank._Data[std::clamp(((int) stop - 1) * 64, 0, Bank._Size - 1)];
         _Channels[ch]._PCMEnd        = _Channels[ch]._PCMEndRounded;
     }
     else
     {
-        PZIITEM& pi = pb._PZIHeader.PZIItem[sampleNumber];
+        PZIITEM& pi = Bank._PZIHeader.PZIItem[sampleNumber];
 
-        _Channels[ch]._PCMStartH     = &pb._Data[pi.Start];
-        _Channels[ch]._PCMEndRounded = &pb._Data[pi.Start + pi.Size];
+        _Channels[ch]._PCMStartH     = &Bank._Data[pi.Start];
+        _Channels[ch]._PCMEndRounded = &Bank._Data[pi.Start + pi.Size];
 
         if (_Channels[ch]._HasLoop)
         {
             if (_Channels[ch]._LoopStartOffset < pi.Size)
-                _Channels[ch]._PCMLoopStart = &pb._Data[pi.Start + _Channels[ch]._LoopStartOffset];
+                _Channels[ch]._PCMLoopStart = &Bank._Data[pi.Start + _Channels[ch]._LoopStartOffset];
             else
-                _Channels[ch]._PCMLoopStart = &pb._Data[pi.Start + pi.Size - 1];
+                _Channels[ch]._PCMLoopStart = &Bank._Data[pi.Start + pi.Size - 1];
 
             if (_Channels[ch]._LoopEndOffset < pi.Size)
-                _Channels[ch]._PCMEnd = &pb._Data[pi.Start + _Channels[ch]._LoopEndOffset];
+                _Channels[ch]._PCMEnd = &Bank._Data[pi.Start + _Channels[ch]._LoopEndOffset];
             else
-                _Channels[ch]._PCMEnd = &pb._Data[pi.Start + pi.Size];
+                _Channels[ch]._PCMEnd = &Bank._Data[pi.Start + pi.Size];
         }
         else
             _Channels[ch]._PCMEnd = _Channels[ch]._PCMEndRounded;
@@ -101,9 +101,11 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
     if (filePath == nullptr || (filePath && (*filePath == '\0')))
         return PPZ_OPEN_FAILED;
 
+    auto & Bank = _PPZBanks[bankNumber];
+
     if (!_File->Open(filePath))
     {
-        _PPZBank[bankNumber].Reset();
+        Bank.Reset();
 
         return PPZ_OPEN_FAILED;
     }
@@ -123,18 +125,18 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
             return PPZ_UNKNOWN_FORMAT;
         }
 
-        if (::memcmp(&_PPZBank[bankNumber]._PZIHeader, &PZIHeader, sizeof(PZIHEADER)) == 0)
+        if (::memcmp(&Bank._PZIHeader, &PZIHeader, sizeof(PZIHEADER)) == 0)
         {
-            _PPZBank[bankNumber]._FilePath = filePath;
+            Bank._FilePath = filePath;
 
             _File->Close();
 
             return PPZ_ALREADY_LOADED;
         }
 
-        _PPZBank[bankNumber].Reset();
+        Bank.Reset();
 
-        ::memcpy(&_PPZBank[bankNumber]._PZIHeader, &PZIHeader, sizeof(PZIHEADER));
+        ::memcpy(&Bank._PZIHeader, &PZIHeader, sizeof(PZIHEADER));
 
         Size -= sizeof(PZIHEADER);
 
@@ -149,12 +151,12 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
 
         _File->Read(Data, (uint32_t) Size);
 
-        _PPZBank[bankNumber]._FilePath = filePath;
+        Bank._FilePath = filePath;
 
-        _PPZBank[bankNumber]._Data = Data;
-        _PPZBank[bankNumber]._Size = Size;
+        Bank._Data = Data;
+        Bank._Size = Size;
 
-        _PPZBank[bankNumber]._IsPVI = false;
+        Bank._IsPVI = false;
     }
     else
     {
@@ -198,19 +200,19 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
             }
         }
 
-        if (::memcmp(&_PPZBank[bankNumber]._PZIHeader.PZIItem, &PZIHeader.PZIItem, sizeof(_PPZBank[bankNumber]._PZIHeader.PZIItem)) == 0)
+        if (::memcmp(&Bank._PZIHeader.PZIItem, &PZIHeader.PZIItem, sizeof(Bank._PZIHeader.PZIItem)) == 0)
         {
-            _PPZBank[bankNumber]._FilePath = filePath;
+            Bank._FilePath = filePath;
 
             _File->Close();
 
             return PPZ_ALREADY_LOADED;
         }
 
-        _PPZBank[bankNumber].Reset();
+        Bank.Reset();
 
         // Copy the sample descriptors.
-        ::memcpy(&_PPZBank[bankNumber]._PZIHeader, &PZIHeader, sizeof(PZIHEADER));
+        ::memcpy(&Bank._PZIHeader, &PZIHeader, sizeof(PZIHEADER));
 
         // Convert the ADPCM samples to PCM.
         {
@@ -230,8 +232,8 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
 
             ::memset(DstData, 0, DstSize);
 
-            _PPZBank[bankNumber]._Data = DstData;
-            _PPZBank[bankNumber]._Size = PVISize * 2;
+            Bank._Data = DstData;
+            Bank._Size = PVISize * 2;
 
             {
                 static const int table1[16] =
@@ -271,13 +273,13 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
 
                     for (size_t j = 0; j < PZIHeader.PZIItem[i].Size / 2; ++j)
                     {
-                        X_N     = Clamp(X_N     + table1[(*psrc >> 4) & 0x0F] * DELTA_N /  8, -32768, 32767);
-                        DELTA_N = Clamp(DELTA_N * table2[(*psrc >> 4) & 0x0F]           / 64,    127, 24576);
+                        X_N     = std::clamp(X_N     + table1[(*psrc >> 4) & 0x0F] * DELTA_N /  8, -32768, 32767);
+                        DELTA_N = std::clamp(DELTA_N * table2[(*psrc >> 4) & 0x0F]           / 64,    127, 24576);
 
                         *DstData++ = (uint8_t) (X_N / (32768 / 128) + 128);
 
-                        X_N     = Clamp(X_N     + table1[*psrc   & 0x0F] * DELTA_N /  8, -32768, 32767);
-                        DELTA_N = Clamp(DELTA_N * table2[*psrc++ & 0x0F]           / 64,    127, 24576);
+                        X_N     = std::clamp(X_N     + table1[*psrc   & 0x0F] * DELTA_N /  8, -32768, 32767);
+                        DELTA_N = std::clamp(DELTA_N * table2[*psrc++ & 0x0F]           / 64,    127, 24576);
 
                         *DstData++ = (uint8_t) (X_N / (32768 / 128) + 128);
                     }
@@ -287,8 +289,8 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
             }
         }
 
-        _PPZBank[bankNumber]._FilePath = filePath;
-        _PPZBank[bankNumber]._IsPVI = true;
+        Bank._FilePath = filePath;
+        Bank._IsPVI = true;
     }
 
     _File->Close();
@@ -334,7 +336,7 @@ void ppz_t::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber)
     if ((ch >= _countof(_Channels)) || (bankNumber > 1) || (sampleNumber > 127))
         return;
 
-    const PZIITEM& pi = _PPZBank[bankNumber]._PZIHeader.PZIItem[sampleNumber];
+    const PZIITEM & pi = _PPZBanks[bankNumber]._PZIHeader.PZIItem[sampleNumber];
 
     if ((pi.LoopStart != ~0U) && (pi.LoopStart < pi.LoopEnd))
     {
@@ -354,7 +356,7 @@ void ppz_t::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber, int loopS
     if ((ch >= _countof(_Channels)) || (bankNumber > 1) || (sampleNumber > 127))
         return;
 
-    const PZIITEM& pi = _PPZBank[bankNumber]._PZIHeader.PZIItem[sampleNumber];
+    const PZIITEM & pi = _PPZBanks[bankNumber]._PZIHeader.PZIItem[sampleNumber];
 
     if (loopStart < 0)
         loopStart = (int) pi.Size + loopStart;
@@ -415,9 +417,10 @@ void ppz_t::SetSourceFrequency(size_t ch, int sourceFrequency)
 // 16H Set the overal volume（86B Mixer)
 void ppz_t::SetAllVolume(int volume)
 {
-    if ((volume < 16) && (volume != _PCMVolume))
+    if ((volume < 16) && (volume != _MasterVolume))
     {
-        _PCMVolume = volume;
+        _MasterVolume = volume;
+
         CreateVolumeTable(_Volume);
     }
 }
@@ -435,10 +438,13 @@ void ppz_t::EmulateADPCM(bool flag)
     _EmulateADPCM = flag;
 }
 
+/// <summary>
+/// Sets the instrument to play.
+/// </summary>
 void ppz_t::SetInstrument(size_t ch, size_t bankNumber, size_t instrumentNumber)
 {
     SetLoop(ch, bankNumber, instrumentNumber);
-    SetSourceFrequency(ch, _PPZBank[bankNumber]._PZIHeader.PZIItem[instrumentNumber].SampleRate);
+    SetSourceFrequency(ch, _PPZBanks[bankNumber]._PZIHeader.PZIItem[instrumentNumber].SampleRate);
 }
 
 /// <summary>
@@ -446,7 +452,7 @@ void ppz_t::SetInstrument(size_t ch, size_t bankNumber, size_t instrumentNumber)
 /// </summary>
 void ppz_t::Mix(frame32_t * frames, size_t frameCount) noexcept
 {
-    if (_PCMVolume == 0)
+    if (_MasterVolume == 0)
         return;
 
     for (auto & Channel : _Channels)
@@ -751,6 +757,9 @@ void ppz_t::Mix(frame32_t * frames, size_t frameCount) noexcept
     }
 }
 
+/// <summary>
+/// Moves the sample pointer/
+/// </summary>
 void ppz_t::MoveSamplePointer(ppz_channel_t & channel) const noexcept
 {
     channel._PCMStartH += channel._PCMAddH;
@@ -774,7 +783,7 @@ void ppz_t::MoveSamplePointer(ppz_channel_t & channel) const noexcept
 /// <summary>
 /// Initializes this instance.
 /// </summary>
-void ppz_t::Initialize()
+void ppz_t::InitializeInternal() noexcept
 {
     for (auto & Channel : _Channels)
     {
@@ -788,13 +797,13 @@ void ppz_t::Initialize()
         };
     }
 
-    _PPZBank[0].Reset();
-    _PPZBank[1].Reset();
+    _PPZBanks[0].Reset();
+    _PPZBanks[1].Reset();
 
     _EmulateADPCM = false;
     _UseInterpolation = false;
 
-    _PCMVolume = 0;
+    _MasterVolume = 0;
     _Volume = 0;
 
     SetAllVolume(DefaultVolume);
@@ -802,6 +811,9 @@ void ppz_t::Initialize()
     _SampleRate = DefaultSampleRate;
 }
 
+/// <summary>
+/// Creates the volume lookup table.
+/// </summary>
 void ppz_t::CreateVolumeTable(int volume)
 {
     _Volume = volume;
@@ -810,7 +822,7 @@ void ppz_t::CreateVolumeTable(int volume)
 
     for (int i = 0; i < 16; ++i)
     {
-        double Value = ::pow(2.0, ((double) i + _PCMVolume) / 2.0) * VolumeBase / 0x18000;
+        double Value = ::pow(2.0, ((double) i + _MasterVolume) / 2.0) * VolumeBase / 0x18000;
 
         for (int j = 0; j < 256; ++j)
             _VolumeTable[i][j] = (sample_t) ((j - 128) * Value);

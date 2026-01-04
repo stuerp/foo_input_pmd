@@ -29,8 +29,8 @@ void PMD::SSGEffectMain(channel_t * channel, int effectNumber)
 
         if (Flags & 0x02)
         {
-            if (channel->Volume < 15)
-                Volume = channel->Volume;
+            if (channel->_Volume < 15)
+                Volume = channel->_Volume;
 
             if (_State._FadeOutVolume)
                 Volume = (Volume * (256 - _State._FadeOutVolume)) >> 8;
