@@ -10,7 +10,7 @@
 
 #include "OPNAW.h"
 
-void PMD::SSGEffectMain(channel_t * channel, int effectNumber)
+void pmd_driver_t::SSGEffectMain(channel_t * channel, int effectNumber)
 {
     if (_UsePPSForDrums && (effectNumber & 0x80))
     {
@@ -65,7 +65,7 @@ void PMD::SSGEffectMain(channel_t * channel, int effectNumber)
 /// <summary>
 /// Plays an SSG effect.
 /// </summary>
-void PMD::SSGPlayEffect() noexcept
+void pmd_driver_t::SSGPlayEffect() noexcept
 {
     if (--_SSGEffect._ToneCounter)
         SSGSweep();
@@ -76,7 +76,7 @@ void PMD::SSGPlayEffect() noexcept
 /// <summary>
 /// Starts to play an effect on the SSG.
 /// </summary>
-void PMD::SSGStartEffect(const int * si)
+void pmd_driver_t::SSGStartEffect(const int * si)
 {
     int ToneCounter = *si++;
 
@@ -118,7 +118,7 @@ void PMD::SSGStartEffect(const int * si)
 /// <summary>
 /// Stops the SSG from playing an effect.
 /// </summary>
-void PMD::SSGStopEffect()
+void pmd_driver_t::SSGStopEffect()
 {
     if (_UsePPSForDrums)
         _PPS->Stop();
@@ -133,7 +133,7 @@ void PMD::SSGStopEffect()
 /// <summary>
 /// Performs the tone and noise sweep.
 /// </summary>
-void PMD::SSGSweep()
+void pmd_driver_t::SSGSweep()
 {
     // Sweep the tone.
     {

@@ -13,7 +13,7 @@
 /// <summary>
 /// Initializes an instance.
 /// </summary>
-PMD::PMD()
+pmd_driver_t::pmd_driver_t()
 {
     _File = new File();
 
@@ -29,7 +29,7 @@ PMD::PMD()
 /// <summary>
 /// Destroys an instance.
 /// </summary>
-PMD::~PMD()
+pmd_driver_t::~pmd_driver_t()
 {
     delete _P86;
     delete _PPS;
@@ -45,7 +45,7 @@ PMD::~PMD()
 /// <summary>
 /// Initializes the driver.
 /// </summary>
-bool PMD::Initialize(const WCHAR * directoryPathDrums) noexcept
+bool pmd_driver_t::Initialize(const WCHAR * directoryPathDrums) noexcept
 {
     WCHAR DirectoryPathDrums[MAX_PATH] = { 0 };
 
@@ -111,7 +111,7 @@ bool PMD::Initialize(const WCHAR * directoryPathDrums) noexcept
 /// <summary>
 /// Returns true if the data is PMD data.
 /// </summary>
-bool PMD::IsPMD(const uint8_t * data, size_t size) noexcept
+bool pmd_driver_t::IsPMD(const uint8_t * data, size_t size) noexcept
 {
     if (size < 3)
         return false;
@@ -134,7 +134,7 @@ bool PMD::IsPMD(const uint8_t * data, size_t size) noexcept
 /// <summary>
 /// Loads the data into the driver.
 /// </summary>
-int PMD::Load(const uint8_t * data, size_t size)
+int pmd_driver_t::Load(const uint8_t * data, size_t size)
 {
     if (!IsPMD(data, size))
         return ERR_UNKNOWN_FORMAT;
@@ -286,7 +286,7 @@ int PMD::Load(const uint8_t * data, size_t size)
 /// <summary>
 /// Starts the driver.
 /// </summary>
-void PMD::Start()
+void pmd_driver_t::Start()
 {
     if (_InTimerAInterrupt || _InTimerBInterrupt)
     {
@@ -301,7 +301,7 @@ void PMD::Start()
 /// <summary>
 /// Stops the driver.
 /// </summary>
-void PMD::Stop()
+void pmd_driver_t::Stop()
 {
     if (_InTimerAInterrupt || _InTimerBInterrupt)
     {
@@ -321,7 +321,7 @@ void PMD::Stop()
 /// <summary>
 /// Renders a chunk of PCM data.
 /// </summary>
-void PMD::Render(int16_t * frames, size_t frameCount)
+void pmd_driver_t::Render(int16_t * frames, size_t frameCount)
 {
     size_t FramesDone = 0;
 
@@ -433,7 +433,7 @@ void PMD::Render(int16_t * frames, size_t frameCount)
 /// <summary>
 /// Gets the current loop number.
 /// </summary>
-uint32_t PMD::GetLoopNumber() const noexcept
+uint32_t pmd_driver_t::GetLoopNumber() const noexcept
 {
     return (uint32_t) _State.LoopCount;
 }
@@ -441,7 +441,7 @@ uint32_t PMD::GetLoopNumber() const noexcept
 /// <summary>
 /// Gets the length of the song and loop part (in ms).
 /// </summary>
-bool PMD::GetLength(int * songLength, int * loopLength, int * songTicks, int * loopTicks)
+bool pmd_driver_t::GetLength(int * songLength, int * loopLength, int * songTicks, int * loopTicks)
 {
     DriverStart();
 
@@ -525,7 +525,7 @@ Stop:
 /// <summary>
 /// Gets the playback position (in ms)
 /// </summary>
-uint32_t PMD::GetPosition() const noexcept
+uint32_t pmd_driver_t::GetPosition() const noexcept
 {
     return (uint32_t) (_Position / 1'000);
 }
@@ -533,7 +533,7 @@ uint32_t PMD::GetPosition() const noexcept
 /// <summary>
 /// Sets the playback position (in ms)
 /// </summary>
-void PMD::SetPosition(uint32_t position)
+void pmd_driver_t::SetPosition(uint32_t position)
 {
     int64_t NewPosition = (int64_t) position * 1'000; // Convert ms to μs.
 
@@ -573,7 +573,7 @@ void PMD::SetPosition(uint32_t position)
 /// <summary>
 /// Gets the playback position (in ticks)
 /// </summary>
-int PMD::GetPositionInTicks() const noexcept
+int pmd_driver_t::GetPositionInTicks() const noexcept
 {
     return (_State.BarLength * _State.BarCounter) + _State.OpsCounter;
 }
@@ -581,7 +581,7 @@ int PMD::GetPositionInTicks() const noexcept
 /// <summary>
 /// Sets the playback position (in ticks).
 /// </summary>
-void PMD::SetPositionInTicks(int tickCount)
+void pmd_driver_t::SetPositionInTicks(int tickCount)
 {
     if (((_State.BarLength * _State.BarCounter) + _State.OpsCounter) > tickCount)
     {
@@ -615,7 +615,7 @@ void PMD::SetPositionInTicks(int tickCount)
 /// <summary>
 /// Sets the PCM search paths.
 /// </summary>
-bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
+bool pmd_driver_t::SetSearchPaths(std::vector<const WCHAR *> & paths)
 {
     for (std::vector<const WCHAR *>::iterator iter = paths.begin(); iter < paths.end(); iter++)
     {
@@ -633,7 +633,7 @@ bool PMD::SetSearchPaths(std::vector<const WCHAR *> & paths)
 /// <summary>
 /// Sets the output frequency at which raw PCM data is synthesized (in Hz, for example 44100).
 /// </summary>
-void PMD::SetSampleRate(uint32_t sampleRate) noexcept
+void pmd_driver_t::SetSampleRate(uint32_t sampleRate) noexcept
 {
     if (sampleRate == FREQUENCY_55_5K || sampleRate == FREQUENCY_55_4K)
     {
@@ -658,7 +658,7 @@ void PMD::SetSampleRate(uint32_t sampleRate) noexcept
 /// <summary>
 /// Enables or disables interpolation to 55kHz output frequency.
 /// </summary>
-void PMD::SetFMInterpolation(bool value)
+void pmd_driver_t::SetFMInterpolation(bool value)
 {
     if (value == _State.UseInterpolation)
         return;
@@ -671,7 +671,7 @@ void PMD::SetFMInterpolation(bool value)
 /// <summary>
 /// Sets the output frequency at which raw PPZ data is synthesized (in Hz, for example 44100).
 /// </summary>
-void PMD::SetPPZSampleRate(uint32_t sampleRate) noexcept
+void pmd_driver_t::SetPPZSampleRate(uint32_t sampleRate) noexcept
 {
     if (sampleRate == _State.PPZSampleRate)
         return;
@@ -684,7 +684,7 @@ void PMD::SetPPZSampleRate(uint32_t sampleRate) noexcept
 /// <summary>
 /// Enables or disables PPZ interpolation.
 /// </summary>
-void PMD::SetPPZInterpolation(bool flag)
+void pmd_driver_t::SetPPZInterpolation(bool flag)
 {
     _State.UseInterpolationPPZ = flag;
 
@@ -694,7 +694,7 @@ void PMD::SetPPZInterpolation(bool flag)
 /// <summary>
 /// Enables or disables PPS interpolation.
 /// </summary>
-void PMD::SetPPSInterpolation(bool flag)
+void pmd_driver_t::SetPPSInterpolation(bool flag)
 {
     _State.UseInterpolationPPS = flag;
 
@@ -704,7 +704,7 @@ void PMD::SetPPSInterpolation(bool flag)
 /// <summary>
 /// Enables or disables P86 interpolation.
 /// </summary>
-void PMD::SetP86Interpolation(bool flag)
+void pmd_driver_t::SetP86Interpolation(bool flag)
 {
     _State.UseInterpolationP86 = flag;
 
@@ -714,7 +714,7 @@ void PMD::SetP86Interpolation(bool flag)
 /// <summary>
 /// Sets the fade out speed (PMD compatible)
 /// </summary>
-void PMD::SetFadeOutSpeed(int speed)
+void pmd_driver_t::SetFadeOutSpeed(int speed)
 {
     _State.FadeOutSpeed = speed;
 }
@@ -722,7 +722,7 @@ void PMD::SetFadeOutSpeed(int speed)
 /// <summary>
 /// Sets the fade out speed (High quality sound)
 /// </summary>
-void PMD::SetFadeOutDurationHQ(int value)
+void pmd_driver_t::SetFadeOutDurationHQ(int value)
 {
     if (value > 0)
     {
@@ -738,7 +738,7 @@ void PMD::SetFadeOutDurationHQ(int value)
 /// <summary>
 /// Enables or disables the use of the PPS.
 /// </summary>
-void PMD::UsePPSForDrums(bool value) noexcept
+void pmd_driver_t::UsePPSForDrums(bool value) noexcept
 {
     _UsePPSForDrums = value;
 }
@@ -746,7 +746,7 @@ void PMD::UsePPSForDrums(bool value) noexcept
 /// <summary>
 /// Enables or disables the use of the SSG for drums.
 /// </summary>
-void PMD::UseSSGForDrums(bool value) noexcept
+void pmd_driver_t::UseSSGForDrums(bool value) noexcept
 {
     _UseSSGForDrums = value;
 }
@@ -754,7 +754,7 @@ void PMD::UseSSGForDrums(bool value) noexcept
 /// <summary>
 /// Disables the specified channel.
 /// </summary>
-int PMD::DisableChannel(int channel)
+int pmd_driver_t::DisableChannel(int channel)
 {
     if (channel >= MaxChannels)
         return ERR_WRONG_PARTNO;
@@ -837,7 +837,7 @@ int PMD::DisableChannel(int channel)
 /// <summary>
 /// Enables the specified channel.
 /// </summary>
-int PMD::EnableChannel(int channel)
+int pmd_driver_t::EnableChannel(int channel)
 {
     if (channel >= MaxChannels)
         return ERR_WRONG_PARTNO;
@@ -887,7 +887,7 @@ int PMD::EnableChannel(int channel)
 /// <summary>
 /// Gets the text of the specified memo.
 /// </summary>
-bool PMD::GetMemo(const uint8_t * data, size_t size, int index, char * text, size_t textSize)
+bool pmd_driver_t::GetMemo(const uint8_t * data, size_t size, int index, char * text, size_t textSize)
 {
     if ((text == nullptr) || (textSize < 1))
         return false;
@@ -910,7 +910,7 @@ bool PMD::GetMemo(const uint8_t * data, size_t size, int index, char * text, siz
 /// <summary>
 /// Gets the specified channel object.
 /// </summary>
-channel_t * PMD::GetChannel(int channelNumber) const noexcept
+channel_t * pmd_driver_t::GetChannel(int channelNumber) const noexcept
 {
     if (channelNumber >= (int) _countof(_State._Channels))
         return nullptr;
@@ -923,7 +923,7 @@ channel_t * PMD::GetChannel(int channelNumber) const noexcept
 /// <summary>
 /// Resets the driver.
 /// </summary>
-void PMD::Reset()
+void pmd_driver_t::Reset()
 {
     UsePPSForDrums(false);
     UseSSGForDrums(false);
@@ -1060,7 +1060,7 @@ void PMD::Reset()
 /// <summary>
 /// Starts the OPN interrupt.
 /// </summary>
-void PMD::StartOPNInterrupt()
+void pmd_driver_t::StartOPNInterrupt()
 {
     ::memset(_FMChannels, 0, sizeof(_FMChannels));
     ::memset(_SSGChannels, 0, sizeof(_SSGChannels));
@@ -1093,7 +1093,7 @@ void PMD::StartOPNInterrupt()
 /// <summary>
 /// Initializes the different state machines.
 /// </summary>
-void PMD::InitializeState()
+void pmd_driver_t::InitializeState()
 {
     _State._FadeOutVolume = 0;
     _State.FadeOutSpeed = 0;
@@ -1218,7 +1218,7 @@ void PMD::InitializeState()
 /// <summary>
 /// Initializes the OPN.
 /// </summary>
-void PMD::InitializeOPN()
+void pmd_driver_t::InitializeOPN()
 {
     _OPNAW->ClearBuffer();
 
@@ -1275,7 +1275,7 @@ void PMD::InitializeOPN()
 /// <summary>
 /// Handles an interrupt from timer A.
 /// </summary>
-void PMD::HandleTimerAInterrupt()
+void pmd_driver_t::HandleTimerAInterrupt()
 {
     _InTimerAInterrupt = true;
 
@@ -1295,7 +1295,7 @@ void PMD::HandleTimerAInterrupt()
 /// <summary>
 /// Handles an interrupt from timer B.
 /// </summary>
-void PMD::HandleTimerBInterrupt()
+void pmd_driver_t::HandleTimerBInterrupt()
 {
     _InTimerBInterrupt = true;
 
@@ -1326,7 +1326,7 @@ void PMD::HandleTimerBInterrupt()
 /// <summary>
 /// Executes a command. The execution is the same for all sound sources.
 /// </summary>
-uint8_t * PMD::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_t command)
+uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_t command)
 {
     switch (command)
     {
@@ -1727,7 +1727,7 @@ uint8_t * PMD::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_t command
 /// <summary>
 /// Increases the volume for the next note only (Command "v").
 /// </summary>
-uint8_t * PMD::IncreaseVolumeForNextNote(channel_t * channel, uint8_t * si, int maxVolume)
+uint8_t * pmd_driver_t::IncreaseVolumeForNextNote(channel_t * channel, uint8_t * si, int maxVolume)
 {
     int Volume = (int) channel->_Volume + *si++ + 1;
 
@@ -1743,7 +1743,7 @@ uint8_t * PMD::IncreaseVolumeForNextNote(channel_t * channel, uint8_t * si, int 
 /// <summary>
 /// Decreases the volume for the next note only.
 /// </summary>
-uint8_t * PMD::DecreaseVolumeForNextNote(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::DecreaseVolumeForNextNote(channel_t * channel, uint8_t * si)
 {
     int Volume = channel->_Volume - *si++;
 
@@ -1759,7 +1759,7 @@ uint8_t * PMD::DecreaseVolumeForNextNote(channel_t * channel, uint8_t * si)
 /// <summary>
 /// 15.4. Individual Sound Source Volume Down Setting, Command 'DF [±]number', Command 'DS [±]number', Command 'DP [±]number', Command 'DR [±]number', Command 'A number'
 /// </summary>
-uint8_t * PMD::SpecialC0ProcessingCommand(channel_t * channel, uint8_t * si, uint8_t value) noexcept
+uint8_t * pmd_driver_t::SpecialC0ProcessingCommand(channel_t * channel, uint8_t * si, uint8_t value) noexcept
 {
     switch (value)
     {
@@ -1827,7 +1827,7 @@ uint8_t * PMD::SpecialC0ProcessingCommand(channel_t * channel, uint8_t * si, uin
 /// <summary>
 /// 9.11. Hardware LFO Switch/Depth Setting (OPNA), Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
 /// </summary>
-uint8_t * PMD::SetHardwareLFOSwitchCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetHardwareLFOSwitchCommand(channel_t * channel, uint8_t * si)
 {
     channel->HardwareLFOModulationMode = (channel->HardwareLFOModulationMode & 0x8F) | ((*si++ & 0x07) << 4);
 
@@ -1843,7 +1843,7 @@ uint8_t * PMD::SetHardwareLFOSwitchCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 /// 9.4. Software LFO Slot Setting, Sets the slot number to apply the effect of the software LFO to. (Sound Source FM)
 /// </summary>
-uint8_t * PMD::SetVolumeMask(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetVolumeMask(channel_t * channel, uint8_t * si)
 {
     int al = *si++ & 0x0F;
 
@@ -1865,7 +1865,7 @@ uint8_t * PMD::SetVolumeMask(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command 't' [Tempo Change 1] / Command 'T' [Tempo Change 2] / Command 't±' [Relative Tempo Change 1] / Command 'T±' [Relative Tempo Change 2] (11.1. Tempo setting 1) (11.2. Tempo setting 2)
 /// </summary>
-uint8_t * PMD::SetTempoCommand(uint8_t * si)
+uint8_t * pmd_driver_t::SetTempoCommand(uint8_t * si)
 {
     int al = *si++;
 
@@ -1947,7 +1947,7 @@ uint8_t * PMD::SetTempoCommand(uint8_t * si)
 /// <summary>
 /// Command '[': Set start of loop 
 /// </summary>
-uint8_t * PMD::SetStartOfLoopCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetStartOfLoopCommand(channel_t * channel, uint8_t * si)
 {
     uint8_t * Data = (channel == &_EffectChannel) ? _State.EData : _State.MData;
 
@@ -1961,7 +1961,7 @@ uint8_t * PMD::SetStartOfLoopCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command ']': Set end of loop
 /// </summary>
-uint8_t * PMD::SetEndOfLoopCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetEndOfLoopCommand(channel_t * channel, uint8_t * si)
 {
     int MaxLoopCount = *si++;
 
@@ -1995,7 +1995,7 @@ uint8_t * PMD::SetEndOfLoopCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command ':': Exit Loop, 10.1. Local Loop Setting
 /// </summary>
-uint8_t * PMD::ExitLoopCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::ExitLoopCommand(channel_t * channel, uint8_t * si)
 {
     uint8_t * Data = (channel == &_EffectChannel) ? _State.EData : _State.MData;
 
@@ -2015,7 +2015,7 @@ uint8_t * PMD::ExitLoopCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Sets the modulation parameters.
 /// </summary>
-uint8_t * PMD::SetModulation(channel_t * channel, uint8_t * si) noexcept
+uint8_t * pmd_driver_t::SetModulation(channel_t * channel, uint8_t * si) noexcept
 {
     channel->LFO1Delay1 =
     channel->LFO1Delay2 = *si++;
@@ -2037,7 +2037,7 @@ uint8_t * PMD::SetModulation(channel_t * channel, uint8_t * si) noexcept
 /// <summary>
 /// 
 /// </summary>
-uint8_t * PMD::SetMDepthCountCommand(channel_t * channel, uint8_t * si) const noexcept
+uint8_t * pmd_driver_t::SetMDepthCountCommand(channel_t * channel, uint8_t * si) const noexcept
 {
     int al = *si++;
 
@@ -2068,7 +2068,7 @@ uint8_t * PMD::SetMDepthCountCommand(channel_t * channel, uint8_t * si) const no
 /// <summary>
 ///
 /// </summary>
-int PMD::TransposeSSG(channel_t * channel, int srcTone)
+int pmd_driver_t::TransposeSSG(channel_t * channel, int srcTone)
 {
     return Transpose(channel, srcTone);
 }
@@ -2076,7 +2076,7 @@ int PMD::TransposeSSG(channel_t * channel, int srcTone)
 /// <summary>
 ///
 /// </summary>
-int PMD::Transpose(channel_t * channel, int srcTone)
+int pmd_driver_t::Transpose(channel_t * channel, int srcTone)
 {
     if (srcTone == 0x0F)
         return srcTone;
@@ -2125,7 +2125,7 @@ int PMD::Transpose(channel_t * channel, int srcTone)
 /// <summary>
 ///
 /// </summary>
-uint8_t * PMD::CalculateQ(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::CalculateQ(channel_t * channel, uint8_t * si)
 {
     if (*si == 0xC1)
     {
@@ -2179,7 +2179,7 @@ uint8_t * PMD::CalculateQ(channel_t * channel, uint8_t * si)
 /// <summary>
 ///
 /// </summary>
-void PMD::CalculatePortamento(channel_t * channel)
+void pmd_driver_t::CalculatePortamento(channel_t * channel)
 {
     channel->_Portamento += channel->PortamentoQuotient;
 
@@ -2201,7 +2201,7 @@ void PMD::CalculatePortamento(channel_t * channel)
 /// <summary>
 /// Gets a random number.
 /// </summary>
-int PMD::rnd(int ax)
+int pmd_driver_t::rnd(int ax)
 {
     _Seed = (259 * _Seed + 3) & 0x7fff;
 
@@ -2211,7 +2211,7 @@ int PMD::rnd(int ax)
 /// <summary>
 /// Swaps LFO 1 and LFO 2.
 /// </summary>
-void PMD::SwapLFO(channel_t * channel) noexcept
+void pmd_driver_t::SwapLFO(channel_t * channel) noexcept
 {
     std::swap(channel->LFO1Data, channel->LFO2Data);
 
@@ -2237,7 +2237,7 @@ void PMD::SwapLFO(channel_t * channel) noexcept
 /// <summary>
 /// Set the tempo.
 /// </summary>
-void PMD::SetTimerBTempo()
+void pmd_driver_t::SetTimerBTempo()
 {
     if (_State.TimerBTempo != _State.Tempo)
     {
@@ -2250,7 +2250,7 @@ void PMD::SetTimerBTempo()
 /// <summary>
 /// Increase bar counter.
 /// </summary>
-void PMD::IncreaseBarCounter()
+void pmd_driver_t::IncreaseBarCounter()
 {
     if (_State.OpsCounter + 1 == _State.BarLength)
     {
@@ -2264,7 +2264,7 @@ void PMD::IncreaseBarCounter()
 /// <summary>
 /// Interrupt settings. FM tone generator only
 /// </summary>
-void PMD::InitializeInterrupt()
+void pmd_driver_t::InitializeInterrupt()
 {
     // OPN interrupt initial setting
     _State.Tempo     = 200;
@@ -2286,7 +2286,7 @@ void PMD::InitializeInterrupt()
 /// <summary>
 ///
 /// </summary>
-void PMD::Mute()
+void pmd_driver_t::Mute()
 {
     _OPNAW->SetReg(0x80, 0xff); // FM Release = 15
     _OPNAW->SetReg(0x81, 0xff);
@@ -2345,7 +2345,7 @@ void PMD::Mute()
 /// <summary>
 /// Fade In / Out
 /// </summary>
-void PMD::Fade()
+void pmd_driver_t::Fade()
 {
     if (_State.FadeOutSpeed == 0)
         return;
@@ -2384,7 +2384,7 @@ void PMD::Fade()
 /// <summary>
 /// Sets the start address and initial value of each track.
 /// </summary>
-void PMD::InitializeChannels()
+void pmd_driver_t::InitializeChannels()
 {
     _State.x68_flg = _State.MData[-1];
 
@@ -2481,7 +2481,7 @@ void PMD::InitializeChannels()
 /// <summary>
 /// Tempo conversion (input: tempo_d, output: tempo_48)
 /// </summary>
-void PMD::ConvertTimerBTempoToMetronomeTempo()
+void pmd_driver_t::ConvertTimerBTempoToMetronomeTempo()
 {
     int al;
 
@@ -2502,7 +2502,7 @@ void PMD::ConvertTimerBTempoToMetronomeTempo()
 /// <summary>
 /// Tempo conversion (input: tempo_48, output: tempo_d)
 /// </summary>
-void PMD::ConvertMetronomeTempoToTimerBTempo()
+void pmd_driver_t::ConvertMetronomeTempoToTimerBTempo()
 {
     int al;
 
@@ -2523,7 +2523,7 @@ void PMD::ConvertMetronomeTempoToTimerBTempo()
 /// <summary>
 /// Loads the PPC file.
 /// </summary>
-int PMD::LoadPPCInternal(const WCHAR * filePath)
+int pmd_driver_t::LoadPPCInternal(const WCHAR * filePath)
 {
     _PCMFilePath.clear();
 
@@ -2559,7 +2559,7 @@ int PMD::LoadPPCInternal(const WCHAR * filePath)
 /// <summary>
 /// Loads the PPC data.
 /// </summary>
-int PMD::LoadPPCInternal(uint8_t * data, size_t size) noexcept
+int pmd_driver_t::LoadPPCInternal(uint8_t * data, size_t size) noexcept
 {
     if (size < 0x10)
         return ERR_UNKNOWN_FORMAT;
@@ -2679,7 +2679,7 @@ int PMD::LoadPPCInternal(uint8_t * data, size_t size) noexcept
 /// <summary>
 /// Read data from PCM memory to main memory.
 /// </summary>
-void PMD::ReadPCMData(uint16_t startAddress, uint16_t stopAddress, uint8_t * data)
+void pmd_driver_t::ReadPCMData(uint16_t startAddress, uint16_t stopAddress, uint8_t * data)
 {
     _OPNAW->SetReg(0x100, 0x01);
     _OPNAW->SetReg(0x110, 0x00);
@@ -2707,7 +2707,7 @@ void PMD::ReadPCMData(uint16_t startAddress, uint16_t stopAddress, uint8_t * dat
 /// <summary>
 /// Send data from main memory to PCM memory (x8, high speed version)
 /// </summary>
-void PMD::WritePCMData(uint16_t startAddress, uint16_t stopAddress, const uint8_t * data)
+void pmd_driver_t::WritePCMData(uint16_t startAddress, uint16_t stopAddress, const uint8_t * data)
 {
     _OPNAW->SetReg(0x100, 0x01);
 //  _OPNAW->SetReg(0x110, 0x17); // Mask everything except brdy (=timer interrupt does not occur)
@@ -2728,7 +2728,7 @@ void PMD::WritePCMData(uint16_t startAddress, uint16_t stopAddress, const uint8_
 /// <summary>
 /// Finds a PCM sample in the specified search path.
 /// </summary>
-void PMD::FindFile(const WCHAR * filename, WCHAR * filePath, size_t size) const noexcept
+void pmd_driver_t::FindFile(const WCHAR * filename, WCHAR * filePath, size_t size) const noexcept
 {
     filePath[0] = '\0';
 
@@ -2746,7 +2746,7 @@ void PMD::FindFile(const WCHAR * filename, WCHAR * filePath, size_t size) const 
 /// <summary>
 /// Gets the text with the specified index from PMD data.
 /// </summary>
-void PMD::GetText(const uint8_t * data, size_t size, int index, char * text, size_t max) const noexcept
+void pmd_driver_t::GetText(const uint8_t * data, size_t size, int index, char * text, size_t max) const noexcept
 {
     *text = '\0';
 

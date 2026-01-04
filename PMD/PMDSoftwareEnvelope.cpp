@@ -10,7 +10,7 @@
 
 #include "OPNAW.h"
 
-int PMD::SSGPCMSoftwareEnvelope(channel_t * channel)
+int pmd_driver_t::SSGPCMSoftwareEnvelope(channel_t * channel)
 {
     if (channel->ExtendMode & 0x04)
     {
@@ -31,7 +31,7 @@ int PMD::SSGPCMSoftwareEnvelope(channel_t * channel)
         return SSGPCMSoftwareEnvelopeMain(channel);
 }
 
-int PMD::SSGPCMSoftwareEnvelopeMain(channel_t * channel)
+int pmd_driver_t::SSGPCMSoftwareEnvelopeMain(channel_t * channel)
 {
     if (channel->SSGEnvelopFlag == -1)
         return ExtendedSSGPCMSoftwareEnvelopeMain(channel);
@@ -46,7 +46,7 @@ int PMD::SSGPCMSoftwareEnvelopeMain(channel_t * channel)
     return -1;
 }
 
-int PMD::SSGPCMSoftwareEnvelopeSub(channel_t * channel)
+int pmd_driver_t::SSGPCMSoftwareEnvelopeSub(channel_t * channel)
 {
     if (channel->SSGEnvelopFlag == 0)
     {
@@ -101,7 +101,7 @@ int PMD::SSGPCMSoftwareEnvelopeSub(channel_t * channel)
     return 0;
 }
 
-int PMD::ExtendedSSGPCMSoftwareEnvelopeMain(channel_t * channel)
+int pmd_driver_t::ExtendedSSGPCMSoftwareEnvelopeMain(channel_t * channel)
 {
     if (channel->ExtendedCount == 0)
         return 0;
@@ -116,7 +116,7 @@ int PMD::ExtendedSSGPCMSoftwareEnvelopeMain(channel_t * channel)
     return -1;
 }
 
-void PMD::ExtendedSSGPCMSoftwareEnvelopeSub(channel_t * channel, int ah)
+void pmd_driver_t::ExtendedSSGPCMSoftwareEnvelopeSub(channel_t * channel, int ah)
 {
     if (--ah == 0)
     {

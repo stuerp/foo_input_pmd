@@ -10,7 +10,7 @@
 
 #include "OPNAW.h"
 
-void PMD::RhythmMain(channel_t * channel)
+void pmd_driver_t::RhythmMain(channel_t * channel)
 {
     if (channel->_Data == nullptr)
         return;
@@ -110,7 +110,7 @@ void PMD::RhythmMain(channel_t * channel)
 /// <summary>
 /// Executes a command on the RSS.
 /// </summary>
-uint8_t * PMD::ExecuteRhythmCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::ExecuteRhythmCommand(channel_t * channel, uint8_t * si)
 {
     const uint8_t Command = *si++;
 
@@ -224,7 +224,7 @@ uint8_t * PMD::ExecuteRhythmCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Sets Rhythm Wait after register output.
 /// </summary>
-void PMD::SetRhythmDelay(int nsec)
+void pmd_driver_t::SetRhythmDelay(int nsec)
 {
     _OPNAW->SetRSSDelay(nsec);
 }
@@ -233,7 +233,7 @@ void PMD::SetRhythmDelay(int nsec)
 /// <summary>
 ///
 /// </summary>
-uint8_t * PMD::RhythmKeyOn(channel_t * channel, int al, uint8_t * rhythmData, bool * success)
+uint8_t * pmd_driver_t::RhythmKeyOn(channel_t * channel, int al, uint8_t * rhythmData, bool * success)
 {
     if (al & 0x40)
     {
@@ -335,7 +335,7 @@ uint8_t * PMD::RhythmKeyOn(channel_t * channel, int al, uint8_t * rhythmData, bo
 /// <summary>
 /// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
 /// </summary>
-uint8_t * PMD::SetRhythmChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
+uint8_t * pmd_driver_t::SetRhythmChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
 {
     const uint8_t Value = *si++;
 
@@ -355,7 +355,7 @@ uint8_t * PMD::SetRhythmChannelMaskCommand(channel_t * channel, uint8_t * si) no
 /// <summary>
 ///
 /// </summary>
-uint8_t * PMD::DecreaseRhythmVolumeCommand(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::DecreaseRhythmVolumeCommand(channel_t *, uint8_t * si)
 {
     int32_t Value = *(int8_t *) si++;
 
@@ -370,7 +370,7 @@ uint8_t * PMD::DecreaseRhythmVolumeCommand(channel_t *, uint8_t * si)
 /// <summary>
 /// 9.3. Software LFO Switch, Command '*A number'
 /// </summary>
-uint8_t * PMD::SetPDROperationModeControlCommand(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::SetPDROperationModeControlCommand(channel_t *, uint8_t * si)
 {
     if (!_UsePPSForDrums)
         return si + 1;
@@ -385,7 +385,7 @@ uint8_t * PMD::SetPDROperationModeControlCommand(channel_t *, uint8_t * si)
 
 // Command "\b", "\s", "\c", "\h", "\t", "\i", "\bp", "\sp", "\cp", "\hp", "\tp", "\ip": Triggers the specified drum channels of the RSS (Rhythm Sound Source). 14.1. Rhythm Sound Source Shot/Dump Control
 // Starts/stops each sound in the rhythm sound channels.
-uint8_t * PMD::PlayOPNARhythm(uint8_t * si)
+uint8_t * pmd_driver_t::PlayOPNARhythm(uint8_t * si)
 {
     const uint32_t Channel = (uint8_t) (*si++ & _State._RhythmMask);
 
@@ -459,7 +459,7 @@ uint8_t * PMD::PlayOPNARhythm(uint8_t * si)
 /// <summary>
 /// Sets the Rhythm volume. Command "\V number", 14.2. Rhythm Sound Source Master Volume Setting
 /// </summary>
-uint8_t * PMD::SetOPNARhythmMasterVolumeCommand(uint8_t * si)
+uint8_t * pmd_driver_t::SetOPNARhythmMasterVolumeCommand(uint8_t * si)
 {
     int Volume = *si++;
 
@@ -479,7 +479,7 @@ uint8_t * PMD::SetOPNARhythmMasterVolumeCommand(uint8_t * si)
 /// <summary>
 /// Sets the Rhythm volume relative to the current value. Command "\V ±number", 14.2. Rhythm Sound Source Master Volume Setting
 /// </summary>
-uint8_t * PMD::SetRelativeOPNARhythmMasterVolume(uint8_t * si)
+uint8_t * pmd_driver_t::SetRelativeOPNARhythmMasterVolume(uint8_t * si)
 {
     int Volume = _State._RhythmVolume + *(int8_t *) si++;
 
@@ -498,7 +498,7 @@ uint8_t * PMD::SetRelativeOPNARhythmMasterVolume(uint8_t * si)
 
 // Command "\vb", "\vs", "\vc", "\vh", "\vt", "\vi", 14.3. Rhythm Sound Source Individual Volume Setting
 // b: Bass Drum, s: Snare Drum, c: Cymbal, h: Hi-Hat, t: Tom, i: Rim Shot
-uint8_t * PMD::SetOPNARhythmVolumeCommand(uint8_t * si)
+uint8_t * pmd_driver_t::SetOPNARhythmVolumeCommand(uint8_t * si)
 {
     int32_t Value    = *si & 0x1f;
     int32_t Register = *si++ >> 5;
@@ -516,7 +516,7 @@ uint8_t * PMD::SetOPNARhythmVolumeCommand(uint8_t * si)
 
 // Command "\vb ±number", "\vs ±number", "\vc ±number", "\vh ±number", "\vt ±number", "\vi ±number", 14.3. Rhythm Sound Source Individual Volume Setting
 // b: Bass Drum, s: Snare Drum, c: Cymbal, h: Hi-Hat, t: Tom, i: Rim Shot
-uint8_t * PMD::SetRelativeOPNARhythmVolume(uint8_t * si)
+uint8_t * pmd_driver_t::SetRelativeOPNARhythmVolume(uint8_t * si)
 {
     int32_t * bx = &_State.RhythmPanAndVolume[*si - 1];
 
@@ -540,7 +540,7 @@ uint8_t * PMD::SetRelativeOPNARhythmVolume(uint8_t * si)
 }
 
 // Command "\p?"
-uint8_t * PMD::SetOPNARhythmPanningCommand(uint8_t * si)
+uint8_t * pmd_driver_t::SetOPNARhythmPanningCommand(uint8_t * si)
 {
     int32_t Value = (*si & 0x03) << 6;     // Pan value
     int32_t Register = (*si++ >> 5) & 0x07;   // Instrument

@@ -10,7 +10,7 @@
 
 #include "OPNAW.h"
 
-void PMD::PPZMain(channel_t * channel)
+void pmd_driver_t::PPZMain(channel_t * channel)
 {
     if (channel->_Data == nullptr)
         return;
@@ -186,7 +186,7 @@ void PMD::PPZMain(channel_t * channel)
     _Driver._LoopCheck &= channel->_LoopCheck;
 }
 
-uint8_t * PMD::ExecutePPZCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::ExecutePPZCommand(channel_t * channel, uint8_t * si)
 {
     const uint8_t Command = *si++;
 
@@ -307,7 +307,7 @@ uint8_t * PMD::ExecutePPZCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetPPZTone(channel_t * channel, int tone)
+void pmd_driver_t::SetPPZTone(channel_t * channel, int tone)
 {
     if ((tone & 0x0F) != 0x0F)
     {
@@ -342,7 +342,7 @@ void PMD::SetPPZTone(channel_t * channel, int tone)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetPPZVolume(channel_t * channel)
+void pmd_driver_t::SetPPZVolume(channel_t * channel)
 {
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
 
@@ -434,7 +434,7 @@ void PMD::SetPPZVolume(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetPPZPitch(channel_t * channel)
+void pmd_driver_t::SetPPZPitch(channel_t * channel)
 {
     uint32_t Pitch = channel->Factor;
 
@@ -462,7 +462,7 @@ void PMD::SetPPZPitch(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::PPZKeyOn(channel_t * channel)
+void pmd_driver_t::PPZKeyOn(channel_t * channel)
 {
     if (channel->Tone == 0xFF)
         return;
@@ -476,7 +476,7 @@ void PMD::PPZKeyOn(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::PPZKeyOff(channel_t * channel)
+void pmd_driver_t::PPZKeyOff(channel_t * channel)
 {
     if (channel->SSGEnvelopFlag != -1)
     {
@@ -495,7 +495,7 @@ void PMD::PPZKeyOff(channel_t * channel)
 /// <summary>
 /// Command "@ number": Sets the instrument to be used. Range 0-255.
 /// </summary>
-uint8_t * PMD::SetPPZInstrument(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetPPZInstrument(channel_t * channel, uint8_t * si)
 {
     channel->InstrumentNumber = *si++;
 
@@ -510,7 +510,7 @@ uint8_t * PMD::SetPPZInstrument(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command "p <value>" (1: right, 2: left, 3: center (default))
 /// </summary>
-uint8_t * PMD::SetPPZPan1(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetPPZPan1(channel_t * channel, uint8_t * si)
 {
     static const int PanValues[4] = { 0, 9, 1, 5 }; // { Left, Right, Leftwards, Rightwards }
 
@@ -524,7 +524,7 @@ uint8_t * PMD::SetPPZPan1(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command "px <value 1>, <value 2>" (value 1: -128 to -4 (Pan to the left), -3 to -1 (Leftwards), 0 (Center), 1 to 3 (Rightwards), 4 to 127 (Pan to the right), value 2: 0 (In phase) or 1 (Reverse phase)).
 /// </summary>
-uint8_t * PMD::SetPPZPan2(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetPPZPan2(channel_t * channel, uint8_t * si)
 {
     int al = *(int8_t *) si++;
     si++; // Skip the Phase flag.
@@ -546,7 +546,7 @@ uint8_t * PMD::SetPPZPan2(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command "{interval1 interval2} [length1] [.] [,length2]"
 /// </summary>
-uint8_t * PMD::SetPPZPortamentoCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetPPZPortamentoCommand(channel_t * channel, uint8_t * si)
 {
     if (channel->PartMask != 0x00)
     {
@@ -623,7 +623,7 @@ uint8_t * PMD::SetPPZPortamentoCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command "@[@] insnum[,number1[,number2[,number3]]]"
 /// </summary>
-uint8_t * PMD::SetPPZRepeatCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetPPZRepeatCommand(channel_t * channel, uint8_t * si)
 {
     int LoopBegin, LoopEnd;
 
@@ -654,7 +654,7 @@ uint8_t * PMD::SetPPZRepeatCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
 /// </summary>
-uint8_t * PMD::SetPPZChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
+uint8_t * pmd_driver_t::SetPPZChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
 {
     const uint8_t Value = *si++;
 
@@ -679,7 +679,7 @@ uint8_t * PMD::SetPPZChannelMaskCommand(channel_t * channel, uint8_t * si) noexc
 /// <summary>
 ///
 /// </summary>
-uint8_t * PMD::InitializePPZ(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::InitializePPZ(channel_t *, uint8_t * si)
 {
     for (size_t i = 0; i < _countof(_PPZChannels); ++i)
     {
@@ -709,7 +709,7 @@ uint8_t * PMD::InitializePPZ(channel_t *, uint8_t * si)
 /// <summary>
 ///
 /// </summary>
-uint8_t * PMD::DecreasePPZVolumeCommand(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::DecreasePPZVolumeCommand(channel_t *, uint8_t * si)
 {
     int al = *(int8_t *) si++;
 

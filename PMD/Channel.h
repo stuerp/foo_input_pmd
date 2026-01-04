@@ -3,6 +3,8 @@
 
 #pragma once
 
+#pragma warning(disable: 4820) // x bytes padding added after last data member
+
 class channel_t
 {
 public:
@@ -112,3 +114,5 @@ public:
     int EarlyKeyOffTimeoutRandomRange;
     int EarlyKeyOffTimeout2;
 };
+
+#pragma warning(default: 4820) // x bytes padding added after last data member

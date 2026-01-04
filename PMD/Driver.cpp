@@ -5,7 +5,7 @@
 
 #include "PMD.h"
 
-void PMD::DriverMain()
+void pmd_driver_t::DriverMain()
 {
     int i;
 
@@ -109,7 +109,7 @@ void PMD::DriverMain()
         _State.LoopCount = -1;
 }
 
-void PMD::DriverStart()
+void pmd_driver_t::DriverStart()
 {
     // Set Timer B = 0 and Timer Reset (to match the length of the song every time)
     _State.Tempo = 0;
@@ -135,7 +135,7 @@ void PMD::DriverStart()
     _IsPlaying = true;
 }
 
-void PMD::DriverStop()
+void pmd_driver_t::DriverStop()
 {
     _Driver._Flags &= ~DriverStopRequested;
 

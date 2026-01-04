@@ -10,7 +10,7 @@
 
 #include "OPNAW.h"
 
-void PMD::LFOMain(channel_t * channel)
+void pmd_driver_t::LFOMain(channel_t * channel)
 {
     if (channel->LFO1Speed1 != 1)
     {
@@ -127,7 +127,7 @@ void PMD::LFOMain(channel_t * channel)
 /// <summary>
 /// Start the FM LFO.
 /// </summary>
-int PMD::StartLFO(channel_t * channel, int al)
+int pmd_driver_t::StartLFO(channel_t * channel, int al)
 {
     int LoNibble = al & 0x0F;
 
@@ -158,7 +158,7 @@ int PMD::StartLFO(channel_t * channel, int al)
 /// <summary>
 /// Start the SSG/PCM LFO.
 /// </summary>
-int PMD::StartPCMLFO(channel_t * channel, int al)
+int pmd_driver_t::StartPCMLFO(channel_t * channel, int al)
 {
     int LoNibble = al & 0x0F;
 
@@ -232,7 +232,7 @@ int PMD::StartPCMLFO(channel_t * channel, int al)
     return al;
 }
 
-void PMD::StopLFO(channel_t * channel)
+void pmd_driver_t::StopLFO(channel_t * channel)
 {
     if ((channel->HardwareLFOModulationMode & 0x03) != 0)
         SetLFO(channel); // Only execute the LFO once when preceded by a "&" command (Tie).
@@ -251,7 +251,7 @@ void PMD::StopLFO(channel_t * channel)
 /// <summary>
 /// Initializes the LFO.
 /// </summary>
-void PMD::InitializeLFO(channel_t * channel)
+void pmd_driver_t::InitializeLFO(channel_t * channel)
 {
     channel->HardwareLFODelayCounter = channel->HardwareLFODelay;
 
@@ -287,7 +287,7 @@ void PMD::InitializeLFO(channel_t * channel)
     }
 }
 
-void PMD::InitializeLFOMain(channel_t * channel)
+void pmd_driver_t::InitializeLFOMain(channel_t * channel)
 {
     channel->LFO1Data         = 0;
     channel->LFO1Delay1       = channel->LFO1Delay2;
@@ -303,12 +303,12 @@ void PMD::InitializeLFOMain(channel_t * channel)
         channel->LFO1Speed1++;   // Otherwise, +1 to the speed value immediately after the delay
 }
 
-int PMD::SetLFO(channel_t * channel)
+int pmd_driver_t::SetLFO(channel_t * channel)
 {
     return SetSSGLFO(channel);
 }
 
-int PMD::SetSSGLFO(channel_t * channel)
+int pmd_driver_t::SetSSGLFO(channel_t * channel)
 {
     if (channel->LFO1Delay1)
     {
@@ -342,7 +342,7 @@ int PMD::SetSSGLFO(channel_t * channel)
     return (ax == channel->LFO1Data) ? 0 : 1;
 }
 
-uint8_t * PMD::SetModulationMask(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetModulationMask(channel_t * channel, uint8_t * si)
 {
     int al = *si++;
 
@@ -359,7 +359,7 @@ uint8_t * PMD::SetModulationMask(channel_t * channel, uint8_t * si)
 }
 
 // Change STEP value by value of MD command
-void PMD::SetStepUsingMDValue(channel_t * channel)
+void pmd_driver_t::SetStepUsingMDValue(channel_t * channel)
 {
     if (--channel->LFO1MDepthSpeed1)
         return;

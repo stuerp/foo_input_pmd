@@ -73,7 +73,7 @@ private:
     uint8_t * _Data;
     size_t _Size;
 
-    PMD * _PMD;
+    pmd_driver_t * _PMD;
 
     uint32_t _Length;           // Length of the song in ms.
     uint32_t _LoopLength;       // Length of the loop part of the song in ms. 0 if no loop defined.

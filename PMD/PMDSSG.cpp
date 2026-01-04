@@ -10,7 +10,7 @@
 
 #include "OPNAW.h"
 
-void PMD::SSGMain(channel_t * channel)
+void pmd_driver_t::SSGMain(channel_t * channel)
 {
     if (channel->_Data == nullptr)
         return;
@@ -202,7 +202,7 @@ void PMD::SSGMain(channel_t * channel)
     _Driver._LoopCheck &= channel->_LoopCheck;
 }
 
-uint8_t * PMD::ExecuteSSGCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::ExecuteSSGCommand(channel_t * channel, uint8_t * si)
 {
     const uint8_t Command = *si++;
 
@@ -350,7 +350,7 @@ uint8_t * PMD::ExecuteSSGCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Sets SSG Wait after register output.
 /// </summary>
-void PMD::SetSSGDelay(int nsec)
+void pmd_driver_t::SetSSGDelay(int nsec)
 {
     _OPNAW->SetSSGDelay(nsec);
 }
@@ -360,7 +360,7 @@ void PMD::SetSSGDelay(int nsec)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetSSGTone(channel_t * channel, int tone)
+void pmd_driver_t::SetSSGTone(channel_t * channel, int tone)
 {
     if ((tone & 0x0F) != 0x0F)
     {
@@ -398,7 +398,7 @@ void PMD::SetSSGTone(channel_t * channel, int tone)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetSSGVolume(channel_t * channel)
+void pmd_driver_t::SetSSGVolume(channel_t * channel)
 {
     if ((channel->SSGEnvelopFlag == 3) || ((channel->SSGEnvelopFlag == -1) && (channel->ExtendedCount == 0)))
         return;
@@ -472,7 +472,7 @@ void PMD::SetSSGVolume(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetSSGPitch(channel_t * channel)
+void pmd_driver_t::SetSSGPitch(channel_t * channel)
 {
     if (channel->Factor == 0)
         return;
@@ -544,7 +544,7 @@ void PMD::SetSSGPitch(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::SSGKeyOn(channel_t * channel)
+void pmd_driver_t::SSGKeyOn(channel_t * channel)
 {
     if (channel->Tone == 0xFF)
         return;
@@ -570,7 +570,7 @@ void PMD::SSGKeyOn(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::SSGKeyOff(channel_t * channel)
+void pmd_driver_t::SSGKeyOff(channel_t * channel)
 {
     if (channel->Tone == 0xFF)
         return;
@@ -584,7 +584,7 @@ void PMD::SSGKeyOff(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetSSGDrumInstrument(channel_t * channel, int instrumentNumber)
+void pmd_driver_t::SetSSGDrumInstrument(channel_t * channel, int instrumentNumber)
 {
     if (_UsePPSForDrums)
     {
@@ -606,7 +606,7 @@ void PMD::SetSSGDrumInstrument(channel_t * channel, int instrumentNumber)
 /// <summary>
 /// Set the SSG Envelope (Format 1). Command "E number1, number2, number3, number4"
 /// </summary>
-uint8_t * PMD::SetSSGEnvelopeFormat1Command(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetSSGEnvelopeFormat1Command(channel_t * channel, uint8_t * si)
 {
     channel->AttackDuration         = *si;
     channel->ExtendedAttackDuration = *si++;
@@ -628,7 +628,7 @@ uint8_t * PMD::SetSSGEnvelopeFormat1Command(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Set the SSG Envelope (Format 2). Command "E number1, number2, number3, number4, number5 [,number6]"
 /// </summary>
-uint8_t * PMD::SetSSGEnvelopeFormat2Command(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetSSGEnvelopeFormat2Command(channel_t * channel, uint8_t * si)
 {
     channel->AttackDuration = *si++ & 0x1F;
     channel->DecayDepth     = *si++ & 0x1F;
@@ -649,7 +649,7 @@ uint8_t * PMD::SetSSGEnvelopeFormat2Command(channel_t * channel, uint8_t * si)
     return si;
 }
 
-uint8_t * PMD::SetSSGPortamentoCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetSSGPortamentoCommand(channel_t * channel, uint8_t * si)
 {
     if (channel->PartMask != 0x00)
     {
@@ -724,7 +724,7 @@ uint8_t * PMD::SetSSGPortamentoCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Sets the SSG effect to play. 15.6. SSG Sound Effect Playback, Command 'n number'
 /// </summary>
-uint8_t * PMD::SetSSGEffect(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetSSGEffect(channel_t * channel, uint8_t * si)
 {
     const int EffectNumber = *si++;
 
@@ -746,7 +746,7 @@ uint8_t * PMD::SetSSGEffect(channel_t * channel, uint8_t * si)
 /// <summary>
 /// 6.6. Noise Frequency Setting, Command 'w ±number'
 /// </summary>
-uint8_t * PMD::SetSSGNoiseFrequencyCommand(uint8_t * si)
+uint8_t * pmd_driver_t::SetSSGNoiseFrequencyCommand(uint8_t * si)
 {
     _SSGNoiseFrequency += *(int8_t *) si++;
 
@@ -762,7 +762,7 @@ uint8_t * PMD::SetSSGNoiseFrequencyCommand(uint8_t * si)
 /// <summary>
 /// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
 /// </summary>
-uint8_t * PMD::SetSSGChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
+uint8_t * pmd_driver_t::SetSSGChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
 {
     const uint8_t Value = *si++;
 
@@ -792,7 +792,7 @@ uint8_t * PMD::SetSSGChannelMaskCommand(channel_t * channel, uint8_t * si) noexc
 /// <summary>
 /// Decides to stop the SSG drum and reset the SSG.
 /// </summary>
-bool PMD::CheckSSGDrum(channel_t * channel, int al)
+bool pmd_driver_t::CheckSSGDrum(channel_t * channel, int al)
 {
     // Do not stop the drum during the SSG mask. SSG drums are not playing.
     if ((channel->PartMask & 0x01) || ((channel->PartMask & 0x02) == 0))
@@ -815,7 +815,7 @@ bool PMD::CheckSSGDrum(channel_t * channel, int al)
     return (channel->PartMask == 0x00);
 }
 
-uint8_t * PMD::DecreaseSSGVolumeCommand(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::DecreaseSSGVolumeCommand(channel_t *, uint8_t * si)
 {
     const int al = *(int8_t *) si++;
 

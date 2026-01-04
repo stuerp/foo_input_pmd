@@ -10,7 +10,7 @@
 
 #include "OPNAW.h"
 
-void PMD::P86Main(channel_t * channel)
+void pmd_driver_t::P86Main(channel_t * channel)
 {
     if (channel->_Data == nullptr)
         return;
@@ -171,7 +171,7 @@ void PMD::P86Main(channel_t * channel)
     _Driver._LoopCheck &= channel->_LoopCheck;
 }
 
-uint8_t * PMD::ExecuteP86Command(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::ExecuteP86Command(channel_t * channel, uint8_t * si)
 {
     const uint8_t Command = *si++;
 
@@ -317,7 +317,7 @@ uint8_t * PMD::ExecuteP86Command(channel_t * channel, uint8_t * si)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetP86Tone(channel_t * channel, int tone)
+void pmd_driver_t::SetP86Tone(channel_t * channel, int tone)
 {
     int ah = tone & 0x0F;
 
@@ -349,7 +349,7 @@ void PMD::SetP86Tone(channel_t * channel, int tone)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetP86Volume(channel_t * channel)
+void pmd_driver_t::SetP86Volume(channel_t * channel)
 {
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
 
@@ -435,7 +435,7 @@ void PMD::SetP86Volume(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetP86Pitch(channel_t * channel)
+void pmd_driver_t::SetP86Pitch(channel_t * channel)
 {
     if (channel->Factor == 0)
         return;
@@ -452,7 +452,7 @@ void PMD::SetP86Pitch(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::P86KeyOn(channel_t * channel)
+void pmd_driver_t::P86KeyOn(channel_t * channel)
 {
     if (channel->Tone == 0xFF)
         return;
@@ -463,7 +463,7 @@ void PMD::P86KeyOn(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::P86KeyOff(channel_t * channel)
+void pmd_driver_t::P86KeyOff(channel_t * channel)
 {
     _P86->Keyoff();
 
@@ -482,7 +482,7 @@ void PMD::P86KeyOff(channel_t * channel)
 /// <summary>
 /// Command "@ number": Sets the instrument to be used. Range 0-255.
 /// </summary>
-uint8_t * PMD::SetP86Instrument(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetP86Instrument(channel_t * channel, uint8_t * si)
 {
     channel->InstrumentNumber = *si++;
 
@@ -494,7 +494,7 @@ uint8_t * PMD::SetP86Instrument(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command "p value" (1: right, 2: left, 3: center (default), 0: Reverse Phase)
 /// </summary>
-uint8_t * PMD::SetP86Pan1(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::SetP86Pan1(channel_t *, uint8_t * si)
 {
     switch (*si++)
     {
@@ -524,7 +524,7 @@ uint8_t * PMD::SetP86Pan1(channel_t *, uint8_t * si)
 /// <summary>
 /// Command "px ±value1 [, value2]" (value 1: < 0 (Pan to the right), > 0 (Pan to the left), 0 (Center) / value 2: 0 (In phase) or 1 (Reverse phase)).
 /// </summary>
-uint8_t * PMD::SetP86Pan2(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetP86Pan2(channel_t * channel, uint8_t * si)
 {
     int Flags = 0;
     int Value = 0;
@@ -560,7 +560,7 @@ uint8_t * PMD::SetP86Pan2(channel_t * channel, uint8_t * si)
 #pragma endregion
 
 // Command "@[@] insnum[,number1[,number2[,number3]]]"
-uint8_t * PMD::SetP86RepeatCommand(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::SetP86RepeatCommand(channel_t *, uint8_t * si)
 {
     int16_t LoopBegin = *(int16_t *) si;
     si += 2;
@@ -576,7 +576,7 @@ uint8_t * PMD::SetP86RepeatCommand(channel_t *, uint8_t * si)
 }
 
 // Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
-uint8_t * PMD::SetP86ChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
+uint8_t * pmd_driver_t::SetP86ChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
 {
     const uint8_t Value = *si++;
 

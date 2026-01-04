@@ -10,7 +10,7 @@
 
 #include "OPNAW.h"
 
-void PMD::ADPCMMain(channel_t * channel)
+void pmd_driver_t::ADPCMMain(channel_t * channel)
 {
     if (channel->_Data == nullptr)
         return;
@@ -184,7 +184,7 @@ void PMD::ADPCMMain(channel_t * channel)
 /// <summary>
 /// Executes a command.
 /// </summary>
-uint8_t * PMD::ExecuteADPCMCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::ExecuteADPCMCommand(channel_t * channel, uint8_t * si)
 {
     const uint8_t Command = *si++;
 
@@ -311,7 +311,7 @@ uint8_t * PMD::ExecuteADPCMCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Sets ADPCM Wait after register output.
 /// </summary>
-void PMD::SetADPCMDelay(int nsec)
+void pmd_driver_t::SetADPCMDelay(int nsec)
 {
     _OPNAW->SetADPCMDelay(nsec);
 }
@@ -320,7 +320,7 @@ void PMD::SetADPCMDelay(int nsec)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetADPCMTone(channel_t * channel, int tone)
+void pmd_driver_t::SetADPCMTone(channel_t * channel, int tone)
 {
     if ((tone & 0x0F) != 0x0F)
     {
@@ -365,7 +365,7 @@ void PMD::SetADPCMTone(channel_t * channel, int tone)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetADPCMVolumeCommand(channel_t * channel)
+void pmd_driver_t::SetADPCMVolumeCommand(channel_t * channel)
 {
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
 
@@ -459,7 +459,7 @@ void PMD::SetADPCMVolumeCommand(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::SetADPCMPitch(channel_t * channel)
+void pmd_driver_t::SetADPCMPitch(channel_t * channel)
 {
     if (channel->Factor == 0)
         return;
@@ -498,7 +498,7 @@ void PMD::SetADPCMPitch(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::ADPCMKeyOn(channel_t * channel)
+void pmd_driver_t::ADPCMKeyOn(channel_t * channel)
 {
     if (channel->Tone == 0xFF)
         return;
@@ -531,7 +531,7 @@ void PMD::ADPCMKeyOn(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void PMD::ADPCMKeyOff(channel_t * channel)
+void pmd_driver_t::ADPCMKeyOff(channel_t * channel)
 {
     if (channel->SSGEnvelopFlag != -1)
     {
@@ -566,7 +566,7 @@ void PMD::ADPCMKeyOff(channel_t * channel)
 /// <summary>
 /// Command "@ number": Sets the instrument to be used. Range 0-255.
 /// </summary>
-uint8_t * PMD::SetADPCMInstrument(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetADPCMInstrument(channel_t * channel, uint8_t * si)
 {
     channel->InstrumentNumber = *si++;
 
@@ -583,7 +583,7 @@ uint8_t * PMD::SetADPCMInstrument(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command "p <value>" (1: right, 2: left, 3: center (default))
 /// </summary>
-uint8_t * PMD::SetADPCMPan1(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetADPCMPan1(channel_t * channel, uint8_t * si)
 {
     channel->_PanAndVolume = (*si << 6) & 0xC0;
 
@@ -593,7 +593,7 @@ uint8_t * PMD::SetADPCMPan1(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command "px <value 1>, <value 2>" (value 1: < 0 (pan to the right), 0 (Center), > 0 (pan to the left), value 2: 0 (In phase) or 1 (Reverse phase)).
 /// </summary>
-uint8_t * PMD::SetADPCMPan2(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetADPCMPan2(channel_t * channel, uint8_t * si)
 {
     if (*si == 0)
         channel->_PanAndVolume = 0xC0; // Center
@@ -610,7 +610,7 @@ uint8_t * PMD::SetADPCMPan2(channel_t * channel, uint8_t * si)
 /// <summary>
 ///
 /// </summary>
-uint8_t * PMD::SetADPCMPortamentoCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetADPCMPortamentoCommand(channel_t * channel, uint8_t * si)
 {
     if (channel->PartMask != 0x00)
     {
@@ -687,7 +687,7 @@ uint8_t * PMD::SetADPCMPortamentoCommand(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command "@[@] insnum[,number1[,number2[,number3]]]"
 /// </summary>
-uint8_t * PMD::SetADPCMRepeatCommand(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::SetADPCMRepeatCommand(channel_t *, uint8_t * si)
 {
     int ax = *(int16_t *) si;
 
@@ -727,7 +727,7 @@ uint8_t * PMD::SetADPCMRepeatCommand(channel_t *, uint8_t * si)
 /// <summary>
 /// 15.7. Channel Mask Control, Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
 /// </summary>
-uint8_t * PMD::SetADPCMChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
+uint8_t * pmd_driver_t::SetADPCMChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
 {
     const uint8_t Value = *si++;
 
@@ -755,7 +755,7 @@ uint8_t * PMD::SetADPCMChannelMaskCommand(channel_t * channel, uint8_t * si) noe
 /// <summary>
 ///
 /// </summary>
-uint8_t * PMD::DecreaseADPCMVolumeCommand(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::DecreaseADPCMVolumeCommand(channel_t *, uint8_t * si)
 {
     int  al = *(int8_t *) si++;
 

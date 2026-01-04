@@ -60,7 +60,7 @@ bool pmd_decoder_t::Open(const uint8_t * data, size_t size, uint32_t sampleRate,
     _SampleRate = sampleRate;
 
     delete _PMD;
-    _PMD = new PMD();
+    _PMD = new pmd_driver_t();
 
     {
         WCHAR FilePath[MAX_PATH];
@@ -157,7 +157,7 @@ bool pmd_decoder_t::Open(const uint8_t * data, size_t size, uint32_t sampleRate,
 /// </summary>
 bool pmd_decoder_t::IsPMD(const uint8_t * data, size_t size) const noexcept
 {
-    return PMD::IsPMD(data, size);
+    return pmd_driver_t::IsPMD(data, size);
 }
 
 /// <summary>

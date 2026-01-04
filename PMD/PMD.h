@@ -1,5 +1,5 @@
 
-/** $VER: PMD.h (2026.01.03) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: PMDDriver.h (2026.01.04) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -28,11 +28,12 @@ struct sample_bank_t
 #pragma pack(pop)
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
-class PMD
+
+class pmd_driver_t
 {
 public:
-    PMD();
-    virtual ~PMD();
+    pmd_driver_t();
+    virtual ~pmd_driver_t();
 
     bool Initialize(const WCHAR * directoryPath) noexcept;
 
@@ -553,4 +554,5 @@ private:
 
     #pragma endregion
 };
+
 #pragma warning(default: 4820) // x bytes padding added after last data member
