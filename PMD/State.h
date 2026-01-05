@@ -1,5 +1,5 @@
 
-/** $VER: State.h (2023.10.29) Driver state (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: State.h (2026.01.04) Driver state (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -51,6 +51,7 @@
 #define MaxChannels             (MaxFMChannels + MaxSSGChannels + MaxADPCMTracks + MaxOPNARhythmTracks + MaxFMExtensionChannels + MaxRhythmTracks + MaxEffectTracks + MaxPPZChannels)
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
+
 class State
 {
 public:
@@ -84,76 +85,71 @@ public:
 
     channel_t * _Channels[MaxChannels];
 
-    uint32_t _RhythmMask;               // Rhythm sound source mask. Compatible with x8c/10h bit
-    int _RhythmVolume;                  // Rhythm volume
+    int32_t FMVolumeAdjust, DefaultFMVolumeAdjust;
+    int32_t SSGVolumeAdjust, DefaultSSGVolumeAdjust;
+    int32_t ADPCMVolumeAdjust, DefaultADPCMVolumeAdjust;
+    int32_t _RhythmVolumeAdjust, DefaultRhythmVolumeAdjust;
+    int32_t PPZVolumeAdjust, DefaultPPZVolumeAdjust;
 
-    int FMVolumeAdjust, DefaultFMVolumeAdjust;
-    int SSGVolumeAdjust, DefaultSSGVolumeAdjust;
-    int ADPCMVolumeAdjust, DefaultADPCMVolumeAdjust;
-    int _RhythmVolumeAdjust, DefaultRhythmVolumeAdjust;
-    int PPZVolumeAdjust, DefaultPPZVolumeAdjust;
-
-    int FMSlot1Detune;
-    int FMSlot2Detune;
-    int FMSlot3Detune;
-    int FMSlot4Detune;
+    int32_t FMSlot1Detune;
+    int32_t FMSlot2Detune;
+    int32_t FMSlot3Detune;
+    int32_t FMSlot4Detune;
 
     bool PMDB2CompatibilityMode, DefaultPMDB2CompatibilityMode;
 
     // MData characteristics
     uint8_t x68_flg;                    // OPM flag
 
-    int Status;                         // Unused
+    int32_t Status;                     // Unused
 
-    int LoopCount;
+    int32_t LoopCount;
 
-    int FadeOutSpeed;
+    int32_t FadeOutSpeed;
     bool IsFadeOutSpeedSet;
-    int FadeOutSpeedHQ;                 // Fadeout speed (High Sound Quality)
-    int _FadeOutVolume;
+    int32_t FadeOutSpeedHQ;                 // Fadeout speed (High Sound Quality)
+    int32_t _FadeOutVolume;
 
-    int BarLength;                      // Time signature 4/4 = 96 (default); E.g. time signature 3/4 = 72
-    int OpsCounter;                     // Shortest note counter
+    int32_t BarLength;                      // Time signature 4/4 = 96 (default); E.g. time signature 3/4 = 72
+    int32_t OpsCounter;                     // Shortest note counter
 
-    int PCMStart;
-    int PCMStop;
+    int32_t _PCMBegin;
+    int32_t _PCMEnd;
 
-    int Tempo;                          // Timer B Tempo
-    int TempoPush;                      // Timer B Tempo (for saving)
+    int32_t Tempo;                          // Timer B Tempo
+    int32_t TempoPush;                      // Timer B Tempo (for saving)
 
-    int MetronomeTempo;                 // Duration of a quarter note (in ticks)
-    int MetronomeTempoPush;             // Duration of a quarter note (in ticks) (for saving)
+    int32_t MetronomeTempo;                 // Duration of a quarter note (in ticks)
+    int32_t MetronomeTempoPush;             // Duration of a quarter note (in ticks) (for saving)
 
     bool StopAfterFadeout;
 
     bool UseRhythmChannel;              // Use the PMD rhythm channel to sequence drums (by default SSG channel 3) instead of the OPNA's Rhythm Sound Source (RSS).
-//  int pcm_gs_flag;                    // ADPCM use permission flag (0 allows)
+//  int32_t pcm_gs_flag;                    // ADPCM use permission flag (0 allows)
 
-    int BarCounter;
+    int32_t BarCounter;
 
-    int RhythmPanAndVolume[6];          // Pan value and volume
+    int32_t _RhythmPanAndVolumes[6];        // Pan value and volume
 
-    int RhythmChannelMask;              // Bit mask: bit is set to 1 if the corresponding drum channel is playing.
+    int32_t RhythmBassDrumOn;
+    int32_t RhythmSnareDrumOn;
+    int32_t RhythmCymbalOn;
+    int32_t RhythmHiHatOn;
+    int32_t RhythmTomDrumOn;
+    int32_t RhythmRimShotOn;
 
-    int RhythmBassDrumOn;
-    int RhythmSnareDrumOn;
-    int RhythmCymbalOn;
-    int RhythmHiHatOn;
-    int RhythmTomDrumOn;
-    int RhythmRimShotOn;
-
-    int RhythmBassDrumOff;
-    int RhythmSnareDrumOff;
-    int RhythmCymbalOff;
-    int RhythmHiHatOff;
-    int RhythmTomDrumOff;
-    int RhythmRimShotOff;
+    int32_t RhythmBassDrumOff;
+    int32_t RhythmSnareDrumOff;
+    int32_t RhythmCymbalOff;
+    int32_t RhythmHiHatOff;
+    int32_t RhythmTomDrumOff;
+    int32_t RhythmRimShotOff;
 
     uint32_t FMChannel3Mode;
 
-    int TimerACounter;
+    int32_t TimerACounter;
 
-    int TimerBTempo;                    // Current value of TimerB (= ff_tempo during ff)
+    int32_t TimerBTempo;                    // Current value of TimerB (= ff_tempo during ff)
 
     uint32_t OPNASampleRate;            // PCM output frequency (11k, 22k, 44k, 55k)
     uint32_t PPZSampleRate;             // PPZ output frequency

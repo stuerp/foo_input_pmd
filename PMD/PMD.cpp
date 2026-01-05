@@ -67,7 +67,7 @@ bool pmd_driver_t::Initialize(const WCHAR * directoryPathDrums) noexcept
     {
         _OPNAW->SetFMDelay(0);
         _OPNAW->SetSSGDelay(0);
-        _OPNAW->SetRSSDelay(0);
+        _OPNAW->SetRhythmDelay(0);
         _OPNAW->SetADPCMDelay(0);
 
         // Initialize the ADPCM RAM.
@@ -92,7 +92,7 @@ bool pmd_driver_t::Initialize(const WCHAR * directoryPathDrums) noexcept
         _OPNAW->SetFMDelay(DEFAULT_REG_WAIT);
         _OPNAW->SetSSGDelay(DEFAULT_REG_WAIT);
         _OPNAW->SetADPCMDelay(DEFAULT_REG_WAIT);
-        _OPNAW->SetRSSDelay(DEFAULT_REG_WAIT);
+        _OPNAW->SetRhythmDelay(DEFAULT_REG_WAIT);
     }
 
     // Initial setting of 088/188/288/388 (same INT number only)
@@ -457,7 +457,7 @@ bool pmd_driver_t::GetLength(int * songLength, int * loopLength, int * songTicks
     _OPNAW->SetFMDelay(0);
     _OPNAW->SetSSGDelay(0);
     _OPNAW->SetADPCMDelay(0);
-    _OPNAW->SetRSSDelay(0);
+    _OPNAW->SetRhythmDelay(0);
 
     do
     {
@@ -517,7 +517,7 @@ Stop:
     _OPNAW->SetFMDelay(FMDelay);
     _OPNAW->SetSSGDelay(SSGDelay);
     _OPNAW->SetADPCMDelay(ADPCMDelay);
-    _OPNAW->SetRSSDelay(RSSDelay);
+    _OPNAW->SetRhythmDelay(RSSDelay);
 
     return true;
 }
@@ -761,9 +761,9 @@ int pmd_driver_t::DisableChannel(int channel)
 
     if (ChannelTable[channel][0] < 0)
     {
-        _State._RhythmMask = 0x00;
+        _RhythmMask = 0x00;
 
-        _OPNAW->SetReg(0x10, 0xFF); // Dump all Rhythm sound sources.
+        _OPNAW->SetReg(0x10, 0xFF); // Rhytm Part: Dump and disable all Rhythm Sound Source channels.
 
         return ERR_SUCCESS;
     }
@@ -844,7 +844,7 @@ int pmd_driver_t::EnableChannel(int channel)
 
     if (ChannelTable[channel][0] < 0)
     {
-        _State._RhythmMask = 0xFF;
+        _RhythmMask = 0xFF;
 
         return ERR_SUCCESS;
     }
@@ -1032,7 +1032,7 @@ void pmd_driver_t::Reset()
     _State.DefaultRhythmVolumeAdjust = 0;
     SetPPZVolumeAdjustment(0);
 
-    _State._RhythmVolume = 0x3C;
+    _RhythmVolume = 0x3C;
 
     // Initialize the counters.
     _State.RhythmBassDrumOn = 0;
@@ -1076,7 +1076,7 @@ void pmd_driver_t::StartOPNInterrupt()
 
     _DummyChannel = { };
 
-    _State._RhythmMask = 0xFF;
+    _RhythmMask = 0xFF;
 
     InitializeState();
     InitializeOPN();
@@ -1106,11 +1106,11 @@ void pmd_driver_t::InitializeState()
     _State.OpsCounter = 0;
     _State.TimerACounter = 0;
 
-    _State.PCMStart = 0;
-    _State.PCMStop = 0;
+    _State._PCMBegin = 0;
+    _State._PCMEnd = 0;
 
     _State.UseRhythmChannel = false;
-    _State.RhythmChannelMask = 0;
+    _RhythmChannelMask = 0;
 
     _State.FMSlot1Detune = 0;
     _State.FMSlot2Detune = 0;
@@ -1130,8 +1130,8 @@ void pmd_driver_t::InitializeState()
 
     for (auto & FMChannel : _FMChannels)
     {
-        const int PartMask  = FMChannel.PartMask;
-        const int KeyOnFlag = FMChannel.KeyOnFlag;
+        const int32_t PartMask  = FMChannel.PartMask;
+        const int32_t KeyOnFlag = FMChannel.KeyOnFlag;
 
         FMChannel =
         {
@@ -1144,8 +1144,8 @@ void pmd_driver_t::InitializeState()
 
     for (auto & SSGChannel : _SSGChannels)
     {
-        const int PartMask  = SSGChannel.PartMask;
-        const int KeyOnFlag = SSGChannel.KeyOnFlag;
+        const int32_t PartMask  = SSGChannel.PartMask;
+        const int32_t KeyOnFlag = SSGChannel.KeyOnFlag;
 
         SSGChannel =
         {
@@ -1157,8 +1157,8 @@ void pmd_driver_t::InitializeState()
     }
 
     {
-        const int PartMask  = _ADPCMChannel.PartMask;
-        const int KeyOnFlag = _ADPCMChannel.KeyOnFlag;
+        const int32_t PartMask  = _ADPCMChannel.PartMask;
+        const int32_t KeyOnFlag = _ADPCMChannel.KeyOnFlag;
 
         _ADPCMChannel =
         {
@@ -1170,8 +1170,8 @@ void pmd_driver_t::InitializeState()
     }
 
     {
-        const int PartMask  = _RhythmChannel.PartMask;
-        const int KeyOnFlag = _RhythmChannel.KeyOnFlag;
+        const int32_t PartMask  = _RhythmChannel.PartMask;
+        const int32_t KeyOnFlag = _RhythmChannel.KeyOnFlag;
 
         _RhythmChannel =
         {
@@ -1184,8 +1184,8 @@ void pmd_driver_t::InitializeState()
 
     for (auto & FMExtensionChannel : _FMExtensionChannels)
     {
-        const int PartMask  = FMExtensionChannel.PartMask;
-        const int KeyOnFlag = FMExtensionChannel.KeyOnFlag;
+        const int32_t PartMask  = FMExtensionChannel.PartMask;
+        const int32_t KeyOnFlag = FMExtensionChannel.KeyOnFlag;
 
         FMExtensionChannel =
         {
@@ -1198,8 +1198,8 @@ void pmd_driver_t::InitializeState()
 
     for (auto & PPZChannel : _PPZChannels)
     {
-        const int PartMask  = PPZChannel.PartMask;
-        const int KeyOnFlag = PPZChannel.KeyOnFlag;
+        const int32_t PartMask  = PPZChannel.PartMask;
+        const int32_t KeyOnFlag = PPZChannel.KeyOnFlag;
 
         PPZChannel =
         {
@@ -1254,15 +1254,15 @@ void pmd_driver_t::InitializeOPN()
     _OPNAW->SetReg(0x22, 0x00); // Hardware LFO speed
 
     //  Rhythm Default = Pan : 0xC0 (3 << 6, Center) , Volume : 0x0F
-    for (int i = 0; i < 6; ++i)
-        _State.RhythmPanAndVolume[i] = 0xCF;
+    for (auto & RhythmPanAndVolume : _State._RhythmPanAndVolumes)
+        RhythmPanAndVolume = 0xCF;
 
     _OPNAW->SetReg(0x10, 0xFF);
 
     // Set the Rhythm volume.
-    _State._RhythmVolume = 48 * 4 * (256 - _State._RhythmVolumeAdjust) / 1024;
+    _RhythmVolume = 48 * 4 * (256 - _State._RhythmVolumeAdjust) / 1024;
 
-    _OPNAW->SetReg(0x11, (uint32_t) _State._RhythmVolume);  // Rhythm Part: Set RTL (Total Level)
+    _OPNAW->SetReg(0x11, (uint32_t) _RhythmVolume);  // Rhythm Part: Set RTL (Total Level)
 
     // PCM reset & LIMIT SET
     _OPNAW->SetReg(0x10c, 0xff);
@@ -1421,52 +1421,52 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
             break;
         }
 
-        // 9.1. Software LFO Setting, Set software LFO A, Command 'MB number1, number2, number3, number4'
+        // 9.1. Software LFO Setting, Set software LFO 1, Command 'MA number1, number2, number3, number4'
         case 0xF2:
         {
-            si = SetModulation(channel, si);
+            si = LFO1SetModulation(channel, si);
             break;
         }
 
-        // 9.3. Software LFO Switch, Command '*A number'
+        // 9.3. Software LFO Switch, Controls on/off and keyon synchronization of the software LFO, Command '*A number'
         case 0xF1:
         {
-            si = SetModulationMask(channel, si);
+            si = LFO1SetSwitch(channel, si);
             break;
         }
 
         // 8.1. SSG/PCM Software Envelope Setting, Sets a software envelope (only for OPN/OPNA's SSG/ADPCM channels), Command 'E number1, number2, number3, number4'
         case 0xF0:
         {
-            si = SetSSGEnvelopeFormat1Command(channel, si);
+            si = SSGSetEnvelope1(channel, si);
             break;
         }
 
         // 14.1. Rhythm Sound Source Shot/Dump Control
         case 0xEB:
         {
-            si = PlayOPNARhythm(si);
+            si = RhythmControl(si);
             break;
         }
 
         // 14.3. Rhythm Sound Source Individual Volume Setting, Set the volume for an individual rhythm channel, Command 'v number'
         case 0xEA:
         {
-            si = SetOPNARhythmVolumeCommand(si);
+            si = RhythmSetRhythmVolume(si);
             break;
         }
 
         // 14.4. Rhythm Sound Source Output Position Setting, Command '\lb \ls \lc \lh \lt \li \mb \ms \mc \mh \mt \mi \rb \rs \rc \rh \rt \ri'
         case 0xE9:
         {
-            si = SetOPNARhythmPanningCommand(si);
+            si = RhythmSetPan(si);
             break;
         }
 
         // 14.2. Rhythm Sound Source Master Volume Setting, Sets the master volume of the rhythm sound source, Command 'V number'
         case 0xE8:
         {
-            si = SetOPNARhythmMasterVolumeCommand(si);
+            si = RhythmSetMasterVolume(si);
             break;
         }
 
@@ -1480,14 +1480,14 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
         // 14.2. Rhythm Sound Source Master Volume Setting
         case 0xE6:
         {
-            si = SetRelativeOPNARhythmMasterVolume(si);
+            si = RhythmSetRelativeMasterVolume(si);
             break;
         }
 
         // 14.3. Rhythm Sound Source Individual Volume Setting
         case 0xE5:
         {
-            si = SetRelativeOPNARhythmVolume(si);
+            si = RhythmSetRelativeVolume(si);
             break;
         }
 
@@ -1530,9 +1530,9 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
         // 9.7. LFO Depth Temporal Change Setting, Command "MD", "MDA", "MDB"
         case 0xD6:
         {
-            channel->LFO1MDepthSpeed1 =
-            channel->LFO1MDepthSpeed2 = *si++;
-            channel->LFO1MDepth       = *(int8_t *) si++;
+            channel->_LFO1MDepthSpeed1 =
+            channel->_LFO1MDepthSpeed2 = *si++;
+            channel->_LFO1MDepth       = *(int8_t *) si++;
             break;
         }
 
@@ -1574,16 +1574,25 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
         // 8.1. SSG/PCM Software Envelope Setting, Sets a software envelope (only for OPN/OPNA's SSG/ADPCM channels), Command 'E number1, number2, number3, number4, number5, number6'
         case 0xCD:
         {
-            si = SetSSGEnvelopeFormat2Command(channel, si);
+            si = SSGSetEnvelope2(channel, si);
             break;
         }
 
         case 0xCC: si++; break;
 
-        // 9.2. Software LFO Waveform Setting, Command 'MWA number'
+        // 9.2. Software LFO Waveform Setting, Sets the LFO waveform, Command 'MW number' / 'MWA number'
         case 0xCB:
         {
-            channel->LFO1Waveform = *si++;
+            channel->_LFO1Waveform = *si++;
+            break;
+        }
+
+        /// 9.5. Software LFO Speed Setting, Set the LFO 1 speed, Command 'MXA number'
+        case 0xCA:
+        {
+            // If set to 0, the LFO speed is dependent on tempo. So if the tempo is slow the LFO will also be slow.
+            // If set to 1, change the LFO by the M MA MB commands to an extended specification that makes it constant speed independent of tempo.
+            channel->_ExtendMode = (channel->_ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
             break;
         }
 
@@ -1603,10 +1612,10 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
         // 9.1. Software LFO Setting, Set software LFO A delay, Command 'MA number1'
         case 0xC2:
         {
-            channel->LFO1Delay1 =
-            channel->LFO1Delay2 = *si++;
+            channel->_LFO1Delay1 =
+            channel->_LFO1Delay2 = *si++;
 
-            InitializeLFOMain(channel);
+            LFOReset(channel);
             break;
         }
 
@@ -1614,70 +1623,67 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
         case 0xC1:
             break;
 
-        // 9.1. Software LFO Setting, Set software LFO B, Command 'MB number1, number2, number3, number4'
+        // 9.1. Software LFO Setting, Set software LFO 2, Command 'MB number1, number2, number3, number4'
         case 0xBF:
         {
-            SwapLFO(channel);
+            LFOSwap(channel);
 
-            si = SetModulation(channel, si);
+            si = LFO1SetModulation(channel, si);
 
-            SwapLFO(channel);
+            LFOSwap(channel);
             break;
         }
 
         // 9.7. LFO Depth Temporal Change Setting, Command 'MDB number'
         case 0xBD:
         {
-            SwapLFO(channel);
+            LFOSwap(channel);
 
-            channel->LFO1MDepthSpeed1 =
-            channel->LFO1MDepthSpeed2 = *si++;
-            channel->LFO1MDepth       = *(int8_t *) si++;
+            channel->_LFO1MDepthSpeed1 =
+            channel->_LFO1MDepthSpeed2 = *si++;
+            channel->_LFO1MDepth       = *(int8_t *) si++;
 
-            SwapLFO(channel);
+            LFOSwap(channel);
             break;
         }
 
-        // 9.2. Software LFO Waveform Setting, Set the LFO waveform, Command 'MWB number'
+        // 9.2. Software LFO Waveform Setting, Sets the LFO waveform, Command 'MWB number'
         case 0xBC:
         {
-            SwapLFO(channel);
+            LFOSwap(channel);
 
-            channel->LFO1Waveform = *si++;
+            channel->_LFO1Waveform = *si++;
 
-            SwapLFO(channel);
+            LFOSwap(channel);
             break;
         }
 
-        // 9.5. Software LFO Speed Setting, Set the LFO speed, Command 'MXB number'
+        // 9.5. Software LFO Speed Setting, Set the LFO 2 speed, Command 'MXB number'
         case 0xBB:
         {
-            SwapLFO(channel);
+            LFOSwap(channel);
 
-            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
+            // If set to 0, the LFO speed is dependent on tempo. So if the tempo is slow the LFO will also be slow.
+            // If set to 1, change the LFO by the M MA MB commands to an extended specification that makes it constant speed independent of tempo.
+            channel->_ExtendMode = (channel->_ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
 
-            SwapLFO(channel);
+            LFOSwap(channel);
             break;
         }
 
-        // 9.4. Software LFO Slot Setting, Sets the slot number to apply the effect of the software LFO to. (Sound Source FM)
-        case 0xBA:
-        {
-            si = SetVolumeMask(channel, si);
-            break;
-        }
+        case 0xBA: si++; break;
 
         // 9.1. Software LFO Setting, Set software LFO B delay, Command 'MB number1'
         case 0xB9:
         {
-            SwapLFO(channel);
+            LFOSwap(channel);
 
-            channel->LFO1Delay1 =
-            channel->LFO1Delay2 = *si++;
+            channel->_LFO1Delay1 =
+            channel->_LFO1Delay2 = *si++;
 
-            InitializeLFOMain(channel);
+            LFOReset(channel);
 
-            SwapLFO(channel);
+            LFOSwap(channel);
             break;
         }
 
@@ -1725,11 +1731,11 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
 }
 
 /// <summary>
-/// Increases the volume for the next note only (Command "v").
+/// Increases the volume for the next note only. 5.5. Relative Volume Change, Command ') ^%number', Range 0 - 255
 /// </summary>
 uint8_t * pmd_driver_t::IncreaseVolumeForNextNote(channel_t * channel, uint8_t * si, int maxVolume)
 {
-    int Volume = (int) channel->_Volume + *si++ + 1;
+    int32_t Volume = channel->_Volume + *si++ + 1;
 
     if (Volume > maxVolume)
         Volume = maxVolume;
@@ -1741,11 +1747,11 @@ uint8_t * pmd_driver_t::IncreaseVolumeForNextNote(channel_t * channel, uint8_t *
 }
 
 /// <summary>
-/// Decreases the volume for the next note only.
+/// Decreases the volume for the next note only. 5.5. Relative Volume Change, Command '( ^%number', Range 0 - 255
 /// </summary>
 uint8_t * pmd_driver_t::DecreaseVolumeForNextNote(channel_t * channel, uint8_t * si)
 {
-    int Volume = channel->_Volume - *si++;
+    int32_t Volume = channel->_Volume - *si++;
 
     if (Volume < 1)
         Volume = 1;
@@ -1780,7 +1786,7 @@ uint8_t * pmd_driver_t::SpecialC0ProcessingCommand(channel_t * channel, uint8_t 
 
         // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DS ±number'
         case 0xFC:
-            si = DecreaseSSGVolumeCommand(channel, si);
+            si = SSGDecreaseVolume(channel, si);
             break;
 
         // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DP number'
@@ -1790,7 +1796,7 @@ uint8_t * pmd_driver_t::SpecialC0ProcessingCommand(channel_t * channel, uint8_t 
 
         // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DP ±number'
         case 0xFA:
-            si = DecreaseADPCMVolumeCommand(channel, si);
+            si = ADPCMDecreaseVolume(channel, si);
             break;
 
         // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DR number'
@@ -1800,7 +1806,7 @@ uint8_t * pmd_driver_t::SpecialC0ProcessingCommand(channel_t * channel, uint8_t 
 
         // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DR ±number'
         case 0xF8:
-            si = DecreaseRhythmVolumeCommand(channel, si);
+            si = RhythmDecreaseVolume(channel, si);
             break;
 
         // 15.10. PCM Method Selection, Changes the PCM channel method, Command 'A number'
@@ -1820,44 +1826,6 @@ uint8_t * pmd_driver_t::SpecialC0ProcessingCommand(channel_t * channel, uint8_t 
             si--;
             *si = 0x80;
     }
-
-    return si;
-}
-
-/// <summary>
-/// 9.11. Hardware LFO Switch/Depth Setting (OPNA), Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
-/// </summary>
-uint8_t * pmd_driver_t::SetHardwareLFOSwitchCommand(channel_t * channel, uint8_t * si)
-{
-    channel->HardwareLFOModulationMode = (channel->HardwareLFOModulationMode & 0x8F) | ((*si++ & 0x07) << 4);
-
-    SwapLFO(channel);
-
-    InitializeLFOMain(channel);
-
-    SwapLFO(channel);
-
-    return si;
-}
-
-/// <summary>
-/// 9.4. Software LFO Slot Setting, Sets the slot number to apply the effect of the software LFO to. (Sound Source FM)
-/// </summary>
-uint8_t * pmd_driver_t::SetVolumeMask(channel_t * channel, uint8_t * si)
-{
-    int al = *si++ & 0x0F;
-
-    if (al != 0)
-    {
-        al = (al << 4) | 0x0F;
-
-        channel->VolumeMask2 = al;
-    }
-    else
-        channel->VolumeMask2 = channel->FMCarrier;
-
-    // For the FM channel 3, both pitch and volume LFOs are affected.
-    SetFMChannelLFOs(channel);
 
     return si;
 }
@@ -2013,28 +1981,6 @@ uint8_t * pmd_driver_t::ExitLoopCommand(channel_t * channel, uint8_t * si)
 }
 
 /// <summary>
-/// Sets the modulation parameters.
-/// </summary>
-uint8_t * pmd_driver_t::SetModulation(channel_t * channel, uint8_t * si) noexcept
-{
-    channel->LFO1Delay1 =
-    channel->LFO1Delay2 = *si++;
-
-    channel->LFO1Speed1 =
-    channel->LFO1Speed2 = *si++;
-
-    channel->LFO1Step1 =
-    channel->LFO1Step2 = *(int8_t *) si++;
-
-    channel->LFO1Time1 =
-    channel->LFO1Time2 = *si++;
-
-    InitializeLFOMain(channel);
-
-    return si;
-}
-
-/// <summary>
 /// 
 /// </summary>
 uint8_t * pmd_driver_t::SetMDepthCountCommand(channel_t * channel, uint8_t * si) const noexcept
@@ -2046,8 +1992,8 @@ uint8_t * pmd_driver_t::SetMDepthCountCommand(channel_t * channel, uint8_t * si)
         if (al == 0)
             al = 255;
 
-        channel->LFO1MDepthCount1 = al;
-        channel->LFO1MDepthCount2 = al;
+        channel->_LFO1MDepthCount1 = al;
+        channel->_LFO1MDepthCount2 = al;
     }
     else
     {
@@ -2209,32 +2155,6 @@ int pmd_driver_t::rnd(int ax)
 }
 
 /// <summary>
-/// Swaps LFO 1 and LFO 2.
-/// </summary>
-void pmd_driver_t::SwapLFO(channel_t * channel) noexcept
-{
-    std::swap(channel->LFO1Data, channel->LFO2Data);
-
-    channel->HardwareLFOModulationMode = ((channel->HardwareLFOModulationMode & 0x0F) << 4) + (channel->HardwareLFOModulationMode >> 4);
-    channel->ExtendMode     = ((channel->ExtendMode     & 0x0F) << 4) + (channel->ExtendMode >> 4);
-
-    std::swap(channel->LFO1Delay1, channel->LFO2Delay1);
-    std::swap(channel->LFO1Speed1, channel->LFO2Speed1);
-    std::swap(channel->LFO1Step1, channel->LFO2Step1);
-    std::swap(channel->LFO1Time1, channel->LFO2Time1);
-    std::swap(channel->LFO1Delay2, channel->LFO2Delay2);
-    std::swap(channel->LFO1Speed2, channel->LFO2Speed2);
-    std::swap(channel->LFO1Step2, channel->LFO2Step2);
-    std::swap(channel->LFO1Time2, channel->LFO2Time2);
-    std::swap(channel->LFO1MDepth, channel->LFO2MDepth);
-    std::swap(channel->LFO1MDepthSpeed1, channel->LFO2MDepthSpeed1);
-    std::swap(channel->LFO1MDepthSpeed2, channel->LFO2MDepthSpeed2);
-    std::swap(channel->LFO1Waveform, channel->LFO2Waveform);
-    std::swap(channel->LFO1MDepthCount1, channel->LFO2MDepthCount1);
-    std::swap(channel->LFO1MDepthCount2, channel->LFO2MDepthCount2);
-}
-
-/// <summary>
 /// Set the tempo.
 /// </summary>
 void pmd_driver_t::SetTimerBTempo()
@@ -2376,7 +2296,7 @@ void pmd_driver_t::Fade()
             _State._FadeOutVolume = 0;
             _State.FadeOutSpeed  = 0;
 
-            _OPNAW->SetReg(0x11, (uint32_t) _State._RhythmVolume);  // Rhythm Part: Set RTL (Total Level)
+            _OPNAW->SetReg(0x11, (uint32_t) _RhythmVolume);  // Rhythm Part: Set RTL (Total Level)
         }
     }
 }
@@ -2395,8 +2315,8 @@ void pmd_driver_t::InitializeChannels()
         _FMChannels[i]._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
         _FMChannels[i]._Size = 1;
         _FMChannels[i].KeyOffFlag = -1;
-        _FMChannels[i].LFO1MDepthCount1 = -1;    // LFO1MDepth Counter (-1 = infinite)
-        _FMChannels[i].LFO1MDepthCount2 = -1;
+        _FMChannels[i]._LFO1MDepthCount1 = -1;    // LFO1MDepth Counter (-1 = infinite)
+        _FMChannels[i]._LFO1MDepthCount2 = -1;
         _FMChannels[i].LFO2MDepthCount1 = -1;
         _FMChannels[i].LFO2MDepthCount2 = -1;
         _FMChannels[i].Tone = 0xFF;              // Rest
@@ -2414,8 +2334,8 @@ void pmd_driver_t::InitializeChannels()
         _SSGChannels[i]._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
         _SSGChannels[i]._Size = 1;
         _SSGChannels[i].KeyOffFlag = -1;
-        _SSGChannels[i].LFO1MDepthCount1 = -1;   // LFO1MDepth Counter (-1 = infinite)
-        _SSGChannels[i].LFO1MDepthCount2 = -1;
+        _SSGChannels[i]._LFO1MDepthCount1 = -1;   // LFO1MDepth Counter (-1 = infinite)
+        _SSGChannels[i]._LFO1MDepthCount2 = -1;
         _SSGChannels[i].LFO2MDepthCount1 = -1;
         _SSGChannels[i].LFO2MDepthCount2 = -1;
         _SSGChannels[i].Tone = 0xFF;             // Rest
@@ -2432,8 +2352,8 @@ void pmd_driver_t::InitializeChannels()
         _ADPCMChannel._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
         _ADPCMChannel._Size = 1;
         _ADPCMChannel.KeyOffFlag = -1;
-        _ADPCMChannel.LFO1MDepthCount1 = -1;
-        _ADPCMChannel.LFO1MDepthCount2 = -1;
+        _ADPCMChannel._LFO1MDepthCount1 = -1;
+        _ADPCMChannel._LFO1MDepthCount2 = -1;
         _ADPCMChannel.LFO2MDepthCount1 = -1;
         _ADPCMChannel.LFO2MDepthCount2 = -1;
         _ADPCMChannel.Tone = 0xFF;              // Rest
@@ -2449,8 +2369,8 @@ void pmd_driver_t::InitializeChannels()
         _RhythmChannel._Data = (_State.MData[*Offsets] != 0x80) ? _RhythmChannel._Data = &_State.MData[*Offsets] : nullptr;
         _RhythmChannel._Size = 1;
         _RhythmChannel.KeyOffFlag = -1;
-        _RhythmChannel.LFO1MDepthCount1 = -1;
-        _RhythmChannel.LFO1MDepthCount2 = -1;
+        _RhythmChannel._LFO1MDepthCount1 = -1;
+        _RhythmChannel._LFO1MDepthCount2 = -1;
         _RhythmChannel.LFO2MDepthCount1 = -1;
         _RhythmChannel.LFO2MDepthCount2 = -1;
         _RhythmChannel.Tone = 0xFF;             // Rest

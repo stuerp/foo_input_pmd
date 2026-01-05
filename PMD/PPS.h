@@ -40,7 +40,7 @@ const size_t PPSHEADERSIZE = (sizeof(uint16_t) * 2 + sizeof(uint8_t) * 2) * MAX_
 
 /// <summary>
 /// PCM driver for the SSG (Software-controlled Sound Generator)
-/// 4-bit 16000Hz PCM playback on the SSG Channel 3. It can also play 2 samples simultanelously, but at a lower quality.
+/// 4-bit 16000Hz PCM playback on the SSG channel 3. It can also play 2 samples simultanelously, but at a lower quality.
 /// </summary>
 class pps_t
 {

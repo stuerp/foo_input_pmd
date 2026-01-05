@@ -1,5 +1,5 @@
 
-// $VER: PMDPPZ.cpp (2026.01.03) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+/** $VER: PMDPPZ8.cpp (2026.01.04) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <pch.h>
 
@@ -10,7 +10,10 @@
 
 #include "OPNAW.h"
 
-void pmd_driver_t::PPZMain(channel_t * channel)
+/// <summary>
+/// Main PPZ8 processing
+/// </summary>
+void pmd_driver_t::PPZ8Main(channel_t * channel)
 {
     if (channel->_Data == nullptr)
         return;
@@ -36,7 +39,7 @@ void pmd_driver_t::PPZMain(channel_t * channel)
 
     if (channel->_Size == 0)
     {
-        channel->HardwareLFOModulationMode &= 0xF7;
+        channel->_HardwareLFO &= 0xF7;
 
         while (1)
         {
@@ -91,7 +94,7 @@ void pmd_driver_t::PPZMain(channel_t * channel)
                     channel->Factor      = 0;
                     channel->Tone        = 0xFF;
 //                  channel->DefaultTone = 0xFF;
-                    channel->_Size      = *si++;
+                    channel->_Size       = *si++;
                     channel->KeyOnFlag++;
 
                     channel->_Data = si;
@@ -141,38 +144,34 @@ void pmd_driver_t::PPZMain(channel_t * channel)
         }
     }
 
-    _Driver._HardwareLFOModulationMode = (channel->HardwareLFOModulationMode & 0x08);
+    _Driver._HardwareLFOModulationMode = (channel->_HardwareLFO & 0x08);
 
-    if (channel->HardwareLFOModulationMode != 0x00)
+    if (channel->_HardwareLFO != 0x00)
     {
-        if (channel->HardwareLFOModulationMode & 0x03)
+        if (channel->_HardwareLFO & 0x03)
         {
             if (SetLFO(channel))
-            {
-                _Driver._HardwareLFOModulationMode |= (channel->HardwareLFOModulationMode & 0x03);
-            }
+                _Driver._HardwareLFOModulationMode |= (channel->_HardwareLFO & 0x03);
         }
 
-        if (channel->HardwareLFOModulationMode & 0x30)
+        if (channel->_HardwareLFO & 0x30)
         {
-            SwapLFO(channel);
+            LFOSwap(channel);
 
             if (SetSSGLFO(channel))
             {
-                SwapLFO(channel);
+                LFOSwap(channel);
 
-                _Driver._HardwareLFOModulationMode |= (channel->HardwareLFOModulationMode & 0x30);
+                _Driver._HardwareLFOModulationMode |= (channel->_HardwareLFO & 0x30);
             }
             else
-                SwapLFO(channel);
+                LFOSwap(channel);
         }
 
         if (_Driver._HardwareLFOModulationMode & 0x19)
         {
             if (_Driver._HardwareLFOModulationMode & 0x08)
-            {
                 CalculatePortamento(channel);
-            }
 
             SetPPZPitch(channel);
         }
@@ -263,15 +262,10 @@ uint8_t * pmd_driver_t::ExecutePPZCommand(channel_t * channel, uint8_t * si)
             break;
         }
 
-        // Set SSG Extend Mode (bit 1).
-        case 0xCA:
-            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
-            break;
-
         // 8.2. Software Envelope Speed Setting, Set SSG Extend Mode (bit 2), Command 'EX number'
         case 0xC9:
         {
-            channel->ExtendMode = (channel->ExtendMode & 0xFB) | ((*si++ & 0x01) << 2);
+            channel->_ExtendMode = (channel->_ExtendMode & 0xFB) | ((*si++ & 0x01) << 2);
             break;
         }
 
@@ -289,10 +283,10 @@ uint8_t * pmd_driver_t::ExecutePPZCommand(channel_t * channel, uint8_t * si)
             break;
         }
 
-        // 9.11. Hardware LFO Switch/Depth Setting (OPNA), Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
+        // 9.3. Software LFO Switch, Controls on/off and keyon synchronization of the software LFO, Command '*B number'
         case 0xBE:
         {
-            si = SetHardwareLFOSwitchCommand(channel, si);
+            si = LFO2SetSwitch(channel, si);
             break;
         }
 
@@ -334,7 +328,7 @@ void pmd_driver_t::SetPPZTone(channel_t * channel, int tone)
         // Rest
         channel->Tone = 0xFF;
 
-        if ((channel->HardwareLFOModulationMode & 0x11) == 0)
+        if ((channel->_HardwareLFO & 0x11) == 0)
             channel->Factor = 0; // Don't use LFO pitch.
     }
 }
@@ -404,11 +398,11 @@ void pmd_driver_t::SetPPZVolume(channel_t * channel)
     }
 
     // Calculate the LFO volume.
-    if ((channel->HardwareLFOModulationMode & 0x22))
+    if ((channel->_HardwareLFO & 0x22))
     {
-        int dx = (channel->HardwareLFOModulationMode & 0x02) ? channel->LFO1Data : 0;
+        int dx = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
 
-        if (channel->HardwareLFOModulationMode & 0x20)
+        if (channel->_HardwareLFO & 0x20)
             dx += channel->LFO2Data;
 
         al += dx;
@@ -444,9 +438,9 @@ void pmd_driver_t::SetPPZPitch(channel_t * channel)
     Pitch += channel->_Portamento * 16;
 
     {
-        int ax = (channel->HardwareLFOModulationMode & 0x01) ? channel->LFO1Data : 0;
+        int ax = (channel->_HardwareLFO & 0x01) ? channel->_LFO1Data : 0;
 
-        if (channel->HardwareLFOModulationMode & 0x10)
+        if (channel->_HardwareLFO & 0x10)
             ax += channel->LFO2Data;
 
         ax += channel->_DetuneValue;
@@ -589,7 +583,7 @@ uint8_t * pmd_driver_t::SetPPZPortamentoCommand(channel_t * channel, uint8_t * s
 
     channel->PortamentoQuotient = ax / channel->_Size;
     channel->PortamentoRemainder = ax % channel->_Size;
-    channel->HardwareLFOModulationMode |= 0x08; // Enable portamento.
+    channel->_HardwareLFO |= 0x08; // Enable portamento.
 
     if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
     {
@@ -690,8 +684,8 @@ uint8_t * pmd_driver_t::InitializePPZ(channel_t *, uint8_t * si)
             _PPZChannels[i]._Data = &_State.MData[Offset];
             _PPZChannels[i]._Size = 1;
             _PPZChannels[i].KeyOffFlag = -1;
-            _PPZChannels[i].LFO1MDepthCount1 = -1;        // LFO1MDepth Counter (Infinite)
-            _PPZChannels[i].LFO1MDepthCount2 = -1;
+            _PPZChannels[i]._LFO1MDepthCount1 = -1;        // LFO1MDepth Counter (Infinite)
+            _PPZChannels[i]._LFO1MDepthCount2 = -1;
             _PPZChannels[i].LFO2MDepthCount1 = -1;
             _PPZChannels[i].LFO2MDepthCount2 = -1;
             _PPZChannels[i].Tone = 0xFF;         // Rest

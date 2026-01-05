@@ -12,7 +12,7 @@
 
 int pmd_driver_t::SSGPCMSoftwareEnvelope(channel_t * channel)
 {
-    if (channel->ExtendMode & 0x04)
+    if (channel->_ExtendMode & 0x04)
     {
         if (_State.TimerACounter == _Driver._PreviousTimerACounter)
             return 0;
@@ -21,7 +21,7 @@ int pmd_driver_t::SSGPCMSoftwareEnvelope(channel_t * channel)
 
         for (int i = 0; i < _State.TimerACounter - _Driver._PreviousTimerACounter; ++i)
         {
-            if (SSGPCMSoftwareEnvelopeMain(channel))
+            if (SSGPCMSoftwareEnvelopeMain(channel) != 0)
                 cl = 1;
         }
 

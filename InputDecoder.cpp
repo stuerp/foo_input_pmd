@@ -1,5 +1,5 @@
  
-/** $VER: InputDecoder.cpp (2026.01.03) P. Stuer **/
+/** $VER: InputDecoder.cpp (2026.01.04) P. Stuer **/
 
 #include "pch.h"
 
@@ -148,6 +148,11 @@ public:
         // General info tags
         fileInfo.info_set("encoding", "Synthesized");
 
+        fileInfo.info_set("pcm_filename", _Decoder->GetPCMFileName());
+        fileInfo.info_set("pps_filename", _Decoder->GetPPSFileName());
+        fileInfo.info_set("ppz_filename_1", _Decoder->GetPPZFileName(1));
+        fileInfo.info_set("ppz_filename_2", _Decoder->GetPPZFileName(2));
+
         double Loop = _Decoder->GetLoopLength() / 1'000.;
 
         if (Loop > 0.)
@@ -158,11 +163,6 @@ public:
         fileInfo.meta_add("artist", _Decoder->GetArranger());
         fileInfo.meta_add("composer", _Decoder->GetComposer());
         fileInfo.meta_add("memo", _Decoder->GetMemo());
-
-        fileInfo.meta_add("pcm_filename", _Decoder->GetPCMFileName());
-        fileInfo.meta_add("pps_filename", _Decoder->GetPPSFileName());
-        fileInfo.meta_add("ppz_filename_1", _Decoder->GetPPZFileName(1));
-        fileInfo.meta_add("ppz_filename_2", _Decoder->GetPPZFileName(2));
     }
 
     #pragma endregion

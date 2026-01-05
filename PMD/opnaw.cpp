@@ -1,5 +1,5 @@
 
-/** $VER: OPNAW.cpp (2025.10.01) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: OPNAW.cpp (2026.01.04) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <pch.h>
 
@@ -30,7 +30,7 @@ void opnaw_t::Initialize(uint32_t clockSpeed, uint32_t sampleRate, bool useInter
 
     SetFMDelay(_FMDelay);
     SetSSGDelay(_SSGDelay);
-    SetRSSDelay(_RSSDelay);
+    SetRhythmDelay(_RhythmDelay);
     SetADPCMDelay(_ADPCMDelay);
 }
 
@@ -64,10 +64,10 @@ void opnaw_t::SetADPCMDelay(int ns) noexcept
 /// <summary>
 /// Sets the Rhythm delay.
 /// </summary>
-void opnaw_t::SetRSSDelay(int ns) noexcept
+void opnaw_t::SetRhythmDelay(int ns) noexcept
 {
-    _RSSDelay      = ns;
-    _RSSDelayCount = (int) (ns * _SampleRate / 1'000'000);
+    _RhythmDelay      = ns;
+    _RhythmDelayCount = (int) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
@@ -89,8 +89,8 @@ void opnaw_t::SetReg(uint32_t reg, uint32_t value) noexcept
     else
     if (reg < 0x20)
     {   // Rhythm
-        if (_RSSDelayCount != 0)
-            CalcWaitPCM(_RSSDelayCount);
+        if (_RhythmDelayCount != 0)
+            CalcWaitPCM(_RhythmDelayCount);
     }
     else
     {   // FM
@@ -180,12 +180,12 @@ void opnaw_t::Reset() noexcept
 
     _FMDelay = 0;
     _SSGDelay = 0;
-    _RSSDelay = 0;
+    _RhythmDelay = 0;
     _ADPCMDelay = 0;
 
     _FMDelayCount = 0;
     _SSGDelayCount = 0;
-    _RSSDelayCount = 0;
+    _RhythmDelayCount = 0;
     _ADPCMDelayCount = 0;
 
     _Counter = 0;

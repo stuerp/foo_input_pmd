@@ -61,7 +61,7 @@ void pmd_driver_t::DriverMain()
         for (i = 0; i < 8; ++i)
         {
             _Driver._CurrentChannel = i;
-            PPZMain(&_PPZChannels[i]);
+            PPZ8Main(&_PPZChannels[i]);
         }
     }
 

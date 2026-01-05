@@ -1,5 +1,5 @@
 
-// PMD driver (Based on PMDWin code by C60)
+/** $VER: PMDSSGEffect.cpp (2026.01.04) PMD driver (Based on PMDWin code by C60) **/
 
 #include <pch.h>
 
@@ -10,6 +10,9 @@
 
 #include "OPNAW.h"
 
+/// <summary>
+/// Main SSG effect processing
+/// </summary>
 void pmd_driver_t::SSGEffectMain(channel_t * channel, int effectNumber)
 {
     if (_UsePPSForDrums && (effectNumber & 0x80))

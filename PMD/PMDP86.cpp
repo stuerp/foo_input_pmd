@@ -10,6 +10,9 @@
 
 #include "OPNAW.h"
 
+/// <summary>
+/// Main P86 processing
+/// </summary>
 void pmd_driver_t::P86Main(channel_t * channel)
 {
     if (channel->_Data == nullptr)
@@ -40,7 +43,7 @@ void pmd_driver_t::P86Main(channel_t * channel)
         {
             if (*si > 0x80)
             {
-                si = ExecuteP86Command(channel, si);
+                si = P86ExecuteCommand(channel, si);
             }
             else
             if (*si == 0x80)
@@ -93,7 +96,7 @@ void pmd_driver_t::P86Main(channel_t * channel)
                     break;
                 }
 
-                SetP86Tone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
+                P86SetTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
 
                 channel->_Size = *si++;
 
@@ -108,8 +111,8 @@ void pmd_driver_t::P86Main(channel_t * channel)
                     }
                 }
 
-                SetP86Volume(channel);
-                SetP86Pitch(channel);
+                P86SetVolume(channel);
+                P86SetPitch(channel);
 
                 if (channel->KeyOffFlag & 0x01)
                     P86KeyOn(channel);
@@ -130,48 +133,48 @@ void pmd_driver_t::P86Main(channel_t * channel)
         }
     }
 
-    if (channel->HardwareLFOModulationMode & 0x22)
+    if (channel->_HardwareLFO & 0x22)
     {
         _Driver._HardwareLFOModulationMode = 0;
 
-        if (channel->HardwareLFOModulationMode & 0x02)
+        if (channel->_HardwareLFO & 0x02)
         {
             SetLFO(channel);
 
-            _Driver._HardwareLFOModulationMode |= (channel->HardwareLFOModulationMode & 0x02);
+            _Driver._HardwareLFOModulationMode |= (channel->_HardwareLFO & 0x02);
         }
 
-        if (channel->HardwareLFOModulationMode & 0x20)
+        if (channel->_HardwareLFO & 0x20)
         {
-            SwapLFO(channel);
+            LFOSwap(channel);
 
             if (SetLFO(channel))
             {
-                SwapLFO(channel);
+                LFOSwap(channel);
 
-                _Driver._HardwareLFOModulationMode |= (channel->HardwareLFOModulationMode & 0x20);
+                _Driver._HardwareLFOModulationMode |= (channel->_HardwareLFO & 0x20);
             }
             else
-                SwapLFO(channel);
+                LFOSwap(channel);
         }
 
         int temp = SSGPCMSoftwareEnvelope(channel);
 
         if (temp || _Driver._HardwareLFOModulationMode & 0x22 || _State.FadeOutSpeed)
-            SetP86Volume(channel);
+            P86SetVolume(channel);
     }
     else
     {
         int temp = SSGPCMSoftwareEnvelope(channel);
 
         if (temp || _State.FadeOutSpeed)
-            SetP86Volume(channel);
+            P86SetVolume(channel);
     }
 
     _Driver._LoopCheck &= channel->_LoopCheck;
 }
 
-uint8_t * pmd_driver_t::ExecuteP86Command(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::P86ExecuteCommand(channel_t * channel, uint8_t * si)
 {
     const uint8_t Command = *si++;
 
@@ -180,7 +183,7 @@ uint8_t * pmd_driver_t::ExecuteP86Command(channel_t * channel, uint8_t * si)
         // 6.1. Instrument Number Setting, Command '@[@] insnum' / Command '@[@] insnum[,number1[,number2[,number3]]]'
         case 0xFF:
         {
-            si = SetP86Instrument(channel, si);
+            si = P86SetInstrument(channel, si);
             break;
         }
 
@@ -204,7 +207,7 @@ uint8_t * pmd_driver_t::ExecuteP86Command(channel_t * channel, uint8_t * si)
 
         // 13.1. Pan setting 1
         case 0xEC:
-            si = SetP86Pan1(channel, si);
+            si = P86SetPan1(channel, si);
             break;
 
         // 5.5. Relative Volume Change, Command ') %number'
@@ -261,33 +264,33 @@ uint8_t * pmd_driver_t::ExecuteP86Command(channel_t * channel, uint8_t * si)
         // 6.1.5. Instrument Number Setting/PCM Channels Case, Set PCM Repeat.
         case 0xCE:
         {
-            si = SetP86RepeatCommand(channel, si);
+            si = P86SetRepeat(channel, si);
             break;
         }
 
         // Set SSG Extend Mode (bit 1).
         case 0xCA:
-            channel->ExtendMode = (channel->ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
+            channel->_ExtendMode = (channel->_ExtendMode & 0xFD) | ((*si++ & 0x01) << 1);
             break;
 
         // 8.2. Software Envelope Speed Setting, Set SSG Extend Mode (bit 2), Command 'EX number'
         case 0xC9:
         {
-            channel->ExtendMode = (channel->ExtendMode & 0xFB) | ((*si++ & 0x01) << 2);
+            channel->_ExtendMode = (channel->_ExtendMode & 0xFB) | ((*si++ & 0x01) << 2);
             break;
         }
 
         // 13.2. Pan Setting 2
         case 0xC3:
         {
-            si = SetP86Pan2(channel, si);
+            si = P86SetPan2(channel, si);
             break;
         }
 
         // 15.7. Channel Mask Control, Sets the channel mask to on or off, Command 'm number'
         case 0xC0:
         {
-            si = SetP86ChannelMaskCommand(channel, si);
+            si = P86SetChannelMask(channel, si);
             break;
         }
 
@@ -317,7 +320,7 @@ uint8_t * pmd_driver_t::ExecuteP86Command(channel_t * channel, uint8_t * si)
 /// <summary>
 ///
 /// </summary>
-void pmd_driver_t::SetP86Tone(channel_t * channel, int tone)
+void pmd_driver_t::P86SetTone(channel_t * channel, int tone)
 {
     int ah = tone & 0x0F;
 
@@ -341,7 +344,7 @@ void pmd_driver_t::SetP86Tone(channel_t * channel, int tone)
         // Rest
         channel->Tone = 0xFF;
 
-        if ((channel->HardwareLFOModulationMode & 0x11) == 0)
+        if ((channel->_HardwareLFO & 0x11) == 0)
             channel->Factor = 0; // Don't use LFO pitch.
     }
 }
@@ -349,7 +352,7 @@ void pmd_driver_t::SetP86Tone(channel_t * channel, int tone)
 /// <summary>
 ///
 /// </summary>
-void pmd_driver_t::SetP86Volume(channel_t * channel)
+void pmd_driver_t::P86SetVolume(channel_t * channel)
 {
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
 
@@ -408,9 +411,9 @@ void pmd_driver_t::SetP86Volume(channel_t * channel)
     }
 
     // Calculate the LFO volume.
-    int dx = (channel->HardwareLFOModulationMode & 0x02) ? channel->LFO1Data : 0;
+    int dx = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
 
-    if (channel->HardwareLFOModulationMode & 0x20)
+    if (channel->_HardwareLFO & 0x20)
         dx += channel->LFO2Data;
 
     if (dx >= 0)
@@ -435,7 +438,7 @@ void pmd_driver_t::SetP86Volume(channel_t * channel)
 /// <summary>
 ///
 /// </summary>
-void pmd_driver_t::SetP86Pitch(channel_t * channel)
+void pmd_driver_t::P86SetPitch(channel_t * channel)
 {
     if (channel->Factor == 0)
         return;
@@ -482,7 +485,7 @@ void pmd_driver_t::P86KeyOff(channel_t * channel)
 /// <summary>
 /// Command "@ number": Sets the instrument to be used. Range 0-255.
 /// </summary>
-uint8_t * pmd_driver_t::SetP86Instrument(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::P86SetInstrument(channel_t * channel, uint8_t * si)
 {
     channel->InstrumentNumber = *si++;
 
@@ -494,7 +497,7 @@ uint8_t * pmd_driver_t::SetP86Instrument(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command "p value" (1: right, 2: left, 3: center (default), 0: Reverse Phase)
 /// </summary>
-uint8_t * pmd_driver_t::SetP86Pan1(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::P86SetPan1(channel_t *, uint8_t * si)
 {
     switch (*si++)
     {
@@ -524,7 +527,7 @@ uint8_t * pmd_driver_t::SetP86Pan1(channel_t *, uint8_t * si)
 /// <summary>
 /// Command "px ±value1 [, value2]" (value 1: < 0 (Pan to the right), > 0 (Pan to the left), 0 (Center) / value 2: 0 (In phase) or 1 (Reverse phase)).
 /// </summary>
-uint8_t * pmd_driver_t::SetP86Pan2(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::P86SetPan2(channel_t * channel, uint8_t * si)
 {
     int Flags = 0;
     int Value = 0;
@@ -560,7 +563,7 @@ uint8_t * pmd_driver_t::SetP86Pan2(channel_t * channel, uint8_t * si)
 #pragma endregion
 
 // Command "@[@] insnum[,number1[,number2[,number3]]]"
-uint8_t * pmd_driver_t::SetP86RepeatCommand(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::P86SetRepeat(channel_t *, uint8_t * si)
 {
     int16_t LoopBegin = *(int16_t *) si;
     si += 2;
@@ -576,7 +579,7 @@ uint8_t * pmd_driver_t::SetP86RepeatCommand(channel_t *, uint8_t * si)
 }
 
 // Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
-uint8_t * pmd_driver_t::SetP86ChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept
+uint8_t * pmd_driver_t::P86SetChannelMask(channel_t * channel, uint8_t * si) noexcept
 {
     const uint8_t Value = *si++;
 

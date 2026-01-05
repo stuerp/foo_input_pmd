@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.cpp (2025.12.21) P. Stuer **/
+/** $VER: PMDDecoder.cpp (2026.01.04) P. Stuer **/
 
 #include "pch.h"
 

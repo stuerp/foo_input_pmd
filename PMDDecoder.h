@@ -1,5 +1,5 @@
 
-/** $VER: PMDPlayer.h (2025.10.01) P. Stuer **/
+/** $VER: PMDPlayer.h (2026.01.04) P. Stuer **/
 
 #pragma once
 

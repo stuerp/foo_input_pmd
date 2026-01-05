@@ -53,8 +53,8 @@
     <ClCompile Include="PMD\PMDSSG.cpp" />
     <ClCompile Include="PMD\PMDP86.cpp" />
     <ClCompile Include="PMD\PMDADPCM.cpp" />
-    <ClCompile Include="PMD\PMDLFO.cpp" />
-    <ClCompile Include="PMD\PMDPPZ.cpp" />
+    <ClCompile Include="PMD\PMDSoftwareLFO.cpp" />
+    <ClCompile Include="PMD\PMDPPZ8.cpp" />
     <ClCompile Include="PMD\PMDSoftwareEnvelope.cpp" />
     <ClCompile Include="PMD\Driver.cpp" />
     <ClCompile Include="pch.cpp" />

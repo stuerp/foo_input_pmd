@@ -55,9 +55,13 @@ The following meta data tags are available:
 
 The following info tags are available:
 
-| Name        | Value                              |
-| ----------- | ---------------------------------- |
-| loop_length | Length of loop (in ms), if defined |
+| Name           | Value                              |
+| -------------- | ---------------------------------- |
+| loop_length    | Length of loop (in ms), if defined |
+| pcm_filename   | File name of the PCM sample set used by the song |
+| pps_filename   | File name of the PPC sample set used by the song |
+| ppz_filename_1 | File name of the PPZ sample set used by the song |
+| ppz_filename_2 | File name of the PPZ sample set used by the song |
 
 The following info tags are available while playing a track:
 
@@ -71,7 +75,7 @@ The following info tags are available while playing a track:
 To build the code you need:
 
 * [Microsoft Visual Studio 2022 Community Edition](https://visualstudio.microsoft.com/downloads/) or later
-* [foobar2000 SDK](https://www.foobar2000.org/SDK) 2023-05-10
+* [foobar2000 SDK](https://www.foobar2000.org/SDK) 2025-03-07
 * [Windows Template Library (WTL)](https://github.com/Win32-WTL/WTL) 10.0.10320
 
 To create the deployment package you need:
@@ -109,6 +113,7 @@ To create the component first build the x86 configuration and next the x64 confi
 
 v0.5.0, 2026-01-xx
 
+* New: `pcm_filename`, `pps_filename`, `ppz_filename_1` and `ppz_filename_2` info tags.
 * Improved: Try to load .MZ files as PMD files.
 * Fixed: Incorrect rest processing led to incorrect playback length.
 * Fixed: Set Pan 2 command (px ±value1 [, value2])

@@ -37,12 +37,12 @@ public:
     void SetFMDelay(int nsec) noexcept;
     void SetSSGDelay(int nsec) noexcept;
     void SetADPCMDelay(int nsec) noexcept;
-    void SetRSSDelay(int nsec) noexcept;
+    void SetRhythmDelay(int nsec) noexcept;
 
     int GetFMDelay() const noexcept { return _FMDelay; }
     int GetSSGDelay() const noexcept { return _SSGDelay; }
     int GetADPCMDelay() const noexcept { return _ADPCMDelay; }
-    int GetRSSDelay() const noexcept { return _RSSDelay; }
+    int GetRSSDelay() const noexcept { return _RhythmDelay; }
 
     void SetReg(uint32_t reg, uint32_t value) noexcept;
     void Mix(sample_t * sampleData, size_t sampleCount) noexcept;
@@ -72,12 +72,12 @@ private:
     int _FMDelay;           // in ns
     int _SSGDelay;          // in ns
     int _ADPCMDelay;        // in ns
-    int _RSSDelay;          // in ns
+    int _RhythmDelay;          // in ns
 
     int _FMDelayCount;      // No. of samples
     int _SSGDelayCount;     // No. of samples
     int _ADPCMDelayCount;   // No. of samples
-    int _RSSDelayCount;     // No. of samples
+    int _RhythmDelayCount;     // No. of samples
 
     int _Counter;
 
