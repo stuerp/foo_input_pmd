@@ -1,5 +1,5 @@
 
-/** $VER: PMDSoftwareLFO.cpp (2026.01.05) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: PMDSoftwareLFO.cpp (2026.01.06) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <pch.h>
 
@@ -15,15 +15,15 @@
 /// </summary>
 void pmd_driver_t::LFOMain(channel_t * channel)
 {
-    if (channel->_LFO1Speed1 != 1)
+    if (channel->_LFO1SpeedCounter != 1)
     {
-        if (channel->_LFO1Speed1 != 255)
-            channel->_LFO1Speed1--;
+        if (channel->_LFO1SpeedCounter != 255)
+            channel->_LFO1SpeedCounter--;
 
         return;
     }
 
-    channel->_LFO1Speed1 = channel->_LFO1Speed2;
+    channel->_LFO1SpeedCounter = channel->_LFO1Speed;
 
     int Time, Step;
 
@@ -35,43 +35,43 @@ void pmd_driver_t::LFOMain(channel_t * channel)
         {
             // Triangle wave
             if (channel->_LFO1Waveform == 5)
-                Step = channel->_LFO1Step1 * std::abs(channel->_LFO1Step1);
+                Step = channel->_LFO1StepCounter * std::abs(channel->_LFO1StepCounter);
             else
-                Step = channel->_LFO1Step1;
+                Step = channel->_LFO1StepCounter;
 
             channel->_LFO1Data += Step;
 
             if (channel->_LFO1Data == 0)
-                SetStepUsingMDValue(channel);
+                LFOSetStepUsingMDValue(channel);
 
-            Time = channel->_LFO1Time1;
+            Time = channel->_LFO1TimeCounter;
 
             if (Time != 255)
             {
                 if (--Time == 0)
                 {
-                    Time = channel->_LFO1Time2;
+                    Time = channel->_LFO1Time;
 
                     if (channel->_LFO1Waveform != 4)
                         Time += Time; // Double the time when inverting and waveform is 0 or 5.
 
-                    channel->_LFO1Time1 = Time;
-                    channel->_LFO1Step1 = -channel->_LFO1Step1;
+                    channel->_LFO1TimeCounter = Time;
+                    channel->_LFO1StepCounter = -channel->_LFO1StepCounter;
 
                     return;
                 }
             }
 
-            channel->_LFO1Time1 = Time;
+            channel->_LFO1TimeCounter = Time;
             break;
         }
 
         case 1:
         {
             // Sawtooth wave
-            channel->_LFO1Data += channel->_LFO1Step1;
+            channel->_LFO1Data += channel->_LFO1StepCounter;
 
-            Time = channel->_LFO1Time1;
+            Time = channel->_LFO1TimeCounter;
 
             if (Time != -1)
             {
@@ -79,36 +79,36 @@ void pmd_driver_t::LFOMain(channel_t * channel)
                 {
                     channel->_LFO1Data = -channel->_LFO1Data;
 
-                    SetStepUsingMDValue(channel);
+                    LFOSetStepUsingMDValue(channel);
 
-                    Time = (channel->_LFO1Time2) * 2;
+                    Time = (channel->_LFO1Time) * 2;
                 }
             }
 
-            channel->_LFO1Time1 = Time;
+            channel->_LFO1TimeCounter = Time;
             break;
         }
 
         case 2:
         {
             // Square wave
-            channel->_LFO1Data = (channel->_LFO1Step1 * channel->_LFO1Time1);
+            channel->_LFO1Data = (channel->_LFO1StepCounter * channel->_LFO1TimeCounter);
 
-            SetStepUsingMDValue(channel);
+            LFOSetStepUsingMDValue(channel);
 
-            channel->_LFO1Step1 = -channel->_LFO1Step1;
+            channel->_LFO1StepCounter = -channel->_LFO1StepCounter;
             break;
         }
 
         case 6:
         {
             // One-shot
-            if (channel->_LFO1Time1 != 0)
+            if (channel->_LFO1TimeCounter != 0)
             {
-                if (channel->_LFO1Time1 != 255)
-                    channel->_LFO1Time1--;
+                if (channel->_LFO1TimeCounter != 255)
+                    channel->_LFO1TimeCounter--;
 
-                channel->_LFO1Data += channel->_LFO1Step1;
+                channel->_LFO1Data += channel->_LFO1StepCounter;
             }
             break;
         }
@@ -116,11 +116,11 @@ void pmd_driver_t::LFOMain(channel_t * channel)
         default:
         {
             // Random wave
-            Step = std::abs(channel->_LFO1Step1) * channel->_LFO1Time1;
+            Step = std::abs(channel->_LFO1StepCounter) * channel->_LFO1TimeCounter;
 
             channel->_LFO1Data = Step - rnd(Step * 2);
 
-            SetStepUsingMDValue(channel);
+            LFOSetStepUsingMDValue(channel);
         }
     }
 }
@@ -128,56 +128,56 @@ void pmd_driver_t::LFOMain(channel_t * channel)
 /// <summary>
 /// Start the FM LFO.
 /// </summary>
-int pmd_driver_t::StartLFO(channel_t * channel, int al)
+int pmd_driver_t::StartLFO(channel_t * channel, int value)
 {
-    int LoNibble = al & 0x0F;
+    int LoNibble = value & 0x0F;
 
     if (LoNibble == 0x0C)
     {
-        al = channel->DefaultTone;
+        value = channel->DefaultTone;
 
-        LoNibble = al & 0x0F;
+        LoNibble = value & 0x0F;
     }
 
-    channel->DefaultTone = al;
+    channel->DefaultTone = value;
 
     if (LoNibble != 0x0F)
     {
         channel->_Portamento = 0; // Reset the portamento.
 
         if (!_Driver._IsTieSet)
-            InitializeLFO(channel);
+            LFOInitialize(channel);
         else
             StopLFO(channel);
     }
     else
         StopLFO(channel);
 
-    return al;
+    return value;
 }
 
 /// <summary>
 /// Start the SSG/PCM LFO.
 /// </summary>
-int pmd_driver_t::StartPCMLFO(channel_t * channel, int al)
+int pmd_driver_t::StartPCMLFO(channel_t * channel, int value)
 {
-    int LoNibble = al & 0x0F;
+    int LoNibble = value & 0x0F;
 
     if (LoNibble == 0x0C)
     {
-        al = channel->DefaultTone;
+        value = channel->DefaultTone;
 
-        LoNibble = al & 0x0F;
+        LoNibble = value & 0x0F;
     }
 
-    channel->DefaultTone = al;
+    channel->DefaultTone = value;
 
     if (LoNibble == 0x0F)
     {
         SSGPCMSoftwareEnvelope(channel);
         StopLFO(channel);
 
-        return al;
+        return value;
     }
 
     channel->_Portamento = 0; // Initialize the portamento.
@@ -187,7 +187,7 @@ int pmd_driver_t::StartPCMLFO(channel_t * channel, int al)
         SSGPCMSoftwareEnvelope(channel); // Only execute the software envelope once when preceded by a "&" command (Tie).
         StopLFO(channel);
 
-        return al;
+        return value;
     }
 
     //  Initialize the software envelope.
@@ -228,9 +228,9 @@ int pmd_driver_t::StartPCMLFO(channel_t * channel, int al)
         ExtendedSSGPCMSoftwareEnvelopeMain(channel);
     }
 
-    InitializeLFO(channel);
+    LFOInitialize(channel);
 
-    return al;
+    return value;
 }
 
 void pmd_driver_t::StopLFO(channel_t * channel)
@@ -249,40 +249,38 @@ void pmd_driver_t::StopLFO(channel_t * channel)
 }
 
 /// <summary>
-/// Initializes the LFO.
+/// Initializes the LFO 1 and LFO 2.
 /// </summary>
-void pmd_driver_t::InitializeLFO(channel_t * channel)
+void pmd_driver_t::LFOInitialize(channel_t * channel)
 {
-    channel->HardwareLFODelayCounter = channel->_HardwareLFODelay;
+    channel->_HardwareLFODelayCounter = channel->_HardwareLFODelay;
 
     if (channel->_HardwareLFODelay != 0)
         _OPNAW->SetReg((uint32_t) (_Driver._FMSelector + 0xB4 + (_Driver._CurrentChannel - 1)), (uint32_t) (channel->_PanAndVolume & 0xC0));
 
-    channel->SlotDelayCounter = channel->SlotDelay;
+    channel->_SlotDelayCounter = channel->_SlotDelay;
 
+    // LFO 1
     if ((channel->_HardwareLFO & 0x03) != 0)
     {   // LFO not used
         if ((channel->_HardwareLFO & 0x04) == 0)
-            LFOReset(channel); // Is keyon asynchronous?
+            LFOReset(channel); // Is KeyOn asynchronous?
 
         SetLFO(channel);
     }
 
+    // LFO 2
     if ((channel->_HardwareLFO & 0x30) != 0)
     {   // LFO not used
         if ((channel->_HardwareLFO & 0x40) == 0)
         {
-            LFOSwap(channel); // Is keyon asynchronous?
-
+            LFOSwap(channel); // Is KeyOn asynchronous?
             LFOReset(channel);
-
             LFOSwap(channel);
         }
 
         LFOSwap(channel);
-
         SetLFO(channel);
-
         LFOSwap(channel);
     }
 }
@@ -293,17 +291,17 @@ void pmd_driver_t::InitializeLFO(channel_t * channel)
 void pmd_driver_t::LFOReset(channel_t * channel)
 {
     channel->_LFO1Data         = 0;
-    channel->_LFO1Delay1       = channel->_LFO1Delay2;
-    channel->_LFO1Speed1       = channel->_LFO1Speed2;
-    channel->_LFO1Step1        = channel->_LFO1Step2;
-    channel->_LFO1Time1        = channel->_LFO1Time2;
-    channel->_LFO1MDepthCount1 = channel->_LFO1MDepthCount2;
+    channel->_LFO1DelayCounter = channel->_LFO1Delay;
+    channel->_LFO1SpeedCounter = channel->_LFO1Speed;
+    channel->_LFO1StepCounter  = channel->_LFO1Step;
+    channel->_LFO1TimeCounter  = channel->_LFO1Time;
+    channel->_LFO1DepthSpeed1  = channel->_LFO1DepthSpeed2;
 
     // Square wave or random wave?
     if (channel->_LFO1Waveform == 2 || channel->_LFO1Waveform == 3)
-        channel->_LFO1Speed1 = 1; // Make the LFO apply immediately after the delay.
+        channel->_LFO1SpeedCounter = 1; // Make the LFO apply immediately after the delay.
     else
-        channel->_LFO1Speed1++;   // Otherwise, +1 to the speed value immediately after the delay.
+        channel->_LFO1SpeedCounter++;   // Otherwise, +1 to the speed value immediately after the delay.
 }
 
 int pmd_driver_t::SetLFO(channel_t * channel)
@@ -313,71 +311,73 @@ int pmd_driver_t::SetLFO(channel_t * channel)
 
 int pmd_driver_t::SetSSGLFO(channel_t * channel)
 {
-    if (channel->_LFO1Delay1)
+    if (channel->_LFO1DelayCounter != 0)
     {
-        channel->_LFO1Delay1--;
+        channel->_LFO1DelayCounter--;
 
         return 0;
     }
 
-    int ax, ch;
+    int32_t Data;
 
     if (channel->_ExtendMode & 0x02)
     {
         // Match with TimerA? If not, unconditionally process lfo
-        ch = _State.TimerACounter - _Driver._PreviousTimerACounter;
+        int32_t Value = _State.TimerACounter - _Driver._PreviousTimerACounter;
 
-        if (ch == 0)
+        if (Value == 0)
             return 0;
 
-        ax = channel->_LFO1Data;
+        Data = channel->_LFO1Data;
 
-        for (; ch > 0; ch--)
+        for (; Value > 0; --Value)
             LFOMain(channel);
     }
     else
     {
-        ax = channel->_LFO1Data;
+        Data = channel->_LFO1Data;
 
         LFOMain(channel);
     }
 
-    return (ax == channel->_LFO1Data) ? 0 : 1;
+    return (Data == channel->_LFO1Data) ? 0 : 1;
 }
 
-// Change STEP value by value of MD command
-void pmd_driver_t::SetStepUsingMDValue(channel_t * channel)
+/// <summary>
+/// 9.7. LFO Depth Temporal Change Setting, Sets the step value from the MD command
+/// </summary>
+void pmd_driver_t::LFOSetStepUsingMDValue(channel_t * channel)
 {
-    if (--channel->_LFO1MDepthSpeed1)
+    if (--channel->_LFO1DepthSpeedCounter1)
         return;
 
-    channel->_LFO1MDepthSpeed1 = channel->_LFO1MDepthSpeed2;
+    channel->_LFO1DepthSpeedCounter1 = channel->_LFO1DepthSpeedCounter2;
 
-    if (channel->_LFO1MDepthCount1 == 0)
+    if (channel->_LFO1DepthSpeed1 == 0)
         return;
 
-    if (channel->_LFO1MDepthCount1 <= 127)
-        channel->_LFO1MDepthCount1--;
+    if (channel->_LFO1DepthSpeed1 <= 127)
+        channel->_LFO1DepthSpeed1--;
 
-    int al;
+    int32_t Value;
 
-    if (channel->_LFO1Step1 < 0)
+    if (channel->_LFO1StepCounter < 0)
     {
-        al = channel->_LFO1MDepth - channel->_LFO1Step1;
+        Value = channel->_LFO1Depth - channel->_LFO1StepCounter;
 
-        if (al < 128)
-            channel->_LFO1Step1 = -al;
+        if (Value < 128)
+            channel->_LFO1StepCounter = -Value;
         else
-            channel->_LFO1Step1 = (channel->_LFO1MDepth < 0) ? 0 : -127;
+            channel->_LFO1StepCounter = (channel->_LFO1Depth < 0) ? 0 : -127;
     }
     else
     {
-        al = channel->_LFO1Step1 + channel->_LFO1MDepth;
+        Value = channel->_LFO1StepCounter + channel->_LFO1Depth;
 
-        if (al < 128)
-            channel->_LFO1Step1 = al;
+        if (Value < 128)
+            channel->_LFO1StepCounter = Value;
         else
-            channel->_LFO1Step1 = (channel->_LFO1MDepth < 0) ? 0 : 127;
+            channel->_LFO1StepCounter = (channel->_LFO1Depth < 0) ? 0 : 127;
     }
 }
 
@@ -389,22 +389,26 @@ void pmd_driver_t::LFOSwap(channel_t * channel) noexcept
     channel->_HardwareLFO = ((channel->_HardwareLFO & 0x0F) << 4) + (channel->_HardwareLFO >> 4);
     channel->_ExtendMode  = ((channel->_ExtendMode  & 0x0F) << 4) + (channel->_ExtendMode >> 4);
 
-    std::swap(channel->_LFO1Data, channel->LFO2Data);
+    std::swap(channel->_LFO1Data, channel->_LFO2Data);
+    std::swap(channel->_LFO1Waveform, channel->_LFO2Waveform);
 
-    std::swap(channel->_LFO1Delay1, channel->LFO2Delay1);
-    std::swap(channel->_LFO1Speed1, channel->LFO2Speed1);
-    std::swap(channel->_LFO1Step1, channel->LFO2Step1);
-    std::swap(channel->_LFO1Time1, channel->LFO2Time1);
-    std::swap(channel->_LFO1Delay2, channel->LFO2Delay2);
-    std::swap(channel->_LFO1Speed2, channel->LFO2Speed2);
-    std::swap(channel->_LFO1Step2, channel->LFO2Step2);
-    std::swap(channel->_LFO1Time2, channel->LFO2Time2);
-    std::swap(channel->_LFO1MDepth, channel->LFO2MDepth);
-    std::swap(channel->_LFO1MDepthSpeed1, channel->LFO2MDepthSpeed1);
-    std::swap(channel->_LFO1MDepthSpeed2, channel->LFO2MDepthSpeed2);
-    std::swap(channel->_LFO1Waveform, channel->LFO2Waveform);
-    std::swap(channel->_LFO1MDepthCount1, channel->LFO2MDepthCount1);
-    std::swap(channel->_LFO1MDepthCount2, channel->LFO2MDepthCount2);
+    std::swap(channel->_LFO1Delay, channel->_LFO2Delay);
+    std::swap(channel->_LFO1Speed, channel->_LFO2Speed);
+    std::swap(channel->_LFO1Step, channel->_LFO2Step);
+    std::swap(channel->_LFO1Time, channel->_LFO2Time);
+
+    std::swap(channel->_LFO1DepthSpeed1, channel->_LFO2DepthSpeed1);
+    std::swap(channel->_LFO1DepthSpeed2, channel->_LFO2DepthSpeed2);
+
+    std::swap(channel->_LFO1Depth, channel->_LFO2Depth);
+
+    std::swap(channel->_LFO1DelayCounter, channel->_LFO2DelayCounter);
+    std::swap(channel->_LFO1SpeedCounter, channel->_LFO2SpeedCounter);
+    std::swap(channel->_LFO1StepCounter, channel->_LFO2StepCounter);
+    std::swap(channel->_LFO1TimeCounter, channel->_LFO2TimeCounter);
+
+    std::swap(channel->_LFO1DepthSpeedCounter1, channel->_LFO2DepthSpeedCounter1);
+    std::swap(channel->_LFO1DepthSpeedCounter2, channel->_LFO2DepthSpeedCounter2);
 }
 
 /// <summary>
@@ -412,17 +416,17 @@ void pmd_driver_t::LFOSwap(channel_t * channel) noexcept
 /// </summary>
 uint8_t * pmd_driver_t::LFO1SetModulation(channel_t * channel, uint8_t * si) noexcept
 {
-    channel->_LFO1Delay1 =
-    channel->_LFO1Delay2 = *si++; // 0 - 255
+    channel->_LFO1DelayCounter =
+    channel->_LFO1Delay = *si++; // 0 - 255
 
-    channel->_LFO1Speed1 =
-    channel->_LFO1Speed2 = *si++; // 0 - 255
+    channel->_LFO1SpeedCounter =
+    channel->_LFO1Speed = *si++; // 0 - 255
 
-    channel->_LFO1Step1 =
-    channel->_LFO1Step2 = *(int8_t *) si++; // -128 - 127
+    channel->_LFO1StepCounter =
+    channel->_LFO1Step = *(int8_t *) si++; // -128 - 127
 
-    channel->_LFO1Time1 =
-    channel->_LFO1Time2 = *si++; // 0 - 255
+    channel->_LFO1TimeCounter =
+    channel->_LFO1Time = *si++; // 0 - 255
 
     LFOReset(channel);
 
@@ -507,3 +511,31 @@ uint8_t * pmd_driver_t::LFO2SetSlotMask(channel_t * channel, uint8_t * si)
     return si;
 }
 
+/// <summary>
+/// 9.6. Dedicated Rise/Fall LFO Setting, Selects the rise/fall-type software LFO and turns it on, Command 'MPA ±number1', Range -128–+127
+/// </summary>
+uint8_t * pmd_driver_t::LFOSetMDepthCount(channel_t * channel, uint8_t * si) const noexcept
+{
+    int32_t Value = *si++;
+
+    if (Value < 0x80)
+    {
+        if (Value == 0)
+            Value = 255;
+
+        channel->_LFO1DepthSpeed1 = Value;
+        channel->_LFO1DepthSpeed2 = Value;
+    }
+    else
+    {
+        Value &= 0x7F;
+
+        if (Value == 0)
+            Value = 255;
+
+        channel->_LFO2DepthSpeed1 = Value;
+        channel->_LFO2DepthSpeed2 = Value;
+    }
+
+    return si;
+}

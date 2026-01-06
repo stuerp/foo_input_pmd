@@ -414,7 +414,7 @@ private:
 
     void LFOMain(channel_t * channel);
 
-    void InitializeLFO(channel_t * channel);
+    void LFOInitialize(channel_t * channel);
     void LFOReset(channel_t * channel);
 
     int SetLFO(channel_t * channel);
@@ -444,11 +444,11 @@ private:
 
     uint8_t * IncreaseVolumeForNextNote(channel_t * channel, uint8_t * si, int maxVolume);
     uint8_t * DecreaseVolumeForNextNote(channel_t * channel, uint8_t * si);
-    uint8_t * SetMDepthCountCommand(channel_t * channel, uint8_t * si) const noexcept;
+    uint8_t * LFOSetMDepthCount(channel_t * channel, uint8_t * si) const noexcept;
 
     uint8_t * CalculateQ(channel_t * channel, uint8_t * si);
 
-    uint8_t * SetHardwareLFOCommand(channel_t * channel, uint8_t * si);
+    uint8_t * SetHardwareLFO_PMS_AMS(channel_t * channel, uint8_t * si);
     uint8_t * InitializePPZ(channel_t * channel, uint8_t * si);
 
     uint8_t * RhythmSetLFOControl(channel_t * channel, uint8_t * si);
@@ -473,7 +473,7 @@ private:
     int ExtendedSSGPCMSoftwareEnvelopeMain(channel_t * channel);
 
     void ExtendedSSGPCMSoftwareEnvelopeSub(channel_t * channel, int ah);
-    void SetStepUsingMDValue(channel_t * channel);
+    void LFOSetStepUsingMDValue(channel_t * channel);
 
     void WritePCMData(uint16_t pcmstart, uint16_t pcmstop, const uint8_t * pcmData);
     void ReadPCMData(uint16_t pcmstart, uint16_t pcmstop, uint8_t * pcmData);

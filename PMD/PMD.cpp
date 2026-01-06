@@ -1,5 +1,5 @@
 
-// $VER: PMD.cpp (2025.12.24) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMD.cpp (2026.01.06) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <pch.h>
 
@@ -1527,12 +1527,12 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
         case 0xD8: si++; break;
         case 0xD7: si++; break;
 
-        // 9.7. LFO Depth Temporal Change Setting, Command "MD", "MDA", "MDB"
+        // 9.7. LFO Depth Temporal Change Setting, Sets the temporal change of depth (depth A) of LFO 1, Command 'MDA number1[,±number2[,number3]]'
         case 0xD6:
         {
-            channel->_LFO1MDepthSpeed1 =
-            channel->_LFO1MDepthSpeed2 = *si++;
-            channel->_LFO1MDepth       = *(int8_t *) si++;
+            channel->_LFO1DepthSpeedCounter1 =
+            channel->_LFO1DepthSpeedCounter2 = *si++;
+            channel->_LFO1Depth              = *(int8_t *) si++;
             break;
         }
 
@@ -1609,11 +1609,11 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
             break;
         }
 
-        // 9.1. Software LFO Setting, Set software LFO A delay, Command 'MA number1'
+        // 9.13. Hardware LFO Delay Setting, Sets the hardware LFO delay, Command '#D number'
         case 0xC2:
         {
-            channel->_LFO1Delay1 =
-            channel->_LFO1Delay2 = *si++;
+            channel->_LFO1DelayCounter =
+            channel->_LFO1Delay = *si++;
 
             LFOReset(channel);
             break;
@@ -1634,14 +1634,14 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
             break;
         }
 
-        // 9.7. LFO Depth Temporal Change Setting, Command 'MDB number'
+        // 9.7. LFO Depth Temporal Change Setting, Sets the temporal change of depth (depth A) of LFO 2, Command 'MDB number1[,±number2[,number3]]'
         case 0xBD:
         {
             LFOSwap(channel);
 
-            channel->_LFO1MDepthSpeed1 =
-            channel->_LFO1MDepthSpeed2 = *si++;
-            channel->_LFO1MDepth       = *(int8_t *) si++;
+            channel->_LFO1DepthSpeedCounter1 =
+            channel->_LFO1DepthSpeedCounter2 = *si++;
+            channel->_LFO1Depth              = *(int8_t *) si++;
 
             LFOSwap(channel);
             break;
@@ -1673,13 +1673,13 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
 
         case 0xBA: si++; break;
 
-        // 9.1. Software LFO Setting, Set software LFO B delay, Command 'MB number1'
+        // 9.13. Hardware LFO Delay Setting, Sets the hardware LFO delay, Command '#D number'
         case 0xB9:
         {
             LFOSwap(channel);
 
-            channel->_LFO1Delay1 =
-            channel->_LFO1Delay2 = *si++;
+            channel->_LFO1DelayCounter =
+            channel->_LFO1Delay = *si++;
 
             LFOReset(channel);
 
@@ -1691,7 +1691,7 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
 
         case 0xB7:
         {
-            si = SetMDepthCountCommand(channel, si);
+            si = LFOSetMDepthCount(channel, si);
             break;
         }
 
@@ -1980,34 +1980,6 @@ uint8_t * pmd_driver_t::ExitLoopCommand(channel_t * channel, uint8_t * si)
     return si;
 }
 
-/// <summary>
-/// 
-/// </summary>
-uint8_t * pmd_driver_t::SetMDepthCountCommand(channel_t * channel, uint8_t * si) const noexcept
-{
-    int al = *si++;
-
-    if (al < 0x80)
-    {
-        if (al == 0)
-            al = 255;
-
-        channel->_LFO1MDepthCount1 = al;
-        channel->_LFO1MDepthCount2 = al;
-    }
-    else
-    {
-        al &= 0x7F;
-
-        if (al == 0)
-            al = 255;
-
-        channel->LFO2MDepthCount1 = al;
-        channel->LFO2MDepthCount2 = al;
-    }
-
-    return si;
-}
 
 #pragma endregion
 
@@ -2127,19 +2099,19 @@ uint8_t * pmd_driver_t::CalculateQ(channel_t * channel, uint8_t * si)
 /// </summary>
 void pmd_driver_t::CalculatePortamento(channel_t * channel)
 {
-    channel->_Portamento += channel->PortamentoQuotient;
+    channel->_Portamento += channel->_PortamentoQuotient;
 
-    if (channel->PortamentoRemainder == 0)
+    if (channel->_PortamentoRemainder == 0)
         return;
 
-    if (channel->PortamentoRemainder > 0)
+    if (channel->_PortamentoRemainder > 0)
     {
-        channel->PortamentoRemainder--;
+        channel->_PortamentoRemainder--;
         channel->_Portamento++;
     }
     else
     {
-        channel->PortamentoRemainder++;
+        channel->_PortamentoRemainder++;
         channel->_Portamento--;
     }
 }
@@ -2315,10 +2287,10 @@ void pmd_driver_t::InitializeChannels()
         _FMChannels[i]._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
         _FMChannels[i]._Size = 1;
         _FMChannels[i].KeyOffFlag = -1;
-        _FMChannels[i]._LFO1MDepthCount1 = -1;    // LFO1MDepth Counter (-1 = infinite)
-        _FMChannels[i]._LFO1MDepthCount2 = -1;
-        _FMChannels[i].LFO2MDepthCount1 = -1;
-        _FMChannels[i].LFO2MDepthCount2 = -1;
+        _FMChannels[i]._LFO1DepthSpeed1 = -1;    // LFO1MDepth Counter (-1 = infinite)
+        _FMChannels[i]._LFO1DepthSpeed2 = -1;
+        _FMChannels[i]._LFO2DepthSpeed1 = -1;
+        _FMChannels[i]._LFO2DepthSpeed2 = -1;
         _FMChannels[i].Tone = 0xFF;              // Rest
         _FMChannels[i].DefaultTone = 0xFF;       // Rest
         _FMChannels[i]._Volume = 108;
@@ -2334,10 +2306,10 @@ void pmd_driver_t::InitializeChannels()
         _SSGChannels[i]._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
         _SSGChannels[i]._Size = 1;
         _SSGChannels[i].KeyOffFlag = -1;
-        _SSGChannels[i]._LFO1MDepthCount1 = -1;   // LFO1MDepth Counter (-1 = infinite)
-        _SSGChannels[i]._LFO1MDepthCount2 = -1;
-        _SSGChannels[i].LFO2MDepthCount1 = -1;
-        _SSGChannels[i].LFO2MDepthCount2 = -1;
+        _SSGChannels[i]._LFO1DepthSpeed1 = -1;   // LFO1MDepth Counter (-1 = infinite)
+        _SSGChannels[i]._LFO1DepthSpeed2 = -1;
+        _SSGChannels[i]._LFO2DepthSpeed1 = -1;
+        _SSGChannels[i]._LFO2DepthSpeed2 = -1;
         _SSGChannels[i].Tone = 0xFF;             // Rest
         _SSGChannels[i].DefaultTone = 0xFF;      // Rest
 
@@ -2352,10 +2324,10 @@ void pmd_driver_t::InitializeChannels()
         _ADPCMChannel._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
         _ADPCMChannel._Size = 1;
         _ADPCMChannel.KeyOffFlag = -1;
-        _ADPCMChannel._LFO1MDepthCount1 = -1;
-        _ADPCMChannel._LFO1MDepthCount2 = -1;
-        _ADPCMChannel.LFO2MDepthCount1 = -1;
-        _ADPCMChannel.LFO2MDepthCount2 = -1;
+        _ADPCMChannel._LFO1DepthSpeed1 = -1;
+        _ADPCMChannel._LFO1DepthSpeed2 = -1;
+        _ADPCMChannel._LFO2DepthSpeed1 = -1;
+        _ADPCMChannel._LFO2DepthSpeed2 = -1;
         _ADPCMChannel.Tone = 0xFF;              // Rest
         _ADPCMChannel.DefaultTone = 0xFF;       // Rest
 
@@ -2369,10 +2341,10 @@ void pmd_driver_t::InitializeChannels()
         _RhythmChannel._Data = (_State.MData[*Offsets] != 0x80) ? _RhythmChannel._Data = &_State.MData[*Offsets] : nullptr;
         _RhythmChannel._Size = 1;
         _RhythmChannel.KeyOffFlag = -1;
-        _RhythmChannel._LFO1MDepthCount1 = -1;
-        _RhythmChannel._LFO1MDepthCount2 = -1;
-        _RhythmChannel.LFO2MDepthCount1 = -1;
-        _RhythmChannel.LFO2MDepthCount2 = -1;
+        _RhythmChannel._LFO1DepthSpeed1 = -1;
+        _RhythmChannel._LFO1DepthSpeed2 = -1;
+        _RhythmChannel._LFO2DepthSpeed1 = -1;
+        _RhythmChannel._LFO2DepthSpeed2 = -1;
         _RhythmChannel.Tone = 0xFF;             // Rest
         _RhythmChannel.DefaultTone = 0xFF;      // Rest
 

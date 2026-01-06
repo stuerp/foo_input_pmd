@@ -403,7 +403,7 @@ void pmd_driver_t::SetPPZVolume(channel_t * channel)
         int dx = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
 
         if (channel->_HardwareLFO & 0x20)
-            dx += channel->LFO2Data;
+            dx += channel->_LFO2Data;
 
         al += dx;
 
@@ -441,7 +441,7 @@ void pmd_driver_t::SetPPZPitch(channel_t * channel)
         int ax = (channel->_HardwareLFO & 0x01) ? channel->_LFO1Data : 0;
 
         if (channel->_HardwareLFO & 0x10)
-            ax += channel->LFO2Data;
+            ax += channel->_LFO2Data;
 
         ax += channel->_DetuneValue;
 
@@ -581,8 +581,8 @@ uint8_t * pmd_driver_t::SetPPZPortamentoCommand(channel_t * channel, uint8_t * s
 
     si = CalculateQ(channel, si);
 
-    channel->PortamentoQuotient = ax / channel->_Size;
-    channel->PortamentoRemainder = ax % channel->_Size;
+    channel->_PortamentoQuotient = ax / channel->_Size;
+    channel->_PortamentoRemainder = ax % channel->_Size;
     channel->_HardwareLFO |= 0x08; // Enable portamento.
 
     if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
@@ -684,10 +684,10 @@ uint8_t * pmd_driver_t::InitializePPZ(channel_t *, uint8_t * si)
             _PPZChannels[i]._Data = &_State.MData[Offset];
             _PPZChannels[i]._Size = 1;
             _PPZChannels[i].KeyOffFlag = -1;
-            _PPZChannels[i]._LFO1MDepthCount1 = -1;        // LFO1MDepth Counter (Infinite)
-            _PPZChannels[i]._LFO1MDepthCount2 = -1;
-            _PPZChannels[i].LFO2MDepthCount1 = -1;
-            _PPZChannels[i].LFO2MDepthCount2 = -1;
+            _PPZChannels[i]._LFO1DepthSpeed1 = -1; // Infinity
+            _PPZChannels[i]._LFO1DepthSpeed2 = -1; // Infinity
+            _PPZChannels[i]._LFO2DepthSpeed1 = -1; // Infinity
+            _PPZChannels[i]._LFO2DepthSpeed2 = -1; // Infinity
             _PPZChannels[i].Tone = 0xFF;         // Rest
             _PPZChannels[i].DefaultTone = 0xFF;  // Rest
             _PPZChannels[i]._Volume = 128;

@@ -431,7 +431,7 @@ void pmd_driver_t::ADPCMSetVolume(channel_t * channel)
     int32_t dx = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
 
     if (channel->_HardwareLFO & 0x20)
-        dx += channel->LFO2Data;
+        dx += channel->_LFO2Data;
 
     if (dx >= 0)
     {
@@ -467,7 +467,7 @@ void pmd_driver_t::ADPCMSetPitch(channel_t * channel)
         int32_t dx = (int32_t) (((channel->_HardwareLFO & 0x11) && (channel->_HardwareLFO & 0x01)) ? dx = channel->_LFO1Data : 0);
 
         if (channel->_HardwareLFO & 0x10)
-            dx += channel->LFO2Data;
+            dx += channel->_LFO2Data;
 
         dx *= 4;
         dx += channel->_DetuneValue;
@@ -646,8 +646,8 @@ uint8_t * pmd_driver_t::ADPCMSetPortamento(channel_t * channel, uint8_t * si)
 
     si = CalculateQ(channel, si);
 
-    channel->PortamentoQuotient = ax / channel->_Size;
-    channel->PortamentoRemainder = ax % channel->_Size;
+    channel->_PortamentoQuotient = ax / channel->_Size;
+    channel->_PortamentoRemainder = ax % channel->_Size;
     channel->_HardwareLFO |= 0x08; // Enable portamento.
 
     if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
