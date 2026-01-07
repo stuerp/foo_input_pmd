@@ -363,8 +363,8 @@ void pmd_driver_t::SSGSetTone(channel_t * channel, int tone)
     {
         channel->_Tone = tone;
 
-        const int32_t Octave = (tone & 0xF0) >> 4;
-        const int32_t Note   = (tone & 0x0F);
+        const int Octave = (tone & 0xF0) >> 4;
+        const int Note   = (tone & 0x0F);
 
         int Factor = SSGScaleFactor[Note];
 
@@ -402,16 +402,16 @@ void pmd_driver_t::SSGSetVolume(channel_t * channel)
 
     const uint32_t Register = (uint32_t) (_Driver._CurrentChannel + 8 - 1);
 
-    int Value = (channel->VolumeBoost != 0) ? channel->VolumeBoost - 1 : channel->_Volume;
+    int dl = (channel->VolumeBoost) ? channel->VolumeBoost - 1 : channel->_Volume;
 
     // Volume Down calculation
-    Value = ((256 - _State.SSGVolumeAdjust) * Value) >> 8;
+    dl = ((256 - _State.SSGVolumeAdjust) * dl) >> 8;
 
     // Fade-out calculation
-    Value = ((256 - _State._FadeOutVolume) * Value) >> 8;
+    dl = ((256 - _State._FadeOutVolume) * dl) >> 8;
 
     // Envelope calculation
-    if (Value <= 0)
+    if (dl <= 0)
     {
         _OPNAW->SetReg(Register, 0);
         return;
@@ -425,44 +425,44 @@ void pmd_driver_t::SSGSetVolume(channel_t * channel)
             return;
         }
 
-        Value = ((((Value * (channel->ExtendedAttackLevel + 1))) >> 3) + 1) >> 1;
+        dl = ((((dl * (channel->ExtendedAttackLevel + 1))) >> 3) + 1) >> 1;
     }
     else
     {
-        Value += channel->ExtendedAttackLevel;
+        dl += channel->ExtendedAttackLevel;
 
-        if (Value <= 0)
+        if (dl <= 0)
         {
             _OPNAW->SetReg(Register, 0);
             return;
         }
 
-        if (Value > 15)
-            Value = 15;
+        if (dl > 15)
+            dl = 15;
     }
 
     // Volume LFO calculation
     if ((channel->_HardwareLFO & 0x22) == 0)
     {
-        _OPNAW->SetReg(Register, (uint32_t) Value);
+        _OPNAW->SetReg(Register, (uint32_t) dl);
         return;
     }
 
     {
-        int Data = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
+        int ax = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
 
         if (channel->_HardwareLFO & 0x20)
-            Data += channel->_LFO2Data;
+            ax += channel->_LFO2Data;
 
-        Value += Data;
+        dl += ax;
 
-        if (Value < 0)
-            Value = 0;
+        if (dl < 0)
+            dl = 0;
         else
-        if (Value > 15)
-            Value = 15;
+        if (dl > 15)
+            dl = 15;
 
-        _OPNAW->SetReg(Register, (uint32_t) Value);
+        _OPNAW->SetReg(Register, (uint32_t) dl);
     }
 }
 
@@ -471,10 +471,10 @@ void pmd_driver_t::SSGSetVolume(channel_t * channel)
 /// </summary>
 uint8_t * pmd_driver_t::SSGDecreaseVolume(channel_t *, uint8_t * si)
 {
-    const int Volume = *(int8_t *) si++;
+    const int al = *(int8_t *) si++;
 
-    if (Volume != 0)
-        _State.SSGVolumeAdjust = std::clamp(Volume + _State.SSGVolumeAdjust, 0, 255);
+    if (al != 0)
+        _State.SSGVolumeAdjust = std::clamp(al + _State.SSGVolumeAdjust, 0, 255);
     else
         _State.SSGVolumeAdjust = _State.DefaultSSGVolumeAdjust;
 

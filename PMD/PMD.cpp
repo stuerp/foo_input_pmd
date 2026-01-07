@@ -1,5 +1,5 @@
 
-// $VER: PMD.cpp (2026.01.07) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMD.cpp (2026.01.06) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <pch.h>
 

@@ -241,7 +241,7 @@ bool p86_t::SetPitch(int sampleRateIndex, uint32_t pitch)
 /// <summary>
 /// 
 /// </summary>
-bool p86_t::SetLoop(int loopBegin, int loopEnd, int releaseBegin, bool isADPCM)
+bool p86_t::SetLoop(int loopStart, int loopEnd, int releaseStart, bool isADPCM)
 {
     _IsLooping = true;
     _IsReleaseRequested = false;
@@ -249,110 +249,110 @@ bool p86_t::SetLoop(int loopBegin, int loopEnd, int releaseBegin, bool isADPCM)
     int dx = _SampleSize;
     const int OldSampleSize = _SampleSize;
 
-    int Offset = loopBegin;
+    int ax = loopStart;
 
-    if (Offset >= 0)
+    if (ax >= 0)
     {
         if (isADPCM)
-            Offset *= 32;
+            ax *= 32;
 
-        if (Offset > _SampleSize - 2)
-            Offset = _SampleSize - 2;
+        if (ax > _SampleSize - 2)
+            ax = _SampleSize - 2;
 
-        if (Offset < 0)
-            Offset = 0;
+        if (ax < 0)
+            ax = 0;
 
-        _LoopAddr = _SampleAddr + Offset;
-        _LoopSize = _SampleSize - Offset;
+        _LoopAddr = _SampleAddr + ax;
+        _LoopSize = _SampleSize - ax;
     }
     else
     {
-        Offset = -Offset;
+        ax = -ax;
 
         if (isADPCM)
-            Offset *= 32;
+            ax *= 32;
 
-        dx -= Offset;
+        dx -= ax;
 
         if (dx < 0)
         {
-            Offset = OldSampleSize;
+            ax = OldSampleSize;
             dx = 0;
         }
 
         _LoopAddr = _SampleAddr + dx;
-        _LoopSize = Offset;
+        _LoopSize = ax;
     }
 
-    Offset = loopEnd;
+    ax = loopEnd;
 
-    if (Offset > 0)
+    if (ax > 0)
     {
         if (isADPCM)
-            Offset *= 32;
+            ax *= 32;
 
-        if (Offset > _SampleSize - 2)
-            Offset = _SampleSize - 2;
+        if (ax > _SampleSize - 2)
+            ax = _SampleSize - 2;
 
-        if (Offset < 0)
-            Offset = 0;
+        if (ax < 0)
+            ax = 0;
 
-        _SampleSize = Offset;
+        _SampleSize = ax;
 
-        dx -= Offset;
+        dx -= ax;
 
         _LoopSize -= dx;
     }
     else
-    if (Offset < 0)
+    if (ax < 0)
     {
-        Offset = -Offset;
+        ax = -ax;
 
         if (isADPCM)
-            Offset *= 32;
+            ax *= 32;
 
-        if (Offset > _LoopSize)
-            Offset = _LoopSize;
+        if (ax > _LoopSize)
+            ax = _LoopSize;
 
-        _LoopSize   -= Offset;
-        _SampleSize -= Offset;
+        _LoopSize   -= ax;
+        _SampleSize -= ax;
     }
 
-    Offset = releaseBegin;
+    ax = releaseStart;
 
-    if ((uint16_t) Offset != 0x8000)
+    if ((uint16_t) ax != 0x8000)
     {
         _ReleaseAddr = _SampleAddr;
         _ReleaseSize = OldSampleSize;
 
         _IsReleaseRequested = true;
 
-        if (Offset > 0)
+        if (ax > 0)
         {
             if (isADPCM)
-                Offset *= 32;
+                ax *= 32;
 
-            if (Offset > _SampleSize - 2)
-                Offset = _SampleSize - 2;
+            if (ax > _SampleSize - 2)
+                ax = _SampleSize - 2;
 
-            if (Offset < 0)
-                Offset = 0;
+            if (ax < 0)
+                ax = 0;
 
-            _ReleaseAddr += Offset;
-            _ReleaseSize -= Offset;
+            _ReleaseAddr += ax;
+            _ReleaseSize -= ax;
         }
         else
         {
-            Offset = -Offset;
+            ax = -ax;
 
             if (isADPCM)
-                Offset *= 32;
+                ax *= 32;
 
-            if (Offset > _SampleSize)
-                Offset = _SampleSize;
+            if (ax > _SampleSize)
+                ax = _SampleSize;
 
-            _ReleaseAddr += OldSampleSize - Offset;
-            _ReleaseSize = Offset;
+            _ReleaseAddr += OldSampleSize - ax;
+            _ReleaseSize = ax;
         }
     }
 
