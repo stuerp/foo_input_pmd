@@ -2412,7 +2412,7 @@ int pmd_driver_t::LoadPPC(const WCHAR * filePath)
 
     uint8_t * Data = (uint8_t *) ::malloc((size_t) Size);
 
-    if (Data != nullptr)
+    if (Data == nullptr)
         return ERR_OUT_OF_MEMORY;
 
     _File->Read(Data, (uint32_t) Size);
