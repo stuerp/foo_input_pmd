@@ -35,7 +35,7 @@ opna_t::opna_t(File * file) :
 
     // Create the table.
     for (int32_t i = -FM_TLPOS; i < FM_TLENTS; ++i)
-        tltable[i + FM_TLPOS] = (int32_t) (uint32_t(65536.0 * std::pow(2.0, i * -16.0 / (int32_t) FM_TLENTS)) - 1);
+        tltable[i + FM_TLPOS] = (int32_t) (uint32_t(65536.0 * ::pow(2.0, i * -16.0 / (int32_t) FM_TLENTS)) - 1);
 }
 
 opna_t::~opna_t()
@@ -92,7 +92,7 @@ void opna_t::SetFMVolume(int dB)
 {
     dB = std::min(dB, 20);
 
-    int32_t Volume = (dB > -192) ? (int32_t) (65536.0 * std::pow(10.0, dB / 40.0)) : 0;
+    int32_t Volume = (dB > -192) ? int(65536.0 * ::pow(10.0, dB / 40.0)) : 0;
 
     _Chip.setfmvolume(Volume);
 }
@@ -104,7 +104,7 @@ void opna_t::SetSSGVolume(int dB)
 {
     dB = std::min(dB, 20);
 
-    int32_t Volume = (dB > -192) ? (int32_t) (65536.0 * std::pow(10.0, dB / 40.0)) : 0;
+    int32_t Volume = (dB > -192) ? int(65536.0 * ::pow(10.0, dB / 40.0)) : 0;
 
     _Chip.setpsgvolume(Volume);
 }
@@ -116,7 +116,7 @@ void opna_t::SetADPCMVolume(int dB)
 {
     dB = std::min(dB, 20);
 
-    int32_t Volume = (dB > -192) ? (int32_t) (65536.0 * std::pow(10.0, dB / 40.0)) : 0;
+    int32_t Volume = (dB > -192) ? int(65536.0 * ::pow(10.0, dB / 40.0)) : 0;
 
     _Chip.setadpcmvolume(Volume);
 }
@@ -130,7 +130,7 @@ void opna_t::SetRhythmVolume(int dB)
 
     _MasterVolume = -(dB * 2 / 3);
 
-    int32_t Volume = (dB > -192) ? (int32_t) (65536.0 * std::pow(10.0, dB / 40.0)) : 0;
+    int32_t Volume = (dB > -192) ? int(65536.0 * ::pow(10.0, dB / 40.0)) : 0;
 
     _Chip.setrhythmvolume(Volume);
 }

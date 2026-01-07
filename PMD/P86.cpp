@@ -5,7 +5,7 @@
 
 #include "P86.h"
 
-static const int32_t SampleRates[] =
+static const int SampleRates[] =
 {
     4135, 5513, 8270, 11025, 16540, 22050, 33080, 44100
 };
@@ -246,10 +246,10 @@ bool p86_t::SetLoop(int loopBegin, int loopEnd, int releaseBegin, bool isADPCM)
     _IsLooping = true;
     _IsReleaseRequested = false;
 
-    const int32_t OldSampleSize = _SampleSize;
+    int dx = _SampleSize;
+    const int OldSampleSize = _SampleSize;
 
-    int32_t SampleSize = _SampleSize;
-    int32_t Offset = loopBegin;
+    int Offset = loopBegin;
 
     if (Offset >= 0)
     {
@@ -272,15 +272,15 @@ bool p86_t::SetLoop(int loopBegin, int loopEnd, int releaseBegin, bool isADPCM)
         if (isADPCM)
             Offset *= 32;
 
-        SampleSize -= Offset;
+        dx -= Offset;
 
-        if (SampleSize < 0)
+        if (dx < 0)
         {
             Offset = OldSampleSize;
-            SampleSize = 0;
+            dx = 0;
         }
 
-        _LoopAddr = _SampleAddr + SampleSize;
+        _LoopAddr = _SampleAddr + dx;
         _LoopSize = Offset;
     }
 
@@ -299,9 +299,9 @@ bool p86_t::SetLoop(int loopBegin, int loopEnd, int releaseBegin, bool isADPCM)
 
         _SampleSize = Offset;
 
-        SampleSize -= Offset;
+        dx -= Offset;
 
-        _LoopSize -= SampleSize;
+        _LoopSize -= dx;
     }
     else
     if (Offset < 0)
@@ -726,7 +726,7 @@ bool p86_t::MoveSamplePointer() noexcept
 /// </summary>
 void p86_t::CreateVolumeTable(int volume)
 {
-    const int32_t NewVolumeBase = (int32_t) (0x1000 * std::pow(10.0, volume / 40.0));
+    const int NewVolumeBase = (int32_t) (0x1000 * ::pow(10.0, volume / 40.0));
 
     if (NewVolumeBase == _VolumeBase)
         return;
@@ -735,10 +735,10 @@ void p86_t::CreateVolumeTable(int volume)
 
     for (int32_t i = 0; i < 16; ++i)
     {
-        const double Volume = (double) _VolumeBase * i / 256.; // std::pow(2.0, (i + 15) / 2.0) * _VolumeBase / 0x18000;
+        const double Volume = (double) _VolumeBase * i / 256.; // ::pow(2.0, (i + 15) / 2.0) * _VolumeBase / 0x18000;
 
         for (int32_t j = 0; j < 256; ++j)
-            _VolumeTable[i][j] = (sample_t) (Volume * j);
+            _VolumeTable[i][j] = (sample_t) (Volume * (int8_t) j);
     }
 }
 
@@ -759,7 +759,7 @@ void p86_t::ReadHeader(File * file, P86FILEHEADER & header)
 
     for (size_t i = 0; i < _countof(P86FILEHEADER::P86Item); ++i)
     {
-        ::memcpy(header.P86Item[i].Offset, &Data[0x10 + (i * 6)], 3);
-        ::memcpy(header.P86Item[i].Size,   &Data[0x13 + (i * 6)], 3);
+        ::memcpy(header.P86Item[i].Offset, &Data[0x10 + i * 6], 3);
+        ::memcpy(header.P86Item[i].Size,   &Data[0x13 + i * 6], 3);
     }
 }

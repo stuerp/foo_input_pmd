@@ -305,9 +305,9 @@ bool pps_t::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 /// </summary>
 void pps_t::SetVolume(int volume)
 {
-    double Base = 0x4000 * 2 / 3.0 * std::pow(10.0, volume / 40.0);
+    double Base = 0x4000 * 2 / 3.0 * ::pow(10.0, volume / 40.0);
 
-    for (int32_t i = 15; i >= 1; --i)
+    for (int i = 15; i >= 1; i--)
     {
         _EmitTable[i] = (int32_t) Base;
         Base /= 1.189207115;
@@ -322,7 +322,7 @@ void pps_t::SetVolume(int volume)
 void pps_t::Mix(frame32_t * frames, size_t frameCount) noexcept
 {
 /*
-    static const int32_t table[16*16] =
+    static const int table[16*16] =
     {
          0, 0, 0, 5, 9,10,11,12,13,13,14,14,14,15,15,15,
          0, 0, 3, 5, 9,10,11,12,13,13,14,14,14,15,15,15,
