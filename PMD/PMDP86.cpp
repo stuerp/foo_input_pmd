@@ -160,14 +160,14 @@ void pmd_driver_t::P86Main(channel_t * channel)
 
         int temp = SSGPCMSoftwareEnvelope(channel);
 
-        if (temp || _Driver._HardwareLFOModulationMode & 0x22 || _State._FadeOutSpeed)
+        if (temp || _Driver._HardwareLFOModulationMode & 0x22 || _State.FadeOutSpeed)
             P86SetVolume(channel);
     }
     else
     {
         int temp = SSGPCMSoftwareEnvelope(channel);
 
-        if (temp || _State._FadeOutSpeed)
+        if (temp || _State.FadeOutSpeed)
             P86SetVolume(channel);
     }
 
@@ -256,7 +256,7 @@ uint8_t * pmd_driver_t::P86ExecuteCommand(channel_t * channel, uint8_t * si)
         // 15.3. Fade Out Setting, Fades out from the specified position, Command 'F number'
         case 0xD2:
         {
-            _State._FadeOutSpeed = *si++;
+            _State.FadeOutSpeed = *si++;
             _State.IsFadeOutSpeedSet = true;
             break;
         }
@@ -326,7 +326,7 @@ void pmd_driver_t::P86SetTone(channel_t * channel, int tone)
 
     if (ah != 0x0F)
     {
-        if (_State._IsCompatibleWithPMDB2 && (tone >= 0x65))
+        if (_State.PMDB2CompatibilityMode && (tone >= 0x65))
         {
             tone = (ah < 5) ? 0x60 /* o7 */ : 0x50 /* o6 */;
 
@@ -357,7 +357,7 @@ void pmd_driver_t::P86SetVolume(channel_t * channel)
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
 
     // Calculate volume down.
-    al = ((256 - _State._ADPCMVolumeAdjust) * al) >> 8;
+    al = ((256 - _State.ADPCMVolumeAdjust) * al) >> 8;
 
     // Calculate fade out.
     if (_State._FadeOutVolume != 0)
@@ -427,7 +427,7 @@ void pmd_driver_t::P86SetVolume(channel_t * channel)
             al = 0;
     }
 
-    if (!_State._IsCompatibleWithPMDB2)
+    if (!_State.PMDB2CompatibilityMode)
         al >>= 4;
     else
         al = (int) ::sqrt(al); // Make the volume NEC Speaker Board-compatible.
@@ -446,7 +446,7 @@ void pmd_driver_t::P86SetPitch(channel_t * channel)
     int SampleRateIndex = (int) ((channel->_Factor & 0x0E00000) >> (16 + 5));
     int Pitch           = (int) ( channel->_Factor & 0x01FFFFF);
 
-    if (!_State._IsCompatibleWithPMDB2 && (channel->_DetuneValue != 0))
+    if (!_State.PMDB2CompatibilityMode && (channel->_DetuneValue != 0))
         Pitch = std::clamp((Pitch >> 5) + channel->_DetuneValue, 1, 65535) << 5;
 
     _P86->SetPitch(SampleRateIndex, (uint32_t) Pitch);
@@ -573,7 +573,7 @@ uint8_t * pmd_driver_t::P86SetRepeat(channel_t *, uint8_t * si)
 
     int16_t ReleaseStart = *(int16_t *) si;
 
-    _P86->SetLoop(LoopBegin, LoopEnd, ReleaseStart, _State._IsCompatibleWithPMDB2);
+    _P86->SetLoop(LoopBegin, LoopEnd, ReleaseStart, _State.PMDB2CompatibilityMode);
 
     return si + 2;
 }

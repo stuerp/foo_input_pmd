@@ -208,7 +208,7 @@ void pmd_driver_t::FMMain(channel_t * channel) noexcept
             }
         }
 
-        if (_State._FadeOutSpeed != 0)
+        if (_State.FadeOutSpeed != 0)
             SetFMVolumeCommand(channel);
     }
 
@@ -529,11 +529,11 @@ void pmd_driver_t::SetFMVolumeCommand(channel_t * channel)
 
     int Volume = (channel->VolumeBoost) ? channel->VolumeBoost - 1 : channel->_Volume;
 
-    if (channel != &_SSGEffectChannel)
+    if (channel != &_EffectChannel)
     {
         // Calculates the effect of volume down.
-        if (_State._FMVolumeAdjust != 0)
-            Volume = ((256 - _State._FMVolumeAdjust) * Volume) >> 8;
+        if (_State.FMVolumeAdjust != 0)
+            Volume = ((256 - _State.FMVolumeAdjust) * Volume) >> 8;
 
         // Calculates the effect of fade out.
         if (_State._FadeOutVolume >= 2)
@@ -789,9 +789,9 @@ uint8_t * pmd_driver_t::DecreaseFMVolumeCommand(channel_t *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al)
-        _State._FMVolumeAdjust = std::clamp(al + _State._FMVolumeAdjust, 0, 255);
+        _State.FMVolumeAdjust = std::clamp(al + _State.FMVolumeAdjust, 0, 255);
     else
-        _State._FMVolumeAdjust = _State._FMVolumeAdjustDefault;
+        _State.FMVolumeAdjust = _State.DefaultFMVolumeAdjust;
 
     return si;
 }
@@ -900,19 +900,19 @@ uint8_t * pmd_driver_t::SetFMChannel3ModeEx(channel_t *, uint8_t * si)
     si += 2;
 
     if (ax)
-        InitializeFMChannel3(&_FMExtensionChannels[0], &_State._MData[ax]);
+        InitializeFMChannel3(&_FMExtensionChannels[0], &_State.MData[ax]);
 
     ax = *(int16_t *) si;
     si += 2;
 
     if (ax)
-         InitializeFMChannel3(&_FMExtensionChannels[1], &_State._MData[ax]);
+         InitializeFMChannel3(&_FMExtensionChannels[1], &_State.MData[ax]);
 
     ax = *(int16_t *) si;
     si += 2;
 
     if (ax)
-        InitializeFMChannel3(&_FMExtensionChannels[2], &_State._MData[ax]);
+        InitializeFMChannel3(&_FMExtensionChannels[2], &_State.MData[ax]);
 
     return si;
 }
@@ -1710,10 +1710,10 @@ uint8_t * pmd_driver_t::GetFMInstrumentDefinition(channel_t * channel, int instr
 {
     if (_State.InstrumentDefinitions == nullptr)
     {
-        if (channel != &_SSGEffectChannel)
-            return _State._VData + ((size_t) instrumentNumber << 5);
+        if (channel != &_EffectChannel)
+            return _State.VData + ((size_t) instrumentNumber << 5);
         else
-            return _State._EData;
+            return _State.EData;
     }
 
     uint8_t * Data = _State.InstrumentDefinitions;

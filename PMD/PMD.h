@@ -59,7 +59,7 @@ public:
     bool SetSearchPaths(std::vector<const WCHAR *> & paths);
     
     void SetSampleRate(uint32_t value) noexcept;
-    void SetInterpolation(bool flag);
+    void SetFMInterpolation(bool flag);
 
     void SetPPZSampleRate(uint32_t value) noexcept;
     void SetPPZInterpolation(bool flag);
@@ -125,6 +125,101 @@ public:
     bool IsPlaying() const noexcept
     {
         return _IsPlaying;
+    }
+
+    void SetFMVolumeAdjustment(int value)
+    {
+        _State.FMVolumeAdjust = _State.DefaultFMVolumeAdjust = value;
+    }
+
+    int GetFMVolumeAdjustment() const noexcept
+    {
+        return _State.FMVolumeAdjust;
+    }
+
+    int GetDefaultFMVolumeAdjustment() const noexcept
+    {
+        return _State.DefaultFMVolumeAdjust;
+    }
+
+    void SetSSGVolumeAdjustment(int value)
+    {
+        _State.SSGVolumeAdjust = _State.DefaultSSGVolumeAdjust = value;
+    }
+
+    int GetSSGVolumeAdjustment() const noexcept
+    {
+        return _State.SSGVolumeAdjust;
+    }
+
+    int GetDefaultSSGVolumeAdjustment() const noexcept
+    {
+        return _State.DefaultSSGVolumeAdjust;
+    }
+
+    void SetADPCMVolumeAdjustment(int value) noexcept
+    {
+        _State.ADPCMVolumeAdjust = _State.DefaultADPCMVolumeAdjust = value;
+    }
+
+    int GetADPCMVolumeAdjustment() const noexcept
+    {
+        return _State.ADPCMVolumeAdjust;
+    }
+
+    int GetDefaultADPCMVolumeAdjustment() const noexcept
+    {
+        return _State.DefaultADPCMVolumeAdjust;
+    }
+
+    void SetRhythmVolumeAdjustment(int value)
+    {
+        _State._RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust = value;
+
+        _RhythmVolume = 48 * 4 * (256 - _State._RhythmVolumeAdjust) / 1024;
+
+        _OPNAW->SetReg(0x11, (uint32_t) _RhythmVolume);  // Rhythm Part: Set RTL (Total Level)
+    }
+
+    int GetRhythmVolumeAdjustment() const noexcept
+    {
+        return _State._RhythmVolumeAdjust;
+    }
+
+    int GetDefaultRhythmVolumeAdjustment() const noexcept
+    {
+        return _State.DefaultRhythmVolumeAdjust;
+    }
+
+    void SetPPZVolumeAdjustment(int value) noexcept
+    {
+        _State.PPZVolumeAdjust = _State.DefaultPPZVolumeAdjust = value;
+    }
+
+    int GetPPZVolumeAdjustment() const noexcept
+    {
+        return _State.PPZVolumeAdjust;
+    }
+
+    int GetDefaultPPZVolumeAdjustment() const noexcept
+    {
+        return _State.DefaultPPZVolumeAdjust;
+    }
+
+    /// <summary>
+    /// Enables or disables PMDB2.COM compatibility.
+    /// </summary>
+    void SetPMDB2CompatibilityMode(bool value) noexcept
+    {
+        _State.PMDB2CompatibilityMode = _State.DefaultPMDB2CompatibilityMode = value;
+    }
+
+    /// <summary>
+    /// Returns true if PMD86's PCM is compatible with PMDB2.COM (For songs targetting the Speakboard or compatible sound board which has a YM2608 with ADPCM functionality enabled)
+    /// </summary>
+    bool GetPMDB2CompatibilityMode() const noexcept
+    {
+        return _State.PMDB2CompatibilityMode;
     }
 
     bool GetMemo(const uint8_t * data, size_t size, int al, char * text, size_t textSize);
@@ -403,30 +498,14 @@ private:
     pps_t * _PPS;
     p86_t * _P86;
 
-    bool _UsePPSForDrums;   // Use the PPS to play drum instruments for the K/R commands.
+    bool _UsePPSForDrums;   // Use the PPS.
     bool _UseSSGForDrums;   // Use the SSG to play drum instruments for the K/R commands.
 
-    uint32_t _PCMSampleRate;        // PCM output frequency (11k, 22k, 44k, 55k)
-    uint32_t _PPZSampleRate;        // PPZ output frequency
+    int _SSGNoiseFrequency;
 
-    bool _UseInterpolation;
-
-    bool _UseInterpolationP86;
-    bool _UseInterpolationPPS;
-    bool _UseInterpolationPPZ;
-
-
-
-
-
-
-    uint8_t _Version;               // File version. 0x00 for standard .M or .M2 files targeting PC-98/PC-88/X68000 systems, Must be 0xFF for files targeting FM Towns hardware.
-
-    state_t _State;
-    driver_t _Driver;
+    State _State;
+    Driver _Driver;
     effect_t _SSGEffect;
-
-    int32_t _TimerBTempo;                    // Current value of TimerB (= ff_tempo during ff)
 
     channel_t _FMChannels[MaxFMChannels];
     channel_t _SSGChannels[MaxSSGChannels];
@@ -434,7 +513,7 @@ private:
     channel_t _RhythmChannel;
 
     channel_t _FMExtensionChannels[MaxFMExtensionChannels];
-    channel_t _SSGEffectChannel;
+    channel_t _EffectChannel;
 
     channel_t _PPZChannels[MaxPPZ8Channels];
 
@@ -449,7 +528,7 @@ private:
     frame32_t _DstFrames[MaxFrames];
     frame32_t _TmpFrames[MaxFrames];
 
-    uint8_t _MData[64 * 1024];      // Contents of the .M or .M2 file
+    uint8_t _MData[64 * 1024];
     uint8_t _VData[ 8 * 1024];
     uint8_t _EData[64 * 1024];
 
@@ -464,15 +543,11 @@ private:
     std::wstring _PPZFileName[2];   // PVI or PPZ
     std::wstring _PPZFilePath[2];
 
-    int32_t _SSGNoiseFrequency;
-
-    uint32_t _RhythmMask;           // Rhythm sound source mask. Compatible with x8c/10h bit
-    uint32_t _RhythmChannelMask;    // Bit mask: bit is set to 1 if the corresponding drum channel is playing.
-    int32_t _RhythmVolume;          // Rhythm volume
+    uint32_t _RhythmMask;                   // Rhythm sound source mask. Compatible with x8c/10h bit
+    uint32_t _RhythmChannelMask;            // Bit mask: bit is set to 1 if the corresponding drum channel is playing.
+    int32_t _RhythmVolume;                  // Rhythm volume
 
     #pragma region Dynamic Settings
-
-    uint8_t _Status1;               // Unused
 
     bool _InTimerAInterrupt;
     bool _InTimerBInterrupt;
@@ -483,9 +558,9 @@ private:
     frame16_t * _FramePtr;
     size_t _FramesToDo;
 
-    int64_t _Position;              // Time from start of playing (in μs)
-    int64_t _FadeOutPosition;       // SetFadeOutDurationHQ start time
-    int _Seed;                      // Random seed
+    int64_t _Position;          // Time from start of playing (in μs)
+    int64_t _FadeOutPosition;   // SetFadeOutDurationHQ start time
+    int _Seed;                  // Random seed
 
     int _OldSSGNoiseFrequency;
     int _OldInstrumentNumber;
