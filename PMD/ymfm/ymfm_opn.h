@@ -558,20 +558,21 @@ protected:
 	void clock_fm_and_adpcm();
 
 	// internal state
-	opn_fidelity m_fidelity;              // configured fidelity
-	uint16_t m_address;                   // address register
-	uint8_t m_fm_samples_per_output;      // how many samples to repeat
-	uint8_t m_irq_enable;                 // IRQ enable register
-	uint8_t m_flag_control;               // flag control register
-	fm_engine::output_data m_last_fm;     // last FM output
+	opn_fidelity m_fidelity;            // configured fidelity
+	uint16_t m_address;                 // address register
+	uint8_t m_fm_samples_per_output;    // how many samples to repeat
+	uint8_t m_irq_enable;               // IRQ enable register
+	uint8_t m_flag_control;             // flag control register
+
+	fm_engine::output_data m_last_fm;   // last FM output
 	fm_engine::output_data m_last_rhythm; // last rhythm output
 	fm_engine::output_data m_last_adpcm;  // last adpcm output
 
-	fm_engine m_fm;                       // core FM engine
-	ssg_engine m_ssg;                     // SSG engine
+	fm_engine m_fm;                     // core FM engine
+	ssg_engine m_ssg;                   // SSG engine
 	ssg_resampler<output_data, 2, true> m_ssg_resampler; // SSG resampler helper
-	adpcm_a_engine m_adpcm_a;             // ADPCM-A engine
-	adpcm_b_engine m_adpcm_b;             // ADPCM-B engine
+	adpcm_a_engine m_adpcm_a;           // ADPCM-A engine
+	adpcm_b_engine m_adpcm_b;           // ADPCM-B engine
 
 	int32_t	fmvolume;
 	int32_t psgvolume;
@@ -777,7 +778,7 @@ public:
 
 protected:
 	// simulate the DAC discontinuity
-	constexpr int32_t dac_discontinuity(int32_t value) const { return (value < 0) ? (value - 2) : (value + 3); }
+	constexpr int32_t dac_discontinuity(int32_t value) const { return (value < 0) ? (value - 3) : (value + 4); }
 
 	// internal state
 	uint16_t m_address;              // address register
@@ -807,7 +808,7 @@ public:
 	ymf276(ymfm_interface &intf) : ym2612(intf) { }
 
 	// generate one sample of sound
-	void generate(output_data *output, uint32_t numsamples);
+	void generate(output_data *output, uint32_t numsamples = 1);
 };
 
 }

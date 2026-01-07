@@ -115,6 +115,7 @@ v0.5.0, 2026-01-xx
 
 * New: `pcm_filename`, `pps_filename`, `ppz_filename_1` and `ppz_filename_2` info tags.
 * Improved: Try to load .MZ files as PMD files.
+* Improved: Upgraded [ymfm](https://github.com/aaronsgiles/ymfm.git) to the latest version.
 * Fixed: Incorrect rest processing led to incorrect playback length.
 * Fixed: Set Pan 2 command (px ±value1 [, value2])
 * Fixed: "Use PPS" option was ignored.

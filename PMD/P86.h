@@ -110,37 +110,37 @@ private:
     File * _File;
     uint8_t * _Data;
 
-    int _SampleRate;
+    int32_t _SampleRate;
     bool _UseInterpolation;
     uint32_t _Pitch;
-    int _Volume;
+    int32_t _Volume;
 
     const uint8_t * _SampleAddr;    // PCM sample address
-    int _SampleSize;                // PCM sample size
+    int32_t _SampleSize;                // PCM sample size
 
     const uint8_t * _CurrAddr;      // Current address
-    int _CurrOffs;                  // Current offset
-    int _SizeToDo;                  // Remaining number of bytes to process
+    int32_t _CurrOffs;                  // Current offset
+    int32_t _SizeToDo;                  // Remaining number of bytes to process
 
-    int _IncrementHi;
-    int _IncrementLo;
+    int32_t _IncrementHi;
+    int32_t _IncrementLo;
 
     const uint8_t * _LoopAddr;
-    int _LoopSize;
+    int32_t _LoopSize;
 
     const uint8_t * _ReleaseAddr;
-    int _ReleaseSize;
+    int32_t _ReleaseSize;
 
     bool _IsPlaying;
     bool _IsLooping;
     bool _IsReleaseRequested;
     bool _IsReleasing;
 
-    int _PanFlags;                   // 0: left / 1: right / 2: reverse
-    int _PanValue;                  // Volume value on the side where the volume is lowered.
+    int32_t _PanFlags;                   // 0: left / 1: right / 2: reverse
+    int32_t _PanValue;                  // Volume value on the side where the volume is lowered.
 
-    int _VolumeBase;
+    int32_t _VolumeBase;
     sample_t _VolumeTable[16][256];
 
-    int _SampleRateOriginal;        // Original sample rate
+    int32_t _SampleRateOriginal;        // Original sample rate
 };

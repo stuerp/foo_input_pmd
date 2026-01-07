@@ -1,5 +1,5 @@
 
-// $VER: PMD.cpp (2026.01.07) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+/** $VER: PMD.cpp (2026.01.07) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <pch.h>
 
@@ -421,7 +421,7 @@ void pmd_driver_t::Render(int16_t * frames, size_t frameCount) noexcept
             {
                 if (_State._FadeOutSpeedHQ > 0)
                 {
-                    int32_t Factor = (_State._LoopCount != -1) ? (int32_t) ((1 << 10) * ::pow(512, -(double) (_Position - _FadeOutPosition) / 1'000 / _State._FadeOutSpeedHQ)) : 0;
+                    int32_t Factor = (_State._LoopCount != -1) ? (int32_t) ((1 << 10) * std::pow(512, -(double) (_Position - _FadeOutPosition) / 1'000 / _State._FadeOutSpeedHQ)) : 0;
 
                     for (size_t i = 0; i < _FramesToDo; ++i)
                     {

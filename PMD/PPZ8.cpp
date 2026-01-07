@@ -818,11 +818,11 @@ void ppz8_t::CreateVolumeTable(int volume)
 {
     _Volume = volume;
 
-    const int32_t VolumeBase = (int32_t) (0x1000 * ::pow(10.0, volume / 40.0));
+    const int32_t VolumeBase = (int32_t) (0x1000 * std::pow(10.0, volume / 40.0));
 
     for (int32_t i = 0; i < 16; ++i)
     {
-        double Value = ::pow(2.0, ((double) i + _MasterVolume) / 2.0) * VolumeBase / 0x18000;
+        const double Value = std::pow(2.0, ((double) i + _MasterVolume) / 2.0) * VolumeBase / 0x18000;
 
         for (int32_t j = 0; j < 256; ++j)
             _VolumeTable[i][j] = (sample_t) ((j - 128) * Value);
