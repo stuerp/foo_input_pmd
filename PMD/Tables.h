@@ -23,7 +23,7 @@ struct ssg_rhythm_t
 #pragma warning(default: 4820) // x bytes padding added after last data member
 
 extern const int ChannelTable[][3];
-extern const int FMScaleFactor[];
+extern const int _FMScaleFactor[];
 extern const int SSGScaleFactor[];
 extern const int PCMScaleFactor[];
 extern const uint32_t P86ScaleFactor[];

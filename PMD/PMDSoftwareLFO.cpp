@@ -134,12 +134,12 @@ int pmd_driver_t::StartLFO(channel_t * channel, int value)
 
     if (LoNibble == 0x0C)
     {
-        value = channel->DefaultTone;
+        value = channel->_DefaultTone;
 
         LoNibble = value & 0x0F;
     }
 
-    channel->DefaultTone = value;
+    channel->_DefaultTone = value;
 
     if (LoNibble != 0x0F)
     {
@@ -165,12 +165,12 @@ int pmd_driver_t::StartPCMLFO(channel_t * channel, int value)
 
     if (LoNibble == 0x0C)
     {
-        value = channel->DefaultTone;
+        value = channel->_DefaultTone;
 
         LoNibble = value & 0x0F;
     }
 
-    channel->DefaultTone = value;
+    channel->_DefaultTone = value;
 
     if (LoNibble == 0x0F)
     {
@@ -191,15 +191,15 @@ int pmd_driver_t::StartPCMLFO(channel_t * channel, int value)
     }
 
     //  Initialize the software envelope.
-    if (channel->SSGEnvelopFlag != -1)
+    if (channel->_SSGEnvelopFlag != -1)
     {
-        channel->SSGEnvelopFlag = 0;
+        channel->_SSGEnvelopFlag = 0;
         channel->ExtendedAttackLevel = 0;
         channel->AttackDuration = channel->ExtendedAttackDuration;
 
         if (channel->AttackDuration == 0)
         {
-            channel->SSGEnvelopFlag = 1;  // ATTACK=0 ... ｽｸﾞ Decay ﾆ
+            channel->_SSGEnvelopFlag = 1;  // ATTACK=0 ... ｽｸﾞ Decay ﾆ
             channel->ExtendedAttackLevel = channel->DecayDepth;
         }
 
@@ -258,7 +258,7 @@ void pmd_driver_t::LFOInitialize(channel_t * channel)
     if (channel->_HardwareLFODelay != 0)
         _OPNAW->SetReg((uint32_t) (_Driver._FMSelector + 0xB4 + (_Driver._CurrentChannel - 1)), (uint32_t) (channel->_PanAndVolume & 0xC0));
 
-    channel->_SlotDelayCounter = channel->_SlotDelay;
+    channel->_FMSlotDelayCounter = channel->_SlotDelay;
 
     // LFO 1
     if ((channel->_HardwareLFO & 0x03) != 0)
@@ -379,6 +379,35 @@ void pmd_driver_t::LFOSetStepUsingMDValue(channel_t * channel)
         else
             channel->_LFO1StepCounter = (channel->_LFO1Depth < 0) ? 0 : 127;
     }
+}
+
+/// <summary>
+/// 9.6. Dedicated Rise/Fall LFO Setting, Selects the rise/fall-type software LFO and turns it on, Command 'MPA ±number1', Range -128–+127
+/// </summary>
+uint8_t * pmd_driver_t::LFOSetRiseFallType(channel_t * channel, uint8_t * si) const noexcept
+{
+    int32_t Value = *si++;
+
+    if (Value < 0x80)
+    {
+        if (Value == 0)
+            Value = 255;
+
+        channel->_LFO1DepthSpeed1 = Value;
+        channel->_LFO1DepthSpeed2 = Value;
+    }
+    else
+    {
+        Value &= 0x7F;
+
+        if (Value == 0)
+            Value = 255;
+
+        channel->_LFO2DepthSpeed1 = Value;
+        channel->_LFO2DepthSpeed2 = Value;
+    }
+
+    return si;
 }
 
 /// <summary>
@@ -507,35 +536,6 @@ uint8_t * pmd_driver_t::LFO2SetSlotMask(channel_t * channel, uint8_t * si)
 
     // For the FM channel 3, both pitch and volume LFOs are affected.
     SetFMChannelLFOs(channel);
-
-    return si;
-}
-
-/// <summary>
-/// 9.6. Dedicated Rise/Fall LFO Setting, Selects the rise/fall-type software LFO and turns it on, Command 'MPA ±number1', Range -128–+127
-/// </summary>
-uint8_t * pmd_driver_t::LFOSetMDepthCount(channel_t * channel, uint8_t * si) const noexcept
-{
-    int32_t Value = *si++;
-
-    if (Value < 0x80)
-    {
-        if (Value == 0)
-            Value = 255;
-
-        channel->_LFO1DepthSpeed1 = Value;
-        channel->_LFO1DepthSpeed2 = Value;
-    }
-    else
-    {
-        Value &= 0x7F;
-
-        if (Value == 0)
-            Value = 255;
-
-        channel->_LFO2DepthSpeed1 = Value;
-        channel->_LFO2DepthSpeed2 = Value;
-    }
 
     return si;
 }

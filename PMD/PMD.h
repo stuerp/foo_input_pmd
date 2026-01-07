@@ -1,5 +1,5 @@
 
-/** $VER: PMDDriver.h (2026.01.05) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: PMDDriver.h (2026.01.07) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -230,7 +230,7 @@ private:
     void Reset();
     void StartOPNInterrupt();
     void InitializeState();
-    void InitializeOPN();
+    void InitializeOPNA();
 
     void DriverMain();
     void DriverStart();
@@ -240,7 +240,7 @@ private:
 
     void Mute();
     void InitializeChannels();
-    void InitializeInterrupt();
+    void InitializeTimers();
     void ConvertTimerBTempoToMetronomeTempo();
     void ConvertMetronomeTempoToTimerBTempo();
     void SetTimerBTempo();
@@ -306,6 +306,7 @@ private:
     uint8_t * SSGSetPortamento(channel_t * channel, uint8_t * si);
     uint8_t * SSGSetChannelMask(channel_t * channel, uint8_t * si) noexcept;
     uint8_t * SetSSGEffect(channel_t * channel, uint8_t * si);
+    uint8_t * SSGSetNoiseFrequency(uint8_t * si);
 
     void SSGSetVolume(channel_t * channel);
     void SetSSGPitch(channel_t * channel);
@@ -349,7 +350,7 @@ private:
     uint8_t * RhythmDecreaseVolume(channel_t * channel, uint8_t * si);
     uint8_t * RhythmSetChannelMask(channel_t * channel, uint8_t * si) noexcept;
     uint8_t * RhythmKeyOn(channel_t * channel, int al, uint8_t * bx, bool * success);
-    uint8_t * RhythmSetRhythmVolume(uint8_t * si);
+    uint8_t * RhythmSetVolume(uint8_t * si);
     uint8_t * RhythmSetPan(uint8_t * si);
     uint8_t * RhythmSetMasterVolume(uint8_t * si);
     uint8_t * RhythmSetRelativeMasterVolume(uint8_t * si);
@@ -382,20 +383,22 @@ private:
 
     void PPZ8Main(channel_t * channel);
 
-    uint8_t * ExecutePPZCommand(channel_t * channel, uint8_t * si);
-    uint8_t * DecreasePPZVolumeCommand(channel_t * channel, uint8_t * si);
-    uint8_t * SetPPZInstrument(channel_t * channel, uint8_t * si);
-    uint8_t * SetPPZPortamentoCommand(channel_t * channel, uint8_t * si);
-    uint8_t * SetPPZPan1(channel_t * channel, uint8_t * si);
-    uint8_t * SetPPZPan2(channel_t * channel, uint8_t * si);
-    uint8_t * SetPPZRepeatCommand(channel_t * channel, uint8_t * si);
-    uint8_t * SetPPZChannelMaskCommand(channel_t * channel, uint8_t * si) noexcept;
+    uint8_t * PPZ8Initialize(channel_t * channel, uint8_t * si);
 
-    void SetPPZVolume(channel_t * channel);
-    void SetPPZPitch(channel_t * channel);
-    void PPZKeyOn(channel_t * channel);
-    void PPZKeyOff(channel_t * channel);
-    void SetPPZTone(channel_t * channel, int al);
+    uint8_t * PPZ8ExecuteCommand(channel_t * channel, uint8_t * si);
+    uint8_t * PPZ8DecreaseVolume(channel_t * channel, uint8_t * si);
+    uint8_t * PPZ8SethannelMask(channel_t * channel, uint8_t * si) noexcept;
+    uint8_t * PPZ8SetInstrument(channel_t * channel, uint8_t * si);
+    uint8_t * PPZ8SetPortamento(channel_t * channel, uint8_t * si);
+    uint8_t * PPZ8SetPan1(channel_t * channel, uint8_t * si);
+    uint8_t * PPZ8SetPan2(channel_t * channel, uint8_t * si);
+    uint8_t * PPZ8SetRepeat(channel_t * channel, uint8_t * si);
+
+    void PPZ8SetVolume(channel_t * channel);
+    void PPZ8SetPitch(channel_t * channel);
+    void PPZ8KeyOn(channel_t * channel);
+    void PPZ8KeyOff(channel_t * channel);
+    void PPZ8SetTone(channel_t * channel, int tone);
 
     #pragma endregion
 
@@ -432,11 +435,12 @@ private:
     uint8_t * LFO1SetSlotMask(channel_t * channel, uint8_t * si);
     uint8_t * LFO2SetSlotMask(channel_t * channel, uint8_t * si);
 
+    uint8_t * LFOSetRiseFallType(channel_t * channel, uint8_t * si) const noexcept;
+
     #pragma endregion
 
     uint8_t * SpecialC0ProcessingCommand(channel_t * channel, uint8_t * si, uint8_t value) noexcept;
     uint8_t * SetTempoCommand(uint8_t * si);
-    uint8_t * SSGSetNoiseFrequency(uint8_t * si);
 
     uint8_t * SetStartOfLoopCommand(channel_t * channel, uint8_t * si);
     uint8_t * SetEndOfLoopCommand(channel_t * channel, uint8_t * si);
@@ -444,24 +448,21 @@ private:
 
     uint8_t * IncreaseVolumeForNextNote(channel_t * channel, uint8_t * si, int maxVolume);
     uint8_t * DecreaseVolumeForNextNote(channel_t * channel, uint8_t * si);
-    uint8_t * LFOSetMDepthCount(channel_t * channel, uint8_t * si) const noexcept;
+
+    uint8_t * SetHardwareLFO_PMS_AMS(channel_t * channel, uint8_t * si);
 
     uint8_t * CalculateQ(channel_t * channel, uint8_t * si);
 
-    uint8_t * SetHardwareLFO_PMS_AMS(channel_t * channel, uint8_t * si);
-    uint8_t * InitializePPZ(channel_t * channel, uint8_t * si);
-
     uint8_t * RhythmSetLFOControl(channel_t * channel, uint8_t * si);
 
-    int Transpose(channel_t * channel, int al);
-    int TransposeSSG(channel_t * channel, int al);
+    int32_t Transpose(channel_t * channel, int al);
 
     uint8_t CalcPanOut(channel_t * channel);
     void CalcFMBlock(int * cx, int * ax);
     void InitializeFMChannel3(channel_t * channel, uint8_t * ax);
     void SpecialFM3Processing(channel_t * channel, int ax, int cx);
 
-    int rnd(int ax);
+    int32_t rnd(int32_t ax) noexcept;
 
     void CalcFMLFO(channel_t * channel, int al, int bl, uint8_t * vol_tbl);
     void CalcVolSlot(int dh, int dl, int al);
@@ -480,7 +481,8 @@ private:
 
     void Fade();
 
-    int LoadPPCInternal(const WCHAR * filename);
+private:
+    int LoadPPC(const WCHAR * filename);
     int LoadPPCInternal(uint8_t * data, size_t size) noexcept;
 
     void FindFile(const WCHAR * filename, WCHAR * filePath, size_t size) const noexcept;
@@ -513,9 +515,12 @@ private:
     channel_t _FMExtensionChannels[MaxFMExtensionChannels];
     channel_t _EffectChannel;
 
-    channel_t _PPZChannels[MaxPPZChannels];
+    channel_t _PPZChannels[MaxPPZ8Channels];
 
     channel_t _DummyChannel;
+
+    int32_t _FMSlotKey1[3];
+    int32_t _FMSlotKey2[3];
 
     static const size_t MaxFrames = 30000;
 

@@ -20,7 +20,7 @@ void pmd_driver_t::SSGEffectMain(channel_t * channel, int effectNumber)
         if (_SSGEffect._Priority >= 2)
             return;
 
-        _SSGChannels[2].PartMask |= 0x02;
+        _SSGChannels[2]._PartMask |= 0x02;
 
         _SSGEffect._Priority = 1;
         _SSGEffect._Number = effectNumber;
@@ -56,7 +56,7 @@ void pmd_driver_t::SSGEffectMain(channel_t * channel, int effectNumber)
             if (_UsePPSForDrums)
                 _PPS->Stop();
 
-            _SSGChannels[2].PartMask |= 0x02;
+            _SSGChannels[2]._PartMask |= 0x02;
 
             SSGStartEffect(SSGEffects[effectNumber].Data);
 
@@ -98,7 +98,7 @@ void pmd_driver_t::SSGStartEffect(const int * si)
 
         _OPNAW->SetReg(0x06, (uint32_t) _SSGEffect._NoisePeriod); // Noise Period
 
-        _OPNAW->SetReg(0x07, ((*si++ << 2) & 0x24) | (_OPNAW->GetReg(0x07) & 0xDB)); // Enable
+        _OPNAW->SetReg(0x07, ((*si++ << 2) & 0x24) | (_OPNAW->GetReg(0x07) & 0xDB)); // Enable the channel C.
 
         _OPNAW->SetReg(0x0A, (uint32_t) *si++); // Channel C Amplitude / Mode
         _OPNAW->SetReg(0x0B, (uint32_t) *si++); // Envelope Period (Fine Tune)
@@ -127,7 +127,7 @@ void pmd_driver_t::SSGStopEffect()
         _PPS->Stop();
 
     _OPNAW->SetReg(0x0A, 0x00);                                     // Channel C Amplitude / Mode
-    _OPNAW->SetReg(0x07, ((_OPNAW->GetReg(0x07)) & 0xDB) | 0x24);   // Disable
+    _OPNAW->SetReg(0x07, ((_OPNAW->GetReg(0x07)) & 0xDB) | 0x24);   // Disable channel C.
 
     _SSGEffect._Priority = 0;
     _SSGEffect._Number = 0xFF;

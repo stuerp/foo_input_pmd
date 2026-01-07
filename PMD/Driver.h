@@ -32,9 +32,6 @@ private:
 
         _PreviousTimerACounter = 0;
 
-        ::memset(omote_key, 0, _countof(omote_key));
-        ::memset(ura_key, 0, _countof(ura_key));
-
         _AlgorithmAndFeedbackLoopsFM3 = 0;
 
         _LoopBegin = 0;
@@ -57,9 +54,6 @@ public:
     uint8_t _LoopCheck;
 
     int32_t _PreviousTimerACounter;     // TimerA counter value at the previous interrupt
-
-    int32_t omote_key[3];               // FM keyondata table (=0)
-    int32_t ura_key[3];                 // FM keyondata back (=0x100)
 
     int32_t _AlgorithmAndFeedbackLoopsFM3; // Algorithm and feedback loops defined at the end of FM channel 3.
 

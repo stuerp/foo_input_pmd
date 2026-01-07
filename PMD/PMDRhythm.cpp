@@ -53,7 +53,7 @@ void pmd_driver_t::RhythmMain(channel_t * channel)
                 _State.RhythmData = Data;
 
                 channel->_Size = al;
-                channel->KeyOnFlag++;
+                channel->_KeyOnFlag++;
 
                 _Driver._IsTieSet = false;
                 _Driver._VolumeBoostCount = 0;
@@ -246,7 +246,7 @@ uint8_t * pmd_driver_t::RhythmKeyOn(channel_t * channel, int al, uint8_t * rhyth
 
     *success = true;
 
-    if (channel->PartMask != 0x00)
+    if (channel->_PartMask != 0x00)
     {
         _State.UseRhythmChannel = false;
 
@@ -341,12 +341,12 @@ uint8_t * pmd_driver_t::RhythmSetChannelMask(channel_t * channel, uint8_t * si) 
     if (Value != 0)
     {
         if (Value < 2)
-            channel->PartMask |= 0x40;
+            channel->_PartMask |= 0x40;
         else
             si = SpecialC0ProcessingCommand(channel, si, Value);
     }
     else
-        channel->PartMask &= 0xBF;
+        channel->_PartMask &= 0xBF;
 
     return si;
 }
@@ -483,7 +483,7 @@ uint8_t * pmd_driver_t::RhythmSetRelativeMasterVolume(uint8_t * si)
 
 // Command "\vb", "\vs", "\vc", "\vh", "\vt", "\vi", 14.3. Rhythm Sound Source Individual Volume Setting
 // b: Bass Drum, s: Snare Drum, c: Cymbal, h: Hi-Hat, t: Tom, i: Rim Shot
-uint8_t * pmd_driver_t::RhythmSetRhythmVolume(uint8_t * si)
+uint8_t * pmd_driver_t::RhythmSetVolume(uint8_t * si)
 {
     int32_t Value    = *si & 0x1f;
     int32_t Register = *si++ >> 5;

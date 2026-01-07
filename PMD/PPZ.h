@@ -18,7 +18,7 @@
 
 #define DefaultSampleRate   FREQUENCY_44_1K
 #define DefaultVolume       12
-#define MaxPPZChannels      8
+#define MaxPPZ8Channels      8
 
 #define X_N0                0x80
 #define DELTA_N0            0x7F
@@ -192,7 +192,7 @@ private:
     bool _EmulateADPCM; // Should channel 8 emulate ADPCM?
     bool _UseInterpolation;
 
-    ppz_channel_t _Channels[MaxPPZChannels];
+    ppz_channel_t _Channels[MaxPPZ8Channels];
 
     int32_t _MasterVolume; // Overall 86B Mixer volume
     int32_t _Volume;
