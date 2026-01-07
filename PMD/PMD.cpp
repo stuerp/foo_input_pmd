@@ -47,6 +47,8 @@ pmd_driver_t::~pmd_driver_t()
 /// </summary>
 bool pmd_driver_t::Initialize(const WCHAR * directoryPathDrums) noexcept
 {
+    console::printf("pmd_driver_t::Initialize");
+
     WCHAR DirectoryPathDrums[MAX_PATH] = { 0 };
 
     if (directoryPathDrums != nullptr)
@@ -57,9 +59,20 @@ bool pmd_driver_t::Initialize(const WCHAR * directoryPathDrums) noexcept
 
     Reset();
 
-    _PPZ->Initialize(_State.OPNASampleRate, false);
-    _PPS->Initialize(_State.OPNASampleRate, false);
-    _P86->Initialize(_State.OPNASampleRate, false);
+    _PCMSampleRate = FREQUENCY_44_1K;
+    _PPZSampleRate = FREQUENCY_44_1K;
+
+    _TimerBTempo = 0x100;
+
+    _UseInterpolation    = false;
+
+    _UseInterpolationP86 = false;
+    _UseInterpolationPPS = false;
+    _UseInterpolationPPZ = false;
+
+    _P86->Initialize(_PCMSampleRate, false);
+    _PPS->Initialize(_PCMSampleRate, false);
+    _PPZ->Initialize(_PCMSampleRate, false);
 
     if (!_OPNAW->Initialize(OPNAClock, FREQUENCY_55_5K, false, DirectoryPathDrums))
         return false;
@@ -121,7 +134,8 @@ bool pmd_driver_t::IsPMD(const uint8_t * data, size_t size) noexcept
     if (size > sizeof(_MData))
         return false;
 
-    if (data[0] > 0x0F && data[0] != 0xFF) // 0xFF = FM Towns
+    // File version. 0x00 for standard .M or .M2 files targeting PC-98/PC-88/X68000 systems, Must be 0xFF for files targeting FM Towns hardware.
+    if (data[0] > 0x0F && data[0] != 0xFF)
         return false;
 
     if (data[1] != 0x18 && data[1] != 0x1A)
@@ -362,17 +376,17 @@ void pmd_driver_t::Render(int16_t * frames, size_t frameCount)
             _OPNAW->AdvanceTimers(NextTick);
 
             {
-                _FramesToDo = (size_t) ((double) (NextTick * _State.OPNASampleRate) / 1'000'000.0);
+                _FramesToDo = (size_t) ((double) (NextTick * _PCMSampleRate) / 1'000'000.0);
 
                 ::memset(_DstFrames, 0, _FramesToDo * sizeof(frame32_t));
 
-                if (_State.OPNASampleRate == _State.PPZSampleRate)
+                if (_PCMSampleRate == _PPZSampleRate)
                     _PPZ->Mix(_DstFrames, _FramesToDo);
                 else
                 {
                     // PCM frequency transform of ppz8 (no interpolation)
-                    size_t SampleCount = (size_t) (_FramesToDo * _State.PPZSampleRate / _State.OPNASampleRate + 1);
-                    int delta = (int) (8192 * _State.PPZSampleRate / _State.OPNASampleRate);
+                    size_t SampleCount = (size_t) (_FramesToDo * _PPZSampleRate / _PCMSampleRate + 1);
+                    int delta = (int) (8192 * _PPZSampleRate / _PCMSampleRate);
 
                     ::memset(_TmpFrames, 0, SampleCount * sizeof(sample_t) * 2);
 
@@ -415,7 +429,7 @@ void pmd_driver_t::Render(int16_t * frames, size_t frameCount)
                     }
 
                     // Fadeout end
-                    if ((_Position - _FadeOutPosition > (int64_t) _State.FadeOutSpeedHQ * 1'000) && _State.StopAfterFadeout)
+                    if ((_Position - _FadeOutPosition > (int64_t) _State.FadeOutSpeedHQ * 1'000) && _State._StopAfterFadeout)
                         _Driver._Flags |= DriverStopRequested;
                 }
                 else
@@ -639,35 +653,35 @@ void pmd_driver_t::SetSampleRate(uint32_t sampleRate) noexcept
 {
     if (sampleRate == FREQUENCY_55_5K || sampleRate == FREQUENCY_55_4K)
     {
-        _State.OPNASampleRate =
-        _State.PPZSampleRate = FREQUENCY_44_1K;
-        _State.UseInterpolation = true;
+        _PCMSampleRate =
+        _PPZSampleRate = FREQUENCY_44_1K;
+        _UseInterpolation = true;
     }
     else
     {
-        _State.OPNASampleRate =
-        _State.PPZSampleRate = sampleRate;
-        _State.UseInterpolation = false;
+        _PCMSampleRate =
+        _PPZSampleRate = sampleRate;
+        _UseInterpolation = false;
     }
 
-    _OPNAW->Initialize(OPNAClock, _State.OPNASampleRate, _State.UseInterpolation);
+    _OPNAW->Initialize(OPNAClock, _PCMSampleRate, _UseInterpolation);
 
-    _P86->SetSampleRate(_State.OPNASampleRate, _State.UseInterpolationP86);
-    _PPS->SetSampleRate(_State.OPNASampleRate, _State.UseInterpolationPPS);
-    _PPZ->SetSampleRate(_State.PPZSampleRate, _State.UseInterpolationPPZ);
+    _P86->SetSampleRate(_PCMSampleRate, _UseInterpolationP86);
+    _PPS->SetSampleRate(_PCMSampleRate, _UseInterpolationPPS);
+    _PPZ->SetSampleRate(_PPZSampleRate, _UseInterpolationPPZ);
 }
 
 /// <summary>
 /// Enables or disables interpolation to 55kHz output frequency.
 /// </summary>
-void pmd_driver_t::SetFMInterpolation(bool value)
+void pmd_driver_t::SetInterpolation(bool value)
 {
-    if (value == _State.UseInterpolation)
+    if (value == _UseInterpolation)
         return;
 
-    _State.UseInterpolation = value;
+    _UseInterpolation = value;
 
-    _OPNAW->Initialize(OPNAClock, _State.OPNASampleRate, _State.UseInterpolation);
+    _OPNAW->Initialize(OPNAClock, _PCMSampleRate, _UseInterpolation);
 }
 
 /// <summary>
@@ -675,12 +689,12 @@ void pmd_driver_t::SetFMInterpolation(bool value)
 /// </summary>
 void pmd_driver_t::SetPPZSampleRate(uint32_t sampleRate) noexcept
 {
-    if (sampleRate == _State.PPZSampleRate)
+    if (sampleRate == _PPZSampleRate)
         return;
 
-    _State.PPZSampleRate = sampleRate;
+    _PPZSampleRate = sampleRate;
 
-    _PPZ->SetSampleRate(sampleRate, _State.UseInterpolationPPZ);
+    _PPZ->SetSampleRate(sampleRate, _UseInterpolationPPZ);
 }
 
 /// <summary>
@@ -688,9 +702,9 @@ void pmd_driver_t::SetPPZSampleRate(uint32_t sampleRate) noexcept
 /// </summary>
 void pmd_driver_t::SetPPZInterpolation(bool flag)
 {
-    _State.UseInterpolationPPZ = flag;
+    _UseInterpolationPPZ = flag;
 
-    _PPZ->SetSampleRate(_State.PPZSampleRate, flag);
+    _PPZ->SetSampleRate(_PPZSampleRate, flag);
 }
 
 /// <summary>
@@ -698,9 +712,9 @@ void pmd_driver_t::SetPPZInterpolation(bool flag)
 /// </summary>
 void pmd_driver_t::SetPPSInterpolation(bool flag)
 {
-    _State.UseInterpolationPPS = flag;
+    _UseInterpolationPPS = flag;
 
-    _PPS->SetSampleRate(_State.OPNASampleRate, flag);
+    _PPS->SetSampleRate(_PCMSampleRate, flag);
 }
 
 /// <summary>
@@ -708,9 +722,9 @@ void pmd_driver_t::SetPPSInterpolation(bool flag)
 /// </summary>
 void pmd_driver_t::SetP86Interpolation(bool flag)
 {
-    _State.UseInterpolationP86 = flag;
+    _UseInterpolationP86 = flag;
 
-    _P86->SetSampleRate(_State.OPNASampleRate, flag);
+    _P86->SetSampleRate(_PCMSampleRate, flag);
 }
 
 /// <summary>
@@ -718,7 +732,7 @@ void pmd_driver_t::SetP86Interpolation(bool flag)
 /// </summary>
 void pmd_driver_t::SetFadeOutSpeed(int speed)
 {
-    _State.FadeOutSpeed = speed;
+    _State._FadeOutSpeed = speed;
 }
 
 /// <summary>
@@ -926,10 +940,10 @@ channel_t * pmd_driver_t::GetChannel(int channelNumber) const noexcept
 /// </summary>
 void pmd_driver_t::Reset()
 {
+    console::printf("pmd_driver_t::Reset");
+
     UsePPSForDrums(false);
     UseSSGForDrums(false);
-
-    _State.Reset();
 
     ::memset(_FMChannels, 0, sizeof(_FMChannels));
     ::memset(_SSGChannels, 0, sizeof(_SSGChannels));
@@ -939,7 +953,7 @@ void pmd_driver_t::Reset()
 
     ::memset(_FMExtensionChannels, 0, sizeof(_FMExtensionChannels));
 
-    _EffectChannel = { };
+    _SSGEffectChannel = { };
 
     ::memset(_PPZChannels, 0, sizeof(_PPZChannels));
 
@@ -961,12 +975,12 @@ void pmd_driver_t::Reset()
     _FadeOutPosition = 0;
     _Seed = 0;
 
+    // Create some mock PMD data.
     {
         ::memset(_MData, 0, sizeof(_MData));
         ::memset(_VData, 0, sizeof(_VData));
         ::memset(_EData, 0, sizeof(_EData));
 
-        // Create some mock PMD data.
         for (size_t i = 0; i < 12; i += 2)
         {
             _MData[i + 1] = 0x18;
@@ -974,27 +988,21 @@ void pmd_driver_t::Reset()
         }
 
         _MData[25] = 0x80;
-
-        _State.MData = &_MData[1];
-        _State.VData = _VData;
-        _State.EData = _EData;
     }
 
     _InTimerAInterrupt = false;
     _InTimerBInterrupt = false;
 
-    _State.OPNASampleRate = FREQUENCY_44_1K;
-    _State.PPZSampleRate = FREQUENCY_44_1K;
-
-    _State.StopAfterFadeout = false;
-
-    _State.TimerBTempo = 0x100;
-
     _IsUsingP86 = false;
 
-    _State.UseInterpolationPPZ = false;
-    _State.UseInterpolationP86 = false;
-    _State.UseInterpolationPPS = false;
+    _RhythmVolume = 0x3C;
+
+    // Initialize the state.
+    _State.Initialize();
+
+    _State._MData = &_MData[1];
+    _State._VData = _VData;
+    _State._EData = _EData;
 
     {
         _State._Channels[ 0] = &_FMChannels[0];
@@ -1017,7 +1025,7 @@ void pmd_driver_t::Reset()
         _State._Channels[13] = &_FMExtensionChannels[2];
 
         _State._Channels[14] = &_DummyChannel; // Unused
-        _State._Channels[15] = &_EffectChannel;
+        _State._Channels[15] = &_SSGEffectChannel;
 
         _State._Channels[16] = &_PPZChannels[0];
         _State._Channels[17] = &_PPZChannels[1];
@@ -1028,35 +1036,6 @@ void pmd_driver_t::Reset()
         _State._Channels[22] = &_PPZChannels[6];
         _State._Channels[23] = &_PPZChannels[7];
     }
-
-    SetFMVolumeAdjustment(0);
-    SetSSGVolumeAdjustment(0);
-    SetADPCMVolumeAdjustment(0);
-    _State._RhythmVolumeAdjust = 0;
-    _State.DefaultRhythmVolumeAdjust = 0;
-    SetPPZVolumeAdjustment(0);
-
-    _RhythmVolume = 0x3C;
-
-    // Initialize the counters.
-    _State.RhythmBassDrumOn = 0;
-    _State.RhythmSnareDrumOn = 0;
-    _State.RhythmCymbalOn = 0;
-    _State.RhythmHiHatOn = 0;
-    _State.RhythmTomDrumOn = 0;
-    _State.RhythmRimShotOn = 0;
-
-    // Initialize the counters.
-    _State.RhythmBassDrumOff = 0;
-    _State.RhythmSnareDrumOff = 0;
-    _State.RhythmCymbalOff = 0;
-    _State.RhythmHiHatOff = 0;
-    _State.RhythmTomDrumOff = 0;
-    _State.RhythmRimShotOff = 0;
-
-    SetPMDB2CompatibilityMode(false);
-
-    _State.StopAfterFadeout = true;
 
     _Driver._Flags = DriverIdle;
 }
@@ -1074,7 +1053,7 @@ void pmd_driver_t::StartOPNInterrupt()
 
     ::memset(_FMExtensionChannels, 0, sizeof(_FMExtensionChannels));
 
-    _EffectChannel = { };
+    _SSGEffectChannel = { };
 
     ::memset(_PPZChannels, 0, sizeof(_PPZChannels));
 
@@ -1102,11 +1081,10 @@ void pmd_driver_t::StartOPNInterrupt()
 void pmd_driver_t::InitializeState()
 {
     _State._FadeOutVolume = 0;
-    _State.FadeOutSpeed = 0;
+    _State._FadeOutSpeed = 0;
     _State.IsFadeOutSpeedSet = false;
     _State.FadeOutSpeedHQ = 0;
 
-    _State.Status = 0;
     _State.LoopCount = 0;
     _State.BarCounter = 0;
     _State.OpsCounter = 0;
@@ -1126,13 +1104,13 @@ void pmd_driver_t::InitializeState()
     _State.FMChannel3Mode = 0x3F;
     _State.BarLength = 96;
 
-    _State.FMVolumeAdjust = _State.DefaultFMVolumeAdjust;
-    _State.SSGVolumeAdjust = _State.DefaultSSGVolumeAdjust;
-    _State.ADPCMVolumeAdjust = _State.DefaultADPCMVolumeAdjust;
-    _State.PPZVolumeAdjust = _State.DefaultPPZVolumeAdjust;
-    _State._RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust;
+    _State._FMVolumeAdjust = _State._FMVolumeAdjustDefault;
+    _State._SSGVolumeAdjust = _State._SSGVolumeAdjustDefault;
+    _State._ADPCMVolumeAdjust = _State._ADPCMVolumeAdjustDefault;
+    _State._PPZ8VolumeAdjust = _State._PPZ8VolumeAdjustDefault;
+    _State._RhythmVolumeAdjust = _State._RhythmVolumeAdjustDefault;
 
-    _State.PMDB2CompatibilityMode = _State.DefaultPMDB2CompatibilityMode;
+    _State._IsCompatibleWithPMDB2 = _State._IsCompatibleWithPMDB2Default;
 
     for (auto & FMChannel : _FMChannels)
     {
@@ -1524,14 +1502,14 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
         // 15.9. Write to Status1, Command '~ number'
         case 0xDC:
         {
-            _State.Status = *si++;
+            _Status1 = *si++;
             break;
         }
 
         // 15.9. Write to Status1, Command '~ ±number'
         case 0xDB:
         {
-            _State.Status += *si++;
+            _Status1 += *si++;
             break;
         }
 
@@ -1573,7 +1551,7 @@ uint8_t * pmd_driver_t::ExecuteCommand(channel_t * channel, uint8_t * si, uint8_
         // 15.3. Fade Out Setting, Fades out from the specified position, Command 'F number'
         case 0xD2:
         {
-            _State.FadeOutSpeed      = *si++;
+            _State._FadeOutSpeed      = *si++;
             _State.IsFadeOutSpeedSet = true;
             break;
         }
@@ -1783,7 +1761,7 @@ uint8_t * pmd_driver_t::SpecialC0ProcessingCommand(channel_t * channel, uint8_t 
     {
         // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DF number'
         case 0xFF:
-            _State.FMVolumeAdjust = *si++; // 0..255 or -128..127
+            _State._FMVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
         // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DF ±number'
@@ -1793,7 +1771,7 @@ uint8_t * pmd_driver_t::SpecialC0ProcessingCommand(channel_t * channel, uint8_t 
 
         // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DS number'
         case 0xFD:
-            _State.SSGVolumeAdjust = *si++; // 0..255 or -128..127
+            _State._SSGVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
         // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DS ±number'
@@ -1803,7 +1781,7 @@ uint8_t * pmd_driver_t::SpecialC0ProcessingCommand(channel_t * channel, uint8_t 
 
         // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DP number'
         case 0xFB:
-            _State.ADPCMVolumeAdjust = *si++; // 0..255 or -128..127
+            _State._ADPCMVolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
         // 15.4. Individual Sound Source Volume Down Setting, Changes an individual sound source's volume down, Command 'DP ±number'
@@ -1823,11 +1801,11 @@ uint8_t * pmd_driver_t::SpecialC0ProcessingCommand(channel_t * channel, uint8_t 
 
         // 15.10. PCM Method Selection, Changes the PCM channel method, Command 'A number'
         case 0xF7:
-            _State.PMDB2CompatibilityMode = ((*si++ & 0x01) == 0x01);
+            _State._IsCompatibleWithPMDB2 = ((*si++ & 0x01) == 0x01);
             break;
 
         case 0xF6:
-            _State.PPZVolumeAdjust = *si++; // 0..255 or -128..127
+            _State._PPZ8VolumeAdjust = *si++; // 0..255 or -128..127
             break;
 
         case 0xF5:
@@ -1929,7 +1907,7 @@ uint8_t * pmd_driver_t::SetTempoCommand(uint8_t * si)
 /// </summary>
 uint8_t * pmd_driver_t::SetStartOfLoopCommand(channel_t * channel, uint8_t * si)
 {
-    uint8_t * Data = (channel == &_EffectChannel) ? _State.EData : _State.MData;
+    uint8_t * Data = (channel == &_SSGEffectChannel) ? _State._EData : _State._MData;
 
     Data[*(uint16_t *) si + 1] = 0;
 
@@ -1967,7 +1945,7 @@ uint8_t * pmd_driver_t::SetEndOfLoopCommand(channel_t * channel, uint8_t * si)
     // Jump to offset + 2.
     int32_t Offset = *(uint16_t *) si + 2;
 
-    si = ((channel == &_EffectChannel) ? _State.EData : _State.MData) + Offset;
+    si = ((channel == &_SSGEffectChannel) ? _State._EData : _State._MData) + Offset;
 
     return si;
 }
@@ -1977,7 +1955,7 @@ uint8_t * pmd_driver_t::SetEndOfLoopCommand(channel_t * channel, uint8_t * si)
 /// </summary>
 uint8_t * pmd_driver_t::ExitLoopCommand(channel_t * channel, uint8_t * si)
 {
-    uint8_t * Data = (channel == &_EffectChannel) ? _State.EData : _State.MData;
+    uint8_t * Data = (channel == &_SSGEffectChannel) ? _State._EData : _State._MData;
 
     Data += *(uint16_t *) si;
     si += 2;
@@ -2134,11 +2112,11 @@ int pmd_driver_t::rnd(int32_t range) noexcept
 /// </summary>
 void pmd_driver_t::SetTimerBTempo()
 {
-    if (_State.TimerBTempo != _State.Tempo)
+    if (_TimerBTempo != _State.Tempo)
     {
-        _State.TimerBTempo = _State.Tempo;
+        _TimerBTempo = _State.Tempo;
 
-        _OPNAW->SetReg(0x26, (uint32_t) _State.TimerBTempo); // Timer B DATA
+        _OPNAW->SetReg(0x26, (uint32_t) _TimerBTempo); // Timer B DATA
     }
 }
 
@@ -2247,34 +2225,34 @@ void pmd_driver_t::Mute()
 /// </summary>
 void pmd_driver_t::Fade()
 {
-    if (_State.FadeOutSpeed == 0)
+    if (_State._FadeOutSpeed == 0)
         return;
 
-    if (_State.FadeOutSpeed > 0)
+    if (_State._FadeOutSpeed > 0)
     {
-        if ((_State._FadeOutVolume + _State.FadeOutSpeed) < 256)
+        if ((_State._FadeOutVolume + _State._FadeOutSpeed) < 256)
         {
-            _State._FadeOutVolume += _State.FadeOutSpeed;
+            _State._FadeOutVolume += _State._FadeOutSpeed;
         }
         else
         {
             _State._FadeOutVolume = 255;
-            _State.FadeOutSpeed  =   0;
+            _State._FadeOutSpeed  =   0;
 
-            if (_State.StopAfterFadeout)
+            if (_State._StopAfterFadeout)
                 _Driver._Flags |= DriverStopRequested;
         }
     }
     else
     {   // Fade in
-        if ((_State._FadeOutVolume + _State.FadeOutSpeed) > 255)
+        if ((_State._FadeOutVolume + _State._FadeOutSpeed) > 255)
         {
-            _State._FadeOutVolume += _State.FadeOutSpeed;
+            _State._FadeOutVolume += _State._FadeOutSpeed;
         }
         else
         {
             _State._FadeOutVolume = 0;
-            _State.FadeOutSpeed  = 0;
+            _State._FadeOutSpeed  = 0;
 
             _OPNAW->SetReg(0x11, (uint32_t) _RhythmVolume);  // Rhythm Part: Set RTL (Total Level)
         }
@@ -2286,13 +2264,13 @@ void pmd_driver_t::Fade()
 /// </summary>
 void pmd_driver_t::InitializeChannels()
 {
-    _State.x68_flg = _State.MData[-1];
+    _Version = _State._MData[-1];
 
-    const uint16_t * Offsets = (const uint16_t *) _State.MData;
+    const uint16_t * Offsets = (const uint16_t *) _State._MData;
 
     for (size_t i = 0; i < _countof(_FMChannels); ++i)
     {
-        _FMChannels[i]._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
+        _FMChannels[i]._Data = (_State._MData[*Offsets] != 0x80) ? &_State._MData[*Offsets] : nullptr;
         _FMChannels[i]._Size = 1;
         _FMChannels[i]._KeyOffFlag = -1;
         _FMChannels[i]._LFO1DepthSpeed1 = -1;   // LFO1MDepth Counter (-1 = infinite)
@@ -2311,7 +2289,7 @@ void pmd_driver_t::InitializeChannels()
 
     for (size_t i = 0; i < _countof(_SSGChannels); ++i)
     {
-        _SSGChannels[i]._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
+        _SSGChannels[i]._Data = (_State._MData[*Offsets] != 0x80) ? &_State._MData[*Offsets] : nullptr;
         _SSGChannels[i]._Size = 1;
         _SSGChannels[i]._KeyOffFlag = -1;
         _SSGChannels[i]._LFO1DepthSpeed1 = -1;   // LFO1MDepth Counter (-1 = infinite)
@@ -2329,7 +2307,7 @@ void pmd_driver_t::InitializeChannels()
     }
 
     {
-        _ADPCMChannel._Data = (_State.MData[*Offsets] != 0x80) ? &_State.MData[*Offsets] : nullptr;
+        _ADPCMChannel._Data = (_State._MData[*Offsets] != 0x80) ? &_State._MData[*Offsets] : nullptr;
         _ADPCMChannel._Size = 1;
         _ADPCMChannel._KeyOffFlag = -1;
         _ADPCMChannel._LFO1DepthSpeed1 = -1;
@@ -2346,7 +2324,7 @@ void pmd_driver_t::InitializeChannels()
     }
 
     {
-        _RhythmChannel._Data = (_State.MData[*Offsets] != 0x80) ? _RhythmChannel._Data = &_State.MData[*Offsets] : nullptr;
+        _RhythmChannel._Data = (_State._MData[*Offsets] != 0x80) ? _RhythmChannel._Data = &_State._MData[*Offsets] : nullptr;
         _RhythmChannel._Size = 1;
         _RhythmChannel._KeyOffFlag = -1;
         _RhythmChannel._LFO1DepthSpeed1 = -1;
@@ -2362,19 +2340,19 @@ void pmd_driver_t::InitializeChannels()
     }
 
     {
-        _State.RhythmDataTable = (uint16_t *) &_State.MData[*Offsets];
+        _State.RhythmDataTable = (uint16_t *) &_State._MData[*Offsets];
 
         _State.DummyRhythmData = 0xFF;
         _State.RhythmData = &_State.DummyRhythmData;
     }
 
     {
-        Offsets = (const uint16_t *) _State.MData;
+        Offsets = (const uint16_t *) _State._MData;
 
         const uint16_t MaxParts = 12;
 
         if (Offsets[0] != sizeof(uint16_t) * MaxParts) // 0x0018
-            _State.InstrumentDefinitions = _State.MData + Offsets[12];
+            _State.InstrumentDefinitions = _State._MData + Offsets[12];
     }
 }
 

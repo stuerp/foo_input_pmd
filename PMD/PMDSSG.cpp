@@ -195,7 +195,7 @@ void pmd_driver_t::SSGMain(channel_t * channel)
 
     int temp = SSGPCMSoftwareEnvelope(channel);
 
-    if ((temp != 0) || _Driver._HardwareLFOModulationMode & 0x22 || (_State.FadeOutSpeed != 0))
+    if ((temp != 0) || _Driver._HardwareLFOModulationMode & 0x22 || (_State._FadeOutSpeed != 0))
     {
         // Do not operate while using SSG channel 3 and the SSG drum is playing.
         if (!(!_UsePPSForDrums && (channel == &_SSGChannels[2]) && (channel->_Tone == 0xFF) && !_State.UseRhythmChannel))
@@ -405,7 +405,7 @@ void pmd_driver_t::SSGSetVolume(channel_t * channel)
     int Value = (channel->VolumeBoost != 0) ? channel->VolumeBoost - 1 : channel->_Volume;
 
     // Volume Down calculation
-    Value = ((256 - _State.SSGVolumeAdjust) * Value) >> 8;
+    Value = ((256 - _State._SSGVolumeAdjust) * Value) >> 8;
 
     // Fade-out calculation
     Value = ((256 - _State._FadeOutVolume) * Value) >> 8;
@@ -474,9 +474,9 @@ uint8_t * pmd_driver_t::SSGDecreaseVolume(channel_t *, uint8_t * si)
     const int Volume = *(int8_t *) si++;
 
     if (Volume != 0)
-        _State.SSGVolumeAdjust = std::clamp(Volume + _State.SSGVolumeAdjust, 0, 255);
+        _State._SSGVolumeAdjust = std::clamp(Volume + _State._SSGVolumeAdjust, 0, 255);
     else
-        _State.SSGVolumeAdjust = _State.DefaultSSGVolumeAdjust;
+        _State._SSGVolumeAdjust = _State._SSGVolumeAdjustDefault;
 
     return si;
 }
@@ -789,7 +789,7 @@ uint8_t * pmd_driver_t::SSGSetChannelMask(channel_t * channel, uint8_t * si) noe
 
             if (channel->_PartMask == 0x40)
             {
-                const uint32_t NewMask = ((1 << (_Driver._CurrentChannel - 1)) | (4 << _Driver._CurrentChannel));
+                const uint32_t NewMask = ((1u << (_Driver._CurrentChannel - 1)) | (4u << _Driver._CurrentChannel));
                 const uint32_t OldMask = _OPNAW->GetReg(0x07);
 
                 // Enable the SSG channels (--XXXXXX, Noise A, B and C + Tone A, B and C)

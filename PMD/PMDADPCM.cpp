@@ -178,7 +178,7 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
 
     int32_t temp = SSGPCMSoftwareEnvelope(channel);
 
-    if ((temp != 0) || _Driver._HardwareLFOModulationMode & 0x22 || (_State.FadeOutSpeed != 0))
+    if ((temp != 0) || _Driver._HardwareLFOModulationMode & 0x22 || (_State._FadeOutSpeed != 0))
         ADPCMSetVolume(channel);
 
     _Driver._LoopCheck &= channel->_LoopCheck;
@@ -367,7 +367,7 @@ void pmd_driver_t::ADPCMSetVolume(channel_t * channel)
     int32_t al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
 
     // Calculate volume down.
-    al = ((256 - _State.ADPCMVolumeAdjust) * al) >> 8;
+    al = ((256 - _State._ADPCMVolumeAdjust) * al) >> 8;
 
     // Calculate fade out.
     if (_State._FadeOutVolume)
@@ -754,9 +754,9 @@ uint8_t * pmd_driver_t::ADPCMDecreaseVolume(channel_t *, uint8_t * si)
     const int32_t  Value = *(int8_t *) si++;
 
     if (Value != 0)
-        _State.ADPCMVolumeAdjust = std::clamp(Value + _State.ADPCMVolumeAdjust, 0, 255);
+        _State._ADPCMVolumeAdjust = std::clamp(Value + _State._ADPCMVolumeAdjust, 0, 255);
     else
-        _State.ADPCMVolumeAdjust = _State.DefaultADPCMVolumeAdjust;
+        _State._ADPCMVolumeAdjust = _State._ADPCMVolumeAdjustDefault;
 
     return si;
 }

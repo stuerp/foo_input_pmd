@@ -73,7 +73,7 @@ void pmd_driver_t::RhythmMain(channel_t * channel)
                 {
                     channel->_Data = si;
 
-                    Data = _State.RhythmData = &_State.MData[_State.RhythmDataTable[al]];
+                    Data = _State.RhythmData = &_State._MData[_State.RhythmDataTable[al]];
                     goto rhyms00;
                 }
 
@@ -361,7 +361,7 @@ uint8_t * pmd_driver_t::RhythmDecreaseVolume(channel_t *, uint8_t * si)
     if (Value != 0)
         _State._RhythmVolumeAdjust = std::clamp(Value + _State._RhythmVolumeAdjust, 0, 255);
     else
-        _State._RhythmVolumeAdjust = _State.DefaultRhythmVolumeAdjust;
+        _State._RhythmVolumeAdjust = _State._RhythmVolumeAdjustDefault;
 
     return si;
 }
@@ -389,49 +389,49 @@ uint8_t * pmd_driver_t::RhythmControl(uint8_t * si)
         if (ChannelMask & 0x01)
         {
             _OPNAW->SetReg(0x18, (uint32_t) _State._RhythmPanAndVolumes[0]); // Rhytm Part: Set Output Select / Instrument Level
-            _State.RhythmBassDrumOn++;
+            _State._RhythmBassDrumOn++;
         }
 
         if (ChannelMask & 0x02)
         {
             _OPNAW->SetReg(0x19, (uint32_t) _State._RhythmPanAndVolumes[1]); // Rhytm Part: Set Output Select / Instrument Level
-            _State.RhythmSnareDrumOn++;
+            _State._RhythmSnareDrumOn++;
         }
 
         if (ChannelMask & 0x04)
         {
             _OPNAW->SetReg(0x1A, (uint32_t) _State._RhythmPanAndVolumes[2]); // Rhytm Part: Set Output Select / Instrument Level
-            _State.RhythmCymbalOn++;
+            _State._RhythmCymbalOn++;
         }
 
         if (ChannelMask & 0x08)
         {
             _OPNAW->SetReg(0x1B, (uint32_t) _State._RhythmPanAndVolumes[3]); // Rhytm Part: Set Output Select / Instrument Level
-            _State.RhythmHiHatOn++;
+            _State._RhythmHiHatOn++;
         }
 
         if (ChannelMask & 0x10)
         {
             _OPNAW->SetReg(0x1C, (uint32_t) _State._RhythmPanAndVolumes[4]); // Rhytm Part: Set Output Select / Instrument Level
-            _State.RhythmTomDrumOn++;
+            _State._RhythmTomDrumOn++;
         }
 
         if (ChannelMask & 0x20)
         {
             _OPNAW->SetReg(0x1D, (uint32_t) _State._RhythmPanAndVolumes[5]); // Rhytm Part: Set Output Select / Instrument Level
-            _State.RhythmRimShotOn++;
+            _State._RhythmRimShotOn++;
         }
 
         _RhythmChannelMask |= ChannelMask;
     }
     else
     {
-        if (ChannelMask & 0x01) _State.RhythmBassDrumOff++;
-        if (ChannelMask & 0x02) _State.RhythmSnareDrumOff++;
-        if (ChannelMask & 0x04) _State.RhythmCymbalOff++;
-        if (ChannelMask & 0x08) _State.RhythmHiHatOff++;
-        if (ChannelMask & 0x10) _State.RhythmTomDrumOff++;
-        if (ChannelMask & 0x20) _State.RhythmRimShotOff++;
+        if (ChannelMask & 0x01) _State._RhythmBassDrumOff++;
+        if (ChannelMask & 0x02) _State._RhythmSnareDrumOff++;
+        if (ChannelMask & 0x04) _State._RhythmCymbalOff++;
+        if (ChannelMask & 0x08) _State._RhythmHiHatOff++;
+        if (ChannelMask & 0x10) _State._RhythmTomDrumOff++;
+        if (ChannelMask & 0x20) _State._RhythmRimShotOff++;
 
         _RhythmChannelMask &= (~ChannelMask);
     }

@@ -179,7 +179,7 @@ void pmd_driver_t::PPZ8Main(channel_t * channel)
 
     int temp = SSGPCMSoftwareEnvelope(channel);
 
-    if (temp || _Driver._HardwareLFOModulationMode & 0x22 || _State.FadeOutSpeed)
+    if (temp || _Driver._HardwareLFOModulationMode & 0x22 || _State._FadeOutSpeed)
         PPZ8SetVolume(channel);
 
     _Driver._LoopCheck &= channel->_LoopCheck;
@@ -341,7 +341,7 @@ void pmd_driver_t::PPZ8SetVolume(channel_t * channel)
     int al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
 
     // Calculate volume down.
-    al = ((256 - _State.PPZVolumeAdjust) * al) >> 8;
+    al = ((256 - _State._PPZ8VolumeAdjust) * al) >> 8;
 
     // Calculate fade out.
     if (_State._FadeOutVolume != 0)
@@ -681,7 +681,7 @@ uint8_t * pmd_driver_t::PPZ8Initialize(channel_t *, uint8_t * si)
 
         if (Offset != 0)
         {
-            _PPZChannels[i]._Data = &_State.MData[Offset];
+            _PPZChannels[i]._Data = &_State._MData[Offset];
             _PPZChannels[i]._Size = 1;
             _PPZChannels[i]._KeyOffFlag = -1;
             _PPZChannels[i]._LFO1DepthSpeed1 = -1; // Infinity
@@ -708,9 +708,9 @@ uint8_t * pmd_driver_t::PPZ8DecreaseVolume(channel_t *, uint8_t * si)
     int al = *(int8_t *) si++;
 
     if (al != 0)
-        _State.PPZVolumeAdjust = std::clamp(al + _State.PPZVolumeAdjust, 0, 255);
+        _State._PPZ8VolumeAdjust = std::clamp(al + _State._PPZ8VolumeAdjust, 0, 255);
     else
-        _State.PPZVolumeAdjust = _State.DefaultPPZVolumeAdjust;
+        _State._PPZ8VolumeAdjust = _State._PPZ8VolumeAdjustDefault;
 
     return si;
 }

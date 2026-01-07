@@ -9,16 +9,18 @@ const uint8_t DriverStopRequested = 0x02;
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 
-class Driver
+class driver_t
 {
 public:
-    Driver()
+    driver_t()
     {
         Reset();
     }
 
     void Initialize() noexcept
     {
+        console::printf("driver_t::Initialize");
+
         Reset();
 
         _LoopRelease = 0x8000;
@@ -27,6 +29,8 @@ public:
 private:
     void Reset() noexcept
     {
+        console::printf("driver_t::Reset");
+
         _Flags     = 0x00;
         _LoopCheck = 0x00;
 
