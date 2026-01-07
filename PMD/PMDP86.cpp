@@ -430,7 +430,7 @@ void pmd_driver_t::P86SetVolume(channel_t * channel)
     if (!_State._IsCompatibleWithPMDB2)
         al >>= 4;
     else
-        al = (int) ::sqrt(al); // Make the volume NEC Speaker Board-compatible.
+        al = (int32_t) ::sqrt(al); // Make the volume NEC Speaker Board-compatible.
 
     _P86->SetVolume(al);
 }
@@ -443,8 +443,8 @@ void pmd_driver_t::P86SetPitch(channel_t * channel)
     if (channel->_Factor == 0)
         return;
 
-    int32_t SampleRateIndex = (int) ((channel->_Factor & 0x0E00000) >> (16 + 5));
-    int32_t Pitch           = (int) ( channel->_Factor & 0x01FFFFF);
+    int32_t SampleRateIndex = (int32_t) ((channel->_Factor & 0x0E00000) >> (16 + 5));
+    int32_t Pitch           = (int32_t) ( channel->_Factor & 0x01FFFFF);
 
     if (!_State._IsCompatibleWithPMDB2 && (channel->_DetuneValue != 0))
         Pitch = std::clamp((Pitch >> 5) + channel->_DetuneValue, 1, 65535) << 5;

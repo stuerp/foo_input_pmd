@@ -40,7 +40,7 @@ void opnaw_t::Initialize(uint32_t clockSpeed, uint32_t sampleRate, bool useInter
 void opnaw_t::SetFMDelay(int ns) noexcept
 {
     _FMDelay      = ns;
-    _FMDelayCount = (int) (ns * _SampleRate / 1'000'000);
+    _FMDelayCount = (int32_t) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
@@ -49,7 +49,7 @@ void opnaw_t::SetFMDelay(int ns) noexcept
 void opnaw_t::SetSSGDelay(int ns) noexcept
 {
     _SSGDelay      = ns;
-    _SSGDelayCount = (int) (ns * _SampleRate / 1'000'000);
+    _SSGDelayCount = (int32_t) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
@@ -58,7 +58,7 @@ void opnaw_t::SetSSGDelay(int ns) noexcept
 void opnaw_t::SetADPCMDelay(int ns) noexcept
 {
     _ADPCMDelay      = ns;
-    _ADPCMDelayCount = (int) (ns * _SampleRate / 1'000'000);
+    _ADPCMDelayCount = (int32_t) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
@@ -67,7 +67,7 @@ void opnaw_t::SetADPCMDelay(int ns) noexcept
 void opnaw_t::SetRhythmDelay(int ns) noexcept
 {
     _RhythmDelay      = ns;
-    _RhythmDelayCount = (int) (ns * _SampleRate / 1'000'000);
+    _RhythmDelayCount = (int32_t) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
@@ -147,8 +147,8 @@ void opnaw_t::Mix(sample_t * sampleData, size_t sampleCount) noexcept
                     SampleR += Factor * _DstBuffer[(j % DST_PCM_BUFFER_SIZE) * 2 + 1];
                 }
 
-                *sampleData++ += std::clamp((int) SampleL, -32768, 32767);
-                *sampleData++ += std::clamp((int) SampleR, -32768, 32767);
+                *sampleData++ += std::clamp((int32_t) SampleL, -32768, 32767);
+                *sampleData++ += std::clamp((int32_t) SampleR, -32768, 32767);
             }
 
             _Rest += (double) FREQUENCY_55_4K / _SampleRate;
@@ -220,7 +220,7 @@ void opnaw_t::CalcWaitPCM(int value)
         if (_SrcWriteIndex == SRC_PCM_BUFFER_SIZE)
             _SrcWriteIndex = 0;
 
-        value -= (int) SampleCount;
+        value -= (int32_t) SampleCount;
     }
     while (value > 0);
 }

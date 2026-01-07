@@ -39,12 +39,12 @@ public:
 
     static bool IsPMD(const uint8_t * data, size_t size) noexcept;
 
-    int Load(const uint8_t * data, size_t size);
+    int32_t Load(const uint8_t * data, size_t size) noexcept;
 
-    void Start();
-    void Stop();
+    void Start() noexcept;
+    void Stop() noexcept;
 
-    void Render(int16_t * sampleData, size_t sampleCount);
+    void Render(int16_t * sampleData, size_t sampleCount) noexcept;
 
     uint32_t GetLoopNumber() const noexcept;
 
@@ -94,7 +94,7 @@ public:
     // Gets the PPZ file path.
     std::wstring & GetPPZFilePath(size_t bufferNumber)
     {
-        return _PPZ->_PPZBanks[bufferNumber]._FilePath;
+        return _PPZ8->_PPZBanks[bufferNumber]._FilePath;
     }
 
     // Gets the PPZ file name.
@@ -137,9 +137,9 @@ private:
     void InitializeState();
     void InitializeOPNA();
 
-    void DriverMain();
-    void DriverStart();
-    void DriverStop();
+    void DriverMain() noexcept;
+    void DriverStart() noexcept;
+    void DriverStop() noexcept;
 
     uint8_t * ExecuteCommand(channel_t * channel, uint8_t * si, uint8_t command);
 
@@ -394,13 +394,13 @@ private:
     File * _File;
 
     opnaw_t * _OPNAW;
+    ppz8_t * _PPZ8; 
 
-    ppz8_t * _PPZ; 
     pps_t * _PPS;
     p86_t * _P86;
 
-    bool _UsePPSForDrums;   // Use the PPS to play drum instruments for the K/R commands.
-    bool _UseSSGForDrums;   // Use the SSG to play drum instruments for the K/R commands.
+    bool _UsePPSForDrums;           // Use the PPS to play drum instruments for the K/R commands.
+    bool _UseSSGForDrums;           // Use the SSG to play drum instruments for the K/R commands.
 
     uint32_t _PCMSampleRate;        // PCM output frequency (11k, 22k, 44k, 55k)
     uint32_t _PPZSampleRate;        // PPZ output frequency
@@ -415,15 +415,13 @@ private:
 
     static const uint8_t _DummyRhythmData = 0xFF;
 
-
-
     uint8_t _Version;               // File version. 0x00 for standard .M or .M2 files targeting PC-98/PC-88/X68000 systems, Must be 0xFF for files targeting FM Towns hardware.
 
     state_t _State;
     driver_t _Driver;
     effect_t _SSGEffect;
 
-    int32_t _TimerBTempo;                    // Current value of TimerB (= ff_tempo during ff)
+    int32_t _TimerBTempo;           // Current value of TimerB (= ff_tempo during ff)
 
     channel_t _FMChannels[MaxFMChannels];
     channel_t _SSGChannels[MaxSSGChannels];
@@ -433,7 +431,7 @@ private:
     channel_t _FMExtensionChannels[MaxFMExtensionChannels];
     channel_t _SSGEffectChannel;
 
-    channel_t _PPZChannels[MaxPPZ8Channels];
+    channel_t _PPZ8Channels[MaxPPZ8Channels];
 
     channel_t _DummyChannel;
 

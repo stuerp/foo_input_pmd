@@ -167,13 +167,13 @@ int p86_t::Load(const WCHAR * filePath)
 /// </summary>
 void p86_t::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 {
-    _SampleRate = (int) sampleRate;
+    _SampleRate = (int32_t) sampleRate;
     _UseInterpolation = useInterpolation;
 
     const uint32_t Pitch = (uint32_t) ((uint64_t) _Pitch * _SampleRateOriginal / _SampleRate);
 
-    _IncrementHi = (int) ( Pitch           >> 16);
-    _IncrementLo = (int) ((Pitch & 0xFFFF) >>  4);
+    _IncrementHi = (int32_t) ( Pitch           >> 16);
+    _IncrementLo = (int32_t) ((Pitch & 0xFFFF) >>  4);
 }
 
 /// <summary>
@@ -224,7 +224,7 @@ bool p86_t::SetPan(int flags, int value)
 /// </summary>
 bool p86_t::SetPitch(int sampleRateIndex, uint32_t pitch)
 {
-    if ((sampleRateIndex < 0) || (sampleRateIndex >= (int) _countof(SampleRates)) || (pitch > 0x1FFFFF))
+    if ((sampleRateIndex < 0) || (sampleRateIndex >= (int32_t) _countof(SampleRates)) || (pitch > 0x1FFFFF))
         return false;
 
     _SampleRateOriginal = SampleRates[sampleRateIndex];
@@ -232,8 +232,8 @@ bool p86_t::SetPitch(int sampleRateIndex, uint32_t pitch)
 
     pitch = (uint32_t) ((uint64_t) pitch * _SampleRateOriginal / _SampleRate);
 
-    _IncrementHi = (int)  (pitch           >> 16);
-    _IncrementLo = (int) ((pitch & 0xFFFF) >>  4);
+    _IncrementHi = (int32_t)  (pitch           >> 16);
+    _IncrementLo = (int32_t) ((pitch & 0xFFFF) >>  4);
 
     return true;
 }
@@ -726,7 +726,7 @@ bool p86_t::MoveSamplePointer() noexcept
 /// </summary>
 void p86_t::CreateVolumeTable(int volume)
 {
-    const int NewVolumeBase = (int) (0x1000 * ::pow(10.0, volume / 40.0));
+    const int NewVolumeBase = (int32_t) (0x1000 * ::pow(10.0, volume / 40.0));
 
     if (NewVolumeBase == _VolumeBase)
         return;

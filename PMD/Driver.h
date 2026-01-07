@@ -19,8 +19,6 @@ public:
 
     void Initialize() noexcept
     {
-        console::printf("driver_t::Initialize");
-
         Reset();
 
         _LoopRelease = 0x8000;
@@ -29,8 +27,6 @@ public:
 private:
     void Reset() noexcept
     {
-        console::printf("driver_t::Reset");
-
         _Flags     = 0x00;
         _LoopCheck = 0x00;
 

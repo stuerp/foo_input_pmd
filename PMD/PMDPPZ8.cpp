@@ -349,8 +349,8 @@ void pmd_driver_t::PPZ8SetVolume(channel_t * channel)
 
     if (al == 0)
     {
-        _PPZ->SetVolume((size_t) _Driver._CurrentChannel, 0);
-        _PPZ->Stop((size_t) _Driver._CurrentChannel);
+        _PPZ8->SetVolume((size_t) _Driver._CurrentChannel, 0);
+        _PPZ8->Stop((size_t) _Driver._CurrentChannel);
 
         return;
     }
@@ -362,7 +362,7 @@ void pmd_driver_t::PPZ8SetVolume(channel_t * channel)
         if (channel->ExtendedAttackLevel == 0)
         {
         //  _PPZ->SetVol((Size_t) _Driver._CurrentChannel, 0);
-            _PPZ->Stop((size_t) _Driver._CurrentChannel);
+            _PPZ8->Stop((size_t) _Driver._CurrentChannel);
 
             return;
         }
@@ -379,7 +379,7 @@ void pmd_driver_t::PPZ8SetVolume(channel_t * channel)
             if (al < ah)
             {
             //  _PPZ->SetVol((Size_t) _Driver._CurrentChannel, 0);
-                _PPZ->Stop((size_t) _Driver._CurrentChannel);
+                _PPZ8->Stop((size_t) _Driver._CurrentChannel);
 
                 return;
             }
@@ -420,9 +420,9 @@ void pmd_driver_t::PPZ8SetVolume(channel_t * channel)
     }
 
     if (al != 0)
-        _PPZ->SetVolume((size_t) _Driver._CurrentChannel, al >> 4);
+        _PPZ8->SetVolume((size_t) _Driver._CurrentChannel, al >> 4);
     else
-        _PPZ->Stop((size_t) _Driver._CurrentChannel);
+        _PPZ8->Stop((size_t) _Driver._CurrentChannel);
 }
 
 /// <summary>
@@ -450,7 +450,7 @@ void pmd_driver_t::PPZ8SetPitch(channel_t * channel)
         Pitch = (uint32_t) std::clamp(cx, (int64_t) 0, (int64_t) 0xFFFFFFFF);
     }
 
-    _PPZ->SetPitch((size_t) _Driver._CurrentChannel, Pitch);
+    _PPZ8->SetPitch((size_t) _Driver._CurrentChannel, Pitch);
 }
 
 /// <summary>
@@ -462,9 +462,9 @@ void pmd_driver_t::PPZ8KeyOn(channel_t * channel)
         return;
 
     if ((channel->InstrumentNumber & 0x80) == 0)
-        _PPZ->Play((size_t) _Driver._CurrentChannel, 0, channel->InstrumentNumber,        0, 0);
+        _PPZ8->Play((size_t) _Driver._CurrentChannel, 0, channel->InstrumentNumber,        0, 0);
     else
-        _PPZ->Play((size_t) _Driver._CurrentChannel, 1, channel->InstrumentNumber & 0x7F, 0, 0);
+        _PPZ8->Play((size_t) _Driver._CurrentChannel, 1, channel->InstrumentNumber & 0x7F, 0, 0);
 }
 
 /// <summary>
@@ -494,9 +494,9 @@ uint8_t * pmd_driver_t::PPZ8SetInstrument(channel_t * channel, uint8_t * si)
     channel->InstrumentNumber = *si++;
 
     if ((channel->InstrumentNumber & 0x80) == 0)
-        _PPZ->SetInstrument((size_t) _Driver._CurrentChannel, 0, (size_t) channel->InstrumentNumber);
+        _PPZ8->SetInstrument((size_t) _Driver._CurrentChannel, 0, (size_t) channel->InstrumentNumber);
     else
-        _PPZ->SetInstrument((size_t) _Driver._CurrentChannel, 1, (size_t) (channel->InstrumentNumber & 0x7F));
+        _PPZ8->SetInstrument((size_t) _Driver._CurrentChannel, 1, (size_t) (channel->InstrumentNumber & 0x7F));
 
     return si;
 }
@@ -510,7 +510,7 @@ uint8_t * pmd_driver_t::PPZ8SetPan1(channel_t * channel, uint8_t * si)
 
     channel->_PanAndVolume = PanValues[*si++];
 
-    _PPZ->SetPan((size_t) _Driver._CurrentChannel, channel->_PanAndVolume);
+    _PPZ8->SetPan((size_t) _Driver._CurrentChannel, channel->_PanAndVolume);
 
     return si;
 }
@@ -531,7 +531,7 @@ uint8_t * pmd_driver_t::PPZ8SetPan2(channel_t * channel, uint8_t * si)
 
     channel->_PanAndVolume = al + 5; // Scale the value to range 1..9.
 
-    _PPZ->SetPan((size_t) _Driver._CurrentChannel, channel->_PanAndVolume);
+    _PPZ8->SetPan((size_t) _Driver._CurrentChannel, channel->_PanAndVolume);
 
     return si;
 }
@@ -564,12 +564,12 @@ uint8_t * pmd_driver_t::PPZ8SetPortamento(channel_t * channel, uint8_t * si)
 
     PPZ8SetTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
 
-    int32_t bx_ = (int) channel->_Factor;
+    int32_t bx_ = (int32_t) channel->_Factor;
     int32_t al_ = channel->_Tone;
 
     PPZ8SetTone(channel, Transpose(channel, *si++));
 
-    int32_t ax = (int) channel->_Factor;
+    int32_t ax = (int32_t) channel->_Factor;
 
     channel->_Tone = al_;
     channel->_Factor = (uint32_t) bx_;
@@ -629,7 +629,7 @@ uint8_t * pmd_driver_t::PPZ8SetRepeat(channel_t * channel, uint8_t * si)
         LoopEnd = *(int16_t *) si;
         si += 2;
 
-        _PPZ->SetLoop((size_t) _Driver._CurrentChannel, 0, (size_t) channel->InstrumentNumber, LoopBegin, LoopEnd);
+        _PPZ8->SetLoop((size_t) _Driver._CurrentChannel, 0, (size_t) channel->InstrumentNumber, LoopBegin, LoopEnd);
     }
     else
     {
@@ -639,7 +639,7 @@ uint8_t * pmd_driver_t::PPZ8SetRepeat(channel_t * channel, uint8_t * si)
         LoopEnd = *(int16_t *) si;
         si += 2;
 
-        _PPZ->SetLoop((size_t) _Driver._CurrentChannel, 1, (size_t) channel->InstrumentNumber & 0x7F, LoopBegin, LoopEnd);
+        _PPZ8->SetLoop((size_t) _Driver._CurrentChannel, 1, (size_t) channel->InstrumentNumber & 0x7F, LoopBegin, LoopEnd);
     }
 
     return si + 2; // Skip the Loop Release Address.
@@ -659,7 +659,7 @@ uint8_t * pmd_driver_t::PPZ8SethannelMask(channel_t * channel, uint8_t * si) noe
             channel->_PartMask |= 0x40;
 
             if (channel->_PartMask == 0x40)
-                _PPZ->Stop((size_t) _Driver._CurrentChannel);
+                _PPZ8->Stop((size_t) _Driver._CurrentChannel);
         }
         else
             si = SpecialC0ProcessingCommand(channel, si, Value);
@@ -675,23 +675,23 @@ uint8_t * pmd_driver_t::PPZ8SethannelMask(channel_t * channel, uint8_t * si) noe
 /// </summary>
 uint8_t * pmd_driver_t::PPZ8Initialize(channel_t *, uint8_t * si)
 {
-    for (size_t i = 0; i < _countof(_PPZChannels); ++i)
+    for (size_t i = 0; i < _countof(_PPZ8Channels); ++i)
     {
         int16_t Offset = *(int16_t *) si;
 
         if (Offset != 0)
         {
-            _PPZChannels[i]._Data = &_State._MData[Offset];
-            _PPZChannels[i]._Size = 1;
-            _PPZChannels[i]._KeyOffFlag = -1;
-            _PPZChannels[i]._LFO1DepthSpeed1 = -1; // Infinity
-            _PPZChannels[i]._LFO1DepthSpeed2 = -1; // Infinity
-            _PPZChannels[i]._LFO2DepthSpeed1 = -1; // Infinity
-            _PPZChannels[i]._LFO2DepthSpeed2 = -1; // Infinity
-            _PPZChannels[i]._Tone = 0xFF;         // Rest
-            _PPZChannels[i]._DefaultTone = 0xFF;  // Rest
-            _PPZChannels[i]._Volume = 128;
-            _PPZChannels[i]._PanAndVolume = 5;    // Center
+            _PPZ8Channels[i]._Data = &_State._MData[Offset];
+            _PPZ8Channels[i]._Size = 1;
+            _PPZ8Channels[i]._KeyOffFlag = -1;
+            _PPZ8Channels[i]._LFO1DepthSpeed1 = -1; // Infinity
+            _PPZ8Channels[i]._LFO1DepthSpeed2 = -1; // Infinity
+            _PPZ8Channels[i]._LFO2DepthSpeed1 = -1; // Infinity
+            _PPZ8Channels[i]._LFO2DepthSpeed2 = -1; // Infinity
+            _PPZ8Channels[i]._Tone = 0xFF;         // Rest
+            _PPZ8Channels[i]._DefaultTone = 0xFF;  // Rest
+            _PPZ8Channels[i]._Volume = 128;
+            _PPZ8Channels[i]._PanAndVolume = 5;    // Center
         }
 
         si += 2;

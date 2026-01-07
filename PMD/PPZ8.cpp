@@ -58,8 +58,8 @@ void ppz8_t::Play(size_t ch, int bankNumber, int sampleNumber, uint16_t start, u
 
     if ((ch == 7) && _EmulateADPCM)
     {
-        _Channels[ch]._PCMStartH     = &Bank._Data[std::clamp(((int) start)    * 64, 0, Bank._Size - 1)];
-        _Channels[ch]._PCMEndRounded = &Bank._Data[std::clamp(((int) stop - 1) * 64, 0, Bank._Size - 1)];
+        _Channels[ch]._PCMStartH     = &Bank._Data[std::clamp(((int32_t) start)    * 64, 0, Bank._Size - 1)];
+        _Channels[ch]._PCMEndRounded = &Bank._Data[std::clamp(((int32_t) stop - 1) * 64, 0, Bank._Size - 1)];
         _Channels[ch]._PCMEnd        = _Channels[ch]._PCMEndRounded;
     }
     else
@@ -110,7 +110,7 @@ int ppz8_t::Load(const WCHAR * filePath, size_t bankNumber)
         return PPZ_OPEN_FAILED;
     }
 
-    int32_t Size = (int) _File->GetFileSize(filePath);
+    int32_t Size = (int32_t) _File->GetFileSize(filePath);
 
     PZIHEADER PZIHeader = { };
 
@@ -319,12 +319,12 @@ void ppz8_t::SetPitch(size_t ch, uint32_t pitch)
     if ((ch == 7) && _EmulateADPCM)
         pitch = (pitch & 0xFFFF) * 0x8000 / 0x49BA;
 /*
-    int32_t AddsL = (int) (pitch & 0xFFFF);
-    int32_t AddsH = (int) (pitch >> 16);
+    int32_t AddsL = (int32_t) (pitch & 0xFFFF);
+    int32_t AddsH = (int32_t) (pitch >> 16);
 
-    _Channel[ch].PCMAddH = (int) ((((int64_t) AddsH << 16) + AddsL) * 2 * _Channel[ch].SourceFrequency / _OutputFrequency);
+    _Channel[ch].PCMAddH = (int32_t) ((((int64_t) AddsH << 16) + AddsL) * 2 * _Channel[ch].SourceFrequency / _OutputFrequency);
 */
-    _Channels[ch]._PCMAddH = (int) (sizeof(int16_t) * (int64_t) pitch * _Channels[ch]._SourceFrequency / _SampleRate);
+    _Channels[ch]._PCMAddH = (int32_t) (sizeof(int16_t) * (int64_t) pitch * _Channels[ch]._SourceFrequency / _SampleRate);
 
     _Channels[ch]._PCMAddL = _Channels[ch]._PCMAddH & 0xFFFF;
     _Channels[ch]._PCMAddH = _Channels[ch]._PCMAddH >> 16;
@@ -359,10 +359,10 @@ void ppz8_t::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber, int loop
     const PZIITEM & pi = _PPZBanks[bankNumber]._PZIHeader.PZIItem[sampleNumber];
 
     if (loopStart < 0)
-        loopStart = (int) pi.Size + loopStart;
+        loopStart = (int32_t) pi.Size + loopStart;
 
     if (loopEnd < 0)
-        loopEnd = (int) pi.Size + loopEnd;
+        loopEnd = (int32_t) pi.Size + loopEnd;
 
     if (loopStart < loopEnd)
     {
@@ -401,7 +401,7 @@ void ppz8_t::SetPan(size_t ch, int value)
 // 14H Sets the output sample rate.
 void ppz8_t::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 {
-    _SampleRate = (int) sampleRate;
+    _SampleRate = (int32_t) sampleRate;
     _UseInterpolation = useInterpolation;
 }
 
@@ -463,7 +463,7 @@ void ppz8_t::Mix(frame32_t * frames, size_t frameCount) noexcept
         if (Channel._Volume == 0)
         {
             // Update the position in the sample buffer.
-            Channel._PCMStartL += (int) (Channel._PCMAddL * frameCount);
+            Channel._PCMStartL += (int32_t) (Channel._PCMAddL * frameCount);
             Channel._PCMStartH +=        Channel._PCMAddH * frameCount + Channel._PCMStartL / 0x10000;
             Channel._PCMStartL %= 0x10000;
 
@@ -818,7 +818,7 @@ void ppz8_t::CreateVolumeTable(int volume)
 {
     _Volume = volume;
 
-    const int32_t VolumeBase = (int) (0x1000 * ::pow(10.0, volume / 40.0));
+    const int32_t VolumeBase = (int32_t) (0x1000 * ::pow(10.0, volume / 40.0));
 
     for (int32_t i = 0; i < 16; ++i)
     {

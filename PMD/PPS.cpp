@@ -213,7 +213,7 @@ int pps_t::Load(const WCHAR * filePath)
             uint8_t * Src = Data;
             sample_t * Dst = _Samples;
 
-            for (size_t i = 0; i < Size / (int) sizeof(uint8_t); ++i)
+            for (size_t i = 0; i < Size / (int32_t) sizeof(uint8_t); ++i)
             {
                 *Dst++ = ((*Src) >> 4) & 0x0F;
                 *Dst++ =  (*Src)       & 0x0F;
@@ -294,7 +294,7 @@ bool pps_t::SetParameter(int index, bool value)
 /// </summary>
 bool pps_t::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 {
-    _SampleRate = (int) sampleRate;
+    _SampleRate = (int32_t) sampleRate;
     _UseInterpolation = useInterpolation;
 
     return true;
@@ -309,7 +309,7 @@ void pps_t::SetVolume(int volume)
 
     for (int i = 15; i >= 1; i--)
     {
-        _EmitTable[i] = (int) Base;
+        _EmitTable[i] = (int32_t) Base;
         Base /= 1.189207115;
     }
 

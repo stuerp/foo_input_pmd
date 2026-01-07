@@ -13,6 +13,8 @@
 
 #pragma comment(lib, "pathcch")
 
+#include "Resources.h"
+
 #pragma hdrstop
 
 static bool ConvertShiftJISToUTF8(const char * text, pfc::string8 & utf8);
@@ -175,20 +177,20 @@ void pmd_decoder_t::Initialize() noexcept
 
     _PMD->EnableChannel(16); // PPZ 1
 */
-    console::printf("PMDDecoder: ADPCM ROM %sloaded.", (_PMD->HasADPCMROM() ? "" : "not "));
-    console::printf("PMDDecoder: Percussion samples %sloaded.", (_PMD->HasPercussionSamples() ? "" : "not "));
+    console::printf(STR_COMPONENT_BASENAME ": ADPCM ROM %sloaded.", (_PMD->HasADPCMROM() ? "" : "not "));
+    console::printf(STR_COMPONENT_BASENAME ": Percussion samples %sloaded.", (_PMD->HasPercussionSamples() ? "" : "not "));
 
     if (!_PCMFileName.empty())
-        console::printf("PMDDecoder: Requires PCM samples from \"%s\": %sfound.", _PCMFileName.c_str(), (_PMD->GetPCMFilePath().empty() ? "not " : ""));
+        console::printf(STR_COMPONENT_BASENAME ": Requires PCM samples from \"%s\": %sfound.", _PCMFileName.c_str(), (_PMD->GetPCMFilePath().empty() ? "not " : ""));
 
     if (!_PPSFileName.empty())
-        console::printf("PMDDecoder: Requires PPS samples from \"%s\": %sfound.", _PPSFileName.c_str(), (_PMD->GetPPSFilePath().empty() ? "not " : ""));
+        console::printf(STR_COMPONENT_BASENAME ": Requires PPS samples from \"%s\": %sfound.", _PPSFileName.c_str(), (_PMD->GetPPSFilePath().empty() ? "not " : ""));
 
     if (!_PPZFileName1.empty())
-        console::printf("PMDDecoder: Requires PPZ samples from \"%s\": %sfound.", _PPZFileName1.c_str(), (_PMD->GetPPZFilePath(0).empty() ? "not " : ""));
+        console::printf(STR_COMPONENT_BASENAME ": Requires PPZ samples from \"%s\": %sfound.", _PPZFileName1.c_str(), (_PMD->GetPPZFilePath(0).empty() ? "not " : ""));
 
     if (!_PPZFileName2.empty())
-        console::printf("PMDDecoder: Requires PPZ samples from \"%s\": %sfound.", _PPZFileName2.c_str(), (_PMD->GetPPZFilePath(1).empty() ? "not " : ""));
+        console::printf(STR_COMPONENT_BASENAME ": Requires PPZ samples from \"%s\": %sfound.", _PPZFileName2.c_str(), (_PMD->GetPPZFilePath(1).empty() ? "not " : ""));
 }
 
 /// <summary>
@@ -209,7 +211,7 @@ size_t pmd_decoder_t::Render(audio_chunk & audioChunk, size_t sampleCount) noexc
     }
 
     if ((CfgPlaybackMode == PlaybackModes::LoopWithFadeOut) && (_MaxLoopNumber > 0) && (GetLoopNumber() > _MaxLoopNumber - 1))
-        _PMD->SetFadeOutDurationHQ((int) _FadeOutDuration);
+        _PMD->SetFadeOutDurationHQ((int32_t) _FadeOutDuration);
 
     _PMD->Render(&_Frames[0], BlockSize);
 

@@ -5,7 +5,7 @@
 
 #include "PMD.h"
 
-void pmd_driver_t::DriverMain()
+void pmd_driver_t::DriverMain() noexcept
 {
     int32_t i;
 
@@ -62,11 +62,11 @@ void pmd_driver_t::DriverMain()
     // .M or .M2 (PC-98/PC-88/X68000 systems)
     if (_Version != 0xFF)
     {
-        for (i = 0; i < (int32_t) _countof(_PPZChannels); ++i)
+        for (i = 0; i < (int32_t) _countof(_PPZ8Channels); ++i)
         {
             _Driver._CurrentChannel = i;
 
-            PPZ8Main(&_PPZChannels[i]);
+            PPZ8Main(&_PPZ8Channels[i]);
         }
     }
 
@@ -100,7 +100,7 @@ void pmd_driver_t::DriverMain()
     if (_SSGEffectChannel._LoopCheck != 0x03)
         _SSGEffectChannel._LoopCheck = 0x00;
 
-    for (auto & Channel : _PPZChannels)
+    for (auto & Channel : _PPZ8Channels)
     {
         if (Channel._LoopCheck != 0x03)
             Channel._LoopCheck = 0x00;
@@ -117,7 +117,7 @@ void pmd_driver_t::DriverMain()
         _State._LoopCount = -1;
 }
 
-void pmd_driver_t::DriverStart()
+void pmd_driver_t::DriverStart() noexcept
 {
     // Set Timer B = 0 and Timer Reset (to match the length of the song every time)
     _State._Tempo = 0;
@@ -143,7 +143,7 @@ void pmd_driver_t::DriverStart()
     _IsPlaying = true;
 }
 
-void pmd_driver_t::DriverStop()
+void pmd_driver_t::DriverStop() noexcept
 {
     _Driver._Flags &= ~DriverStopRequested;
 

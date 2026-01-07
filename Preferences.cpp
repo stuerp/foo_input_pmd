@@ -335,7 +335,7 @@ private:
         {
             auto cb = (CComboBox) GetDlgItem(IDC_PLAYBACK_MODE);
 
-            cb.SetCurSel((int) _PlaybackMode);
+            cb.SetCurSel((int32_t) _PlaybackMode);
         }
 
         {

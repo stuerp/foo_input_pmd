@@ -193,7 +193,7 @@ void pmd_driver_t::SSGMain(channel_t * channel)
         }
     }
 
-    int temp = SSGPCMSoftwareEnvelope(channel);
+    int32_t temp = SSGPCMSoftwareEnvelope(channel);
 
     if ((temp != 0) || _Driver._HardwareLFOModulationMode & 0x22 || (_State._FadeOutSpeed != 0))
     {
@@ -358,13 +358,13 @@ void pmd_driver_t::SSGSetTone(channel_t * channel, int tone)
         const int32_t Octave = (tone & 0xF0) >> 4;
         const int32_t Note   = (tone & 0x0F);
 
-        int Factor = SSGScaleFactor[Note];
+        int32_t Factor = SSGScaleFactor[Note];
 
         if (Octave > 0)
         {
             Factor >>= Octave - 1;
 
-            const int Carry = Factor & 1;
+            const int32_t Carry = Factor & 1;
 
             Factor = (Factor >> 1) + Carry;
         }
@@ -394,7 +394,7 @@ void pmd_driver_t::SSGSetVolume(channel_t * channel)
 
     const uint32_t Register = (uint32_t) (_Driver._CurrentChannel + 8 - 1);
 
-    int Value = (channel->VolumeBoost != 0) ? channel->VolumeBoost - 1 : channel->_Volume;
+    int32_t Value = (channel->VolumeBoost != 0) ? channel->VolumeBoost - 1 : channel->_Volume;
 
     // Volume Down calculation
     Value = ((256 - _State._SSGVolumeAdjust) * Value) >> 8;
@@ -441,7 +441,7 @@ void pmd_driver_t::SSGSetVolume(channel_t * channel)
     }
 
     {
-        int Data = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
+        int32_t Data = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
 
         if (channel->_HardwareLFO & 0x20)
             Data += channel->_LFO2Data;
@@ -463,7 +463,7 @@ void pmd_driver_t::SSGSetVolume(channel_t * channel)
 /// </summary>
 uint8_t * pmd_driver_t::SSGDecreaseVolume(channel_t *, uint8_t * si)
 {
-    const int Volume = *(int8_t *) si++;
+    const int32_t Volume = *(int8_t *) si++;
 
     if (Volume != 0)
         _State._SSGVolumeAdjust = std::clamp(Volume + _State._SSGVolumeAdjust, 0, 255);
@@ -481,10 +481,10 @@ void pmd_driver_t::SetSSGPitch(channel_t * channel)
     if (channel->_Factor == 0)
         return;
 
-    int Pitch = (int) (channel->_Factor + channel->_Portamento);
+    int32_t Pitch = (int32_t) (channel->_Factor + channel->_Portamento);
 
     {
-        int dx = 0;
+        int32_t dx = 0;
 
         // SSG Detune/LFO set
         if ((channel->_ExtendMode & 0x01) == 0)
@@ -556,7 +556,7 @@ void pmd_driver_t::SSGKeyOn(channel_t * channel)
     // Enable tone or noise mode for channel A, B or C.
     int32_t ah = (1 << (_Driver._CurrentChannel - 1)) | (1 << (_Driver._CurrentChannel + 2));
 
-    int al = ((int32_t) _OPNAW->GetReg(0x07) | ah);
+    int32_t al = ((int32_t) _OPNAW->GetReg(0x07) | ah);
 
     ah = ~(ah & channel->_SSGMask);
     al &= ah;
@@ -680,12 +680,12 @@ uint8_t * pmd_driver_t::SSGSetPortamento(channel_t * channel, uint8_t * si)
 
     SSGSetTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
 
-    int bx_ = (int) channel->_Factor;
-    int al_ = channel->_Tone;
+    int32_t bx_ = (int32_t) channel->_Factor;
+    int32_t al_ = channel->_Tone;
 
     SSGSetTone(channel, Transpose(channel, *si++));
 
-    int ax = (int) channel->_Factor;   // ax = portamento destination psg_tune value
+    int32_t ax = (int32_t) channel->_Factor;   // ax = portamento destination psg_tune value
 
     channel->_Tone = al_;
     channel->_Factor = (uint32_t) bx_; // bx = portamento original psg_tune value
@@ -733,7 +733,7 @@ uint8_t * pmd_driver_t::SSGSetPortamento(channel_t * channel, uint8_t * si)
 /// </summary>
 uint8_t * pmd_driver_t::SetSSGEffect(channel_t * channel, uint8_t * si)
 {
-    const int EffectNumber = *si++;
+    const int32_t EffectNumber = *si++;
 
     if (channel->_PartMask != 0x00)
         return si;

@@ -65,8 +65,6 @@ public:
     /// </summary>
     void Initialize() noexcept
     {
-        console::printf("state_t::Initialize");
-
         Reset();
 
         _FMVolumeAdjust = 0;
@@ -107,8 +105,6 @@ public:
 
     void Reset() noexcept
     {
-        console::printf("state_t::Reset");
-
         ::memset(this, 0, sizeof(*this));
     }
 

@@ -19,7 +19,7 @@ pmd_driver_t::pmd_driver_t()
 
     _OPNAW = new opnaw_t(_File);
 
-    _PPZ = new ppz8_t(_File);
+    _PPZ8 = new ppz8_t(_File);
     _PPS = new pps_t(_File);
     _P86 = new p86_t(_File);
 
@@ -33,7 +33,7 @@ pmd_driver_t::~pmd_driver_t()
 {
     delete _P86;
     delete _PPS;
-    delete _PPZ;
+    delete _PPZ8;
 
     delete _OPNAW;
 
@@ -47,8 +47,6 @@ pmd_driver_t::~pmd_driver_t()
 /// </summary>
 bool pmd_driver_t::Initialize(const WCHAR * directoryPathDrums) noexcept
 {
-    console::printf("pmd_driver_t::Initialize");
-
     WCHAR DirectoryPathDrums[MAX_PATH] = { 0 };
 
     if (directoryPathDrums != nullptr)
@@ -74,7 +72,7 @@ bool pmd_driver_t::Initialize(const WCHAR * directoryPathDrums) noexcept
 
     _P86->Initialize(_PCMSampleRate, false);
     _PPS->Initialize(_PCMSampleRate, false);
-    _PPZ->Initialize(_PCMSampleRate, false);
+    _PPZ8->Initialize(_PCMSampleRate, false);
 
     if (!_OPNAW->Initialize(OPNAClock, FREQUENCY_55_5K, false, DirectoryPathDrums))
         return false;
@@ -100,7 +98,8 @@ bool pmd_driver_t::Initialize(const WCHAR * directoryPathDrums) noexcept
         _OPNAW->SetADPCMVolume(0);
         _OPNAW->SetRhythmVolume(0);
 
-        _PPZ->SetVolume(0);
+        _PPZ8->SetVolume(0);
+
         _PPS->SetVolume(0);
         _P86->InitializeVolume(0);
 
@@ -152,7 +151,7 @@ bool pmd_driver_t::IsPMD(const uint8_t * data, size_t size) noexcept
 /// <summary>
 /// Loads the data into the driver.
 /// </summary>
-int pmd_driver_t::Load(const uint8_t * data, size_t size)
+int32_t pmd_driver_t::Load(const uint8_t * data, size_t size) noexcept
 {
     if (!IsPMD(data, size))
         return ERR_UNKNOWN_FORMAT;
@@ -274,7 +273,7 @@ int pmd_driver_t::Load(const uint8_t * data, size_t size)
                 {
                     FindFile(p, FilePath, _countof(FilePath));
 
-                    Result = _PPZ->Load(FilePath, i);
+                    Result = _PPZ8->Load(FilePath, i);
 
                     if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
                         _PPZFilePath[i] = FilePath;
@@ -287,7 +286,7 @@ int pmd_driver_t::Load(const uint8_t * data, size_t size)
 
                     FindFile(p, FilePath, _countof(FilePath));
 
-                    Result = _PPZ->Load(FilePath, i);
+                    Result = _PPZ8->Load(FilePath, i);
 
                     if (Result == ERR_SUCCESS || Result == ERR_ALREADY_LOADED)
                         _PPZFilePath[i] = FilePath;
@@ -304,7 +303,7 @@ int pmd_driver_t::Load(const uint8_t * data, size_t size)
 /// <summary>
 /// Starts the driver.
 /// </summary>
-void pmd_driver_t::Start()
+void pmd_driver_t::Start() noexcept
 {
     if (_InTimerAInterrupt || _InTimerBInterrupt)
     {
@@ -319,7 +318,7 @@ void pmd_driver_t::Start()
 /// <summary>
 /// Stops the driver.
 /// </summary>
-void pmd_driver_t::Stop()
+void pmd_driver_t::Stop() noexcept
 {
     if (_InTimerAInterrupt || _InTimerBInterrupt)
     {
@@ -339,7 +338,7 @@ void pmd_driver_t::Stop()
 /// <summary>
 /// Renders a chunk of PCM data.
 /// </summary>
-void pmd_driver_t::Render(int16_t * frames, size_t frameCount)
+void pmd_driver_t::Render(int16_t * frames, size_t frameCount) noexcept
 {
     size_t FramesDone = 0;
 
@@ -383,7 +382,7 @@ void pmd_driver_t::Render(int16_t * frames, size_t frameCount)
                 ::memset(_DstFrames, 0, _FramesToDo * sizeof(frame32_t));
 
                 if (_PCMSampleRate == _PPZSampleRate)
-                    _PPZ->Mix(_DstFrames, _FramesToDo);
+                    _PPZ8->Mix(_DstFrames, _FramesToDo);
                 else
                 {
                     // PCM frequency transform of ppz8 (no interpolation)
@@ -392,7 +391,7 @@ void pmd_driver_t::Render(int16_t * frames, size_t frameCount)
 
                     ::memset(_TmpFrames, 0, SampleCount * sizeof(sample_t) * 2);
 
-                    _PPZ->Mix(_TmpFrames, SampleCount);
+                    _PPZ8->Mix(_TmpFrames, SampleCount);
 
                     int32_t Carry = 0;
 
@@ -593,7 +592,7 @@ void pmd_driver_t::SetPosition(uint32_t position)
 /// </summary>
 uint32_t pmd_driver_t::GetPositionInTicks() const noexcept
 {
-    return (uint32_t) (( _State._BarCounter * _State._BarLength) + _State._OpsCounter);
+    return (uint32_t) ((_State._BarCounter * _State._BarLength) + _State._OpsCounter);
 }
 
 /// <summary>
@@ -670,7 +669,7 @@ void pmd_driver_t::SetSampleRate(uint32_t sampleRate) noexcept
 
     _P86->SetSampleRate(_PCMSampleRate, _UseInterpolationP86);
     _PPS->SetSampleRate(_PCMSampleRate, _UseInterpolationPPS);
-    _PPZ->SetSampleRate(_PPZSampleRate, _UseInterpolationPPZ);
+    _PPZ8->SetSampleRate(_PPZSampleRate, _UseInterpolationPPZ);
 }
 
 /// <summary>
@@ -696,7 +695,7 @@ void pmd_driver_t::SetPPZSampleRate(uint32_t sampleRate) noexcept
 
     _PPZSampleRate = sampleRate;
 
-    _PPZ->SetSampleRate(sampleRate, _UseInterpolationPPZ);
+    _PPZ8->SetSampleRate(sampleRate, _UseInterpolationPPZ);
 }
 
 /// <summary>
@@ -706,7 +705,7 @@ void pmd_driver_t::SetPPZInterpolation(bool flag)
 {
     _UseInterpolationPPZ = flag;
 
-    _PPZ->SetSampleRate(_PPZSampleRate, flag);
+    _PPZ8->SetSampleRate(_PPZSampleRate, flag);
 }
 
 /// <summary>
@@ -838,7 +837,7 @@ int pmd_driver_t::DisableChannel(int channel)
 
             case 5:
             {
-                _PPZ->Stop((size_t) ChannelTable[(size_t) channel][1]);
+                _PPZ8->Stop((size_t) ChannelTable[(size_t) channel][1]);
                 break;
             }
         }
@@ -929,7 +928,7 @@ bool pmd_driver_t::GetMemo(const uint8_t * data, size_t size, int index, char * 
 /// </summary>
 channel_t * pmd_driver_t::GetChannel(int channelNumber) const noexcept
 {
-    if (channelNumber >= (int) _countof(_State._Channels))
+    if (channelNumber >= (int32_t) _countof(_State._Channels))
         return nullptr;
 
     return _State._Channels[channelNumber];
@@ -942,8 +941,6 @@ channel_t * pmd_driver_t::GetChannel(int channelNumber) const noexcept
 /// </summary>
 void pmd_driver_t::Reset()
 {
-    console::printf("pmd_driver_t::Reset");
-
     UsePPSForDrums(false);
     UseSSGForDrums(false);
 
@@ -957,7 +954,7 @@ void pmd_driver_t::Reset()
 
     _SSGEffectChannel = { };
 
-    ::memset(_PPZChannels, 0, sizeof(_PPZChannels));
+    ::memset(_PPZ8Channels, 0, sizeof(_PPZ8Channels));
 
     _DummyChannel = { };
 
@@ -1029,14 +1026,14 @@ void pmd_driver_t::Reset()
         _State._Channels[14] = &_DummyChannel; // Unused
         _State._Channels[15] = &_SSGEffectChannel;
 
-        _State._Channels[16] = &_PPZChannels[0];
-        _State._Channels[17] = &_PPZChannels[1];
-        _State._Channels[18] = &_PPZChannels[2];
-        _State._Channels[19] = &_PPZChannels[3];
-        _State._Channels[20] = &_PPZChannels[4];
-        _State._Channels[21] = &_PPZChannels[5];
-        _State._Channels[22] = &_PPZChannels[6];
-        _State._Channels[23] = &_PPZChannels[7];
+        _State._Channels[16] = &_PPZ8Channels[0];
+        _State._Channels[17] = &_PPZ8Channels[1];
+        _State._Channels[18] = &_PPZ8Channels[2];
+        _State._Channels[19] = &_PPZ8Channels[3];
+        _State._Channels[20] = &_PPZ8Channels[4];
+        _State._Channels[21] = &_PPZ8Channels[5];
+        _State._Channels[22] = &_PPZ8Channels[6];
+        _State._Channels[23] = &_PPZ8Channels[7];
     }
 
     _Driver._Flags = DriverIdle;
@@ -1057,7 +1054,7 @@ void pmd_driver_t::StartOPNInterrupt()
 
     _SSGEffectChannel = { };
 
-    ::memset(_PPZChannels, 0, sizeof(_PPZChannels));
+    ::memset(_PPZ8Channels, 0, sizeof(_PPZ8Channels));
 
     _DummyChannel = { };
 
@@ -1182,7 +1179,7 @@ void pmd_driver_t::InitializeState()
         };
     }
 
-    for (auto & PPZChannel : _PPZChannels)
+    for (auto & PPZChannel : _PPZ8Channels)
     {
         const int32_t PartMask  = PPZChannel._PartMask;
         const int32_t KeyOnFlag = PPZChannel._KeyOnFlag;
@@ -1263,7 +1260,7 @@ void pmd_driver_t::InitializeOPNA()
     _OPNAW->SetReg(0x10D, 0xFF); // Set ADPCM Limit Address (Hi)
 
     for (size_t i = 0; i < MaxPPZ8Channels; ++i)
-        _PPZ->SetPan(i, 5);
+        _PPZ8->SetPan(i, 5);
 }
 
 /// <summary>
@@ -2219,7 +2216,7 @@ void pmd_driver_t::Mute()
     _OPNAW->SetReg(0x110, 0x18); // Set ADPCM Flag Control: Bit change only for TIMERB/A/EOS
 
     for (size_t i = 0; i < MaxPPZ8Channels; ++i)
-        _PPZ->Stop(i);
+        _PPZ8->Stop(i);
 }
 
 /// <summary>

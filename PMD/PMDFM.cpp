@@ -585,8 +585,8 @@ void pmd_driver_t::SetFMPitch(channel_t * channel)
     if ((channel->_Factor == 0) || (channel->_FMSlotMask == 0))
         return;
 
-    int32_t Block = (int) (channel->_Factor  & 0x3800);
-    int32_t Pitch = (int) (channel->_Factor) & 0x07FF;
+    int32_t Block = (int32_t) (channel->_Factor  & 0x3800);
+    int32_t Pitch = (int32_t) (channel->_Factor) & 0x07FF;
 
     // Portament/LFO/Detune SET
     Pitch += channel->_Portamento + channel->_DetuneValue;
@@ -821,12 +821,12 @@ uint8_t * pmd_driver_t::SetFMPortamentoCommand(channel_t * channel, uint8_t * si
 
     SetFMTone(channel, Transpose(channel, *si++));
 
-    int32_t bx = (int) channel->_Factor;
+    int32_t bx = (int32_t) channel->_Factor;
 
     channel->_Tone = OldTone;
     channel->_Factor = (uint32_t) cx;
 
-    int32_t bh = (int) ((bx / 256) & 0x38) - ((cx / 256) & 0x38);
+    int32_t bh = (int32_t) ((bx / 256) & 0x38) - ((cx / 256) & 0x38);
     int32_t ax;
 
     if (bh != 0)
@@ -1177,7 +1177,7 @@ uint8_t * pmd_driver_t::SetFMTrueLevelCommand(channel_t * channel, uint8_t * si)
 
         if (ah & 1)
         {
-            dl = dl = (int) channel->FMOperator1 + al;
+            dl = dl = (int32_t) channel->FMOperator1 + al;
 
             if (dl < 0)
             {
@@ -1197,7 +1197,7 @@ uint8_t * pmd_driver_t::SetFMTrueLevelCommand(channel_t * channel, uint8_t * si)
 
         if (ah & 2)
         {
-            dl = (int) channel->FMOperator2 + al;
+            dl = (int32_t) channel->FMOperator2 + al;
 
             if (dl < 0)
             {
@@ -1217,7 +1217,7 @@ uint8_t * pmd_driver_t::SetFMTrueLevelCommand(channel_t * channel, uint8_t * si)
 
         if (ah & 4)
         {
-            dl = (int) channel->FMOperator3 + al;
+            dl = (int32_t) channel->FMOperator3 + al;
 
             if (dl < 0)
             {
@@ -1237,7 +1237,7 @@ uint8_t * pmd_driver_t::SetFMTrueLevelCommand(channel_t * channel, uint8_t * si)
 
         if (ah & 8)
         {
-            dl = (int) channel->FMOperator4 + al;
+            dl = (int32_t) channel->FMOperator4 + al;
 
             if (dl < 0)
             {

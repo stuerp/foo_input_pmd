@@ -61,7 +61,7 @@ bool opna_t::Initialize(uint32_t clockSpeed, uint32_t sampleRate, const WCHAR * 
     SetADPCMVolume(0);
     SetRhythmVolume(0);
 
-    for (int32_t i = 0; i < (int) _countof(_Instruments); ++i)
+    for (int32_t i = 0; i < (int32_t) _countof(_Instruments); ++i)
         SetInstrumentVolume(i, 0);
 
     LoadInstruments(directoryPathDrums);
@@ -252,7 +252,7 @@ bool opna_t::AdvanceTimers(uint32_t nextTick) noexcept
             _TimerCounter[1] -= ((emulated_time) nextTick << (48 - 6)) / (1'000'000 >> 6);
     }
 
-    for (int32_t i = 0; i < (int) _countof(_TimerCounter); ++i)
+    for (int32_t i = 0; i < (int32_t) _countof(_TimerCounter); ++i)
     {
         if ((_Reg27 & (4 << i)) && (_TimerCounter[i] < 0))
         {
