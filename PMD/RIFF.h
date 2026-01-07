@@ -1,5 +1,5 @@
 
-/** $VER: RIFF.h (2023.07.21) P. Stuer **/
+/** $VER: RIFF.h (2026.01.07) P. Stuer **/
 
 #pragma once
 

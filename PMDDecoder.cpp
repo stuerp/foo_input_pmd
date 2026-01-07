@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.cpp (2026.01.04) P. Stuer **/
+/** $VER: PMDDecoder.cpp (2026.01.07) P. Stuer **/
 
 #include "pch.h"
 
@@ -104,7 +104,7 @@ bool pmd_decoder_t::Open(const uint8_t * data, size_t size, uint32_t sampleRate,
         if (_PMD->Load(_Data, _Size) != ERR_SUCCESS)
             return false;
 
-        if (!_PMD->GetLength((int *) &_Length, (int *) &_LoopLength, (int *) &_TickCount, (int *) &_LoopTickCount))
+        if (!_PMD->GetLength(_Length, _LoopLength, _TickCount, _LoopTickCount))
             return false;
 
         {

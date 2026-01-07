@@ -1,5 +1,5 @@
 
-// Based on PMDWin code by C60
+// $VER: File.h (2026.01.07) Based on PMDWin code by C60
 
 #pragma once
 

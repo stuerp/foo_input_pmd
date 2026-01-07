@@ -1,5 +1,5 @@
 
-// Based on PMDWin code by C60
+// $VER: Effect.h (2026.01.03) Based on PMDWin code by C60
 
 #pragma once
 

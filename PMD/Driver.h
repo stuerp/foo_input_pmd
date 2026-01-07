@@ -1,5 +1,5 @@
 
-/** $VER: Driver.h (2026.01.05) Driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: Driver.h (2026.01.07) Driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -9,16 +9,18 @@ const uint8_t DriverStopRequested = 0x02;
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 
-class Driver
+class driver_t
 {
 public:
-    Driver()
+    driver_t()
     {
         Reset();
     }
 
     void Initialize() noexcept
     {
+        console::printf("driver_t::Initialize");
+
         Reset();
 
         _LoopRelease = 0x8000;
@@ -27,13 +29,12 @@ public:
 private:
     void Reset() noexcept
     {
+        console::printf("driver_t::Reset");
+
         _Flags     = 0x00;
         _LoopCheck = 0x00;
 
-        _PreviousTimerACounter = 0;
-
-        ::memset(omote_key, 0, _countof(omote_key));
-        ::memset(ura_key, 0, _countof(ura_key));
+        _OldTimerACounter = 0;
 
         _AlgorithmAndFeedbackLoopsFM3 = 0;
 
@@ -56,26 +57,23 @@ public:
     uint8_t _Flags;
     uint8_t _LoopCheck;
 
-    int32_t _PreviousTimerACounter;     // TimerA counter value at the previous interrupt
+    int32_t _OldTimerACounter;              // TimerA counter value at the previous interrupt
 
-    int32_t omote_key[3];               // FM keyondata table (=0)
-    int32_t ura_key[3];                 // FM keyondata back (=0x100)
+    int32_t _AlgorithmAndFeedbackLoopsFM3;  // Algorithm and feedback loops defined at the end of FM channel 3.
 
-    int32_t _AlgorithmAndFeedbackLoopsFM3; // Algorithm and feedback loops defined at the end of FM channel 3.
+    int32_t _LoopBegin;                     // PCM loop begin address
+    int32_t _LoopEnd;                       // PCM loop end address
+    int32_t _LoopRelease;                   // PCM loop release address
 
-    int32_t _LoopBegin;                 // PCM loop begin address
-    int32_t _LoopEnd;                   // PCM loop end address
-    int32_t _LoopRelease;               // PCM loop release address
-
-    int32_t _Slot3Flags;                // Required sound effect mode flag for each FM3 slot
-    int32_t _FMSelector;                // 0x000 or 0x100
+    int32_t _Slot3Flags;                    // Required sound effect mode flag for each FM3 slot
+    int32_t _FMSelector;                    // 0x000 or 0x100
 
     int32_t _CurrentChannel;
-    int32_t _VolumeBoostCount;          // Set when a modified volume for the next note has been set.
+    int32_t _VolumeBoostCount;              // Set when a modified volume for the next note has been set.
     int32_t _HardwareLFOModulationMode;
 
-    bool _IsTieSet;                     // True if notes should be tied together ("&" command)
-    bool _IsFMSlotDetuneSet;            // Is FM3 using detune?
+    bool _IsTieSet;                         // True if notes should be tied together ("&" command)
+    bool _IsFMSlotDetuneSet;                // Is FM3 using detune?
 };
 
 #pragma warning(default: 4820)

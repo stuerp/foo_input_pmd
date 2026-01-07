@@ -1,5 +1,5 @@
 
-/** $VER: Preferences.cpp (2026.01.03) P. Stuer **/
+/** $VER: Preferences.cpp (2026.01.07) P. Stuer **/
 
 #include "pch.h"
 

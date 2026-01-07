@@ -1,11 +1,11 @@
 
-/** $VER: PPZ.h (2025.10.05) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
+/** $VER: PPZ8.h (2026.01.07) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
 
 #pragma once
 
 #include "OPNA.h"
 
-#define PPZ8_VERSION    "1.07"
+#define PPZ8_VERSION        "1.07"
 
 #define PPZ_SUCCESS          0
 #define PPZ_OPEN_FAILED      1
@@ -18,7 +18,7 @@
 
 #define DefaultSampleRate   FREQUENCY_44_1K
 #define DefaultVolume       12
-#define MaxPPZChannels      8
+#define MaxPPZ8Channels      8
 
 #define X_N0                0x80
 #define DELTA_N0            0x7F
@@ -104,7 +104,7 @@ public:
 
     PZIHEADER _PZIHeader;
     uint8_t * _Data;
-    int _Size;
+    int32_t _Size;
     bool _IsPVI;
 };
 
@@ -118,15 +118,15 @@ struct ppz_channel_t
     bool _IsPVI;
     bool _HasLoop;
     bool _IsPlaying;
-    int _Volume;
-    int _PanValue;
+    int32_t _Volume;
+    int32_t _PanValue;
 
-    int _SourceFrequency;
-    int _SampleNumber;
+    int32_t _SourceFrequency;
+    int32_t _SampleNumber;
 
-    int _PCMStartL;
-    int _PCMAddL;
-    int _PCMAddH;
+    int32_t _PCMStartL;
+    int32_t _PCMAddL;
+    int32_t _PCMAddH;
 
     uint8_t * _PCMStartH;
     uint8_t * _PCMEnd;
@@ -143,11 +143,11 @@ struct ppz_channel_t
 /// Implements a driver that synthesizes up to 8 PCM channels using the 86PCM, with soft panning possibilities and no memory limit aside from the user's PC98 setup.
 /// It supports 2 kinds of PCM banks: .PVI and .PZI
 /// </summary>
-class ppz_t
+class ppz8_t
 {
 public:
-    ppz_t(File * file);
-    virtual ~ppz_t();
+    ppz8_t(File * file);
+    virtual ~ppz8_t();
 
     void Initialize(uint32_t sampleRate, bool useInterpolation) noexcept;
 
@@ -192,7 +192,7 @@ private:
     bool _EmulateADPCM; // Should channel 8 emulate ADPCM?
     bool _UseInterpolation;
 
-    ppz_channel_t _Channels[MaxPPZChannels];
+    ppz_channel_t _Channels[MaxPPZ8Channels];
 
     int32_t _MasterVolume; // Overall 86B Mixer volume
     int32_t _Volume;

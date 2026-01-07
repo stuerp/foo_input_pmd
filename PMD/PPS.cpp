@@ -1,5 +1,5 @@
 
-/** $VER: PPS.cpp (2026.01.04) PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60 **/
+/** $VER: PPS.cpp (2026.01.07) PCM driver for the SSG (Software-controlled Sound Generator) / Original Programmed by NaoNeko / Modified by Kaja / Windows Converted by C60 **/
 
 #include <pch.h>
 

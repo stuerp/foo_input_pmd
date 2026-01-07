@@ -1,5 +1,5 @@
 
-/** $VER: P86.cpp (2026.01.03) PMD's internal 86PCM driver for the PC-98's 86 soundboard / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60 **/
+/** $VER: P86.cpp (2026.01.07) PMD's internal 86PCM driver for the PC-98's 86 soundboard / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60 **/
 
 #include <pch.h>
 
@@ -97,33 +97,31 @@ int p86_t::Load(const WCHAR * filePath)
 
     if (!_File->Open(filePath))
     {
-        if (_Data)
+        if (_Data != nullptr)
         {
             ::free(_Data);
             _Data = nullptr;
-
-            ::memset(&_Header, 0, sizeof(_Header));
         }
+
+        ::memset(&_Header, 0, sizeof(_Header));
 
         return P86_OPEN_FAILED;
     }
 
-    P86HEADER ph;
+    // "PCM86 DATA\n"
+    P86HEADER ph = { };
 
-    // Header Hexdump:  50 43 4D 38 36 20 44 41 54 41 0A
     size_t FileSize = (size_t) _File->GetFileSize(filePath);
 
     {
-        P86FILEHEADER fh;
+        P86FILEHEADER fh = { };
 
         ReadHeader(_File, fh);
 
-        ::memset(&ph, 0, sizeof(ph));
-
         for (size_t i = 0; i < _countof(P86HEADER::P86Item); ++i)
         {
-            ph.P86Item[i].Offset = fh.P86Item[i].Offset[0] + fh.P86Item[i].Offset[1] * 0x100 + fh.P86Item[i].Offset[2] * 0x10000 - 0x610;
-            ph.P86Item[i].Size   = fh.P86Item[i].Size[0]   + fh.P86Item[i].Size[1]   * 0x100 + fh.P86Item[i].Size[2]   * 0x10000;
+            ph.P86Item[i].Offset = fh.P86Item[i].Offset[0] + (fh.P86Item[i].Offset[1] * 0x100) + fh.P86Item[i].Offset[2] * 0x10000 - 0x610;
+            ph.P86Item[i].Size   = fh.P86Item[i].Size[0]   + (fh.P86Item[i].Size[1]   * 0x100) + fh.P86Item[i].Size[2]   * 0x10000;
         }
 
         if (::memcmp(&_Header, &ph, sizeof(_Header)) == 0)
@@ -136,7 +134,7 @@ int p86_t::Load(const WCHAR * filePath)
         }
     }
 
-    if (_Data)
+    if (_Data != nullptr)
     {
         ::free(_Data);
         _Data = nullptr;
@@ -151,6 +149,7 @@ int p86_t::Load(const WCHAR * filePath)
     if (_Data == nullptr)
     {
         _File->Close();
+
         return PPZ_OUT_OF_MEMORY;
     }
 
@@ -242,7 +241,7 @@ bool p86_t::SetPitch(int sampleRateIndex, uint32_t pitch)
 /// <summary>
 /// 
 /// </summary>
-bool p86_t::SetLoop(int loopStart, int loopEnd, int releaseStart, bool isADPCM)
+bool p86_t::SetLoop(int loopBegin, int loopEnd, int releaseBegin, bool isADPCM)
 {
     _IsLooping = true;
     _IsReleaseRequested = false;
@@ -250,110 +249,110 @@ bool p86_t::SetLoop(int loopStart, int loopEnd, int releaseStart, bool isADPCM)
     int dx = _SampleSize;
     const int OldSampleSize = _SampleSize;
 
-    int ax = loopStart;
+    int Offset = loopBegin;
 
-    if (ax >= 0)
+    if (Offset >= 0)
     {
         if (isADPCM)
-            ax *= 32;
+            Offset *= 32;
 
-        if (ax > _SampleSize - 2)
-            ax = _SampleSize - 2;
+        if (Offset > _SampleSize - 2)
+            Offset = _SampleSize - 2;
 
-        if (ax < 0)
-            ax = 0;
+        if (Offset < 0)
+            Offset = 0;
 
-        _LoopAddr = _SampleAddr + ax;
-        _LoopSize = _SampleSize - ax;
+        _LoopAddr = _SampleAddr + Offset;
+        _LoopSize = _SampleSize - Offset;
     }
     else
     {
-        ax = -ax;
+        Offset = -Offset;
 
         if (isADPCM)
-            ax *= 32;
+            Offset *= 32;
 
-        dx -= ax;
+        dx -= Offset;
 
         if (dx < 0)
         {
-            ax = OldSampleSize;
+            Offset = OldSampleSize;
             dx = 0;
         }
 
         _LoopAddr = _SampleAddr + dx;
-        _LoopSize = ax;
+        _LoopSize = Offset;
     }
 
-    ax = loopEnd;
+    Offset = loopEnd;
 
-    if (ax > 0)
+    if (Offset > 0)
     {
         if (isADPCM)
-            ax *= 32;
+            Offset *= 32;
 
-        if (ax > _SampleSize - 2)
-            ax = _SampleSize - 2;
+        if (Offset > _SampleSize - 2)
+            Offset = _SampleSize - 2;
 
-        if (ax < 0)
-            ax = 0;
+        if (Offset < 0)
+            Offset = 0;
 
-        _SampleSize = ax;
+        _SampleSize = Offset;
 
-        dx -= ax;
+        dx -= Offset;
 
         _LoopSize -= dx;
     }
     else
-    if (ax < 0)
+    if (Offset < 0)
     {
-        ax = -ax;
+        Offset = -Offset;
 
         if (isADPCM)
-            ax *= 32;
+            Offset *= 32;
 
-        if (ax > _LoopSize)
-            ax = _LoopSize;
+        if (Offset > _LoopSize)
+            Offset = _LoopSize;
 
-        _LoopSize   -= ax;
-        _SampleSize -= ax;
+        _LoopSize   -= Offset;
+        _SampleSize -= Offset;
     }
 
-    ax = releaseStart;
+    Offset = releaseBegin;
 
-    if ((uint16_t) ax != 0x8000)
+    if ((uint16_t) Offset != 0x8000)
     {
         _ReleaseAddr = _SampleAddr;
         _ReleaseSize = OldSampleSize;
 
         _IsReleaseRequested = true;
 
-        if (ax > 0)
+        if (Offset > 0)
         {
             if (isADPCM)
-                ax *= 32;
+                Offset *= 32;
 
-            if (ax > _SampleSize - 2)
-                ax = _SampleSize - 2;
+            if (Offset > _SampleSize - 2)
+                Offset = _SampleSize - 2;
 
-            if (ax < 0)
-                ax = 0;
+            if (Offset < 0)
+                Offset = 0;
 
-            _ReleaseAddr += ax;
-            _ReleaseSize -= ax;
+            _ReleaseAddr += Offset;
+            _ReleaseSize -= Offset;
         }
         else
         {
-            ax = -ax;
+            Offset = -Offset;
 
             if (isADPCM)
-                ax *= 32;
+                Offset *= 32;
 
-            if (ax > _SampleSize)
-                ax = _SampleSize;
+            if (Offset > _SampleSize)
+                Offset = _SampleSize;
 
-            _ReleaseAddr += OldSampleSize - ax;
-            _ReleaseSize = ax;
+            _ReleaseAddr += OldSampleSize - Offset;
+            _ReleaseSize = Offset;
         }
     }
 
@@ -734,11 +733,11 @@ void p86_t::CreateVolumeTable(int volume)
 
     _VolumeBase = NewVolumeBase;
 
-    for (int i = 0; i < 16; ++i)
+    for (int32_t i = 0; i < 16; ++i)
     {
         const double Volume = (double) _VolumeBase * i / 256.; // ::pow(2.0, (i + 15) / 2.0) * _VolumeBase / 0x18000;
 
-        for (int j = 0; j < 256; ++j)
+        for (int32_t j = 0; j < 256; ++j)
             _VolumeTable[i][j] = (sample_t) (Volume * (int8_t) j);
     }
 }

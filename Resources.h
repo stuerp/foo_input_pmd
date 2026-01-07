@@ -1,5 +1,5 @@
 
-/** $VER: Resources.h (2026.01.04) P. Stuer **/
+/** $VER: Resources.h (2026.01.07) P. Stuer **/
 
 #pragma once
 

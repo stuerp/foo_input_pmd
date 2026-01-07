@@ -1,5 +1,5 @@
 
-/** $VER: OPNAW.cpp (2026.01.04) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: OPNAW.cpp (2026.01.07) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <pch.h>
 

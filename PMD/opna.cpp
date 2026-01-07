@@ -1,5 +1,5 @@
 
-/** $VER: OPNA.cpp (2025.10.01) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: OPNA.cpp (2026.01.07) OPNA emulator (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <pch.h>
 
@@ -34,8 +34,8 @@ opna_t::opna_t(File * file) :
     Initialize(DefaultClockSpeed, 8000U);
 
     // Create the table.
-    for (int i = -FM_TLPOS; i < FM_TLENTS; ++i)
-        tltable[i + FM_TLPOS] = (int32_t) (uint32_t(65536.0 * ::pow(2.0, i * -16.0 / (int) FM_TLENTS)) - 1);
+    for (int32_t i = -FM_TLPOS; i < FM_TLENTS; ++i)
+        tltable[i + FM_TLPOS] = (int32_t) (uint32_t(65536.0 * ::pow(2.0, i * -16.0 / (int32_t) FM_TLENTS)) - 1);
 }
 
 opna_t::~opna_t()
@@ -61,7 +61,7 @@ bool opna_t::Initialize(uint32_t clockSpeed, uint32_t sampleRate, const WCHAR * 
     SetADPCMVolume(0);
     SetRhythmVolume(0);
 
-    for (int i = 0; i < (int) _countof(_Instruments); ++i)
+    for (int32_t i = 0; i < (int) _countof(_Instruments); ++i)
         SetInstrumentVolume(i, 0);
 
     LoadInstruments(directoryPathDrums);
@@ -252,7 +252,7 @@ bool opna_t::AdvanceTimers(uint32_t nextTick) noexcept
             _TimerCounter[1] -= ((emulated_time) nextTick << (48 - 6)) / (1'000'000 >> 6);
     }
 
-    for (int i = 0; i < (int) _countof(_TimerCounter); ++i)
+    for (int32_t i = 0; i < (int) _countof(_TimerCounter); ++i)
     {
         if ((_Reg27 & (4 << i)) && (_TimerCounter[i] < 0))
         {
@@ -335,11 +335,11 @@ void opna_t::MixRhythmSamples(sample_t * sampleData, size_t sampleCount) noexcep
 
         if ((_InstrumentMask & (1 << i)))
         {
-            int dB = std::clamp(_InstrumentTL + _MasterVolume + Ins.Level + Ins.Volume, -31, 127);
+            int32_t dB = std::clamp(_InstrumentTL + _MasterVolume + Ins.Level + Ins.Volume, -31, 127);
 
-            int Vol   = tltable[FM_TLPOS + (dB << (FM_TLBITS - 7))] >> 4;
-            int MaskL = -((Ins.Pan >> 1) & 1);
-            int MaskR = - (Ins.Pan       & 1);
+            int32_t Vol   = tltable[FM_TLPOS + (dB << (FM_TLBITS - 7))] >> 4;
+            int32_t MaskL = -((Ins.Pan >> 1) & 1);
+            int32_t MaskR = - (Ins.Pan       & 1);
 
             for (sample_t * SampleData = sampleData; (SampleData < SampleDataEnd) && (Ins.Pos < Ins.Size); SampleData += 2)
             {

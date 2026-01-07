@@ -1,12 +1,12 @@
 
-/** $VER: PPZ.cpp (2026.01.04) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
+/** $VER: PPZ8.cpp (2026.01.07) PC-98's 86 soundboard's 8 PCM driver (Programmed by UKKY / Based on Windows conversion by C60) **/
 
 #include <pch.h>
 
-#include "PPZ.h"
+#include "PPZ8.h"
 
 // ADPCM to PPZ Volume mapping
-static const int ADPCMEmulationVolume[256] =
+static const int32_t ADPCMEmulationVolume[256] =
 {
      0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4,
      4, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6,
@@ -26,17 +26,17 @@ static const int ADPCMEmulationVolume[256] =
     12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,
 };
 
-ppz_t::ppz_t(File * file) : _File(file)
+ppz8_t::ppz8_t(File * file) : _File(file)
 {
     InitializeInternal();
 }
 
-ppz_t::~ppz_t()
+ppz8_t::~ppz8_t()
 {
 }
 
 //  00H Initialize
-void ppz_t::Initialize(uint32_t sampleRate, bool useInterpolation) noexcept
+void ppz8_t::Initialize(uint32_t sampleRate, bool useInterpolation) noexcept
 {
     InitializeInternal();
 
@@ -44,7 +44,7 @@ void ppz_t::Initialize(uint32_t sampleRate, bool useInterpolation) noexcept
 }
 
 // 01H Start PCM
-void ppz_t::Play(size_t ch, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop)
+void ppz8_t::Play(size_t ch, int bankNumber, int sampleNumber, uint16_t start, uint16_t stop)
 {
     ppz_bank_t & Bank = _PPZBanks[bankNumber];
 
@@ -87,7 +87,7 @@ void ppz_t::Play(size_t ch, int bankNumber, int sampleNumber, uint16_t start, ui
 }
 
 // 02H Stop PCM
-void ppz_t::Stop(size_t ch)
+void ppz8_t::Stop(size_t ch)
 {
     if (ch >= _countof(_Channels))
         return;
@@ -96,7 +96,7 @@ void ppz_t::Stop(size_t ch)
 }
 
 // 03H Read PVI/PZI file
-int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
+int ppz8_t::Load(const WCHAR * filePath, size_t bankNumber)
 {
     if (filePath == nullptr || (filePath && (*filePath == '\0')))
         return PPZ_OPEN_FAILED;
@@ -110,7 +110,7 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
         return PPZ_OPEN_FAILED;
     }
 
-    int Size = (int) _File->GetFileSize(filePath);
+    int32_t Size = (int) _File->GetFileSize(filePath);
 
     PZIHEADER PZIHeader = { };
 
@@ -172,7 +172,7 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
         }
 
         // Convert PVI to PZI.
-        int PVISize = 0;
+        int32_t PVISize = 0;
 
         {
             ::memcpy(PZIHeader.ID, "PZI1", 4);
@@ -236,13 +236,13 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
             Bank._Size = PVISize * 2;
 
             {
-                static const int table1[16] =
+                static const int32_t table1[16] =
                 {
                       1,   3,   5,   7,   9,  11,  13,  15,
                      -1,  -3,  -5,  -7,  -9, -11, -13, -15,
                 };
 
-                static const int table2[16] =
+                static const int32_t table2[16] =
                 {
                      57,  57,  57,  57,  77, 102, 128, 153,
                      57,  57,  57,  57,  77, 102, 128, 153,
@@ -268,8 +268,8 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
                 // Convert ADPCM to PCM.
                 for (size_t i = 0; i < PVIHeader.Count; ++i)
                 {
-                    int X_N     = X_N0;
-                    int DELTA_N = DELTA_N0;
+                    int32_t X_N     = X_N0;
+                    int32_t DELTA_N = DELTA_N0;
 
                     for (size_t j = 0; j < PZIHeader.PZIItem[i].Size / 2; ++j)
                     {
@@ -299,7 +299,7 @@ int ppz_t::Load(const WCHAR * filePath, size_t bankNumber)
 }
 
 // 07H Volume
-void ppz_t::SetVolume(size_t ch, int volume)
+void ppz8_t::SetVolume(size_t ch, int volume)
 {
     if (ch >= _countof(_Channels))
         return;
@@ -311,7 +311,7 @@ void ppz_t::SetVolume(size_t ch, int volume)
 }
 
 // 0BH Pitch Frequency
-void ppz_t::SetPitch(size_t ch, uint32_t pitch)
+void ppz8_t::SetPitch(size_t ch, uint32_t pitch)
 {
     if (ch >= _countof(_Channels))
         return;
@@ -319,8 +319,8 @@ void ppz_t::SetPitch(size_t ch, uint32_t pitch)
     if ((ch == 7) && _EmulateADPCM)
         pitch = (pitch & 0xFFFF) * 0x8000 / 0x49BA;
 /*
-    int AddsL = (int) (pitch & 0xFFFF);
-    int AddsH = (int) (pitch >> 16);
+    int32_t AddsL = (int) (pitch & 0xFFFF);
+    int32_t AddsH = (int) (pitch >> 16);
 
     _Channel[ch].PCMAddH = (int) ((((int64_t) AddsH << 16) + AddsL) * 2 * _Channel[ch].SourceFrequency / _OutputFrequency);
 */
@@ -331,7 +331,7 @@ void ppz_t::SetPitch(size_t ch, uint32_t pitch)
 }
 
 // 0EH Set loop pointer
-void ppz_t::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber)
+void ppz8_t::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber)
 {
     if ((ch >= _countof(_Channels)) || (bankNumber > 1) || (sampleNumber > 127))
         return;
@@ -351,7 +351,7 @@ void ppz_t::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber)
     }
 }
 
-void ppz_t::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber, int loopStart, int loopEnd)
+void ppz8_t::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber, int loopStart, int loopEnd)
 {
     if ((ch >= _countof(_Channels)) || (bankNumber > 1) || (sampleNumber > 127))
         return;
@@ -378,16 +378,16 @@ void ppz_t::SetLoop(size_t ch, size_t bankNumber, size_t sampleNumber, int loopS
 }
 
 // 12H Stop all channels.
-void ppz_t::AllStop()
+void ppz8_t::AllStop()
 {
     for (size_t i = 0; i < _countof(_Channels); ++i)
         Stop(i);
 }
 
 // 13H Set the pan value.
-void ppz_t::SetPan(size_t ch, int value)
+void ppz8_t::SetPan(size_t ch, int value)
 {
-    static const int PanValues[4] = { 0, 9, 1, 5 }; // { Left, Right, Leftwards, Rightwards }
+    static const int32_t PanValues[4] = { 0, 9, 1, 5 }; // { Left, Right, Leftwards, Rightwards }
 
     if (ch >= _countof(_Channels))
         return;
@@ -399,14 +399,14 @@ void ppz_t::SetPan(size_t ch, int value)
 }
 
 // 14H Sets the output sample rate.
-void ppz_t::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
+void ppz8_t::SetSampleRate(uint32_t sampleRate, bool useInterpolation)
 {
     _SampleRate = (int) sampleRate;
     _UseInterpolation = useInterpolation;
 }
 
 // 15H Sets the original sample rate.
-void ppz_t::SetSourceFrequency(size_t ch, int sourceFrequency)
+void ppz8_t::SetSourceFrequency(size_t ch, int sourceFrequency)
 {
     if (ch >= _countof(_Channels))
         return;
@@ -415,7 +415,7 @@ void ppz_t::SetSourceFrequency(size_t ch, int sourceFrequency)
 }
 
 // 16H Set the overal volume（86B Mixer)
-void ppz_t::SetAllVolume(int volume)
+void ppz8_t::SetAllVolume(int volume)
 {
     if ((volume < 16) && (volume != _MasterVolume))
     {
@@ -426,14 +426,14 @@ void ppz_t::SetAllVolume(int volume)
 }
 
 // 17H PCM Volume (PCMTMP_SET)
-void ppz_t::SetVolume(int volume)
+void ppz8_t::SetVolume(int volume)
 {
     if (volume != _Volume)
         CreateVolumeTable(volume);
 }
 
 // 18H Enables or disables ADPCM emulation.
-void ppz_t::EmulateADPCM(bool flag)
+void ppz8_t::EmulateADPCM(bool flag)
 {
     _EmulateADPCM = flag;
 }
@@ -441,7 +441,7 @@ void ppz_t::EmulateADPCM(bool flag)
 /// <summary>
 /// Sets the instrument to play.
 /// </summary>
-void ppz_t::SetInstrument(size_t ch, size_t bankNumber, size_t instrumentNumber)
+void ppz8_t::SetInstrument(size_t ch, size_t bankNumber, size_t instrumentNumber)
 {
     SetLoop(ch, bankNumber, instrumentNumber);
     SetSourceFrequency(ch, _PPZBanks[bankNumber]._PZIHeader.PZIItem[instrumentNumber].SampleRate);
@@ -450,7 +450,7 @@ void ppz_t::SetInstrument(size_t ch, size_t bankNumber, size_t instrumentNumber)
 /// <summary>
 /// Mixes the output of all the channels.
 /// </summary>
-void ppz_t::Mix(frame32_t * frames, size_t frameCount) noexcept
+void ppz8_t::Mix(frame32_t * frames, size_t frameCount) noexcept
 {
     if (_MasterVolume == 0)
         return;
@@ -760,7 +760,7 @@ void ppz_t::Mix(frame32_t * frames, size_t frameCount) noexcept
 /// <summary>
 /// Moves the sample pointer/
 /// </summary>
-void ppz_t::MoveSamplePointer(ppz_channel_t & channel) const noexcept
+void ppz8_t::MoveSamplePointer(ppz_channel_t & channel) const noexcept
 {
     channel._PCMStartH += channel._PCMAddH;
     channel._PCMStartL += channel._PCMAddL;
@@ -783,7 +783,7 @@ void ppz_t::MoveSamplePointer(ppz_channel_t & channel) const noexcept
 /// <summary>
 /// Initializes this instance.
 /// </summary>
-void ppz_t::InitializeInternal() noexcept
+void ppz8_t::InitializeInternal() noexcept
 {
     for (auto & Channel : _Channels)
     {
@@ -814,17 +814,17 @@ void ppz_t::InitializeInternal() noexcept
 /// <summary>
 /// Creates the volume lookup table.
 /// </summary>
-void ppz_t::CreateVolumeTable(int volume)
+void ppz8_t::CreateVolumeTable(int volume)
 {
     _Volume = volume;
 
-    const int VolumeBase = (int) (0x1000 * ::pow(10.0, volume / 40.0));
+    const int32_t VolumeBase = (int) (0x1000 * ::pow(10.0, volume / 40.0));
 
-    for (int i = 0; i < 16; ++i)
+    for (int32_t i = 0; i < 16; ++i)
     {
         double Value = ::pow(2.0, ((double) i + _MasterVolume) / 2.0) * VolumeBase / 0x18000;
 
-        for (int j = 0; j < 256; ++j)
+        for (int32_t j = 0; j < 256; ++j)
             _VolumeTable[i][j] = (sample_t) ((j - 128) * Value);
     }
 }
@@ -832,7 +832,7 @@ void ppz_t::CreateVolumeTable(int volume)
 /// <summary>
 /// Reads the PZI header.
 /// </summary>
-void ppz_t::ReadHeader(File * file, PZIHEADER& ph)
+void ppz8_t::ReadHeader(File * file, PZIHEADER& ph)
 {
     uint8_t Data[2336];
 
@@ -846,7 +846,7 @@ void ppz_t::ReadHeader(File * file, PZIHEADER& ph)
 
     ::memcpy(ph.Dummy2, &Data[0x0C], sizeof(ph.Dummy2));
 
-    for (int i = 0; i < 128; ++i)
+    for (int32_t i = 0; i < 128; ++i)
     {
         ph.PZIItem[i].Start      = (uint32_t) ((Data[0x20 + i * 18]) | (Data[0x21 + i * 18] << 8) | (Data[0x22 + i * 18] << 16) | (Data[0x23 + i * 18] << 24));
         ph.PZIItem[i].Size       = (uint32_t) ((Data[0x24 + i * 18]) | (Data[0x25 + i * 18] << 8) | (Data[0x26 + i * 18] << 16) | (Data[0x27 + i * 18] << 24));
@@ -859,7 +859,7 @@ void ppz_t::ReadHeader(File * file, PZIHEADER& ph)
 /// <summary>
 /// Reads the PVI header.
 /// </summary>
-void ppz_t::ReadHeader(File * file, PVIHEADER & ph)
+void ppz8_t::ReadHeader(File * file, PVIHEADER & ph)
 {
     uint8_t Data[528];
 
@@ -872,7 +872,7 @@ void ppz_t::ReadHeader(File * file, PVIHEADER & ph)
 
     ::memcpy(ph.Dummy2, &Data[0x0c], (size_t) 0x10 - 0x0b - 1);
 
-    for (int i = 0; i < 128; ++i)
+    for (int32_t i = 0; i < 128; ++i)
     {
         ph.PVIItem[i].Start = (uint16_t) ((Data[0x10 + i * 4]) | (Data[0x11 + i * 4] << 8));
         ph.PVIItem[i].End   = (uint16_t) ((Data[0x12 + i * 4]) | (Data[0x13 + i * 4] << 8));

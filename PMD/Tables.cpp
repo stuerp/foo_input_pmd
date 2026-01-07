@@ -1,5 +1,5 @@
 
-/** $VER: Tables.cpp (2026.01.03) Professional Music Driver [P.M.D.] version 4.8 Constant Tables / Programmed by M. Kajihara / Windows converted by C60 **/
+/** $VER: Tables.cpp (2026.01.07) Professional Music Driver [P.M.D.] version 4.8 Constant Tables / Programmed by M. Kajihara / Windows converted by C60 **/
 
 #include <pch.h>
 
@@ -43,7 +43,7 @@ const int ChannelTable[][3] =
 };
 
 // FM Scale Factor
-const int FMScaleFactor[] =
+const int _FMScaleFactor[] =
 {
     0x026a, // C
     0x028f, // D-

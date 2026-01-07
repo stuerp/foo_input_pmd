@@ -1,5 +1,5 @@
 
-// $VER: PMDP86.cpp (2026.01.03) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
+// $VER: PMDP86.cpp (2026.01.07) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara)
 
 #include <pch.h>
 
@@ -22,18 +22,18 @@ void pmd_driver_t::P86Main(channel_t * channel)
 
     channel->_Size--;
 
-    if (channel->PartMask != 0x00)
+    if (channel->_PartMask != 0x00)
     {
-        channel->KeyOffFlag = -1;
+        channel->_KeyOffFlag = -1;
     }
     else
-    if ((channel->KeyOffFlag & 0x03) == 0)
+    if ((channel->_KeyOffFlag & 0x03) == 0)
     {
-        if (channel->_Size <= channel->GateTime)
+        if (channel->_Size <= channel->_GateTime)
         {
             P86KeyOff(channel);
 
-            channel->KeyOffFlag = -1;
+            channel->_KeyOffFlag = -1;
         }
     }
 
@@ -49,13 +49,13 @@ void pmd_driver_t::P86Main(channel_t * channel)
             if (*si == 0x80)
             {
                 channel->_Data = si;
-                channel->Tone = 0xFF;
+                channel->_Tone = 0xFF;
 
                 channel->_LoopCheck = 0x03;
 
                 if (channel->_LoopData == nullptr)
                 {
-                    if (channel->PartMask != 0x00)
+                    if (channel->_PartMask != 0x00)
                     {
                         _Driver._IsTieSet = false;
                         _Driver._VolumeBoostCount = 0;
@@ -75,16 +75,16 @@ void pmd_driver_t::P86Main(channel_t * channel)
             }
             else
             {
-                if (channel->PartMask != 0x00)
+                if (channel->_PartMask != 0x00)
                 {
                     si++;
 
                     // Set to 'rest'.
-                    channel->Factor      = 0;
-                    channel->Tone        = 0xFF;
+                    channel->_Factor      = 0;
+                    channel->_Tone        = 0xFF;
 //                  channel->DefaultTone = 0xFF;
                     channel->_Size      = *si++;
-                    channel->KeyOnFlag++;
+                    channel->_KeyOnFlag++;
 
                     channel->_Data = si;
 
@@ -102,7 +102,7 @@ void pmd_driver_t::P86Main(channel_t * channel)
 
                 si = CalculateQ(channel, si);
 
-                if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
+                if ((channel->VolumeBoost != 0) && (channel->_Tone != 0xFF))
                 {
                     if (--_Driver._VolumeBoostCount)
                     {
@@ -114,17 +114,17 @@ void pmd_driver_t::P86Main(channel_t * channel)
                 P86SetVolume(channel);
                 P86SetPitch(channel);
 
-                if (channel->KeyOffFlag & 0x01)
+                if (channel->_KeyOffFlag & 0x01)
                     P86KeyOn(channel);
 
-                channel->KeyOnFlag++;
+                channel->_KeyOnFlag++;
                 channel->_Data = si;
 
                 _Driver._IsTieSet = false;
                 _Driver._VolumeBoostCount = 0;
 
                 // Don't perform Key Off if a "&" command (Tie) follows immediately.
-                channel->KeyOffFlag = (*si == 0xFB) ? 0x02: 0x00;
+                channel->_KeyOffFlag = (*si == 0xFB) ? 0x02: 0x00;
 
                 _Driver._LoopCheck &= channel->_LoopCheck;
 
@@ -158,16 +158,16 @@ void pmd_driver_t::P86Main(channel_t * channel)
                 LFOSwap(channel);
         }
 
-        int temp = SSGPCMSoftwareEnvelope(channel);
+        int32_t temp = SSGPCMSoftwareEnvelope(channel);
 
-        if (temp || _Driver._HardwareLFOModulationMode & 0x22 || _State.FadeOutSpeed)
+        if (temp || _Driver._HardwareLFOModulationMode & 0x22 || _State._FadeOutSpeed)
             P86SetVolume(channel);
     }
     else
     {
-        int temp = SSGPCMSoftwareEnvelope(channel);
+        int32_t temp = SSGPCMSoftwareEnvelope(channel);
 
-        if (temp || _State.FadeOutSpeed)
+        if (temp || _State._FadeOutSpeed)
             P86SetVolume(channel);
     }
 
@@ -190,7 +190,7 @@ uint8_t * pmd_driver_t::P86ExecuteCommand(channel_t * channel, uint8_t * si)
         // 4.12. Sound Cut Setting 1, Command 'Q [%] numerical value' / 4.13. Sound Cut Setting 2, Command 'q [number1][-[number2]] [,number3]' / Command 'q [l length[.]][-[l length]] [,l length[.]]'
         case 0xFE:
         {
-            channel->EarlyKeyOffTimeout = *si++;
+            channel->_EarlyKeyOffTimeout1 = *si++;
             break;
         }
 
@@ -256,8 +256,8 @@ uint8_t * pmd_driver_t::P86ExecuteCommand(channel_t * channel, uint8_t * si)
         // 15.3. Fade Out Setting, Fades out from the specified position, Command 'F number'
         case 0xD2:
         {
-            _State.FadeOutSpeed = *si++;
-            _State.IsFadeOutSpeedSet = true;
+            _State._FadeOutSpeed = *si++;
+            _State._IsFadeOutSpeedSet = true;
             break;
         }
 
@@ -305,7 +305,7 @@ uint8_t * pmd_driver_t::P86ExecuteCommand(channel_t * channel, uint8_t * si)
         // 2.25. PPZ8 Channel Extension, Extends the PPZ8 channels with the notated channels, Command '#PPZExtend notation1[notation2[notation3]... (up to 8)]]'
         case 0xB4:
         {
-            si = InitializePPZ(channel, si);
+            si = PPZ8Initialize(channel, si);
             break;
         }
 
@@ -322,30 +322,30 @@ uint8_t * pmd_driver_t::P86ExecuteCommand(channel_t * channel, uint8_t * si)
 /// </summary>
 void pmd_driver_t::P86SetTone(channel_t * channel, int tone)
 {
-    int ah = tone & 0x0F;
+    int32_t ah = tone & 0x0F;
 
     if (ah != 0x0F)
     {
-        if (_State.PMDB2CompatibilityMode && (tone >= 0x65))
+        if (_State._IsCompatibleWithPMDB2 && (tone >= 0x65))
         {
             tone = (ah < 5) ? 0x60 /* o7 */ : 0x50 /* o6 */;
 
             tone |= ah;
         }
 
-        channel->Tone = tone;
+        channel->_Tone = tone;
 
-        int Index = ((tone & 0xF0) >> 4) * 12 + ah;
+        int32_t Index = ((tone & 0xF0) >> 4) * 12 + ah;
 
-        channel->Factor = P86ScaleFactor[Index];
+        channel->_Factor = P86ScaleFactor[Index];
     }
     else
     {
         // Rest
-        channel->Tone = 0xFF;
+        channel->_Tone = 0xFF;
 
         if ((channel->_HardwareLFO & 0x11) == 0)
-            channel->Factor = 0; // Don't use LFO pitch.
+            channel->_Factor = 0; // Don't use LFO pitch.
     }
 }
 
@@ -354,10 +354,10 @@ void pmd_driver_t::P86SetTone(channel_t * channel, int tone)
 /// </summary>
 void pmd_driver_t::P86SetVolume(channel_t * channel)
 {
-    int al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
+    int32_t al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
 
     // Calculate volume down.
-    al = ((256 - _State.ADPCMVolumeAdjust) * al) >> 8;
+    al = ((256 - _State._ADPCMVolumeAdjust) * al) >> 8;
 
     // Calculate fade out.
     if (_State._FadeOutVolume != 0)
@@ -371,7 +371,7 @@ void pmd_driver_t::P86SetVolume(channel_t * channel)
     }
 
     // Calculate envelope.
-    if (channel->SSGEnvelopFlag == -1)
+    if (channel->_SSGEnvelopFlag == -1)
     {
         // Extended version: Volume = al * (eenv_vol + 1) / 16
         if (channel->ExtendedAttackLevel == 0)
@@ -388,7 +388,7 @@ void pmd_driver_t::P86SetVolume(channel_t * channel)
         // Extended envelope volume
         if (channel->ExtendedAttackLevel < 0)
         {
-            int ah = -channel->ExtendedAttackLevel * 16;
+            int32_t ah = -channel->ExtendedAttackLevel * 16;
 
             if (al < ah)
             {
@@ -401,7 +401,7 @@ void pmd_driver_t::P86SetVolume(channel_t * channel)
         }
         else
         {
-            int ah = channel->ExtendedAttackLevel * 16;
+            int32_t ah = channel->ExtendedAttackLevel * 16;
 
             if (al + ah > 255)
                 al = 255;
@@ -411,10 +411,10 @@ void pmd_driver_t::P86SetVolume(channel_t * channel)
     }
 
     // Calculate the LFO volume.
-    int dx = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
+    int32_t dx = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
 
     if (channel->_HardwareLFO & 0x20)
-        dx += channel->LFO2Data;
+        dx += channel->_LFO2Data;
 
     if (dx >= 0)
     {
@@ -427,7 +427,7 @@ void pmd_driver_t::P86SetVolume(channel_t * channel)
             al = 0;
     }
 
-    if (!_State.PMDB2CompatibilityMode)
+    if (!_State._IsCompatibleWithPMDB2)
         al >>= 4;
     else
         al = (int) ::sqrt(al); // Make the volume NEC Speaker Board-compatible.
@@ -440,13 +440,13 @@ void pmd_driver_t::P86SetVolume(channel_t * channel)
 /// </summary>
 void pmd_driver_t::P86SetPitch(channel_t * channel)
 {
-    if (channel->Factor == 0)
+    if (channel->_Factor == 0)
         return;
 
-    int SampleRateIndex = (int) ((channel->Factor & 0x0E00000) >> (16 + 5));
-    int Pitch           = (int) ( channel->Factor & 0x01FFFFF);
+    int32_t SampleRateIndex = (int) ((channel->_Factor & 0x0E00000) >> (16 + 5));
+    int32_t Pitch           = (int) ( channel->_Factor & 0x01FFFFF);
 
-    if (!_State.PMDB2CompatibilityMode && (channel->_DetuneValue != 0))
+    if (!_State._IsCompatibleWithPMDB2 && (channel->_DetuneValue != 0))
         Pitch = std::clamp((Pitch >> 5) + channel->_DetuneValue, 1, 65535) << 5;
 
     _P86->SetPitch(SampleRateIndex, (uint32_t) Pitch);
@@ -457,7 +457,7 @@ void pmd_driver_t::P86SetPitch(channel_t * channel)
 /// </summary>
 void pmd_driver_t::P86KeyOn(channel_t * channel)
 {
-    if (channel->Tone == 0xFF)
+    if (channel->_Tone == 0xFF)
         return;
 
     _P86->Start();
@@ -470,9 +470,9 @@ void pmd_driver_t::P86KeyOff(channel_t * channel)
 {
     _P86->Keyoff();
 
-    if (channel->SSGEnvelopFlag != -1)
+    if (channel->_SSGEnvelopFlag != -1)
     {
-        if (channel->SSGEnvelopFlag != 2)
+        if (channel->_SSGEnvelopFlag != 2)
             SSGKeyOff(channel);
 
         return;
@@ -529,8 +529,8 @@ uint8_t * pmd_driver_t::P86SetPan1(channel_t *, uint8_t * si)
 /// </summary>
 uint8_t * pmd_driver_t::P86SetPan2(channel_t * channel, uint8_t * si)
 {
-    int Flags = 0;
-    int Value = 0;
+    int32_t Flags = 0;
+    int32_t Value = 0;
 
     channel->_PanAndVolume = (int8_t) *si++;
 
@@ -573,7 +573,7 @@ uint8_t * pmd_driver_t::P86SetRepeat(channel_t *, uint8_t * si)
 
     int16_t ReleaseStart = *(int16_t *) si;
 
-    _P86->SetLoop(LoopBegin, LoopEnd, ReleaseStart, _State.PMDB2CompatibilityMode);
+    _P86->SetLoop(LoopBegin, LoopEnd, ReleaseStart, _State._IsCompatibleWithPMDB2);
 
     return si + 2;
 }
@@ -587,16 +587,16 @@ uint8_t * pmd_driver_t::P86SetChannelMask(channel_t * channel, uint8_t * si) noe
     {
         if (Value < 2)
         {
-            channel->PartMask |= 0x40;
+            channel->_PartMask |= 0x40;
 
-            if (channel->PartMask == 0x40)
+            if (channel->_PartMask == 0x40)
                 _P86->Stop();
         }
         else
             si = SpecialC0ProcessingCommand(channel, si, Value);
     }
     else
-        channel->PartMask &= 0xBF; // 1011 1111
+        channel->_PartMask &= 0xBF; // 1011 1111
 
     return si;
 }

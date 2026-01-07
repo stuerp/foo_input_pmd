@@ -209,7 +209,7 @@
     <ClInclude Include="PMD\P86.h" />
     <ClInclude Include="PMD\PMD.h" />
     <ClInclude Include="PMD\PPS.h" />
-    <ClInclude Include="PMD\PPZ.h" />
+    <ClInclude Include="PMD\PPZ8.h" />
     <ClInclude Include="PMD\RIFF.h" />
     <ClInclude Include="PMD\State.h" />
     <ClInclude Include="PMD\Tables.h" />
@@ -386,7 +386,7 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="PMD\PPS.cpp" />
-    <ClCompile Include="PMD\PPZ.cpp">
+    <ClCompile Include="PMD\PPZ8.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Use</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">pch.h</PrecompiledHeaderFile>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Use</PrecompiledHeader>
