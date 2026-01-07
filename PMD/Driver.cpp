@@ -92,7 +92,7 @@ void pmd_driver_t::DriverMain()
     if (_EffectChannel._LoopCheck != 0x03)
         _EffectChannel._LoopCheck = 0x00;
 
-    for (i = 0; i < MaxPPZ8Channels; ++i)
+    for (i = 0; i < MaxPPZChannels; ++i)
     {
         if (_PPZChannels[i]._LoopCheck != 0x03)
             _PPZChannels[i]._LoopCheck = 0x00;
@@ -129,8 +129,8 @@ void pmd_driver_t::DriverStart()
     InitializeState();
     InitializeChannels();
 
-    InitializeOPNA();
-    InitializeTimers();
+    InitializeOPN();
+    InitializeInterrupt();
 
     _IsPlaying = true;
 }

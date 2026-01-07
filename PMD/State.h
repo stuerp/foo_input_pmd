@@ -46,9 +46,9 @@
 #define MaxFMExtensionChannels  3
 #define MaxRhythmTracks         1
 #define MaxEffectTracks         1
-#define MaxPPZ8Channels          8
+#define MaxPPZChannels          8
 
-#define MaxChannels             (MaxFMChannels + MaxSSGChannels + MaxADPCMTracks + MaxOPNARhythmTracks + MaxFMExtensionChannels + MaxRhythmTracks + MaxEffectTracks + MaxPPZ8Channels)
+#define MaxChannels             (MaxFMChannels + MaxSSGChannels + MaxADPCMTracks + MaxOPNARhythmTracks + MaxFMExtensionChannels + MaxRhythmTracks + MaxEffectTracks + MaxPPZChannels)
 
 #pragma warning(disable: 4820) // x bytes padding added after last data member
 
@@ -111,7 +111,7 @@ public:
     int32_t _FadeOutVolume;
 
     int32_t BarLength;                      // Time signature 4/4 = 96 (default); E.g. time signature 3/4 = 72
-    int32_t OpsCounter;                     // Position in the current bar
+    int32_t OpsCounter;                     // Shortest note counter
 
     int32_t _PCMBegin;
     int32_t _PCMEnd;

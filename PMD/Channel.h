@@ -1,5 +1,5 @@
 
-/** $VER: Channel.h (2026.01.06) Represents a sound source channel (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: Channel.h (2026.01.04) Represents a sound source channel (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -14,7 +14,7 @@ public:
 
     uint8_t _LoopCheck; // Used to check When a loop ends.
 
-    uint32_t _Factor;    // Current playing BLOCK/FNUM
+    uint32_t Factor;    // Current playing BLOCK/FNUM
 
     int16_t _DetuneValue;
 
@@ -63,7 +63,7 @@ public:
 
     int32_t VolumeBoost;    // bit 4: tone / bit 5: vol / bit 6: same period
 
-    int32_t _SSGEnvelopFlag; // -1 to extend
+    int32_t SSGEnvelopFlag; // -1 to extend
     int32_t ExtendedCount;  // None=0 AR=1 DR=2 SR=3 RR=4
 
     int32_t AttackDuration;
@@ -88,34 +88,34 @@ public:
     int32_t FMOperator4;
     int32_t _FMSlotMask;
 
-    int32_t _SSGMask;        // Tone / Noise / Mix
+    int32_t SSGMask;         // Tone / Noise / Mix
     int32_t InstrumentNumber;
 
-    int32_t _ToneMask;      // Maskdata for FM tone definition
+    int32_t _ToneMask;       // Maskdata for FM tone definition
 
-    int32_t _PartMask;      // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
-    int32_t _LFO1Mask;      // Volume LFO mask
-    int32_t _LFO2Mask;      // Volume LFO mask
+    int32_t PartMask;       // bit 0: Normal, bit 1: Sound effect, bit 2: For NECPCM
+    int32_t _LFO1Mask;    // Volume LFO mask
+    int32_t _LFO2Mask;    // Volume LFO mask
 
     // bit 3: none / bit 4: For PPZ/ADE / bit 5: s0 time / bit 6: m / bit 7: temporary
-    int32_t _KeyOnFlag;      // Set after processing new scale/rest data, inc
-    int32_t _KeyOffFlag;     // Flag indicating whether KeyOff has been performed
+    int32_t KeyOnFlag;      // Set after processing new scale/rest data, inc
+    int32_t KeyOffFlag;     // Flag indicating whether KeyOff has been performed
 
-    int32_t _Tone;           // High nibble = octave, low nibble = note, 0xFF = rest
-    int32_t _DefaultTone;
+    int32_t Tone;           // High nibble = octave, low nibble = note, 0xFF = rest
+    int32_t DefaultTone;
 
     int32_t _SlotDelay;
-    int32_t _FMSlotDelayCounter;
-    int32_t _FMSlotDelayMask;
+    int32_t _SlotDelayCounter;
+    int32_t SlotDelayMask;
 
     int32_t AlgorithmAndFeedbackLoops;
 
-    int32_t _GateTime;       // Calculated from q/Q value
+    int32_t GateTime;       // Calculated from q/Q value
 
-    int32_t _EarlyKeyOffTimeout1;
+    int32_t EarlyKeyOffTimeout;
     int32_t EarlyKeyOffTimeoutPercentage;
     int32_t EarlyKeyOffTimeoutRandomRange;
-    int32_t _EarlyKeyOffTimeout2;
+    int32_t EarlyKeyOffTimeout2;
 };
 
 #pragma warning(default: 4820) // x bytes padding added after last data member

@@ -33,7 +33,7 @@ int pmd_driver_t::SSGPCMSoftwareEnvelope(channel_t * channel)
 
 int pmd_driver_t::SSGPCMSoftwareEnvelopeMain(channel_t * channel)
 {
-    if (channel->_SSGEnvelopFlag == -1)
+    if (channel->SSGEnvelopFlag == -1)
         return ExtendedSSGPCMSoftwareEnvelopeMain(channel);
 
     int dl = channel->ExtendedAttackLevel;
@@ -48,19 +48,19 @@ int pmd_driver_t::SSGPCMSoftwareEnvelopeMain(channel_t * channel)
 
 int pmd_driver_t::SSGPCMSoftwareEnvelopeSub(channel_t * channel)
 {
-    if (channel->_SSGEnvelopFlag == 0)
+    if (channel->SSGEnvelopFlag == 0)
     {
         // Attack
         if (--channel->AttackDuration != 0)
             return 0;
 
-        channel->_SSGEnvelopFlag = 1;
+        channel->SSGEnvelopFlag = 1;
         channel->ExtendedAttackLevel = channel->DecayDepth;
 
         return 1;
     }
 
-    if (channel->_SSGEnvelopFlag != 2)
+    if (channel->SSGEnvelopFlag != 2)
     {
         // Decay
         if (channel->SustainRate == 0)

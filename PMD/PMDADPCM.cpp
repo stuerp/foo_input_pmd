@@ -22,18 +22,18 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
 
     channel->_Size--;
 
-    if (channel->_PartMask != 0x00)
+    if (channel->PartMask != 0x00)
     {
-        channel->_KeyOffFlag = -1;
+        channel->KeyOffFlag = -1;
     }
     else
-    if ((channel->_KeyOffFlag & 0x03) == 0)
+    if ((channel->KeyOffFlag & 0x03) == 0)
     {
-        if (channel->_Size <= channel->_GateTime)
+        if (channel->_Size <= channel->GateTime)
         {
             ADPCMKeyOff(channel);
 
-            channel->_KeyOffFlag = -1;
+            channel->KeyOffFlag = -1;
         }
     }
 
@@ -53,11 +53,11 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
                 channel->_Data = si;
                 channel->_LoopCheck = 0x03;
 
-                channel->_Tone = 0xFF;
+                channel->Tone = 0xFF;
 
                 if (channel->_LoopData == nullptr)
                 {
-                    if (channel->_PartMask != 0x00)
+                    if (channel->PartMask != 0x00)
                     {
                         _Driver._IsTieSet = false;
                         _Driver._VolumeBoostCount = 0;
@@ -86,15 +86,15 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
                     return;
                 }
                 else
-                if (channel->_PartMask != 0x00)
+                if (channel->PartMask != 0x00)
                 {
                     si++;
 
                     // Set to 'rest'.
-                    channel->_Factor = 0;
-                    channel->_Tone   = 0xFF;
+                    channel->Factor = 0;
+                    channel->Tone   = 0xFF;
                     channel->_Size = *si++;
-                    channel->_KeyOnFlag++;
+                    channel->KeyOnFlag++;
 
                     channel->_Data = si;
 
@@ -112,7 +112,7 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
 
                 si = CalculateQ(channel, si);
 
-                if ((channel->VolumeBoost != 0) && (channel->_Tone != 0xFF))
+                if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
                 {
                     if (--_Driver._VolumeBoostCount)
                     {
@@ -124,17 +124,17 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
                 ADPCMSetVolume(channel);
                 ADPCMSetPitch(channel);
 
-                if (channel->_KeyOffFlag & 0x01)
+                if (channel->KeyOffFlag & 0x01)
                     ADPCMKeyOn(channel);
 
-                channel->_KeyOnFlag++;
+                channel->KeyOnFlag++;
                 channel->_Data = si;
 
                 _Driver._IsTieSet = false;
                 _Driver._VolumeBoostCount = 0;
 
                 // Don't perform Key Off if a "&" command (Tie) follows immediately.
-                channel->_KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
+                channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
 
                 _Driver._LoopCheck &= channel->_LoopCheck;
 
@@ -203,7 +203,7 @@ uint8_t * pmd_driver_t::ADPCMExecuteCommand(channel_t * channel, uint8_t * si)
         // 4.12. Sound Cut Setting 1, Command 'Q [%] numerical value' / 4.13. Sound Cut Setting 2, Command 'q [number1][-[number2]] [,number3]' / Command 'q [l length[.]][-[l length]] [,l length[.]]'
         case 0xFE:
         {
-            channel->_EarlyKeyOffTimeout1 = *si++;
+            channel->EarlyKeyOffTimeout = *si++;
             break;
         }
 
@@ -295,7 +295,7 @@ uint8_t * pmd_driver_t::ADPCMExecuteCommand(channel_t * channel, uint8_t * si)
         // 2.25. PPZ8 Channel Extension, Extends the PPZ8 channels with the notated channels, Command '#PPZExtend notation1[notation2[notation3]... (up to 8)]]'
         case 0xB4:
         {
-            si = PPZ8Initialize(channel, si);
+            si = InitializePPZ(channel, si);
             break;
         }
 
@@ -321,7 +321,7 @@ void pmd_driver_t::ADPCMSetTone(channel_t * channel, int32_t tone)
 {
     if ((tone & 0x0F) != 0x0F)
     {
-        channel->_Tone = tone;
+        channel->Tone = tone;
 
         int32_t Block = tone & 0x0F;
 
@@ -342,20 +342,20 @@ void pmd_driver_t::ADPCMSetTone(channel_t * channel, int32_t tone)
                 ch = 0x60;
             }
 
-            channel->_Tone = (channel->_Tone & 0x0F) | ch;
+            channel->Tone = (channel->Tone & 0x0F) | ch;
         }
         else
             Factor >>= cl;
 
-        channel->_Factor = (uint32_t) Factor;
+        channel->Factor = (uint32_t) Factor;
     }
     else
     {
         // Rest
-        channel->_Tone = 0xFF;
+        channel->Tone = 0xFF;
 
         if ((channel->_HardwareLFO & 0x11) == 0)
-            channel->_Factor = 0; // Don't use LFO pitch.
+            channel->Factor = 0; // Don't use LFO pitch.
     }
 }
 
@@ -381,7 +381,7 @@ void pmd_driver_t::ADPCMSetVolume(channel_t * channel)
     }
 
     // Calculate envelope.
-    if (channel->_SSGEnvelopFlag == -1)
+    if (channel->SSGEnvelopFlag == -1)
     {
         // Extended version: Volume = al * (eenv_vol + 1) / 16
         if (channel->ExtendedAttackLevel == 0)
@@ -458,10 +458,10 @@ void pmd_driver_t::ADPCMSetVolume(channel_t * channel)
 /// </summary>
 void pmd_driver_t::ADPCMSetPitch(channel_t * channel)
 {
-    if (channel->_Factor == 0)
+    if (channel->Factor == 0)
         return;
 
-    int32_t Pitch = (int32_t) (channel->_Factor + channel->_Portamento);
+    int32_t Pitch = (int32_t) (channel->Factor + channel->_Portamento);
 
     {
         int32_t dx = (int32_t) (((channel->_HardwareLFO & 0x11) && (channel->_HardwareLFO & 0x01)) ? dx = channel->_LFO1Data : 0);
@@ -497,31 +497,31 @@ void pmd_driver_t::ADPCMSetPitch(channel_t * channel)
 /// </summary>
 void pmd_driver_t::ADPCMKeyOn(channel_t * channel)
 {
-    if (channel->_Tone == 0xFF)
+    if (channel->Tone == 0xFF)
         return;
 
-    _OPNAW->SetReg(0x101, 0x02); // Set ADPCM Control 2: PAN UNSET / x8 bit mode
-    _OPNAW->SetReg(0x100, 0x21); // Set ADPCM Control 1
+    _OPNAW->SetReg(0x101, 0x02);  // PAN=0 / x8 bit mode
+    _OPNAW->SetReg(0x100, 0x21);  // PCM RESET
 
-    _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_State._PCMBegin)); // Set ADPCM Start Address (Lo)
-    _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_State._PCMBegin)); // Set ADPCM Start Address (Hi)
-    _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State._PCMEnd));   // Set ADPCM Stop Address (Lo)
-    _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State._PCMEnd));   // Set ADPCM Stop Address (Hi)
+    _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_State._PCMBegin));
+    _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_State._PCMBegin));
+    _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State._PCMEnd));
+    _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State._PCMEnd));
 
     if ((_Driver._LoopBegin | _Driver._LoopEnd) == 0)
     {
-        _OPNAW->SetReg(0x100, 0xA0);                                    // Set ADPCM Control 1: PCM PLAY (non_repeat)
-        _OPNAW->SetReg(0x101, (uint32_t) (channel->_PanAndVolume | 2)); // Set ADPCM Control 2: PAN SET / x8 bit mode
+        _OPNAW->SetReg(0x100, 0xa0);  // PCM PLAY (non_repeat)
+        _OPNAW->SetReg(0x101, (uint32_t) (channel->_PanAndVolume | 2));  // PAN SET / x8 bit mode
     }
     else
     {
-        _OPNAW->SetReg(0x100, 0xB0);                                    // Set ADPCM Control 1: PCM PLAY (repeat)
-        _OPNAW->SetReg(0x101, (uint32_t) (channel->_PanAndVolume | 2)); // Set ADPCM Control 2: PAN SET / x8 bit mode
+        _OPNAW->SetReg(0x100, 0xb0);  // PCM PLAY (repeat)
+        _OPNAW->SetReg(0x101, (uint32_t) (channel->_PanAndVolume | 2));  // PAN SET / x8 bit mode
 
-        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver._LoopBegin));   // Set ADPCM Start Address (Lo)
-        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver._LoopBegin));   // Set ADPCM Start Address (Hi)
-        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_Driver._LoopEnd));     // Set ADPCM Stop Address (Lo)
-        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_Driver._LoopEnd));     // Set ADPCM Stop Address (Hi)
+        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver._LoopBegin));
+        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver._LoopBegin));
+        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_Driver._LoopEnd));
+        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_Driver._LoopEnd));
     }
 }
 
@@ -530,9 +530,9 @@ void pmd_driver_t::ADPCMKeyOn(channel_t * channel)
 /// </summary>
 void pmd_driver_t::ADPCMKeyOff(channel_t * channel)
 {
-    if (channel->_SSGEnvelopFlag != -1)
+    if (channel->SSGEnvelopFlag != -1)
     {
-        if (channel->_SSGEnvelopFlag == 2)
+        if (channel->SSGEnvelopFlag == 2)
             return;
     }
     else
@@ -543,17 +543,18 @@ void pmd_driver_t::ADPCMKeyOff(channel_t * channel)
 
     if (_Driver._LoopRelease != 0x8000)
     {
-        _OPNAW->SetReg(0x100, 0x21); // Set ADPCM Control 1
+        // PCM RESET
+        _OPNAW->SetReg(0x100, 0x21);
 
-        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver._LoopRelease)); // Set ADPCM Start Address (Lo)
-        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver._LoopRelease)); // Set ADPCM Start Address (Hi)
+        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver._LoopRelease));
+        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver._LoopRelease));
 
         // Stop ADDRESS for Release
-        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State._PCMEnd));       // Set ADPCM Stop Address (Lo)
-        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State._PCMEnd));       // Set ADPCM Stop Address (Hi)
+        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State._PCMEnd));
+        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State._PCMEnd));
 
         // PCM PLAY(non_repeat)
-        _OPNAW->SetReg(0x100, 0xA0); // Set ADPCM Control 1: PCM PLAY (Non-repeat)
+        _OPNAW->SetReg(0x100, 0xa0);
     }
 
     SSGKeyOff(channel);
@@ -607,14 +608,14 @@ uint8_t * pmd_driver_t::ADPCMSetPan2(channel_t * channel, uint8_t * si)
 /// </summary>
 uint8_t * pmd_driver_t::ADPCMSetPortamento(channel_t * channel, uint8_t * si)
 {
-    if (channel->_PartMask != 0x00)
+    if (channel->PartMask != 0x00)
     {
         // Set to 'rest'.
-        channel->_Factor = 0;
-        channel->_Tone   = 0xFF;
+        channel->Factor = 0;
+        channel->Tone   = 0xFF;
         channel->_Size = si[2];
         channel->_Data   = si + 3;
-        channel->_KeyOnFlag++;
+        channel->KeyOnFlag++;
 
         if (--_Driver._VolumeBoostCount)
             channel->VolumeBoost = 0;
@@ -629,15 +630,15 @@ uint8_t * pmd_driver_t::ADPCMSetPortamento(channel_t * channel, uint8_t * si)
 
     ADPCMSetTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
 
-    int32_t bx_ = (int32_t) channel->_Factor;
-    int32_t al_ = (int32_t) channel->_Tone;
+    int32_t bx_ = (int32_t) channel->Factor;
+    int32_t al_ = (int32_t) channel->Tone;
 
     ADPCMSetTone(channel, Transpose(channel, *si++));
 
-    int32_t ax = (int32_t) channel->_Factor;
+    int32_t ax = (int32_t) channel->Factor;
 
-    channel->_Tone = al_;
-    channel->_Factor = (uint32_t) bx_;
+    channel->Tone = al_;
+    channel->Factor = (uint32_t) bx_;
 
     ax -= bx_;
 
@@ -649,7 +650,7 @@ uint8_t * pmd_driver_t::ADPCMSetPortamento(channel_t * channel, uint8_t * si)
     channel->_PortamentoRemainder = ax % channel->_Size;
     channel->_HardwareLFO |= 0x08; // Enable portamento.
 
-    if ((channel->VolumeBoost != 0) && (channel->_Tone != 0xFF))
+    if ((channel->VolumeBoost != 0) && (channel->Tone != 0xFF))
     {
         if (--_Driver._VolumeBoostCount)
         {
@@ -662,17 +663,17 @@ uint8_t * pmd_driver_t::ADPCMSetPortamento(channel_t * channel, uint8_t * si)
     ADPCMSetVolume(channel);
     ADPCMSetPitch(channel);
 
-    if (channel->_KeyOffFlag & 0x01)
+    if (channel->KeyOffFlag & 0x01)
         ADPCMKeyOn(channel);
 
-    channel->_KeyOnFlag++;
+    channel->KeyOnFlag++;
     channel->_Data = si;
 
     _Driver._IsTieSet = false;
     _Driver._VolumeBoostCount = 0;
 
     // Don't perform Key Off if a "&" command (Tie) follows immediately.
-    channel->_KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
+    channel->KeyOffFlag = (*si == 0xFB) ? 0x02 : 0x00;
 
     _Driver._LoopCheck &= channel->_LoopCheck;
 
@@ -729,19 +730,19 @@ uint8_t * pmd_driver_t::ADPCMSetChannelMask(channel_t * channel, uint8_t * si) n
     {
         if (Value < 2)
         {
-            channel->_PartMask |= 0x40;
+            channel->PartMask |= 0x40;
 
-            if (channel->_PartMask == 0x40)
+            if (channel->PartMask == 0x40)
             {
-                _OPNAW->SetReg(0x101, 0x02); // Set ADPCM Control 2: PAN UNSET / x8 bit mode
-                _OPNAW->SetReg(0x100, 0x01); // Set ADPCM Control 1
+                _OPNAW->SetReg(0x101, 0x02);    // PAN=0 / x8 bit mode
+                _OPNAW->SetReg(0x100, 0x01);    // PCM RESET
             }
         }
         else
             si = SpecialC0ProcessingCommand(channel, si, Value);
     }
     else
-        channel->_PartMask &= 0xBF;
+        channel->PartMask &= 0xBF;
 
     return si;
 }

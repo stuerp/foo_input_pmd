@@ -43,7 +43,7 @@ const int ChannelTable[][3] =
 };
 
 // FM Scale Factor
-const int _FMScaleFactor[] =
+const int FMScaleFactor[] =
 {
     0x026a, // C
     0x028f, // D-

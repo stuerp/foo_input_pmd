@@ -1,5 +1,5 @@
 
-/** $VER: P86.h (2026.01.07) PMD's internal 86PCM driver for the PC-98's 86 soundboard / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60 **/
+/** $VER: P86.h (2026.01.03) PMD's internal 86PCM driver for the PC-98's 86 soundboard / Programmed by M.Kajihara 96/01/16 / Windows Converted by C60 **/
 
 #pragma once
 
@@ -43,12 +43,12 @@ const size_t P86FILEHEADERSIZE = (sizeof(char) * 12) + sizeof(uint8_t) + (sizeof
 struct P86HEADER
 {
     char Id[12]; // "PCM86 DATA",0,0
-    int32_t Version;
-    int32_t Size;
+    int Version;
+    int Size;
     struct
     {
-        int32_t Offset;
-        int32_t Size;
+        int Offset;
+        int Size;
     } P86Item[MAX_P86];
 };
 
