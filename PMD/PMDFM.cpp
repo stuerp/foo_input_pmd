@@ -151,15 +151,15 @@ void pmd_driver_t::FMMain(channel_t * channel) noexcept
     if (channel->PartMask == 0x00)
     {
         // Finish with LFO & Portament & Fadeout processing
-        if (channel->_HardwareLFODelayCounter)
+        if (channel->HardwareLFODelayCounter)
         {
-            if (--channel->_HardwareLFODelayCounter == 0)
+            if (--channel->HardwareLFODelayCounter == 0)
                 _OPNAW->SetReg((uint32_t) (_Driver._FMSelector + 0xB4 + (_Driver._CurrentChannel - 1)), (uint32_t) channel->_PanAndVolume);
         }
 
-        if (channel->_SlotDelayCounter != 0)
+        if (channel->SlotDelayCounter != 0)
         {
-            if (--channel->_SlotDelayCounter == 0)
+            if (--channel->SlotDelayCounter == 0)
             {
                 if ((channel->KeyOffFlag & 0x01) == 0)
                     FMKeyOn(channel);
@@ -314,14 +314,14 @@ uint8_t * pmd_driver_t::FMExecuteCommand(channel_t * channel, uint8_t * si)
         // 9.10. Hardware LFO Speed/Delay Setting, Command 'H number1[, number2]'
         case 0xE1:
         {
-            si = SetHardwareLFO_PMS_AMS(channel, si);
+            si = SetHardwareLFOCommand(channel, si);
             break;
         }
 
         // 9.11. Hardware LFO Switch/Depth Setting (OPNA), Command "# number1, [number2]": Sets the hardware LFO on (1) or off (0). (OPNA FM sound source only). Number2 = depth. Can be omitted only when switch is 0.
         case 0xE0:
         {
-            _OPNAW->SetReg(0x22, *si++); // Set LFO frequency Control (0: 3.98 Hz, 1: 5.56 Hz, 2: 6.02 Hz, 3: 6.37 Hz, 4: 6.88 Hz, 5: 9.63 Hz, 6: 48.1 Hz, 7: 72.2 Hz)
+            _OPNAW->SetReg(0x22, *si++);
             break;
         }
 
@@ -426,8 +426,8 @@ uint8_t * pmd_driver_t::FMExecuteCommand(channel_t * channel, uint8_t * si)
         case 0xB5:
         {
             channel->SlotDelayMask = (~(*si++) << 4) & 0xF0;
-            channel->_SlotDelayCounter =
-            channel->_SlotDelay = *si++;
+            channel->SlotDelayCounter =
+            channel->SlotDelay = *si++;
             break;
         }
 
@@ -572,7 +572,7 @@ void pmd_driver_t::SetFMVolumeCommand(channel_t * channel)
             bl &= channel->_FMSlotMask;
             bh |= bl;
 
-            CalcFMLFO(channel, channel->_LFO2Data, bl, SlotVolume);
+            CalcFMLFO(channel, channel->LFO2Data, bl, SlotVolume);
         }
     }
 
@@ -606,7 +606,7 @@ void pmd_driver_t::SetFMPitch(channel_t * channel)
             Pitch += channel->_LFO1Data;
 
         if (channel->_HardwareLFO & 0x10)
-            Pitch += channel->_LFO2Data;
+            Pitch += channel->LFO2Data;
 
         CalcFMBlock(&Block, &Pitch);
 
@@ -629,7 +629,7 @@ void pmd_driver_t::FMKeyOn(channel_t * channel)
     {
         int al = _Driver.omote_key[_Driver._CurrentChannel - 1] | channel->_FMSlotMask;
 
-        if (channel->_SlotDelayCounter)
+        if (channel->SlotDelayCounter)
             al &= channel->SlotDelayMask;
 
         _Driver.omote_key[_Driver._CurrentChannel - 1] = al;
@@ -639,7 +639,7 @@ void pmd_driver_t::FMKeyOn(channel_t * channel)
     {
         int al = _Driver.ura_key[_Driver._CurrentChannel - 1] | channel->_FMSlotMask;
 
-        if (channel->_SlotDelayCounter)
+        if (channel->SlotDelayCounter)
             al &= channel->SlotDelayMask;
 
         _Driver.ura_key[_Driver._CurrentChannel - 1] = al;
@@ -842,8 +842,8 @@ uint8_t * pmd_driver_t::SetFMPortamentoCommand(channel_t * channel, uint8_t * si
 
     si = CalculateQ(channel, si);
 
-    channel->_PortamentoQuotient  = ax / channel->_Size;
-    channel->_PortamentoRemainder = ax % channel->_Size;
+    channel->PortamentoQuotient  = ax / channel->_Size;
+    channel->PortamentoRemainder = ax % channel->_Size;
 
     channel->_HardwareLFO |= 0x08; // Enable portamento.
 
@@ -1014,9 +1014,9 @@ uint8_t * pmd_driver_t::SetFMSlotCommand(channel_t * channel, uint8_t * si)
 }
 
 /// <summary>
-/// 9.10. Hardware LFO Speed/Delay Setting, Sets PMS and AMS of hardware LFO. (OPNA/OPM FM sound source only), Command 'H number1[,number2]', PMS: 0 - 7 / AMS: 0 - 3
+/// Sets the hardware LFO AM/FM value.
 /// </summary>
-uint8_t * pmd_driver_t::SetHardwareLFO_PMS_AMS(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::SetHardwareLFOCommand(channel_t * channel, uint8_t * si)
 {
     channel->_PanAndVolume = (channel->_PanAndVolume & 0xC0) | *si++;
 
@@ -1504,7 +1504,7 @@ void pmd_driver_t::InitializeFMInstrument(channel_t * channel, int instrumentNum
     }
 
     {
-        // Amplitude Modulation Set (AMS) / Decay Rate (dr)
+        // Amplitude Modulation Set (ams) / Decay Rate (dr)
         instrumentNumber = *Data++;
         if (al & 0x80) _OPNAW->SetReg(Register, (uint32_t) instrumentNumber);
         Register += 4;
@@ -1681,10 +1681,10 @@ void pmd_driver_t::InitializeFMChannel3(channel_t * channel, uint8_t * ax)
     channel->_Data = ax;
     channel->_Size = 1;
     channel->KeyOffFlag = -1;
-    channel->_LFO1DepthSpeed1 = -1; // Infinity
-    channel->_LFO1DepthSpeed2 = -1; // Infinity
-    channel->_LFO2DepthSpeed1 = -1; // Infinity
-    channel->_LFO2DepthSpeed2 = -1; // Infinity
+    channel->_LFO1MDepthCount1 = -1; // Infinity
+    channel->_LFO1MDepthCount2 = -1; // Infinity
+    channel->LFO2MDepthCount1 = -1; // Infinity
+    channel->LFO2MDepthCount2 = -1; // Infinity
     channel->Tone = 0xFF;           // Rest
     channel->DefaultTone = 0xFF;    // Rest
     channel->_Volume = 108;
@@ -1790,7 +1790,7 @@ void pmd_driver_t::SpecialFM3Processing(channel_t * channel, int ax, int cx)
         ax += _State.FMSlot4Detune;
 
         if ((bh & shiftmask) && (channel->_HardwareLFO & 0x01))  ax += channel->_LFO1Data;
-        if ((ch & shiftmask) && (channel->_HardwareLFO & 0x10))  ax += channel->_LFO2Data;
+        if ((ch & shiftmask) && (channel->_HardwareLFO & 0x10))  ax += channel->LFO2Data;
         shiftmask >>= 1;
 
         cx = si;
@@ -1812,7 +1812,7 @@ void pmd_driver_t::SpecialFM3Processing(channel_t * channel, int ax, int cx)
         ax += _State.FMSlot3Detune;
 
         if ((bh & shiftmask) && (channel->_HardwareLFO & 0x01))  ax += channel->_LFO1Data;
-        if ((ch & shiftmask) && (channel->_HardwareLFO & 0x10))  ax += channel->_LFO2Data;
+        if ((ch & shiftmask) && (channel->_HardwareLFO & 0x10))  ax += channel->LFO2Data;
         shiftmask >>= 1;
 
         cx = si;
@@ -1837,7 +1837,7 @@ void pmd_driver_t::SpecialFM3Processing(channel_t * channel, int ax, int cx)
             ax += channel->_LFO1Data;
 
         if ((ch & shiftmask) && (channel->_HardwareLFO & 0x10))
-            ax += channel->_LFO2Data;
+            ax += channel->LFO2Data;
 
         shiftmask >>= 1;
 
@@ -1863,7 +1863,7 @@ void pmd_driver_t::SpecialFM3Processing(channel_t * channel, int ax, int cx)
             ax += channel->_LFO1Data;
 
         if ((ch & shiftmask) && (channel->_HardwareLFO & 0x10))
-            ax += channel->_LFO2Data;
+            ax += channel->LFO2Data;
 
         cx = si;
 
@@ -1936,7 +1936,7 @@ uint8_t pmd_driver_t::CalcPanOut(channel_t * channel)
 {
     int  dl = channel->_PanAndVolume;
 
-    if (channel->_HardwareLFODelayCounter)
+    if (channel->HardwareLFODelayCounter)
         dl &= 0xC0; // If HLFO Delay remains, set only pan.
 
     return (uint8_t) dl;

@@ -19,43 +19,38 @@ public:
     int16_t _DetuneValue;
 
     int32_t _HardwareLFO;  // bit 0: Tone, bit 1: Volume, bit 2: Same period, bit 3: Portamento
-    int32_t _HardwareLFODelay;
-    int32_t _HardwareLFODelayCounter;
-
     int32_t _ExtendMode; // bit 1: Detune, bit 2: LFO, bit 3: Env Normal/Extend
 
     // LFO 1
     int32_t _LFO1Data;
     int32_t _LFO1Waveform;
 
-    int32_t _LFO1DelayCounter, _LFO1Delay;
-    int32_t _LFO1SpeedCounter, _LFO1Speed;
-    int32_t _LFO1StepCounter, _LFO1Step;
-    int32_t _LFO1TimeCounter, _LFO1Time;
+    int32_t _LFO1Delay1, _LFO1Delay2;
+    int32_t _LFO1Speed1, _LFO1Speed2;
+    int32_t _LFO1Step1, _LFO1Step2;
+    int32_t _LFO1Time1, _LFO1Time2;
 
-    /* Temporal Change of Depth */
-    int32_t _LFO1Depth;
-    int32_t _LFO1DepthSpeedCounter1, _LFO1DepthSpeed1;
-    int32_t _LFO1DepthSpeedCounter2, _LFO1DepthSpeed2;
+    int32_t _LFO1MDepth;
+    int32_t _LFO1MDepthSpeed1, _LFO1MDepthSpeed2;
+    int32_t _LFO1MDepthCount1, _LFO1MDepthCount2;
 
     // LFO 2
-    int32_t _LFO2Data;
-    int32_t _LFO2Waveform;
+    int32_t LFO2Data;
+    int32_t LFO2Waveform;
 
-    int32_t _LFO2DelayCounter, _LFO2Delay;
-    int32_t _LFO2SpeedCounter, _LFO2Speed;
-    int32_t _LFO2StepCounter, _LFO2Step;
-    int32_t _LFO2TimeCounter, _LFO2Time;
+    int32_t LFO2Delay1, LFO2Delay2;
+    int32_t LFO2Speed1, LFO2Speed2;
+    int32_t LFO2Step1, LFO2Step2;
+    int32_t LFO2Time1, LFO2Time2;
 
-    /* Temporal Change of Depth */
-    int32_t _LFO2Depth;
-    int32_t _LFO2DepthSpeedCounter1, _LFO2DepthSpeed1;
-    int32_t _LFO2DepthSpeedCounter2, _LFO2DepthSpeed2;
+    int32_t LFO2MDepth;
+    int32_t LFO2MDepthSpeed1, LFO2MDepthSpeed2;
+    int32_t LFO2MDepthCount1, LFO2MDepthCount2;
 
     // Portamento
     int32_t _Portamento;
-    int32_t _PortamentoQuotient;
-    int32_t _PortamentoRemainder;
+    int32_t PortamentoQuotient;
+    int32_t PortamentoRemainder;
 
     int32_t _Volume;
     int32_t Transposition1;
@@ -101,11 +96,14 @@ public:
     int32_t KeyOnFlag;      // Set after processing new scale/rest data, inc
     int32_t KeyOffFlag;     // Flag indicating whether KeyOff has been performed
 
+    int32_t _HardwareLFODelay;
+    int32_t HardwareLFODelayCounter;
+
     int32_t Tone;           // High nibble = octave, low nibble = note, 0xFF = rest
     int32_t DefaultTone;
 
-    int32_t _SlotDelay;
-    int32_t _SlotDelayCounter;
+    int32_t SlotDelay;
+    int32_t SlotDelayCounter;
     int32_t SlotDelayMask;
 
     int32_t AlgorithmAndFeedbackLoops;

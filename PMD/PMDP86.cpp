@@ -414,7 +414,7 @@ void pmd_driver_t::P86SetVolume(channel_t * channel)
     int dx = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
 
     if (channel->_HardwareLFO & 0x20)
-        dx += channel->_LFO2Data;
+        dx += channel->LFO2Data;
 
     if (dx >= 0)
     {
