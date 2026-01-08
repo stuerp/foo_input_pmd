@@ -1,11 +1,11 @@
 
-/** $VER: Configuration.h (2023.10.18) **/
+/** $VER: Configuration.h (2026.01.03) **/
 
 #pragma once
 
 #include "State.h"
 
-#include <sdk/cfg_var.h>
+#include <sdk\cfg_var.h>
 
 enum PlaybackModes
 {

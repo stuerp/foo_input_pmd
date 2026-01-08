@@ -1,5 +1,5 @@
 
-/** $VER: PMDADPCM.cpp (2026.01.07) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: PMDPPZ8.cpp (2026.01.07) PMD driver (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <pch.h>
 
@@ -11,9 +11,9 @@
 #include "OPNAW.h"
 
 /// <summary>
-/// Main ADPCM processing
+/// Main PPZ8 processing
 /// </summary>
-void pmd_driver_t::ADPCMMain(channel_t * channel)
+void pmd_driver_t::PPZ8Main(channel_t * channel)
 {
     if (channel->_Data == nullptr)
         return;
@@ -31,7 +31,7 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
     {
         if (channel->_Size <= channel->_GateTime)
         {
-            ADPCMKeyOff(channel);
+            PPZ8KeyOff(channel);
 
             channel->_KeyOffFlag = -1;
         }
@@ -45,15 +45,15 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
         {
             if ((*si != 0xDA) && (*si > 0x80))
             {
-                si = ADPCMExecuteCommand(channel, si);
+                si = PPZ8ExecuteCommand(channel, si);
             }
             else
             if (*si == 0x80)
             {
                 channel->_Data = si;
-                channel->_LoopCheck = 0x03;
-
                 channel->_Tone = 0xFF;
+
+                channel->_LoopCheck = 0x03;
 
                 if (channel->_LoopData == nullptr)
                 {
@@ -79,7 +79,7 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
             {
                 if (*si == 0xDA)
                 {
-                    si = ADPCMSetPortamento(channel, ++si);
+                    si = PPZ8SetPortamento(channel, ++si);
 
                     _Driver._LoopCheck &= channel->_LoopCheck;
 
@@ -91,9 +91,10 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
                     si++;
 
                     // Set to 'rest'.
-                    channel->_Factor = 0;
-                    channel->_Tone   = 0xFF;
-                    channel->_Size = *si++;
+                    channel->_Factor      = 0;
+                    channel->_Tone        = 0xFF;
+//                  channel->DefaultTone = 0xFF;
+                    channel->_Size       = *si++;
                     channel->_KeyOnFlag++;
 
                     channel->_Data = si;
@@ -106,7 +107,7 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
                     break;
                 }
 
-                ADPCMSetTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
+                PPZ8SetTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
 
                 channel->_Size = *si++;
 
@@ -121,11 +122,11 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
                     }
                 }
 
-                ADPCMSetVolume(channel);
-                ADPCMSetPitch(channel);
+                PPZ8SetVolume(channel);
+                PPZ8SetPitch(channel);
 
                 if (channel->_KeyOffFlag & 0x01)
-                    ADPCMKeyOn(channel);
+                    PPZ8KeyOn(channel);
 
                 channel->_KeyOnFlag++;
                 channel->_Data = si;
@@ -172,22 +173,19 @@ void pmd_driver_t::ADPCMMain(channel_t * channel)
             if (_Driver._HardwareLFOModulationMode & 0x08)
                 CalculatePortamento(channel);
 
-            ADPCMSetPitch(channel);
+            PPZ8SetPitch(channel);
         }
     }
 
     int32_t temp = SSGPCMSoftwareEnvelope(channel);
 
-    if ((temp != 0) || _Driver._HardwareLFOModulationMode & 0x22 || (_State._FadeOutSpeed != 0))
-        ADPCMSetVolume(channel);
+    if (temp || _Driver._HardwareLFOModulationMode & 0x22 || _State._FadeOutSpeed)
+        PPZ8SetVolume(channel);
 
     _Driver._LoopCheck &= channel->_LoopCheck;
 }
 
-/// <summary>
-/// Executes a command.
-/// </summary>
-uint8_t * pmd_driver_t::ADPCMExecuteCommand(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::PPZ8ExecuteCommand(channel_t * channel, uint8_t * si)
 {
     const uint8_t Command = *si++;
 
@@ -196,7 +194,7 @@ uint8_t * pmd_driver_t::ADPCMExecuteCommand(channel_t * channel, uint8_t * si)
         // 6.1. Instrument Number Setting, Command '@[@] insnum' / Command '@[@] insnum[,number1[,number2[,number3]]]'
         case 0xFF:
         {
-            si = ADPCMSetInstrument(channel, si);
+            si = PPZ8SetInstrument(channel, si);
             break;
         }
 
@@ -210,7 +208,7 @@ uint8_t * pmd_driver_t::ADPCMExecuteCommand(channel_t * channel, uint8_t * si)
         // 15.1. FM Chip Direct Output, Direct register write. Writes val to address reg of the YM2608's internal memory, Command 'y number1, number2'
         case 0xEF:
         {
-            _OPNAW->SetReg((uint32_t) (0x100 + si[0]), si[1]);
+            _OPNAW->SetReg((uint32_t) (_Driver._FMSelector + si[0]), si[1]);
             si += 2;
             break;
         }
@@ -220,7 +218,7 @@ uint8_t * pmd_driver_t::ADPCMExecuteCommand(channel_t * channel, uint8_t * si)
 
         // 13.1. Pan setting 1
         case 0xEC:
-            si = ADPCMSetPan1(channel, si);
+            si = PPZ8SetPan1(channel, si);
             break;
 
         // 5.5. Relative Volume Change, Command ') %number'
@@ -253,14 +251,14 @@ uint8_t * pmd_driver_t::ADPCMExecuteCommand(channel_t * channel, uint8_t * si)
         // 4.3. Portamento Setting
         case 0xDA:
         {
-            si = ADPCMSetPortamento(channel, si);
+            si = PPZ8SetPortamento(channel, si);
             break;
         }
 
         // 6.1.5. Instrument Number Setting/PCM Channels Case, Set PCM Repeat.
         case 0xCE:
         {
-            si = ADPCMSetRepeat(channel, si);
+            si = PPZ8SetRepeat(channel, si);
             break;
         }
 
@@ -274,14 +272,14 @@ uint8_t * pmd_driver_t::ADPCMExecuteCommand(channel_t * channel, uint8_t * si)
         // 13.2. Pan Setting 2
         case 0xC3:
         {
-            si = ADPCMSetPan2(channel, si);
+            si = PPZ8SetPan2(channel, si);
             break;
         }
 
         // 15.7. Channel Mask Control, Sets the channel mask to on or off, Command 'm number'
         case 0xC0:
         {
-            si = ADPCMSetChannelMask(channel, si);
+            si = PPZ8SethannelMask(channel, si);
             break;
         }
 
@@ -292,13 +290,6 @@ uint8_t * pmd_driver_t::ADPCMExecuteCommand(channel_t * channel, uint8_t * si)
             break;
         }
 
-        // 2.25. PPZ8 Channel Extension, Extends the PPZ8 channels with the notated channels, Command '#PPZExtend notation1[notation2[notation3]... (up to 8)]]'
-        case 0xB4:
-        {
-            si = PPZ8Initialize(channel, si);
-            break;
-        }
-
         default:
             si = ExecuteCommand(channel, si, Command);
     }
@@ -306,10 +297,11 @@ uint8_t * pmd_driver_t::ADPCMExecuteCommand(channel_t * channel, uint8_t * si)
     return si;
 }
 
+#pragma region(Commands)
 /// <summary>
 ///
 /// </summary>
-void pmd_driver_t::ADPCMSetTone(channel_t * channel, int32_t tone)
+void pmd_driver_t::PPZ8SetTone(channel_t * channel, int tone)
 {
     if ((tone & 0x0F) != 0x0F)
     {
@@ -317,29 +309,19 @@ void pmd_driver_t::ADPCMSetTone(channel_t * channel, int32_t tone)
 
         int32_t Block = tone & 0x0F;
 
-        int32_t ch = (tone >> 4) & 0x0F;
-        int32_t cl = ch;
+        int32_t cl = (tone >> 4) & 0x0F;
 
-        cl = (cl > 5) ? 0 : 5 - cl;
+        uint32_t Factor = (uint32_t) PPZScaleFactor[Block];
 
-        int32_t Factor = PCMScaleFactor[Block];
-
-        if (ch >= 6)
+        if ((cl -= 4) < 0)
         {
-            ch = 0x50;
-
-            if (Factor < 0x8000)
-            {
-                Factor *= 2;
-                ch = 0x60;
-            }
-
-            channel->_Tone = (channel->_Tone & 0x0F) | ch;
+            cl = -cl;
+            Factor >>= cl;
         }
         else
-            Factor >>= cl;
+            Factor <<= cl;
 
-        channel->_Factor = (uint32_t) Factor;
+        channel->_Factor = Factor;
     }
     else
     {
@@ -354,20 +336,21 @@ void pmd_driver_t::ADPCMSetTone(channel_t * channel, int32_t tone)
 /// <summary>
 ///
 /// </summary>
-void pmd_driver_t::ADPCMSetVolume(channel_t * channel)
+void pmd_driver_t::PPZ8SetVolume(channel_t * channel)
 {
     int32_t al = channel->VolumeBoost ? channel->VolumeBoost : channel->_Volume;
 
     // Calculate volume down.
-    al = ((256 - _State._ADPCMVolumeAdjust) * al) >> 8;
+    al = ((256 - _State._PPZ8VolumeAdjust) * al) >> 8;
 
     // Calculate fade out.
-    if (_State._FadeOutVolume)
-        al = (((256 - _State._FadeOutVolume) * (256 - _State._FadeOutVolume) >> 8) * al) >> 8;
+    if (_State._FadeOutVolume != 0)
+        al = ((256 - _State._FadeOutVolume) * al) >> 8;
 
     if (al == 0)
     {
-        _OPNAW->SetReg(0x10b, 0);
+        _PPZ8->SetVolume((size_t) _Driver._CurrentChannel, 0);
+        _PPZ8->Stop((size_t) _Driver._CurrentChannel);
 
         return;
     }
@@ -378,7 +361,8 @@ void pmd_driver_t::ADPCMSetVolume(channel_t * channel)
         // Extended version: Volume = al * (eenv_vol + 1) / 16
         if (channel->ExtendedAttackLevel == 0)
         {
-            _OPNAW->SetReg(0x10b, 0);
+        //  _PPZ->SetVol((Size_t) _Driver._CurrentChannel, 0);
+            _PPZ8->Stop((size_t) _Driver._CurrentChannel);
 
             return;
         }
@@ -394,7 +378,8 @@ void pmd_driver_t::ADPCMSetVolume(channel_t * channel)
 
             if (al < ah)
             {
-                _OPNAW->SetReg(0x10b, 0);
+            //  _PPZ->SetVol((Size_t) _Driver._CurrentChannel, 0);
+                _PPZ8->Stop((size_t) _Driver._CurrentChannel);
 
                 return;
             }
@@ -412,115 +397,80 @@ void pmd_driver_t::ADPCMSetVolume(channel_t * channel)
         }
     }
 
-    if ((channel->_HardwareLFO & 0x22) == 0)
-    {
-        _OPNAW->SetReg(0x10b, (uint32_t) al);
-
-        return;
-    }
-
     // Calculate the LFO volume.
-    int32_t dx = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
-
-    if (channel->_HardwareLFO & 0x20)
-        dx += channel->_LFO2Data;
-
-    if (dx >= 0)
+    if ((channel->_HardwareLFO & 0x22))
     {
-        al += dx;
+        int32_t dx = (channel->_HardwareLFO & 0x02) ? channel->_LFO1Data : 0;
 
-        if (al & 0xff00)
-            _OPNAW->SetReg(0x10b, 255);
-        else
-            _OPNAW->SetReg(0x10b, (uint32_t) al);
-    }
-    else
-    {
-        al += dx;
-
-        if (al < 0)
-            _OPNAW->SetReg(0x10b, 0);
-        else
-            _OPNAW->SetReg(0x10b, (uint32_t) al);
-    }
-}
-
-/// <summary>
-///
-/// </summary>
-void pmd_driver_t::ADPCMSetPitch(channel_t * channel)
-{
-    if (channel->_Factor == 0)
-        return;
-
-    int32_t Pitch = (int32_t) (channel->_Factor + channel->_Portamento);
-
-    {
-        int32_t dx = (int32_t) (((channel->_HardwareLFO & 0x11) && (channel->_HardwareLFO & 0x01)) ? dx = channel->_LFO1Data : 0);
-
-        if (channel->_HardwareLFO & 0x10)
+        if (channel->_HardwareLFO & 0x20)
             dx += channel->_LFO2Data;
 
-        dx *= 4;
-        dx += channel->_DetuneValue;
+        al += dx;
 
         if (dx >= 0)
         {
-            Pitch += dx;
-
-            if (Pitch > 0xffff)
-                Pitch = 0xffff;
+            if (al & 0xff00)
+                al = 255;
         }
         else
         {
-            Pitch += dx;
-
-            if (Pitch < 0)
-                Pitch = 0;
+            if (al < 0)
+                al = 0;
         }
     }
 
-    _OPNAW->SetReg(0x109, (uint32_t) LOBYTE(Pitch));
-    _OPNAW->SetReg(0x10a, (uint32_t) HIBYTE(Pitch));
+    if (al != 0)
+        _PPZ8->SetVolume((size_t) _Driver._CurrentChannel, al >> 4);
+    else
+        _PPZ8->Stop((size_t) _Driver._CurrentChannel);
 }
 
 /// <summary>
 ///
 /// </summary>
-void pmd_driver_t::ADPCMKeyOn(channel_t * channel)
+void pmd_driver_t::PPZ8SetPitch(channel_t * channel)
+{
+    uint32_t Pitch = channel->_Factor;
+
+    if (Pitch == 0)
+        return;
+
+    Pitch += channel->_Portamento * 16;
+
+    {
+        int32_t ax = (channel->_HardwareLFO & 0x01) ? channel->_LFO1Data : 0;
+
+        if (channel->_HardwareLFO & 0x10)
+            ax += channel->_LFO2Data;
+
+        ax += channel->_DetuneValue;
+
+        int64_t cx = Pitch + ((int64_t) Pitch) / 256 * ax;
+
+        Pitch = (uint32_t) std::clamp(cx, (int64_t) 0, (int64_t) 0xFFFFFFFF);
+    }
+
+    _PPZ8->SetPitch((size_t) _Driver._CurrentChannel, Pitch);
+}
+
+/// <summary>
+///
+/// </summary>
+void pmd_driver_t::PPZ8KeyOn(channel_t * channel)
 {
     if (channel->_Tone == 0xFF)
         return;
 
-    _OPNAW->SetReg(0x101, 0x02); // Set ADPCM Control 2: PAN UNSET / x8 bit mode
-    _OPNAW->SetReg(0x100, 0x21); // Set ADPCM Control 1
-
-    _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_State._PCMBegin)); // Set ADPCM Start Address (Lo)
-    _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_State._PCMBegin)); // Set ADPCM Start Address (Hi)
-    _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State._PCMEnd));   // Set ADPCM Stop Address (Lo)
-    _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State._PCMEnd));   // Set ADPCM Stop Address (Hi)
-
-    if ((_Driver._LoopBegin | _Driver._LoopEnd) == 0)
-    {
-        _OPNAW->SetReg(0x100, 0xA0);                                    // Set ADPCM Control 1: PCM PLAY (non_repeat)
-        _OPNAW->SetReg(0x101, (uint32_t) (channel->_PanAndVolume | 2)); // Set ADPCM Control 2: PAN SET / x8 bit mode
-    }
+    if ((channel->InstrumentNumber & 0x80) == 0)
+        _PPZ8->Play((size_t) _Driver._CurrentChannel, 0, channel->InstrumentNumber,        0, 0);
     else
-    {
-        _OPNAW->SetReg(0x100, 0xB0);                                    // Set ADPCM Control 1: PCM PLAY (repeat)
-        _OPNAW->SetReg(0x101, (uint32_t) (channel->_PanAndVolume | 2)); // Set ADPCM Control 2: PAN SET / x8 bit mode
-
-        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver._LoopBegin));   // Set ADPCM Start Address (Lo)
-        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver._LoopBegin));   // Set ADPCM Start Address (Hi)
-        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_Driver._LoopEnd));     // Set ADPCM Stop Address (Lo)
-        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_Driver._LoopEnd));     // Set ADPCM Stop Address (Hi)
-    }
+        _PPZ8->Play((size_t) _Driver._CurrentChannel, 1, channel->InstrumentNumber & 0x7F, 0, 0);
 }
 
 /// <summary>
 ///
 /// </summary>
-void pmd_driver_t::ADPCMKeyOff(channel_t * channel)
+void pmd_driver_t::PPZ8KeyOff(channel_t * channel)
 {
     if (channel->_SSGEnvelopFlag != -1)
     {
@@ -533,37 +483,20 @@ void pmd_driver_t::ADPCMKeyOff(channel_t * channel)
             return;
     }
 
-    if (_Driver._LoopRelease != 0x8000)
-    {
-        _OPNAW->SetReg(0x100, 0x21); // Set ADPCM Control 1
-
-        _OPNAW->SetReg(0x102, (uint32_t) LOBYTE(_Driver._LoopRelease)); // Set ADPCM Start Address (Lo)
-        _OPNAW->SetReg(0x103, (uint32_t) HIBYTE(_Driver._LoopRelease)); // Set ADPCM Start Address (Hi)
-
-        // Stop ADDRESS for Release
-        _OPNAW->SetReg(0x104, (uint32_t) LOBYTE(_State._PCMEnd));       // Set ADPCM Stop Address (Lo)
-        _OPNAW->SetReg(0x105, (uint32_t) HIBYTE(_State._PCMEnd));       // Set ADPCM Stop Address (Hi)
-
-        // PCM PLAY(non_repeat)
-        _OPNAW->SetReg(0x100, 0xA0); // Set ADPCM Control 1: PCM PLAY (Non-repeat)
-    }
-
     SSGKeyOff(channel);
 }
 
 /// <summary>
 /// Command "@ number": Sets the instrument to be used. Range 0-255.
 /// </summary>
-uint8_t * pmd_driver_t::ADPCMSetInstrument(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::PPZ8SetInstrument(channel_t * channel, uint8_t * si)
 {
     channel->InstrumentNumber = *si++;
 
-    _State._PCMBegin = _SampleBank.Address[channel->InstrumentNumber][0];
-    _State._PCMEnd = _SampleBank.Address[channel->InstrumentNumber][1];
-
-    _Driver._LoopBegin = 0;
-    _Driver._LoopEnd = 0;
-    _Driver._LoopRelease = 0x8000;
+    if ((channel->InstrumentNumber & 0x80) == 0)
+        _PPZ8->SetInstrument((size_t) _Driver._CurrentChannel, 0, (size_t) channel->InstrumentNumber);
+    else
+        _PPZ8->SetInstrument((size_t) _Driver._CurrentChannel, 1, (size_t) (channel->InstrumentNumber & 0x7F));
 
     return si;
 }
@@ -571,33 +504,43 @@ uint8_t * pmd_driver_t::ADPCMSetInstrument(channel_t * channel, uint8_t * si)
 /// <summary>
 /// Command "p <value>" (1: right, 2: left, 3: center (default))
 /// </summary>
-uint8_t * pmd_driver_t::ADPCMSetPan1(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::PPZ8SetPan1(channel_t * channel, uint8_t * si)
 {
-    channel->_PanAndVolume = (*si << 6) & 0xC0;
+    static const int32_t PanValues[4] = { 0, 9, 1, 5 }; // { Left, Right, Leftwards, Rightwards }
 
-    return si + 1;  // Skip the Phase flag
+    channel->_PanAndVolume = PanValues[*si++];
+
+    _PPZ8->SetPan((size_t) _Driver._CurrentChannel, channel->_PanAndVolume);
+
+    return si;
 }
 
 /// <summary>
-/// Command "px <value 1>, <value 2>" (value 1: < 0 (pan to the right), 0 (Center), > 0 (pan to the left), value 2: 0 (In phase) or 1 (Reverse phase)).
+/// Command "px <value 1>, <value 2>" (value 1: -128 to -4 (Pan to the left), -3 to -1 (Leftwards), 0 (Center), 1 to 3 (Rightwards), 4 to 127 (Pan to the right), value 2: 0 (In phase) or 1 (Reverse phase)).
 /// </summary>
-uint8_t * pmd_driver_t::ADPCMSetPan2(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::PPZ8SetPan2(channel_t * channel, uint8_t * si)
 {
-    if (*si == 0)
-        channel->_PanAndVolume = 0xC0; // Center
-    else
-    if (*si < 0x80)
-        channel->_PanAndVolume = 0x80; // Left
-    else
-        channel->_PanAndVolume = 0x40; // Right
+    int32_t al = *(int8_t *) si++;
+    si++; // Skip the Phase flag.
 
-    return si + 2; // Skip the Phase flag.
+    if (al >  4)
+        al = 4;
+    else
+    if (al < -4)
+        al = -4;
+
+    channel->_PanAndVolume = al + 5; // Scale the value to range 1..9.
+
+    _PPZ8->SetPan((size_t) _Driver._CurrentChannel, channel->_PanAndVolume);
+
+    return si;
 }
+#pragma endregion
 
 /// <summary>
-///
+/// Command "{interval1 interval2} [length1] [.] [,length2]"
 /// </summary>
-uint8_t * pmd_driver_t::ADPCMSetPortamento(channel_t * channel, uint8_t * si)
+uint8_t * pmd_driver_t::PPZ8SetPortamento(channel_t * channel, uint8_t * si)
 {
     if (channel->_PartMask != 0x00)
     {
@@ -616,15 +559,15 @@ uint8_t * pmd_driver_t::ADPCMSetPortamento(channel_t * channel, uint8_t * si)
 
         _Driver._LoopCheck &= channel->_LoopCheck;
 
-        return si + 3; // Skip when muted
+        return si + 3; // Skip when muted.
     }
 
-    ADPCMSetTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
+    PPZ8SetTone(channel, Transpose(channel, StartPCMLFO(channel, *si++)));
 
     int32_t bx_ = (int32_t) channel->_Factor;
-    int32_t al_ = (int32_t) channel->_Tone;
+    int32_t al_ = channel->_Tone;
 
-    ADPCMSetTone(channel, Transpose(channel, *si++));
+    PPZ8SetTone(channel, Transpose(channel, *si++));
 
     int32_t ax = (int32_t) channel->_Factor;
 
@@ -632,6 +575,7 @@ uint8_t * pmd_driver_t::ADPCMSetPortamento(channel_t * channel, uint8_t * si)
     channel->_Factor = (uint32_t) bx_;
 
     ax -= bx_;
+    ax /= 16;
 
     channel->_Size = *si++;
 
@@ -645,17 +589,16 @@ uint8_t * pmd_driver_t::ADPCMSetPortamento(channel_t * channel, uint8_t * si)
     {
         if (--_Driver._VolumeBoostCount)
         {
-            channel->VolumeBoost = 0;
-
             _Driver._VolumeBoostCount = 0;
+            channel->VolumeBoost = 0;
         }
     }
 
-    ADPCMSetVolume(channel);
-    ADPCMSetPitch(channel);
+    PPZ8SetVolume(channel);
+    PPZ8SetPitch(channel);
 
     if (channel->_KeyOffFlag & 0x01)
-        ADPCMKeyOn(channel);
+        PPZ8KeyOn(channel);
 
     channel->_KeyOnFlag++;
     channel->_Data = si;
@@ -672,48 +615,40 @@ uint8_t * pmd_driver_t::ADPCMSetPortamento(channel_t * channel, uint8_t * si)
 }
 
 /// <summary>
-/// 6.1.5 Instrument Number Setting, Command "@[@] insnum[,number1[,number2[,number3]]]"
+/// Command "@[@] insnum[,number1[,number2[,number3]]]"
 /// </summary>
-uint8_t * pmd_driver_t::ADPCMSetRepeat(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::PPZ8SetRepeat(channel_t * channel, uint8_t * si)
 {
+    int32_t LoopBegin, LoopEnd;
+
+    if ((channel->InstrumentNumber & 0x80) == 0)
     {
-        int32_t LoopBegin = *(int16_t *) si;
+        LoopBegin = *(int16_t *) si;
         si += 2;
 
-        LoopBegin += (LoopBegin >= 0) ? _State._PCMBegin : _State._PCMEnd;
-
-        _Driver._LoopBegin = LoopBegin;
-    }
-
-    {
-        int32_t LoopEnd = *(int16_t *) si; // Default: 0
+        LoopEnd = *(int16_t *) si;
         si += 2;
 
-        LoopEnd += (LoopEnd > 0) ? _State._PCMBegin : _State._PCMEnd;
-
-        _Driver._LoopEnd = LoopEnd;
+        _PPZ8->SetLoop((size_t) _Driver._CurrentChannel, 0, (size_t) channel->InstrumentNumber, LoopBegin, LoopEnd);
     }
-
+    else
     {
-        int32_t LoopRelease = *(uint16_t *) si; // Range -32768 - 32767, Default: -32768 (Loop continuously)
+        LoopBegin = *(int16_t *) si;
         si += 2;
 
-        if (LoopRelease < 0x8000)
-            LoopRelease += _State._PCMBegin;
-        else
-        if (LoopRelease > 0x8000)
-            LoopRelease += _State._PCMEnd;
+        LoopEnd = *(int16_t *) si;
+        si += 2;
 
-        _Driver._LoopRelease = LoopRelease;
+        _PPZ8->SetLoop((size_t) _Driver._CurrentChannel, 1, (size_t) channel->InstrumentNumber & 0x7F, LoopBegin, LoopEnd);
     }
 
-    return si;
+    return si + 2; // Skip the Loop Release Address.
 }
 
 /// <summary>
-/// 15.7. Channel Mask Control, Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
+/// Command "m <number>": Channel Mask Control (0 = off (Channel plays) / 1 = on (channel does not play))
 /// </summary>
-uint8_t * pmd_driver_t::ADPCMSetChannelMask(channel_t * channel, uint8_t * si) noexcept
+uint8_t * pmd_driver_t::PPZ8SethannelMask(channel_t * channel, uint8_t * si) noexcept
 {
     const uint8_t Value = *si++;
 
@@ -724,16 +659,13 @@ uint8_t * pmd_driver_t::ADPCMSetChannelMask(channel_t * channel, uint8_t * si) n
             channel->_PartMask |= 0x40;
 
             if (channel->_PartMask == 0x40)
-            {
-                _OPNAW->SetReg(0x101, 0x02); // Set ADPCM Control 2: PAN UNSET / x8 bit mode
-                _OPNAW->SetReg(0x100, 0x01); // Set ADPCM Control 1
-            }
+                _PPZ8->Stop((size_t) _Driver._CurrentChannel);
         }
         else
             si = SpecialC0ProcessingCommand(channel, si, Value);
     }
     else
-        channel->_PartMask &= 0xBF;
+        channel->_PartMask &= 0xBF; // 1011 1111
 
     return si;
 }
@@ -741,14 +673,44 @@ uint8_t * pmd_driver_t::ADPCMSetChannelMask(channel_t * channel, uint8_t * si) n
 /// <summary>
 ///
 /// </summary>
-uint8_t * pmd_driver_t::ADPCMDecreaseVolume(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::PPZ8Initialize(channel_t *, uint8_t * si)
 {
-    const int32_t  Value = *(int8_t *) si++;
+    for (size_t i = 0; i < _countof(_PPZ8Channels); ++i)
+    {
+        int16_t Offset = *(int16_t *) si;
 
-    if (Value != 0)
-        _State._ADPCMVolumeAdjust = std::clamp(Value + _State._ADPCMVolumeAdjust, 0, 255);
+        if (Offset != 0)
+        {
+            _PPZ8Channels[i]._Data = &_State._MData[Offset];
+            _PPZ8Channels[i]._Size = 1;
+            _PPZ8Channels[i]._KeyOffFlag = -1;
+            _PPZ8Channels[i]._LFO1DepthSpeed1 = -1; // Infinity
+            _PPZ8Channels[i]._LFO1DepthSpeed2 = -1; // Infinity
+            _PPZ8Channels[i]._LFO2DepthSpeed1 = -1; // Infinity
+            _PPZ8Channels[i]._LFO2DepthSpeed2 = -1; // Infinity
+            _PPZ8Channels[i]._Tone = 0xFF;         // Rest
+            _PPZ8Channels[i]._DefaultTone = 0xFF;  // Rest
+            _PPZ8Channels[i]._Volume = 128;
+            _PPZ8Channels[i]._PanAndVolume = 5;    // Center
+        }
+
+        si += 2;
+    }
+
+    return si;
+}
+
+/// <summary>
+///
+/// </summary>
+uint8_t * pmd_driver_t::PPZ8DecreaseVolume(channel_t *, uint8_t * si)
+{
+    int32_t al = *(int8_t *) si++;
+
+    if (al != 0)
+        _State._PPZ8VolumeAdjust = std::clamp(al + _State._PPZ8VolumeAdjust, 0, 255);
     else
-        _State._ADPCMVolumeAdjust = _State._ADPCMVolumeAdjustDefault;
+        _State._PPZ8VolumeAdjust = _State._PPZ8VolumeAdjustDefault;
 
     return si;
 }

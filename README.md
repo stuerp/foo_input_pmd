@@ -55,9 +55,13 @@ The following meta data tags are available:
 
 The following info tags are available:
 
-| Name        | Value                              |
-| ----------- | ---------------------------------- |
-| loop_length | Length of loop (in ms), if defined |
+| Name           | Value                              |
+| -------------- | ---------------------------------- |
+| loop_length    | Length of loop (in ms), if defined |
+| pcm_filename   | File name of the PCM sample set used by the song |
+| pps_filename   | File name of the PPC sample set used by the song |
+| ppz_filename_1 | File name of the PPZ sample set used by the song |
+| ppz_filename_2 | File name of the PPZ sample set used by the song |
 
 The following info tags are available while playing a track:
 
@@ -71,7 +75,7 @@ The following info tags are available while playing a track:
 To build the code you need:
 
 * [Microsoft Visual Studio 2022 Community Edition](https://visualstudio.microsoft.com/downloads/) or later
-* [foobar2000 SDK](https://www.foobar2000.org/SDK) 2023-05-10
+* [foobar2000 SDK](https://www.foobar2000.org/SDK) 2025-03-07
 * [Windows Template Library (WTL)](https://github.com/Win32-WTL/WTL) 10.0.10320
 
 To create the deployment package you need:
@@ -105,12 +109,17 @@ Open `foo_input_pmd.sln` with Visual Studio and build the solution.
 
 To create the component first build the x86 configuration and next the x64 configuration.
 
-## Contributing
-
-If you'd like to contribute, please fork the repository and use a feature
-branch. Pull requests are warmly welcome.
-
 ## Change Log
+
+v0.5.0, 2026-01-08
+
+* New: `pcm_filename`, `pps_filename`, `ppz_filename_1` and `ppz_filename_2` info tags.
+* Improved: Try to load .MZ files as PMD files.
+* Improved: Upgraded [ymfm](https://github.com/aaronsgiles/ymfm.git) to the latest version.
+* Fixed: Incorrect rest processing led to incorrect playback length.
+* Fixed: Set Pan 2 command (px ±value1 [, value2])
+* Fixed: "Use PPS" option was ignored.
+* Fixed: Added endless loop detection to 'L' command. Fix for mjgensk1_98/MF98N03.M.
 
 v0.4.2, 2025-12-21, *"Has it really been 2 years?"*
 
@@ -162,6 +171,7 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 * C60 for [PMDWin](http://c60.la.coocan.jp/) a library to render PMD files to PCM.
   * The PMD driver is a heavily modified version of [PMDWin](http://c60.la.coocan.jp/) 0.52.
 * [Aaron Giles](https://github.com/aaronsgiles) for [ymfm](https://github.com/aaronsgiles/ymfm.git).
+* [Myon98](https://github.com/myon98) for [98fmplayer](https://github.com/myon98/98fmplayer).
 
 ## Reference Material
 
@@ -186,12 +196,14 @@ v0.1.0, 2023-07-09, *"Scratchin' the itch"*
 * [pmdmini](https://github.com/mistydemeo/pmdmini)
 * [FMP/PMD plugin for KbMediaPlayer 1.0r6](https://www.purose.net/befis/download/kmp/)
 * [Kaja Tools](http://www5.airnet.ne.jp/kajapon/tool.html)
+* [Professional Music Driver](https://battleofthebits.com/lyceum/View/Professional+Music+Driver+%28PMD%29)
 
 ### Music Macro Language
 
 * [PMD MML Command Manual](https://pigu-a.github.io/pmddocs/pmdmml.htm)
 * [Video Game Music Preservation](http://www.vgmpf.com/Wiki/index.php/Music_Macro_Language)
 * [Pedipanol](https://mml-guide.readthedocs.io/pmd/intro/)
+* [Professional Music Driver Effects Commands](https://battleofthebits.com/lyceum/View/Professional%20Music%20Driver%20Effects%20Commands)
 
 ### Songs
 

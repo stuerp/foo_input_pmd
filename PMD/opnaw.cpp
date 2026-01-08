@@ -1,5 +1,5 @@
 
-/** $VER: OPNAW.cpp (2025.10.01) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: OPNAW.cpp (2026.01.07) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #include <pch.h>
 
@@ -8,88 +8,89 @@
 /// <summary>
 /// Initializes the module.
 /// </summary>
-bool OPNAW::Initialize(uint32_t clockSpeed, uint32_t sampleRate, bool useInterpolation, const WCHAR * directoryPath) noexcept
+bool opnaw_t::Initialize(uint32_t clockSpeed, uint32_t sampleRate, bool useInterpolation, const WCHAR * directoryPathDrums) noexcept
 {
     Reset();
 
     _SampleRate = sampleRate;
+    _UseInterpolation = useInterpolation;
 
-    return OPNA::Initialize(clockSpeed, useInterpolation ? FREQUENCY_55_4K : sampleRate, directoryPath);
+    return opna_t::Initialize(clockSpeed, useInterpolation ? FREQUENCY_55_4K : sampleRate, directoryPathDrums);
 }
 
 /// <summary>
 /// Initializes the module.
 /// </summary>
-void OPNAW::Initialize(uint32_t clockSpeed, uint32_t sampleRate, bool useInterpolation) noexcept
+void opnaw_t::Initialize(uint32_t clockSpeed, uint32_t sampleRate, bool useInterpolation) noexcept
 {
     _SampleRate = sampleRate;
     _UseInterpolation = useInterpolation;
 
-    OPNA::Initialize(clockSpeed, useInterpolation ? FREQUENCY_55_4K : sampleRate);
+    opna_t::Initialize(clockSpeed, useInterpolation ? FREQUENCY_55_4K : sampleRate);
 
     SetFMDelay(_FMDelay);
     SetSSGDelay(_SSGDelay);
-    SetRSSDelay(_RSSDelay);
+    SetRhythmDelay(_RhythmDelay);
     SetADPCMDelay(_ADPCMDelay);
 }
 
 /// <summary>
 /// Sets the FM delay.
 /// </summary>
-void OPNAW::SetFMDelay(int ns) noexcept
+void opnaw_t::SetFMDelay(int ns) noexcept
 {
     _FMDelay      = ns;
-    _FMDelayCount = (int) (ns * _SampleRate / 1000000);
+    _FMDelayCount = (int32_t) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
 /// Sets the SSG delay.
 /// </summary>
-void OPNAW::SetSSGDelay(int ns) noexcept
+void opnaw_t::SetSSGDelay(int ns) noexcept
 {
     _SSGDelay      = ns;
-    _SSGDelayCount = (int) (ns * _SampleRate / 1000000);
+    _SSGDelayCount = (int32_t) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
 /// Sets the ADPCM delay.
 /// </summary>
-void OPNAW::SetADPCMDelay(int ns) noexcept
+void opnaw_t::SetADPCMDelay(int ns) noexcept
 {
     _ADPCMDelay      = ns;
-    _ADPCMDelayCount = (int) (ns * _SampleRate / 1000000);
+    _ADPCMDelayCount = (int32_t) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
 /// Sets the Rhythm delay.
 /// </summary>
-void OPNAW::SetRSSDelay(int ns) noexcept
+void opnaw_t::SetRhythmDelay(int ns) noexcept
 {
-    _RSSDelay      = ns;
-    _RSSDelayCount = (int) (ns * _SampleRate / 1000000);
+    _RhythmDelay      = ns;
+    _RhythmDelayCount = (int32_t) (ns * _SampleRate / 1'000'000);
 }
 
 /// <summary>
 /// Sets the value of a register.
 /// </summary>
-void OPNAW::SetReg(uint32_t addr, uint32_t value) noexcept
+void opnaw_t::SetReg(uint32_t reg, uint32_t value) noexcept
 {
-    if (addr < 0x10)
+    if (reg < 0x10)
     {   // SSG
         if (_SSGDelayCount != 0)
             CalcWaitPCM(_SSGDelayCount);
     }
     else
-    if ((addr % 0x100) <= 0x10)
+    if ((reg % 0x100) <= 0x10)
     {   // ADPCM
         if (_ADPCMDelayCount !=0)
             CalcWaitPCM(_ADPCMDelayCount);
     }
     else
-    if (addr < 0x20)
+    if (reg < 0x20)
     {   // Rhythm
-        if (_RSSDelayCount != 0)
-            CalcWaitPCM(_RSSDelayCount);
+        if (_RhythmDelayCount != 0)
+            CalcWaitPCM(_RhythmDelayCount);
     }
     else
     {   // FM
@@ -97,13 +98,13 @@ void OPNAW::SetReg(uint32_t addr, uint32_t value) noexcept
             CalcWaitPCM(_FMDelayCount);
     }
 
-    OPNA::SetReg(addr, value);
+    opna_t::SetReg(reg, value);
 }
 
 /// <summary>
 /// Synthesizes a buffer with samples.
 /// </summary>
-void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
+void opnaw_t::Mix(sample_t * sampleData, size_t sampleCount) noexcept
 {
     if ((_SampleRate != FREQUENCY_55_4K) && _UseInterpolation)
     {
@@ -123,31 +124,31 @@ void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
 
                 auto Samples = &_DstBuffer[(_DstIndex % DST_PCM_BUFFER_SIZE) * 2];
 
-                ::memset(Samples, 0, sizeof(Sample) * 2 * Refill1);
+                ::memset(Samples, 0, sizeof(sample_t) * 2 * Refill1);
                 MixInternal(Samples, Refill1);
 
                 size_t Refill2 = Refill - Refill1;
 
-                ::memset(_DstBuffer, 0, sizeof(Sample) * 2 * Refill2);
+                ::memset(_DstBuffer, 0, sizeof(sample_t) * 2 * Refill2);
                 MixInternal(_DstBuffer, Refill2);
 
                 _DstIndex += Refill;
             }
 
             {
-                double tempL = 0;
-                double tempR = 0;
+                double SampleL = 0.;
+                double SampleR = 0.;
 
                 for (size_t j = Rest; j < Rest + SINC_INTERPOLATION_SAMPLE_COUNT; ++j)
                 {
-                    double Factor = sinc((double) j - _Rest - SINC_INTERPOLATION_SAMPLE_COUNT / 2 + 1);
+                    const double Factor = sinc((double) j - _Rest - SINC_INTERPOLATION_SAMPLE_COUNT / 2 + 1);
 
-                    tempL += Factor * _DstBuffer[(j % DST_PCM_BUFFER_SIZE) * 2];
-                    tempR += Factor * _DstBuffer[(j % DST_PCM_BUFFER_SIZE) * 2 + 1];
+                    SampleL += Factor * _DstBuffer[(j % DST_PCM_BUFFER_SIZE) * 2];
+                    SampleR += Factor * _DstBuffer[(j % DST_PCM_BUFFER_SIZE) * 2 + 1];
                 }
 
-                *sampleData++ += std::clamp((int) tempL, -32768, 32767);
-                *sampleData++ += std::clamp((int) tempR, -32768, 32767);
+                *sampleData++ += std::clamp((int32_t) SampleL, -32768, 32767);
+                *sampleData++ += std::clamp((int32_t) SampleR, -32768, 32767);
             }
 
             _Rest += (double) FREQUENCY_55_4K / _SampleRate;
@@ -157,7 +158,7 @@ void OPNAW::Mix(Sample * sampleData, size_t sampleCount) noexcept
         MixInternal(sampleData, sampleCount);
 }
 
-void OPNAW::ClearBuffer() noexcept
+void opnaw_t::ClearBuffer() noexcept
 {
     ::memset(_SrcBuffer, 0, sizeof(_SrcBuffer));
     _SrcReadIndex = _SrcWriteIndex = 0;
@@ -172,19 +173,19 @@ void OPNAW::ClearBuffer() noexcept
 /// <summary>
 /// Resets the module.
 /// </summary>
-void OPNAW::Reset() noexcept
+void opnaw_t::Reset() noexcept
 {
     _SampleRate = 0;
     _UseInterpolation = false;
 
     _FMDelay = 0;
     _SSGDelay = 0;
-    _RSSDelay = 0;
+    _RhythmDelay = 0;
     _ADPCMDelay = 0;
 
     _FMDelayCount = 0;
     _SSGDelayCount = 0;
-    _RSSDelayCount = 0;
+    _RhythmDelayCount = 0;
     _ADPCMDelayCount = 0;
 
     _Counter = 0;
@@ -195,31 +196,31 @@ void OPNAW::Reset() noexcept
 /// <summary>
 /// Calculates the PCM delay whenever a register gets set.
 /// </summary>
-void OPNAW::CalcWaitPCM(int value)
+void opnaw_t::CalcWaitPCM(int value)
 {
-    _Counter += value % 1000;
-    value /= 1000;
+    _Counter += value % 1'000;
+    value /= 1'000;
 
-    if (_Counter > 1000)
+    if (_Counter > 1'000)
     {
         ++value;
-        _Counter -= 1000;
+        _Counter -= 1'000;
     }
 
     do
     {
-        size_t SampleCount = (_SrcWriteIndex + value > SRC_PCM_BUFFER_SIZE) ? SRC_PCM_BUFFER_SIZE - _SrcWriteIndex : (size_t) value;
+        const size_t SampleCount = (_SrcWriteIndex + value > SRC_PCM_BUFFER_SIZE) ? SRC_PCM_BUFFER_SIZE - _SrcWriteIndex : (size_t) value;
 
-        ::memset(&_SrcBuffer[_SrcWriteIndex * 2], 0, SampleCount * 2 * sizeof(Sample));
+        ::memset(&_SrcBuffer[_SrcWriteIndex * 2], 0, SampleCount * 2 * sizeof(sample_t));
 
-        OPNA::Mix(&_SrcBuffer[_SrcWriteIndex * 2], SampleCount);
+        opna_t::Mix(&_SrcBuffer[_SrcWriteIndex * 2], SampleCount);
 
         _SrcWriteIndex += SampleCount;
 
         if (_SrcWriteIndex == SRC_PCM_BUFFER_SIZE)
             _SrcWriteIndex = 0;
 
-        value -= (int) SampleCount;
+        value -= (int32_t) SampleCount;
     }
     while (value > 0);
 }
@@ -227,7 +228,7 @@ void OPNAW::CalcWaitPCM(int value)
 /// <summary>
 /// Fills the sample buffer.
 /// </summary>
-void OPNAW::MixInternal(Sample * sampleData, size_t sampleCount) noexcept
+void opnaw_t::MixInternal(sample_t * sampleData, size_t sampleCount) noexcept
 {
     if (_SrcReadIndex != _SrcWriteIndex)
     {
@@ -254,7 +255,7 @@ void OPNAW::MixInternal(Sample * sampleData, size_t sampleCount) noexcept
         while (MaxSamplesToDo != 0);
     }
 
-    OPNA::Mix(sampleData, sampleCount);
+    opna_t::Mix(sampleData, sampleCount);
 }
 
 #pragma endregion

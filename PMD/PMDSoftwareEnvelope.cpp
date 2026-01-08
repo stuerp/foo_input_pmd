@@ -1,5 +1,5 @@
 
-// PMD driver (Based on PMDWin code by C60)
+// $VER: PMDSoftwareEnvelope.cpp (2026.01.07) PMD driver (Based on PMDWin code by C60)
 
 #include <pch.h>
 
@@ -10,18 +10,18 @@
 
 #include "OPNAW.h"
 
-int PMD::SSGPCMSoftwareEnvelope(Channel * channel)
+int32_t pmd_driver_t::SSGPCMSoftwareEnvelope(channel_t * channel) noexcept
 {
-    if (channel->ExtendMode & 0x04)
+    if (channel->_ExtendMode & 0x04)
     {
-        if (_State.TimerATime == _Driver.OldTimerATime)
+        if (_State._TimerACounter == _Driver._OldTimerACounter)
             return 0;
 
-        int cl = 0;
+        int32_t cl = 0;
 
-        for (int i = 0; i < _State.TimerATime - _Driver.OldTimerATime; ++i)
+        for (int32_t i = 0; i < _State._TimerACounter - _Driver._OldTimerACounter; ++i)
         {
-            if (SSGPCMSoftwareEnvelopeMain(channel))
+            if (SSGPCMSoftwareEnvelopeMain(channel) != 0)
                 cl = 1;
         }
 
@@ -31,9 +31,9 @@ int PMD::SSGPCMSoftwareEnvelope(Channel * channel)
         return SSGPCMSoftwareEnvelopeMain(channel);
 }
 
-int PMD::SSGPCMSoftwareEnvelopeMain(Channel * channel)
+int pmd_driver_t::SSGPCMSoftwareEnvelopeMain(channel_t * channel)
 {
-    if (channel->SSGEnvelopFlag == -1)
+    if (channel->_SSGEnvelopFlag == -1)
         return ExtendedSSGPCMSoftwareEnvelopeMain(channel);
 
     int dl = channel->ExtendedAttackLevel;
@@ -46,21 +46,21 @@ int PMD::SSGPCMSoftwareEnvelopeMain(Channel * channel)
     return -1;
 }
 
-int PMD::SSGPCMSoftwareEnvelopeSub(Channel * channel)
+int pmd_driver_t::SSGPCMSoftwareEnvelopeSub(channel_t * channel)
 {
-    if (channel->SSGEnvelopFlag == 0)
+    if (channel->_SSGEnvelopFlag == 0)
     {
         // Attack
         if (--channel->AttackDuration != 0)
             return 0;
 
-        channel->SSGEnvelopFlag = 1;
+        channel->_SSGEnvelopFlag = 1;
         channel->ExtendedAttackLevel = channel->DecayDepth;
 
         return 1;
     }
 
-    if (channel->SSGEnvelopFlag != 2)
+    if (channel->_SSGEnvelopFlag != 2)
     {
         // Decay
         if (channel->SustainRate == 0)
@@ -101,7 +101,7 @@ int PMD::SSGPCMSoftwareEnvelopeSub(Channel * channel)
     return 0;
 }
 
-int PMD::ExtendedSSGPCMSoftwareEnvelopeMain(Channel * channel)
+int pmd_driver_t::ExtendedSSGPCMSoftwareEnvelopeMain(channel_t * channel)
 {
     if (channel->ExtendedCount == 0)
         return 0;
@@ -116,7 +116,7 @@ int PMD::ExtendedSSGPCMSoftwareEnvelopeMain(Channel * channel)
     return -1;
 }
 
-void PMD::ExtendedSSGPCMSoftwareEnvelopeSub(Channel * channel, int ah)
+void pmd_driver_t::ExtendedSSGPCMSoftwareEnvelopeSub(channel_t * channel, int ah)
 {
     if (--ah == 0)
     {

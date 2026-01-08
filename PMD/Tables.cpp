@@ -1,5 +1,5 @@
 
-// Professional Music Driver [P.M.D.] version 4.8 Constant Tables / Programmed By M. Kajihara / Windows Converted by C60
+/** $VER: Tables.cpp (2026.01.07) Professional Music Driver [P.M.D.] version 4.8 Constant Tables / Programmed by M. Kajihara / Windows converted by C60 **/
 
 #include <pch.h>
 
@@ -43,7 +43,7 @@ const int ChannelTable[][3] =
 };
 
 // FM Scale Factor
-const int FMScaleFactor[] =
+const int _FMScaleFactor[] =
 {
     0x026a, // C
     0x028f, // D-
@@ -57,9 +57,10 @@ const int FMScaleFactor[] =
     0x0410, // A
     0x044e, // B-
     0x048f, // B
+
     0x0ee8, // 0x0c
     0x0e12, // 0x0d
-    0x0d48 // 0x0e
+    0x0d48  // 0x0e
 };
 
 // SSG Scale Factor
@@ -77,9 +78,10 @@ const int SSGScaleFactor[] =
     0x08dd, // A
     0x085e, // B-
     0x07e6, // B
+
     0x8080, // 0x0c
     0x8080, // 0x0d
-    0xe0a0 // 0x0e
+    0xe0a0  // 0x0e
 };
 
 // ADPCM Scale Factor
@@ -97,9 +99,10 @@ const int PCMScaleFactor[] =
     0x52c4 * 2, // A
     0x57b1 * 2, // A+
     0x5ce8 * 2, // B
-    0x3e80,  // 0x0c
-    0x3c73,  // 0x0d
-    0x7400  // 0x0e
+
+    0x3e80,     // 0x0c
+    0x3c73,     // 0x0d
+    0x7400      // 0x0e
 };
 
 // P86 Scale Factor
@@ -209,7 +212,6 @@ const uint32_t P86ScaleFactor[] =
     0xff0D76A2
 };
 
-
 // PPZ Scale Factor
 const int PPZScaleFactor[] =
 {
@@ -225,9 +227,10 @@ const int PPZScaleFactor[] =
     0xd747, // A
     0xe418, // A+
     0xf1a5, // B
+
     0x3e80, // 0x0c
     0x42de, // 0x0d
-    0x7400 // 0x0e
+    0x7400  // 0x0e
 };
 
 // FM Tone Carrier table
@@ -237,20 +240,20 @@ const int FMToneCarrier[] =
     0xee, 0xee, 0xee, 0xee, 0xcc, 0x88, 0x88, 0x00
 };
 
-const int SSGRhythmDefinitions[][3] =
+const ssg_rhythm_t SSGRhythms[] =
 {
     // Register, Pan/Volume, Mask
     { 0x18, 0xdf, 0x01 }, // Bass Drum
     { 0x19, 0xdf, 0x02 }, // Snare Drum 1
-    { 0x1c, 0x5f, 0x10 }, // Low Tom
-    { 0x1c, 0xdf, 0x10 }, // Middle Tom
-    { 0x1c, 0x9f, 0x10 }, // Hight Tom
-    { 0x1d, 0xd3, 0x20 }, // Rim Shot
+    { 0x1C, 0x5f, 0x10 }, // Low Tom
+    { 0x1C, 0xdf, 0x10 }, // Middle Tom
+    { 0x1C, 0x9f, 0x10 }, // Hight Tom
+    { 0x1D, 0xd3, 0x20 }, // Rim Shot
     { 0x19, 0xdf, 0x02 }, // Snare Drum 2 (Clap)
-    { 0x1b, 0x9c, 0x88 }, // Closed Hi-Hat
-    { 0x1a, 0x9d, 0x04 }, // Open Hi-Hat
-    { 0x1a, 0xdf, 0x04 }, // Crash Cymbal
-    { 0x1a, 0x5e, 0x04 }  // Ride Cymbal
+    { 0x1B, 0x9c, 0x88 }, // Closed Hi-Hat
+    { 0x1A, 0x9d, 0x04 }, // Open Hi-Hat
+    { 0x1A, 0xdf, 0x04 }, // Crash Cymbal
+    { 0x1A, 0x5e, 0x04 }  // Ride Cymbal
 };
 
 // SSG Effect Table
@@ -287,6 +290,7 @@ const int D_005[] = {  // Rim Shot                 1990-06-22 05:51:57
       2, 55,  0,  0, 62, 16, 44,  1,  0,100,  0,
     -1
 };
+
 const int D_006[] = {  // Snare Drum 2             1990-06-22 05:52:36
      16,  0,  0, 15, 55, 16,184, 11,  0,  0,-15,
     -1
@@ -485,7 +489,6 @@ const int DM_029[] = { // click                    1994-05-25 23:14:24
     -1
 };
 
-
 // Effect for Rusty
 
 const int RS_006[] = { // batan                    1993-01-08 01:44:30
@@ -628,7 +631,7 @@ const int RS_035[] = { // JARARAN                  1993-06-29 13:02:17
     -1
 };
 
-// Effect for ポゼッショナー
+// Effect for ポゼッショナー (Possessioner)
 
 const int PO_011[] = { // Rain fall                1990-06-22 05:55:43
     254,221,  1,  3, 55, 10, 16, 39,  0,  0,  0,
@@ -1163,7 +1166,7 @@ const int ND_039[] = { // BISYU                    1992-01-27 17:31:52
     -1
 };
 
-const SSGEffect SSGEffects[] =
+const ssg_effect_t SSGEffects[] =
 {
     { 1, D_000  }, //   0  BDRM
     { 1, D_001  }, //   1  SIMONDS

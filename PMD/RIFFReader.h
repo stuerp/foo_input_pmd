@@ -1,5 +1,5 @@
 
-/** $VER: RIFFReader.h (2023.07.18) P. Stuer **/
+/** $VER: RIFFReader.h (2026.01.07) P. Stuer **/
 
 #pragma once
 

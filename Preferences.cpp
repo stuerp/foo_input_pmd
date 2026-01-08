@@ -1,14 +1,14 @@
 
-/** $VER: Preferences.cpp (2023.08.30) P. Stuer **/
+/** $VER: Preferences.cpp (2026.01.07) P. Stuer **/
 
 #include "pch.h"
 
-#include <helpers/foobar2000+atl.h>
-#include <helpers/atl-misc.h>
-#include <helpers/advconfig_impl.h>
-#include <helpers/DarkMode.h>
+#include <helpers\foobar2000+atl.h>
+#include <helpers\atl-misc.h>
+#include <helpers\advconfig_impl.h>
+#include <helpers\DarkMode.h>
 
-#include <pfc/string-conv-lite.h>
+#include <pfc\string-conv-lite.h>
 
 #include "Preferences.h"
 #include "Configuration.h"
@@ -16,8 +16,6 @@
 #include "Resources.h"
 
 #pragma hdrstop
-
-const GUID PreferencesPageGUID = {0xea2369b2,0xf82e,0x425a,{0xbd,0x39,0x2f,0x4d,0xcf,0xe1,0x9e,0x38}}; // {ea2369b2-f82e-425a-bd39-2f4dcfe19e38}
 
 const WCHAR * PlaybackModes[] =
 {
@@ -37,10 +35,11 @@ const uint32_t OutputFrequencies[] =
     FREQUENCY_11_0K,
 };
 */
+#pragma warning(disable: 4820) // x bytes padding added after last data member
+
 /// <summary>
 /// Implements the preferences page for the component.
 /// </summary>
-#pragma warning(disable: 4820) // x bytes padding added after last data member
 class Preferences : public CDialogImpl<Preferences>, public preferences_page_instance
 {
 public:
@@ -58,8 +57,9 @@ public:
         IDD = IDD_PREFERENCES
     };
 
-    #pragma region("preferences_page_instance")
-    /// <summary>
+    #pragma region preferences_page_instance
+
+/// <summary>
     /// Returns a combination of preferences_state constants.
     /// </summary>
     virtual t_uint32 get_state() final
@@ -181,7 +181,7 @@ private:
         {
             case IDC_SAMPLES_PATH_SELECT:
             {
-                pfc::string8 DirectoryPath = _SamplesPath;
+                pfc::string DirectoryPath = _SamplesPath;
 
                 if (::uBrowseForFolder(m_hWnd, "Locate PDX samples...", DirectoryPath))
                 {
@@ -260,7 +260,7 @@ private:
 
             case IDC_LOOP_COUNT:
             {
-                pfc::string8 Text = ::uGetDlgItemText(m_hWnd, IDC_LOOP_COUNT);
+                pfc::string Text = ::uGetDlgItemText(m_hWnd, IDC_LOOP_COUNT);
 
                 char * p; long Value = ::strtol(Text, &p, 10);
 
@@ -274,7 +274,7 @@ private:
 
             case IDC_FADE_OUT_DURATION:
             {
-                pfc::string8 Text = ::uGetDlgItemText(m_hWnd, IDC_FADE_OUT_DURATION);
+                pfc::string Text = ::uGetDlgItemText(m_hWnd, IDC_FADE_OUT_DURATION);
 
                 char * p; long Value = ::strtol(Text, &p, 10);
 
@@ -335,7 +335,7 @@ private:
         {
             auto cb = (CComboBox) GetDlgItem(IDC_PLAYBACK_MODE);
 
-            cb.SetCurSel((int) _PlaybackMode);
+            cb.SetCurSel((int32_t) _PlaybackMode);
         }
 
         {
@@ -379,7 +379,7 @@ private:
 
     fb2k::CDarkModeHooks _DarkModeHooks;
 
-    pfc::string8 _SamplesPath;
+    pfc::string _SamplesPath;
     uint32_t _PlaybackMode;
     uint32_t _LoopCount;
     uint32_t _FadeOutDuration;
@@ -387,9 +387,11 @@ private:
     bool _UsePPS;
     bool _UseSSG;
 };
+
 #pragma warning(default: 4820) // x bytes padding added after last data member
 
-#pragma region("PreferencesPage")
+#pragma region PreferencesPage
+
 /// <summary>
 /// preferences_page_impl<> helper deals with instantiation of our dialog; inherits from preferences_page_v3.
 /// </summary>
@@ -412,7 +414,7 @@ public:
 
     GUID get_guid() noexcept
     {
-        return PreferencesPageGUID;
+        return GUID_PREFERENCES;
     }
 
     GUID get_parent_guid() noexcept
@@ -422,4 +424,5 @@ public:
 };
 
 static preferences_page_factory_t<PreferencesPage> _PreferencesPageFactory;
+
 #pragma endregion

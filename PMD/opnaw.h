@@ -1,5 +1,5 @@
 
-/** $VER: OPNAW.h (2025.10.01) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
+/** $VER: OPNAW.h (2026.01.07) OPNA emulator with waiting (Based on PMDWin code by C60 / Masahiro Kajihara) **/
 
 #pragma once
 
@@ -21,31 +21,31 @@
 /// Implements a YM2608, aka OPNA, is a sixteen-channel sound chip developed by Yamaha.
 /// It's a member of Yamaha's OPN family of FM synthesis chips, and the successor to the YM2203. It was notably used in NEC's PC-8801/PC-9801 series computers.
 /// </summary>
-class OPNAW : public OPNA
+class opnaw_t : public opna_t
 {
 public:
-    OPNAW(File * file) noexcept : OPNA(file)
+    opnaw_t(File * file) noexcept : opna_t(file)
     {
         Reset();
     }
 
-    virtual ~OPNAW() noexcept { }
+    virtual ~opnaw_t() noexcept { }
 
-    bool Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation, const WCHAR * directoryPath) noexcept;
-    void Initialize(uint32_t clock, uint32_t outputFrequency, bool useInterpolation) noexcept;
+    bool Initialize(uint32_t clock, uint32_t sampleRate, bool useInterpolation, const WCHAR * directoryPath) noexcept;
+    void Initialize(uint32_t clock, uint32_t sameplRate, bool useInterpolation) noexcept;
 
     void SetFMDelay(int nsec) noexcept;
     void SetSSGDelay(int nsec) noexcept;
     void SetADPCMDelay(int nsec) noexcept;
-    void SetRSSDelay(int nsec) noexcept;
+    void SetRhythmDelay(int nsec) noexcept;
 
     int GetFMDelay() const noexcept { return _FMDelay; }
     int GetSSGDelay() const noexcept { return _SSGDelay; }
     int GetADPCMDelay() const noexcept { return _ADPCMDelay; }
-    int GetRSSDelay() const noexcept { return _RSSDelay; }
+    int GetRSSDelay() const noexcept { return _RhythmDelay; }
 
-    void SetReg(uint32_t addr, uint32_t data) noexcept;
-    void Mix(Sample * sampleData, size_t sampleCount) noexcept;
+    void SetReg(uint32_t reg, uint32_t value) noexcept;
+    void Mix(sample_t * sampleData, size_t sampleCount) noexcept;
     void ClearBuffer() noexcept;
 
 private:
@@ -53,39 +53,39 @@ private:
 
     void CalcWaitPCM(int waitcount);
 
-    void MixInternal(Sample * sampleData, size_t sampleCount) noexcept;
+    void MixInternal(sample_t * sampleData, size_t sampleCount) noexcept;
 
     /// <summary>
     /// Normalized sinc function
     /// </summary>
     inline double sinc(double x) const noexcept
     {
-    #define M_PI 3.14159265358979323846
+        const double M_PI = 3.14159265358979323846;
 
-        return (x != 0.0) ? sin(M_PI * x) / (M_PI * x) : 1.0;
+        return (x != 0.0) ? std::sin(M_PI * x) / (M_PI * x) : 1.0;
     }
 
 private:
-    uint32_t _SampleRate;      // in Hz
+    uint32_t _SampleRate;   // in Hz
     bool _UseInterpolation;
 
     int _FMDelay;           // in ns
     int _SSGDelay;          // in ns
     int _ADPCMDelay;        // in ns
-    int _RSSDelay;          // in ns
+    int _RhythmDelay;          // in ns
 
     int _FMDelayCount;      // No. of samples
     int _SSGDelayCount;     // No. of samples
     int _ADPCMDelayCount;   // No. of samples
-    int _RSSDelayCount;     // No. of samples
+    int _RhythmDelayCount;     // No. of samples
 
     int _Counter;
 
-    Sample _SrcBuffer[SRC_PCM_BUFFER_SIZE * 2];
+    sample_t _SrcBuffer[SRC_PCM_BUFFER_SIZE * 2];
     size_t _SrcReadIndex;
     size_t _SrcWriteIndex;
 
-    Sample _DstBuffer[DST_PCM_BUFFER_SIZE * 2];
+    sample_t _DstBuffer[DST_PCM_BUFFER_SIZE * 2];
     size_t _DstIndex;
 
     double _Rest; // Position of the previous remaining sample data when resampling the sampling theorem.

@@ -1,5 +1,5 @@
 
-/** $VER: WAVEReader.h (2023.07.21) P. Stuer **/
+/** $VER: WAVEReader.h (2026.01.07) P. Stuer **/
 
 #pragma once
 
