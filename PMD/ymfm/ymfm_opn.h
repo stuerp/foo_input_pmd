@@ -547,10 +547,10 @@ public:
 	void generate(output_data *output, uint32_t numsamples = 1);
 
 	// set volume
-	void setfmvolume(int32_t vol);
-	void setpsgvolume(int32_t vol);
-	void setadpcmvolume(int32_t vol);
-	void setrhythmvolume(int32_t vol);
+	void SetFMVolume(int32_t vol);
+	void SetPSGVolume(int32_t vol);
+	void SetADPCMVolume(int32_t vol);
+	void SetRhythmVolume(int32_t vol);
 
 protected:
 	// internal helpers
@@ -564,9 +564,9 @@ protected:
 	uint8_t m_irq_enable;               // IRQ enable register
 	uint8_t m_flag_control;             // flag control register
 
-	fm_engine::output_data m_last_fm;   // last FM output
-	fm_engine::output_data m_last_rhythm; // last rhythm output
-	fm_engine::output_data m_last_adpcm;  // last adpcm output
+	fm_engine::output_data m_last_fm;       // last FM output
+	fm_engine::output_data m_last_adpcm;    // last adpcm output
+	fm_engine::output_data m_last_rhythm;   // last rhythm output
 
 	fm_engine m_fm;                     // core FM engine
 	ssg_engine m_ssg;                   // SSG engine
@@ -574,10 +574,10 @@ protected:
 	adpcm_a_engine m_adpcm_a;           // ADPCM-A engine
 	adpcm_b_engine m_adpcm_b;           // ADPCM-B engine
 
-	int32_t	fmvolume;
-	int32_t psgvolume;
-	int32_t	adpcmvolume;
-	int32_t	rhythmvolume;
+	int32_t	_FMVolume;
+	int32_t _PSGVolume;
+	int32_t	_ADPCMVolume;
+	int32_t	_RhythmVolume;
 };
 
 

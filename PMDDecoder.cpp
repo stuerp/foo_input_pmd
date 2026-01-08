@@ -1,5 +1,5 @@
 
-/** $VER: PMDDecoder.cpp (2026.01.07) P. Stuer **/
+/** $VER: PMDDecoder.cpp (2026.01.08) P. Stuer **/
 
 #include "pch.h"
 
@@ -149,6 +149,8 @@ bool pmd_decoder_t::Open(const uint8_t * data, size_t size, uint32_t sampleRate,
             if (!FileName.empty())
                 _PPZFileName2 = pfc::utf8FromWide(FileName.c_str());
         }
+
+        _FileVersion = _PMD->GetVersion();
     }
 
     return true;

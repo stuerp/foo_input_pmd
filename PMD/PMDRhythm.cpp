@@ -536,7 +536,7 @@ uint8_t * pmd_driver_t::RhythmSetPan(uint8_t * si)
 /// <summary>
 /// 9.3. Software LFO Switch, Command '*A number'
 /// </summary>
-uint8_t * pmd_driver_t::RhythmSetLFOControl(channel_t *, uint8_t * si)
+uint8_t * pmd_driver_t::RhythmSetLFOControl(channel_t *, uint8_t * si) const noexcept
 {
     if (!_UsePPSForDrums)
         return si + 1;

@@ -68,39 +68,44 @@ public:
     void SetFadeOutDurationHQ(int speed);
 
     // Gets the PCM file path.
-    std::wstring & GetPCMFilePath()
+    std::wstring & GetPCMFilePath() noexcept
     {
         return _PCMFilePath;
     }
 
     // Gets the PCM file name.
-    std::wstring & GetPCMFileName()
+    std::wstring & GetPCMFileName() noexcept
     {
         return _PCMFileName;
     }
 
     // Gets the PPS file path.
-    std::wstring & GetPPSFilePath()
+    std::wstring & GetPPSFilePath() noexcept
     {
         return _PPSFilePath;
     }
 
     // Gets the PPS file name.
-    std::wstring & GetPPSFileName()
+    std::wstring & GetPPSFileName() noexcept
     {
         return _PPSFileName;
     }
 
     // Gets the PPZ file path.
-    std::wstring & GetPPZFilePath(size_t bufferNumber)
+    std::wstring & GetPPZFilePath(size_t bufferNumber) noexcept
     {
         return _PPZ8->_PPZBanks[bufferNumber]._FilePath;
     }
 
     // Gets the PPZ file name.
-    std::wstring & GetPPZFileName(size_t bufferNumber)
+    std::wstring & GetPPZFileName(size_t bufferNumber) noexcept
     {
         return _PPZFileName[bufferNumber];
+    }
+
+    int32_t GetVersion() const noexcept
+    {
+        return _Version;
     }
 
     void UsePPSForDrums(bool value) noexcept;
@@ -354,13 +359,13 @@ private:
 
     uint8_t * CalculateQ(channel_t * channel, uint8_t * si);
 
-    uint8_t * RhythmSetLFOControl(channel_t * channel, uint8_t * si);
+    uint8_t * RhythmSetLFOControl(channel_t * channel, uint8_t * si) const noexcept;
 
     int32_t Transpose(channel_t * channel, int al);
 
     uint8_t CalcPanOut(channel_t * channel);
     void CalcFMBlock(int * cx, int * ax);
-    void InitializeFMChannel3(channel_t * channel, uint8_t * ax);
+    void InitializeFMChannel3(channel_t * channel, uint8_t * ax) const noexcept;
     void SpecialFM3Processing(channel_t * channel, int ax, int cx);
 
     int32_t rnd(int32_t ax) noexcept;

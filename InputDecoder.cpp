@@ -1,5 +1,5 @@
  
-/** $VER: InputDecoder.cpp (2026.01.04) P. Stuer **/
+/** $VER: InputDecoder.cpp (2026.01.08) P. Stuer **/
 
 #include "pch.h"
 
@@ -152,6 +152,8 @@ public:
         fileInfo.info_set("pps_filename", _Decoder->GetPPSFileName());
         fileInfo.info_set("ppz_filename_1", _Decoder->GetPPZFileName(1));
         fileInfo.info_set("ppz_filename_2", _Decoder->GetPPZFileName(2));
+
+        fileInfo.info_set("pmd_file_version", pfc::format_int(_Decoder->GetFileVersion()));
 
         double Loop = _Decoder->GetLoopLength() / 1'000.;
 

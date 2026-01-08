@@ -111,7 +111,7 @@ To create the component first build the x86 configuration and next the x64 confi
 
 ## Change Log
 
-v0.5.0, 2026-01-xx
+v0.5.0, 2026-01-08
 
 * New: `pcm_filename`, `pps_filename`, `ppz_filename_1` and `ppz_filename_2` info tags.
 * Improved: Try to load .MZ files as PMD files.

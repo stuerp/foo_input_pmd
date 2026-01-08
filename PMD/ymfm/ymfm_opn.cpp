@@ -983,10 +983,11 @@ ym2608::ym2608(ymfm_interface &intf) :
 	m_ssg_resampler(m_ssg),
 	m_adpcm_a(intf, 0),
 	m_adpcm_b(intf),
-	fmvolume(65536),
-	psgvolume(65536),
-	adpcmvolume(65536),
-	rhythmvolume(65536)
+
+	_FMVolume(65536),
+	_PSGVolume(65536),
+	_ADPCMVolume(65536),
+	_RhythmVolume(65536)
 {
 	m_last_fm.clear();
 	update_prescale(m_fm.clock_prescale());
@@ -1328,7 +1329,8 @@ void ym2608::generate(output_data *output, uint32_t numsamples)
 
 	// resample the SSG as configured
 	m_ssg_resampler.resample(output - numsamples, numsamples);
-	(output - numsamples)->data[2] = (output - numsamples)->data[2] * psgvolume / 65536;
+
+	(output - numsamples)->data[2] = (output - numsamples)->data[2] * _PSGVolume / 65536;
 }
 
 
@@ -1417,37 +1419,38 @@ void ym2608::clock_fm_and_adpcm()
 	m_adpcm_a.output(m_last_fm, 0x3f);
 	m_adpcm_b.output(m_last_fm, 1);
 
-	for (int i = 0; i < 2; i++) {
-		m_last_fm.data[i] = m_last_fm.data[i] * fmvolume / (65536 / 2);
-		m_last_fm.data[i] += m_last_rhythm.data[i] * rhythmvolume / 65536;
-		m_last_fm.data[i] += m_last_adpcm.data[i] * adpcmvolume / 65536;
+    {
+        m_last_fm.data[0]  = m_last_fm    .data[0] * _FMVolume     / (65536 / 2);
+        m_last_fm.data[0] += m_last_adpcm .data[0] * _ADPCMVolume  /  65536;
+        m_last_fm.data[0] += m_last_rhythm.data[0] * _RhythmVolume /  65536;
+
+        m_last_fm.data[1]  = m_last_fm    .data[1] * _FMVolume     / (65536 / 2);
+        m_last_fm.data[1] += m_last_adpcm .data[1] * _ADPCMVolume  /  65536;
+        m_last_fm.data[1] += m_last_rhythm.data[1] * _RhythmVolume /  65536;
 	}
 
 	m_last_fm.clamp16();
 }
 
 
-void ym2608::setfmvolume(int32_t vol)
+void ym2608::SetFMVolume(int32_t volume)
 {
-	fmvolume = vol;
+	_FMVolume = volume;
 }
 
-
-void ym2608::setpsgvolume(int32_t vol)
+void ym2608::SetPSGVolume(int32_t volume)
 {
-	psgvolume = vol;
+	_PSGVolume = volume;
 }
 
-
-void ym2608::setadpcmvolume(int32_t vol)
+void ym2608::SetADPCMVolume(int32_t volume)
 {
-	adpcmvolume = vol;
+	_ADPCMVolume = volume;
 }
 
-
-void ym2608::setrhythmvolume(int32_t vol)
+void ym2608::SetRhythmVolume(int32_t volume)
 {
-	rhythmvolume = vol;
+	_RhythmVolume = volume;
 }
 
 

@@ -14,7 +14,7 @@ opna_t::opna_t(File * file) :
     _InstrumentCount(0),
 
     _MasterVolume(0),
-    _InstrumentTL(0),
+    _InstrumentTotalLevel(0),
     _InstrumentMask(0),
     _HasADPCMROM(false),
 
@@ -94,7 +94,7 @@ void opna_t::SetFMVolume(int dB)
 
     int32_t Volume = (dB > -192) ? (int32_t) (65536.0 * std::pow(10.0, dB / 40.0)) : 0;
 
-    _Chip.setfmvolume(Volume);
+    _Chip.SetFMVolume(Volume); // Used to scale the volume before handing it off for output.
 }
 
 /// <summary>
@@ -106,7 +106,7 @@ void opna_t::SetSSGVolume(int dB)
 
     int32_t Volume = (dB > -192) ? (int32_t) (65536.0 * std::pow(10.0, dB / 40.0)) : 0;
 
-    _Chip.setpsgvolume(Volume);
+    _Chip.SetPSGVolume(Volume); // Used to scale the volume before handing it off for output.
 }
 
 /// <summary>
@@ -118,7 +118,7 @@ void opna_t::SetADPCMVolume(int dB)
 
     int32_t Volume = (dB > -192) ? (int32_t) (65536.0 * std::pow(10.0, dB / 40.0)) : 0;
 
-    _Chip.setadpcmvolume(Volume);
+    _Chip.SetADPCMVolume(Volume); // Used to scale the volume before handing it off for output.
 }
 
 /// <summary>
@@ -132,7 +132,7 @@ void opna_t::SetRhythmVolume(int dB)
 
     int32_t Volume = (dB > -192) ? (int32_t) (65536.0 * std::pow(10.0, dB / 40.0)) : 0;
 
-    _Chip.setrhythmvolume(Volume);
+    _Chip.SetRhythmVolume(Volume); // Used to scale the volume before handing it off for output.
 }
 
 /// <summary>
@@ -160,6 +160,7 @@ void opna_t::SetReg(uint32_t addr, uint32_t value)
         switch (addr)
         {
             case 0x10: // DM / KEYON
+            {
                 if (!(value & 0x80)) // Key On
                 {
                     _InstrumentMask |= value & 0x3F;
@@ -174,35 +175,39 @@ void opna_t::SetReg(uint32_t addr, uint32_t value)
                 else
                     _InstrumentMask &= ~value;
                 break;
+            }
 
             case 0x11:
-                _InstrumentTL = (int8_t) (~value & 0x3F);
+            {
+                _InstrumentTotalLevel = (int8_t) (~value & 0x3F);
                 break;
+            }
 
             case 0x18: // Bass Drum
             case 0x19: // Snare Drum
-            case 0x1a: // Top Cymbal
-            case 0x1b: // Hihat
-            case 0x1c: // Tom-tom
-            case 0x1d: // Rim shot
+            case 0x1A: // Top Cymbal
+            case 0x1B: // Hihat
+            case 0x1C: // Tom-tom
+            case 0x1D: // Rim shot
+            {
                 _Instruments[addr & 7].Pan   = (value >> 6) & 0x03;
                 _Instruments[addr & 7].Level = (int8_t) (~value & 0x1F);
                 break;
+            }
         }
     }
     else
     {
-        uint32_t addr1 = 0 + 2 * ((addr >> 8) & 3);
-        uint8_t data1 = addr & 0xff;
+        const uint32_t Addr1 = 2 * ((addr >> 8) & 3);
 
-        uint32_t addr2 = addr1 + 1;
-        uint8_t data2 = (uint8_t) value;
-
-        // write to the chip
-        if (addr1 != 0xffff)
+        // Write to the chip.
+        if (Addr1 != 0xFFFF)
         {
-            _Chip.write(addr1, data1);
-            _Chip.write(addr2, data2);
+            const uint8_t Data1 = addr & 0xFF;
+            const uint8_t Data2 = (uint8_t) value;
+
+            _Chip.write(Addr1,     Data1);
+            _Chip.write(Addr1 + 1, Data2);
         }
     }
 }
@@ -327,7 +332,7 @@ void opna_t::MixRhythmSamples(sample_t * sampleData, size_t sampleCount) noexcep
     if (!((_InstrumentMask & 0x3F) && _Instruments[0].Samples && (_MasterVolume < 128)))
         return;
 
-    sample_t * SampleDataEnd = sampleData + (sampleCount * 2);
+    const sample_t * SampleDataEnd = sampleData + (sampleCount * 2);
 
     for (size_t i = 0; i < _countof(_Instruments); ++i)
     {
@@ -335,15 +340,15 @@ void opna_t::MixRhythmSamples(sample_t * sampleData, size_t sampleCount) noexcep
 
         if ((_InstrumentMask & (1 << i)))
         {
-            int32_t dB = std::clamp(_InstrumentTL + _MasterVolume + Ins.Level + Ins.Volume, -31, 127);
+            const int32_t dB = std::clamp(_InstrumentTotalLevel + _MasterVolume + Ins.Level + Ins.Volume, -31, 127);
 
-            int32_t Vol   = tltable[FM_TLPOS + (dB << (FM_TLBITS - 7))] >> 4;
-            int32_t MaskL = -((Ins.Pan >> 1) & 1);
-            int32_t MaskR = - (Ins.Pan       & 1);
+            const int32_t Volume = tltable[FM_TLPOS + (dB << (FM_TLBITS - 7))] >> 4;
+            const int32_t MaskL  = -((Ins.Pan >> 1) & 1);
+            const int32_t MaskR  = - (Ins.Pan       & 1);
 
             for (sample_t * SampleData = sampleData; (SampleData < SampleDataEnd) && (Ins.Pos < Ins.Size); SampleData += 2)
             {
-                int32_t Sample = (Ins.Samples[Ins.Pos / 1024] * Vol) >> 12;
+                const int32_t Sample = (Ins.Samples[Ins.Pos / 1024] * Volume) >> 12;
 
                 StoreSample(SampleData[0], Sample & MaskL);
                 StoreSample(SampleData[1], Sample & MaskR);

@@ -1,5 +1,5 @@
 
-/** $VER: Resources.h (2026.01.07) P. Stuer **/
+/** $VER: Resources.h (2026.01.08) P. Stuer **/
 
 #pragma once
 
@@ -16,7 +16,7 @@
 #define NUM_PRODUCT_PATCH       0
 #define NUM_PRODUCT_PRERELEASE  0
 
-#define STR_RELEASE_TAG         "-rc0"
+#define STR_RELEASE_TAG         ""
 
 #define GUID_COMPONENT      { 0xfcd5756a,0x1db5,0x4783,{0xa0,0x74,0xe5,0xc1,0xc1,0x06,0x4e,0xe6 }}
 #define GUID_PREFERENCES    { 0xea2369b2,0xf82e,0x425a,{0xbd,0x39,0x2f,0x4d,0xcf,0xe1,0x9e,0x38 }}

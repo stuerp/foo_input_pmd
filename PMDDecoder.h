@@ -1,5 +1,5 @@
 
-/** $VER: PMDPlayer.h (2026.01.07) P. Stuer **/
+/** $VER: PMDPlayer.h (2026.01.08) P. Stuer **/
 
 #pragma once
 
@@ -53,6 +53,8 @@ public:
     const pfc::string GetPPSFileName() const noexcept { return _PPSFileName; }
     const pfc::string GetPPZFileName(size_t index) const noexcept { return (index == 1) ? _PPZFileName1 : ((index == 2) ? _PPZFileName2 : pfc::string()); }
 
+    int32_t GetFileVersion() const noexcept { return _FileVersion; }
+
     #pragma endregion
 
     #pragma region Configuration
@@ -90,6 +92,8 @@ private:
     pfc::string _PPSFileName;
     pfc::string _PPZFileName1;
     pfc::string _PPZFileName2;
+
+    int32_t _FileVersion;
 
     pfc::array_t<int16_t> _Frames;
 

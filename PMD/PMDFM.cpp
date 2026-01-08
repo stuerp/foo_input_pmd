@@ -1680,9 +1680,9 @@ void pmd_driver_t::ClearFM3(int & ah, int & al) noexcept
 /// <summary>
 ///
 /// </summary>
-void pmd_driver_t::InitializeFMChannel3(channel_t * channel, uint8_t * ax)
+void pmd_driver_t::InitializeFMChannel3(channel_t * channel, uint8_t * data) const noexcept
 {
-    channel->_Data = ax;
+    channel->_Data = data;
     channel->_Size = 1;
     channel->_KeyOffFlag = -1;
     channel->_LFO1DepthSpeed1 = -1; // Infinity
